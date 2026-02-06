@@ -1,7 +1,4 @@
-<#
-.SYNOPSIS
-    Test-OpenCodeLabHealth.ps1 - strict post-deploy health gate for OpenCodeLab
-#>
+# Test-OpenCodeLabHealth.ps1 - strict post-deploy health gate for OpenCodeLab
 
 #Requires -RunAsAdministrator
 

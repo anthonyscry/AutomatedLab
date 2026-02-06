@@ -1,9 +1,5 @@
-<#
-.SYNOPSIS
-    Create-DesktopShortcuts.ps1 - create one-click desktop shortcuts for lab automation
-.DESCRIPTION
-    Creates Windows desktop shortcuts that call OpenCodeLab-App.ps1 actions.
-#>
+# Create-DesktopShortcuts.ps1 - create one-click desktop shortcuts for lab automation
+# Creates Windows desktop shortcuts that call OpenCodeLab-App.ps1 actions.
 
 #Requires -RunAsAdministrator
 

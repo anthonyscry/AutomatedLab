@@ -1,13 +1,9 @@
-<#
-.SYNOPSIS
-    Open-LabTerminal.ps1 -- Open new terminal windows to lab VMs
-.DESCRIPTION
-    Opens a NEW PowerShell window with a connection to the selected VM.
-    - LIN1: SSH (auto-discovers IP from Hyper-V)
-    - DC1/WS1: PowerShell Direct (Enter-PSSession -VMName)
-    Supports multiple simultaneous sessions (each in its own window).
-    Uses Windows Terminal tabs if wt.exe is available.
-#>
+# Open-LabTerminal.ps1 -- Open new terminal windows to lab VMs
+# Opens a NEW PowerShell window with a connection to the selected VM.
+# - LIN1: SSH (auto-discovers IP from Hyper-V)
+# - DC1/WS1: PowerShell Direct (Enter-PSSession -VMName)
+# Supports multiple simultaneous sessions (each in its own window).
+# Uses Windows Terminal tabs if wt.exe is available.
 
 #Requires -RunAsAdministrator
 

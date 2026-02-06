@@ -1,10 +1,6 @@
-<#
-.SYNOPSIS
-  Lab-Config.ps1 -- Central config for OpenCode Dev Lab helper scripts
-.NOTES
-  Put this file in the same folder as OpenCodeLab-App.ps1 (C:\LabSources\Scripts\ recommended).
-  You can edit values here once instead of in every script.
-#>
+# Lab-Config.ps1 -- Central config for OpenCode Dev Lab helper scripts
+# Put this file in the same folder as OpenCodeLab-App.ps1 (C:\LabSources\Scripts\ recommended).
+# You can edit values here once instead of in every script.
 
 # Lab identity
 $LabName     = 'OpenCodeLab'

@@ -1,7 +1,4 @@
-﻿﻿<#
-.SYNOPSIS
-  Lab-Common.ps1 -- Shared helpers for OpenCode Dev Lab workflow scripts
-#>
+# Lab-Common.ps1 -- Shared helpers for OpenCode Dev Lab workflow scripts
 
 Set-StrictMode -Version Latest
 

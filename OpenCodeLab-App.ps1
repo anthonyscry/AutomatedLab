@@ -1,10 +1,6 @@
-<#
-.SYNOPSIS
-    OpenCodeLab-App.ps1 - lightweight orchestrator for AutomatedLab workflow
-.DESCRIPTION
-    Single entry point for setup, daily operations, and full teardown.
-    Uses existing scripts in this repository and adds a safe "blow away" path.
-#>
+# OpenCodeLab-App.ps1 - lightweight orchestrator for AutomatedLab workflow
+# Single entry point for setup, daily operations, and full teardown.
+# Uses existing scripts in this repository and adds a safe "blow away" path.
 
 #Requires -RunAsAdministrator
 

@@ -1,10 +1,6 @@
-﻿<#
-.SYNOPSIS
-    Test-OnWS1.ps1 -- Run a script from the LabShare on WS1
-.DESCRIPTION
-    Prompts for project and script name, runs it on WS1 from L:\Transfer.
-    Also offers to check AppLocker event logs after execution.
-#>
+# Test-OnWS1.ps1 -- Run a script from the LabShare on WS1
+# Prompts for project and script name, runs it on WS1 from L:\Transfer.
+# Also offers to check AppLocker event logs after execution.
 
 #Requires -RunAsAdministrator
 

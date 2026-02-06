@@ -1,13 +1,9 @@
-<#
-.SYNOPSIS
-    Save-LabWork.ps1 -- Commit, push, and optionally shut down the lab
-.DESCRIPTION
-    Prompts for project name and commit message, then:
-      1. Commits all changes on LIN1
-      2. Pushes to GitHub
-      3. Optionally snapshots all VMs
-      4. Optionally stops all VMs
-#>
+# Save-LabWork.ps1 -- Commit, push, and optionally shut down the lab
+# Prompts for project name and commit message, then:
+# 1. Commits all changes on LIN1
+# 2. Pushes to GitHub
+# 3. Optionally snapshots all VMs
+# 4. Optionally stops all VMs
 
 #Requires -RunAsAdministrator
 
