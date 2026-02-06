@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Bootstrap.ps1 — One-click setup for AutomatedLab + OpenCode Dev Lab
+    Bootstrap.ps1 - One-click setup for AutomatedLab + OpenCode Dev Lab
 
 .DESCRIPTION
     Run this once. It handles everything:
