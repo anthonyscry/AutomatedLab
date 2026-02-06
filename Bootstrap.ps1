@@ -27,17 +27,20 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
 
 # ── Config ──
-$LabSourcesRoot = 'C:\LabSources'
-$ISOPath        = "$LabSourcesRoot\ISOs"
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ConfigPath     = Join-Path $ScriptDir 'Lab-Config.ps1'
+if (Test-Path $ConfigPath) { . $ConfigPath }
+
+# Defaults in case Lab-Config.ps1 is absent
+if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
+if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'OpenCodeLabSwitch' }
+if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $AddressSpace = '192.168.11.0/24' }
+if (-not (Get-Variable -Name GatewayIp -ErrorAction SilentlyContinue))      { $GatewayIp = '192.168.11.1' }
+if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = "${LabSwitch}NAT" }
+if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso') }
+
+$ISOPath        = "$LabSourcesRoot\ISOs"
 $DeployScript   = (Join-Path $ScriptDir 'Deploy.ps1')
-
-
-$RequiredISOs = @(
-    'server2019.iso',
-    'win11.iso',
-    'ubuntu-24.04.3.iso'
-)
 
 $RequiredFolders = @(
     $LabSourcesRoot,
@@ -197,11 +200,6 @@ Write-Step "8/10" "Lab vSwitch + NAT (recommended)"
 
 # NOTE: Hyper-V "Default Switch" is not reliable for AutomatedLab (NAT/DHCP subnet is managed by Windows and may change).
 # Use a dedicated Internal vSwitch + host NAT instead.
-
-$LabSwitch    = 'OpenCodeLabSwitch'
-$AddressSpace = '192.168.11.0/24'
-$GatewayIp    = '192.168.11.1'
-$NatName      = "${LabSwitch}NAT"
 
 try {
     # Create/reuse internal vSwitch

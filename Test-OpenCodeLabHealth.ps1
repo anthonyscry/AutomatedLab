@@ -18,9 +18,10 @@ if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = 
 if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $LinuxUser = 'install' }
 
 $ExpectedVMs = $LabVMs
-$DomainName = 'opencode.lab'
+if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $DomainName = 'opencode.lab' }
+if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '192.168.11.5' }
 $SSHKeyPath = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
-$Lin1Ip = '192.168.11.5'
+$Lin1Ip = $LIN1_Ip
 $issues = New-Object System.Collections.Generic.List[string]
 
 function Add-Issue {
@@ -78,16 +79,17 @@ if (-not $issues.Count) {
 
     try {
         $wsChecks = Invoke-LabCommand -ComputerName 'WS1' -PassThru -ScriptBlock {
+            param($Domain)
             $result = @{}
             $result.AppIDSvc = (Get-Service AppIDSvc -ErrorAction SilentlyContinue).Status
             $result.LDrive = Test-Path 'L:\'
             $cs = Get-CimInstance Win32_ComputerSystem
             $result.PartOfDomain = [bool]$cs.PartOfDomain
             $result.Domain = $cs.Domain
-            $dns = Resolve-DnsName -Name 'dc1.opencode.lab' -ErrorAction SilentlyContinue
+            $dns = Resolve-DnsName -Name "dc1.$Domain" -ErrorAction SilentlyContinue
             $result.DnsOk = [bool]$dns
             $result
-        }
+        } -ArgumentList $DomainName
 
         if ($wsChecks.AppIDSvc -eq 'Running') { Add-Ok 'WS1 AppIDSvc running' } else { Add-Issue 'WS1 AppIDSvc not running' }
         if ($wsChecks.LDrive) { Add-Ok 'WS1 L: mapped' } else { Add-Issue 'WS1 L: not mapped' }
@@ -98,14 +100,16 @@ if (-not $issues.Count) {
     }
 
     try {
+        $linDnsCmd = 'if getent hosts dc1.' + $DomainName + ' >/dev/null 2>&1; then echo yes; else echo no; fi'
         $linChecks = Invoke-LabCommand -ComputerName 'LIN1' -PassThru -ScriptBlock {
+            param($DnsCmd)
             $result = @{}
             $mountState = bash -lc 'if mountpoint -q /mnt/labshare; then echo yes; else echo no; fi'
             $result.Mounted = (($mountState | Select-Object -First 1).ToString().Trim() -eq 'yes')
-            $dnsState = bash -lc 'if getent hosts dc1.opencode.lab >/dev/null 2>&1; then echo yes; else echo no; fi'
+            $dnsState = bash -lc $DnsCmd
             $result.DnsOk = (($dnsState | Select-Object -First 1).ToString().Trim() -eq 'yes')
             $result
-        }
+        } -ArgumentList $linDnsCmd
 
         if ($linChecks.Mounted) { Add-Ok 'LIN1 /mnt/labshare mounted' } else { Add-Issue 'LIN1 /mnt/labshare not mounted' }
         if ($linChecks.DnsOk) { Add-Ok 'LIN1 DNS resolution works for DC1' } else { Add-Issue 'LIN1 DNS resolution for DC1 failed' }

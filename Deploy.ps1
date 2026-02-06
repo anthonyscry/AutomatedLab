@@ -79,9 +79,8 @@ Start-Transcript -Path $logFile -Append
 
 try {
     Write-Host "`n[PRE-FLIGHT] Checking ISOs..." -ForegroundColor Cyan
-    $requiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso')
     $missing = @()
-    foreach ($iso in $requiredISOs) {
+    foreach ($iso in $RequiredISOs) {
         $p = Join-Path $IsoPath $iso
         if (Test-Path $p) { Write-Host "  [OK] $iso" -ForegroundColor Green }
         else { Write-Host "  [MISSING] $iso" -ForegroundColor Red; $missing += $iso }

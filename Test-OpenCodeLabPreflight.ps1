@@ -8,11 +8,17 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$LabSourcesRoot = 'C:\LabSources'
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
+if (Test-Path $ConfigPath) { . $ConfigPath }
+
+# Defaults in case Lab-Config.ps1 is absent
+if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
+if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'OpenCodeLabSwitch' }
+if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = 'OpenCodeLabSwitchNAT' }
+if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso') }
+
 $IsoPath = Join-Path $LabSourcesRoot 'ISOs'
-$RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso')
-$LabSwitch = 'OpenCodeLabSwitch'
-$NatName = 'OpenCodeLabSwitchNAT'
 
 $issues = @()
 

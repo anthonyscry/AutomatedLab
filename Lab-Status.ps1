@@ -51,7 +51,7 @@ if ($snaps) {
 
 # -- Disk Usage --
 Write-Host "`n  DISK:" -ForegroundColor Yellow
-$labPath = 'C:\AutomatedLab\OpenCodeLab'
+$labPath = $LabPath
 if (Test-Path $labPath) {
     $vhdxFiles = Get-ChildItem $labPath -Filter '*.vhdx' -Recurse -ErrorAction SilentlyContinue
     foreach ($vhd in $vhdxFiles) {

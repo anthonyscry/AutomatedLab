@@ -67,6 +67,9 @@ $GitRepoPath = 'C:\LabShare\Repos'
 $BootstrapScript = 'Bootstrap.ps1'
 $DeployScript    = 'Deploy.ps1'
 
+# Required ISOs (used by Bootstrap, Deploy, Preflight)
+$RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso')
+
 # Optional: Git identity (leave blank to prompt when needed)
 $GitName  = ''
 $GitEmail = ''
