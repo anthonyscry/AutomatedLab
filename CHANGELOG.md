@@ -40,6 +40,17 @@
 - Updated all internal cross-references to new filenames
 - Updated README and docs
 
+## v1.2.0 - Parameter Audit & Documentation
+
+### AutomatedLab Parameter Audit
+- Audited all 15 cmdlets against AutomatedLab source (commit 869e498b890682640a1d2b0b514756509d9844b7)
+- **Result:** All cmdlet parameters in codebase are CORRECT
+- Install-Lab correctly called without -Machines parameter (installs all defined machines)
+
+### Documentation Updates
+- Updated README with cmdlet parameter reference
+- Added parameter validation examples to comments
+
 ## v1.0.0 - Automation Hardening Release
 
 - Added `OpenCodeLab-App.ps1` as the single orchestrator entry point.
