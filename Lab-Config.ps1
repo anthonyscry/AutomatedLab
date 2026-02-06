@@ -11,7 +11,7 @@ $LabName     = 'OpenCodeLab'
 $LabVMs      = @('DC1','WS1','LIN1')
 
 # Linux VM defaults (LIN1)
-$LinuxUser   = 'Install'
+$LinuxUser   = 'install'
 $LinuxHome   = "/home/$LinuxUser"
 $LinuxProjectsRoot = "$LinuxHome/projects"
 $LinuxLabShareMount = "/mnt/labshare"

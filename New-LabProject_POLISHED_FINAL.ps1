@@ -11,6 +11,17 @@
 
 #Requires -RunAsAdministrator
 
+[CmdletBinding()]
+param(
+    [string]$ProjectName,
+    [ValidateSet('public','private')]
+    [string]$Visibility = 'private',
+    [string]$Description = '',
+    [switch]$NonInteractive,
+    [switch]$AutoStart,
+    [switch]$Force
+)
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
@@ -24,9 +35,17 @@ Write-Host "`n=== NEW PROJECT ===" -ForegroundColor Cyan
 
 # Ensure LIN1 is running
 if (-not (Ensure-VMRunning -VMNames @('LIN1'))) {
-    $start = Read-Host "  LIN1 is not running. Start it now? (y/n)"
-    if ($start -ne 'y') { exit 0 }
-    Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
+    if ($NonInteractive -or $AutoStart) {
+        Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
+    } else {
+        $start = Read-Host "  LIN1 is not running. Start it now? (y/n)"
+        if ($start -ne 'y') { exit 0 }
+        Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
+    }
+}
+
+if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GitName) -or [string]::IsNullOrWhiteSpace($GitEmail))) {
+    throw "NonInteractive mode requires GitName and GitEmail in Lab-Config.ps1."
 }
 
 $git = Get-GitIdentity -DefaultName $GitName -DefaultEmail $GitEmail
@@ -34,7 +53,9 @@ $GitName = $git.Name
 $GitEmail = $git.Email
 
 # Prompt for project name
-$ProjectName = Read-Host "  Project name (e.g. GA-AppLocker-v2)"
+if ([string]::IsNullOrWhiteSpace($ProjectName) -and -not $NonInteractive) {
+    $ProjectName = Read-Host "  Project name (e.g. GA-AppLocker-v2)"
+}
 if ([string]::IsNullOrWhiteSpace($ProjectName)) {
     Write-Host "  [ABORT] No project name given." -ForegroundColor Red
     exit 1
@@ -45,15 +66,19 @@ $ProjectName = $ProjectName -replace '[^a-zA-Z0-9_\-\.]', '-'
 Write-Host "  Project: $ProjectName" -ForegroundColor Green
 
 # Prompt for visibility
-$Visibility = Read-Host "  GitHub visibility? (public/private) [private]"
-if ([string]::IsNullOrWhiteSpace($Visibility)) { $Visibility = 'private' }
-if ($Visibility -notin 'public', 'private') {
-    Write-Host "  [ABORT] Must be 'public' or 'private'." -ForegroundColor Red
-    exit 1
+if (-not $NonInteractive) {
+    $visInput = Read-Host "  GitHub visibility? (public/private) [$Visibility]"
+    if (-not [string]::IsNullOrWhiteSpace($visInput)) { $Visibility = $visInput }
+    if ($Visibility -notin 'public', 'private') {
+        Write-Host "  [ABORT] Must be 'public' or 'private'." -ForegroundColor Red
+        exit 1
+    }
 }
 
 # Prompt for description (optional)
-$Description = Read-Host "  Short description (optional)"
+if ([string]::IsNullOrWhiteSpace($Description) -and -not $NonInteractive) {
+    $Description = Read-Host "  Short description (optional)"
+}
 
 # Confirm
 Write-Host "`n  Summary:" -ForegroundColor Yellow
@@ -61,10 +86,12 @@ Write-Host "    Name:        $ProjectName"
 Write-Host "    Visibility:  $Visibility"
 Write-Host "    Description: $(if ($Description) { $Description } else { '(none)' })"
 Write-Host "    Git user:    $GitName <$GitEmail>"
-$confirm = Read-Host "`n  Proceed? (y/n)"
-if ($confirm -ne 'y') {
-    Write-Host "  [ABORT] Cancelled." -ForegroundColor Yellow
-    exit 0
+if (-not ($NonInteractive -or $Force)) {
+    $confirm = Read-Host "`n  Proceed? (y/n)"
+    if ($confirm -ne 'y') {
+        Write-Host "  [ABORT] Cancelled." -ForegroundColor Yellow
+        exit 0
+    }
 }
 
 # Import lab
@@ -108,7 +135,7 @@ gh repo create $ProjectName --$Visibility --source . --remote origin $descFlag -
 echo ""
 echo "=== PROJECT CREATED ==="
 echo "  Local:  ~/projects/$ProjectName"
-echo "  Remote: https://github.com/\$(gh api user -q .login 2>/dev/null || echo 'YOUR_USER')/$ProjectName"
+echo "  Remote: https://github.com/`$(gh api user -q .login 2>/dev/null || echo 'YOUR_USER')/$ProjectName"
 "@
 
 Write-Host "`n  Creating project on LIN1..." -ForegroundColor Yellow

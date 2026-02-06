@@ -27,6 +27,12 @@
 
 #Requires -RunAsAdministrator
 
+[CmdletBinding()]
+param(
+    [switch]$NonInteractive,
+    [switch]$SkipDeploy
+)
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
 
@@ -186,8 +192,10 @@ if ($hyperv.State -eq 'Enabled') {
         Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart -ErrorAction Stop | Out-Null
         Write-OK "Hyper-V enabled. A REBOOT IS REQUIRED before deploying the lab."
         Write-Host "`n  Reboot your machine, then re-run this script." -ForegroundColor Yellow
-        Read-Host "  Press Enter to exit"
-        exit 0
+        if (-not $NonInteractive) {
+            Read-Host "  Press Enter to exit"
+        }
+        exit 3010
     } catch {
         Write-Fail "Could not enable Hyper-V: $($_.Exception.Message)"
         Write-Host "  Enable it manually: Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All" -ForegroundColor Yellow
@@ -250,7 +258,9 @@ try {
     Write-Host "    New-VMSwitch -Name $LabSwitch -SwitchType Internal" -ForegroundColor Yellow
     Write-Host "    New-NetIPAddress -InterfaceAlias 'vEthernet ($LabSwitch)' -IPAddress $GatewayIp -PrefixLength 24" -ForegroundColor Yellow
     Write-Host "    New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace" -ForegroundColor Yellow
-    Read-Host "  Press Enter to continue anyway, or Ctrl+C to abort"
+    if (-not $NonInteractive) {
+        Read-Host "  Press Enter to continue anyway, or Ctrl+C to abort"
+    }
 }
 
 # ============================================================
@@ -274,7 +284,9 @@ if (-not $allISOsFound) {
     Write-Host "`n  Missing ISOs. Place them in $ISOPath and re-run." -ForegroundColor Red
     Write-Host "  Required files:" -ForegroundColor Yellow
     foreach ($iso in $RequiredISOs) { Write-Host "    - $iso" -ForegroundColor Yellow }
-    Read-Host "`n  Press Enter to exit"
+    if (-not $NonInteractive) {
+        Read-Host "`n  Press Enter to exit"
+    }
     exit 1
 }
 
@@ -298,11 +310,20 @@ try {
 # ============================================================
 Write-Step "10/10" "Launching lab deployment"
 
+if ($SkipDeploy) {
+    Write-Skip "Skipping deploy step because -SkipDeploy was supplied"
+    exit 0
+}
+
 if (Test-Path $DeployScript) {
     Write-Host "`n  All prerequisites met. Starting deployment..." -ForegroundColor Green
     Write-Host "  Script: $DeployScript" -ForegroundColor Gray
     Write-Host "  This will take 30-60 minutes on first run.`n" -ForegroundColor Gray
-    & $DeployScript
+    if ($NonInteractive) {
+        & $DeployScript -NonInteractive
+    } else {
+        & $DeployScript
+    }
 } else {
     Write-Fail "Deploy script not found at: $DeployScript"
     Write-Host "  Make sure Deploy-OpenCodeLab-Slim.ps1 is in the same folder as this script." -ForegroundColor Yellow

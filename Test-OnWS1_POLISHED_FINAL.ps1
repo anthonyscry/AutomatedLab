@@ -8,6 +8,16 @@
 
 #Requires -RunAsAdministrator
 
+[CmdletBinding()]
+param(
+    [string]$ProjectName = '',
+    [string]$ScriptName = '',
+    [switch]$NonInteractive,
+    [switch]$AutoStart,
+    [switch]$CheckLogs,
+    [switch]$ForceGPO
+)
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
@@ -20,9 +30,13 @@ $ErrorActionPreference = 'Stop'
 Write-Host "`n=== TEST ON WS1 ===" -ForegroundColor Cyan
 
 if (-not (Ensure-VMRunning -VMNames @('DC1','WS1'))) {
-    $start = Read-Host "  DC1/WS1 not running. Start them now? (y/n)"
-    if ($start -ne 'y') { exit 0 }
-    Ensure-VMRunning -VMNames @('DC1','WS1') -AutoStart | Out-Null
+    if ($NonInteractive -or $AutoStart) {
+        Ensure-VMRunning -VMNames @('DC1','WS1') -AutoStart | Out-Null
+    } else {
+        $start = Read-Host "  DC1/WS1 not running. Start them now? (y/n)"
+        if ($start -ne 'y') { exit 0 }
+        Ensure-VMRunning -VMNames @('DC1','WS1') -AutoStart | Out-Null
+    }
 }
 
 Import-Lab -Name $LabName -ErrorAction Stop
@@ -44,7 +58,9 @@ if ($transferContents) {
 }
 
 # Prompt for project
-$ProjectName = Read-Host "`n  Project folder"
+if ([string]::IsNullOrWhiteSpace($ProjectName) -and -not $NonInteractive) {
+    $ProjectName = Read-Host "`n  Project folder"
+}
 if ([string]::IsNullOrWhiteSpace($ProjectName)) { exit 0 }
 
 # List scripts in that folder
@@ -66,7 +82,9 @@ if ($scripts) {
     Write-Host "  No .ps1 files found in $ProjectName" -ForegroundColor Yellow
 }
 
-$ScriptName = Read-Host "`n  Script to run (relative path, or Enter to skip)"
+if ([string]::IsNullOrWhiteSpace($ScriptName) -and -not $NonInteractive) {
+    $ScriptName = Read-Host "`n  Script to run (relative path, or Enter to skip)"
+}
 
 if (-not [string]::IsNullOrWhiteSpace($ScriptName)) {
     Write-Host "`n  Running on WS1: L:\Transfer\$ProjectName\$ScriptName" -ForegroundColor Yellow
@@ -83,7 +101,7 @@ if (-not [string]::IsNullOrWhiteSpace($ScriptName)) {
 }
 
 # AppLocker logs?
-$checkLogs = Read-Host "`n  Check AppLocker event logs? (y/n) [n]"
+$checkLogs = if ($NonInteractive) { if ($CheckLogs) { 'y' } else { 'n' } } else { Read-Host "`n  Check AppLocker event logs? (y/n) [n]" }
 if ($checkLogs -eq 'y') {
     Write-Host "`n  Recent AppLocker events on WS1:" -ForegroundColor Yellow
     Write-Host "  ---" -ForegroundColor DarkGray
@@ -107,7 +125,7 @@ if ($checkLogs -eq 'y') {
 }
 
 # GPO update?
-$doGPO = Read-Host "  Force GPO update on WS1? (y/n) [n]"
+$doGPO = if ($NonInteractive) { if ($ForceGPO) { 'y' } else { 'n' } } else { Read-Host "  Force GPO update on WS1? (y/n) [n]" }
 if ($doGPO -eq 'y') {
     Invoke-LabCommand -ComputerName 'WS1' -ScriptBlock { gpupdate /force }
     Write-Host "  [OK] GPO updated" -ForegroundColor Green

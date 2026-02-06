@@ -24,6 +24,13 @@
 #Requires -RunAsAdministrator
 #Requires -Modules AutomatedLab
 
+[CmdletBinding()]
+param(
+    [switch]$NonInteractive,
+    [switch]$ForceRebuild,
+    [string]$AdminPassword = ''
+)
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
@@ -35,7 +42,14 @@ $DomainName     = 'opencode.lab'
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
 $LabInstallUser = 'install'
-$AdminPassword  = 'P@ssw0rd!'  # lab password (all VMs)
+if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
+    if ($env:OPENCODELAB_ADMIN_PASSWORD) {
+        $AdminPassword = $env:OPENCODELAB_ADMIN_PASSWORD
+    }
+}
+if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
+    throw "AdminPassword is required. Provide -AdminPassword or set OPENCODELAB_ADMIN_PASSWORD."
+}
 
 $LabPath        = "C:\AutomatedLab\$LabName"
 $LabSourcesRoot = 'C:\LabSources'
@@ -83,8 +97,9 @@ $GitRepoPath = 'C:\LabShare\Repos'
 
 # SSH keypair (generated on the Hyper‑V host; used for Host -> LIN1 and Host -> DC1)
 $SSHKeyDir     = "$LabSourcesRoot\SSHKeys"
-$SSHPrivateKey = "$SSHKeyDir\lab_ed25519"
-$SSHPublicKey  = "$SSHKeyDir\lab_ed25519.pub"
+$SSHPrivateKey = "$SSHKeyDir\id_ed25519"
+$SSHPublicKey  = "$SSHKeyDir\id_ed25519.pub"
+$HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
 
 function Invoke-WindowsSshKeygen {
     [CmdletBinding()]
@@ -134,14 +149,21 @@ try {
         else { Write-Host "  [MISSING] $iso" -ForegroundColor Red; $missing += $iso }
     }
     if ($missing.Count -gt 0) {
-        throw "Missing ISOs in $IsoPath: $($missing -join ', ')"
+        throw "Missing ISOs in ${IsoPath}: $($missing -join ', ')"
     }
 
     # Remove existing lab if present
     if (Get-Lab -List | Where-Object { $_ -eq $LabName }) {
         Write-Host "  Lab '$LabName' already exists." -ForegroundColor Yellow
-        $response = Read-Host "  Remove and rebuild? (y/n)"
-        if ($response -eq 'y') {
+        $allowRebuild = $false
+        if ($ForceRebuild -or $NonInteractive) {
+            $allowRebuild = $true
+        } else {
+            $response = Read-Host "  Remove and rebuild? (y/n)"
+            if ($response -eq 'y') { $allowRebuild = $true }
+        }
+
+        if ($allowRebuild) {
             Remove-Lab -Name $LabName -Confirm:$false
             Write-Host "  Removed existing lab." -ForegroundColor Green
         } else {
@@ -353,14 +375,15 @@ try {
     Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
 
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Authorize-HostKey-DC1' -ScriptBlock {
+        param($PubKeyFileName)
         $authKeysFile = 'C:\ProgramData\ssh\administrators_authorized_keys'
-        $pubKeyFile   = 'C:\ProgramData\ssh\lab_ed25519.pub'
+        $pubKeyFile   = "C:\ProgramData\ssh\$PubKeyFileName"
         if (Test-Path $pubKeyFile) {
             Get-Content $pubKeyFile | Add-Content $authKeysFile -Force
             icacls $authKeysFile /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)" | Out-Null
             Remove-Item $pubKeyFile -Force -ErrorAction SilentlyContinue
         }
-    } | Out-Null
+    } -ArgumentList $HostPublicKeyFileName | Out-Null
 
     # DC1: WinRM HTTPS + ICMP (useful for remote management)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Configure-WinRM-HTTPS-DC1' -ScriptBlock {
@@ -476,24 +499,33 @@ PubkeyAuthentication yes
 EOF
 $SUDO systemctl restart ssh || true
 
-echo "[LIN1] Setting up SSH authorized_keys for $LIN_USER..."
+echo "[LIN1] Setting up SSH authorized_keys for ${LIN_USER}..."
 mkdir -p "$LIN_HOME/.ssh"
 chmod 700 "$LIN_HOME/.ssh"
 touch "$LIN_HOME/.ssh/authorized_keys"
 chmod 600 "$LIN_HOME/.ssh/authorized_keys"
 
-if [ -f /tmp/lab_ed25519.pub ]; then
-  cat /tmp/lab_ed25519.pub >> "$LIN_HOME/.ssh/authorized_keys" || true
+if [ -f /tmp/$HostPublicKeyFileName ]; then
+  cat /tmp/$HostPublicKeyFileName >> "$LIN_HOME/.ssh/authorized_keys" || true
 fi
 
-chown -R "$LIN_USER:$LIN_USER" "$LIN_HOME/.ssh"
+chown -R "${LIN_USER}:${LIN_USER}" "$LIN_HOME/.ssh"
 
 echo "[LIN1] Generating local SSH keypair (LIN1->DC1)..."
 sudo -u "$LIN_USER" bash -lc 'test -f ~/.ssh/id_ed25519 || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "LIN1-to-DC1"'
 
 echo "[LIN1] Configuring SMB mount..."
 $SUDO mkdir -p /mnt/labshare
-FSTAB_ENTRY="//DC1.$DOMAIN/$SHARE /mnt/labshare cifs username=$LIN_USER,password=$PASS,domain=$NETBIOS,iocharset=utf8,_netdev 0 0"
+CREDS_FILE="/etc/opencodelab-labshare.cred"
+if [ ! -f "$CREDS_FILE" ]; then
+  $SUDO tee "$CREDS_FILE" >/dev/null <<EOF
+username=$LIN_USER
+password=$PASS
+domain=$NETBIOS
+EOF
+  $SUDO chmod 600 "$CREDS_FILE"
+fi
+FSTAB_ENTRY="//DC1.$DOMAIN/$SHARE /mnt/labshare cifs credentials=$CREDS_FILE,iocharset=utf8,_netdev 0 0"
 if ! grep -qF "DC1.$DOMAIN/$SHARE" /etc/fstab 2>/dev/null; then
   echo "$FSTAB_ENTRY" | $SUDO tee -a /etc/fstab >/dev/null
 fi
@@ -505,7 +537,7 @@ network:
   version: 2
   renderer: networkd
   ethernets:
-    $IFACE:
+    ${IFACE}:
       dhcp4: false
       addresses: [$STATIC_IP/24]
       gateway4: $GATEWAY
