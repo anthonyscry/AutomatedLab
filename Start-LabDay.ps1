@@ -1,9 +1,5 @@
-﻿<#
-.SYNOPSIS
-    Start-LabDay.ps1 -- Morning startup for OpenCode Dev Lab
-.DESCRIPTION
-    Starts all VMs, waits for boot, runs health check, shows connection info.
-#>
+# Start-LabDay.ps1 -- Morning startup for OpenCode Dev Lab
+# Starts all VMs, waits for boot, runs health check, shows connection info.
 
 #Requires -RunAsAdministrator
 

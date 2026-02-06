@@ -1,7 +1,4 @@
-<#
-.SYNOPSIS
-    Test-OpenCodeLabPreflight.ps1 - validates host readiness for OpenCodeLab deployment
-#>
+# Test-OpenCodeLabPreflight.ps1 - validates host readiness for OpenCodeLab deployment
 
 #Requires -RunAsAdministrator
 

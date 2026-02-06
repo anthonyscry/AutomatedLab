@@ -1,27 +1,19 @@
-<#
-.SYNOPSIS
-    Bootstrap.ps1 - One-click setup for AutomatedLab + OpenCode Dev Lab
-
-.DESCRIPTION
-    Run this once. It handles everything:
-      1. NuGet provider
-      2. Pester publisher conflict fix
-      3. PSFramework dependency
-      4. SHiPS dependency
-      5. AutomatedLab module install
-      6. LabSources folder creation
-      7. Hyper-V checks
-      8. Lab vSwitch + NAT setup (recommended)
-      9. ISO validation
-     10. Kicks off Deploy.ps1
-
-    After this completes, your lab is ready.
-
-.NOTES
-    Author:  Tony / Claude
-    Version: 1.1
-    Run as:  Administrator (required)
-#>
+# Bootstrap.ps1 - One-click setup for AutomatedLab + OpenCode Dev Lab
+# Run this once. It handles everything:
+# 1. NuGet provider
+# 2. Pester publisher conflict fix
+# 3. PSFramework dependency
+# 4. SHiPS dependency
+# 5. AutomatedLab module install
+# 6. LabSources folder creation
+# 7. Hyper-V checks
+# 8. Lab vSwitch + NAT setup (recommended)
+# 9. ISO validation
+# 10. Kicks off Deploy.ps1
+# After this completes, your lab is ready.
+# Author:  Tony / Claude
+# Version: 1.1
+# Run as:  Administrator (required)
 
 #Requires -RunAsAdministrator
 

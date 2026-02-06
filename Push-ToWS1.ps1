@@ -1,10 +1,6 @@
-<#
-.SYNOPSIS
-    Push-ToWS1.ps1 -- Copy project from LIN1 to WS1 via LabShare for testing
-.DESCRIPTION
-    Prompts for project name, copies from ~/projects/<name> to /mnt/labshare/Transfer/<name>.
-    Files appear instantly on WS1 at L:\Transfer\<name>.
-#>
+# Push-ToWS1.ps1 -- Copy project from LIN1 to WS1 via LabShare for testing
+# Prompts for project name, copies from ~/projects/<name> to /mnt/labshare/Transfer/<name>.
+# Files appear instantly on WS1 at L:\Transfer\<name>.
 
 #Requires -RunAsAdministrator
 

@@ -1,10 +1,6 @@
-<#
-.SYNOPSIS
-    Lab-Status.ps1 -- Detailed status dashboard for OpenCode Dev Lab
-.DESCRIPTION
-    Shows VM states, resource usage, network info, share health,
-    recent snapshots, and Git status on LIN1.
-#>
+# Lab-Status.ps1 -- Detailed status dashboard for OpenCode Dev Lab
+# Shows VM states, resource usage, network info, share health,
+# recent snapshots, and Git status on LIN1.
 
 #Requires -RunAsAdministrator
 

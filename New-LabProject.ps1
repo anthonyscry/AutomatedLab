@@ -1,13 +1,9 @@
-<#
-.SYNOPSIS
-    New-LabProject.ps1 -- Create a new project on LIN1 with Git + GitHub
-.DESCRIPTION
-    Prompts for project name and visibility, then:
-      1. Creates ~/projects/<n> on LIN1
-      2. Initializes Git with your identity
-      3. Creates GitHub repo via gh CLI
-      4. Creates initial commit
-#>
+# New-LabProject.ps1 -- Create a new project on LIN1 with Git + GitHub
+# Prompts for project name and visibility, then:
+# 1. Creates ~/projects/<n> on LIN1
+# 2. Initializes Git with your identity
+# 3. Creates GitHub repo via gh CLI
+# 4. Creates initial commit
 
 #Requires -RunAsAdministrator
 
