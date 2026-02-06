@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Open-LabTerminal.ps1 -- Open new terminal windows to lab VMs
 .DESCRIPTION
@@ -10,6 +10,12 @@
 #>
 
 #Requires -RunAsAdministrator
+
+[CmdletBinding()]
+param(
+    [ValidateSet('LIN1','DC1','WS1','')]
+    [string]$Target = ''
+)
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
@@ -26,16 +32,6 @@ function Get-LIN1IPForTerminal {
     }
     return $ip
 }
-
-
-
-
-param(
-    [ValidateSet('LIN1','DC1','WS1','')]
-    [string]$Target = ''
-)
-
-
 
 function Open-NewTerminal {
     param(

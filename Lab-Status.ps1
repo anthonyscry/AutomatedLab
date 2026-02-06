@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Lab-Status.ps1 -- Detailed status dashboard for OpenCode Dev Lab
 .DESCRIPTION
@@ -105,18 +105,11 @@ if ($running.Name -contains 'WS1') {
 if ($running.Name -contains 'LIN1') {
     try {
         Write-Host "`n  GIT PROJECTS (LIN1):" -ForegroundColor Yellow
+        $bashCmd = 'for d in ' + $LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then name=$(basename "$d"); cd "$d"; branch=$(git branch --show-current 2>/dev/null); changes=$(git status --porcelain 2>/dev/null | wc -l); remote=$(git remote get-url origin 2>/dev/null || echo "(no remote)"); echo "  $name [$branch] $changes uncommitted | $remote"; fi; done'
         $gitStatus = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
-            for d in $LinuxHome/projects/*/; do
-                if [ -d "$d/.git" ]; then
-                    name=$(basename "$d")
-                    cd "$d"
-                    branch=$(git branch --show-current 2>/dev/null)
-                    changes=$(git status --porcelain 2>/dev/null | wc -l)
-                    remote=$(git remote get-url origin 2>/dev/null || echo "(no remote)")
-                    echo "  $name [$branch] ${changes} uncommitted | $remote"
-                fi
-            done
-        } -PassThru -ErrorAction SilentlyContinue
+            param($Cmd)
+            bash -lc $Cmd
+        } -ArgumentList $bashCmd -PassThru -ErrorAction SilentlyContinue
         if ($gitStatus) {
             $gitStatus | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
         } else {
@@ -124,13 +117,11 @@ if ($running.Name -contains 'LIN1') {
         }
 
         Write-Host "`n  MOUNT (LIN1):" -ForegroundColor Yellow
+        $mountCmd = 'if mountpoint -q "' + $LinuxLabShareMount + '" 2>/dev/null; then echo "  ' + $LinuxLabShareMount + ': MOUNTED"; else echo "  ' + $LinuxLabShareMount + ': NOT MOUNTED"; fi'
         $mountCheck = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
-            if mountpoint -q /mnt/labshare 2>/dev/null; then
-                echo "  /mnt/labshare: MOUNTED"
-            else
-                echo "  /mnt/labshare: NOT MOUNTED"
-            fi
-        } -PassThru -ErrorAction SilentlyContinue
+            param($Cmd)
+            bash -lc $Cmd
+        } -ArgumentList $mountCmd -PassThru -ErrorAction SilentlyContinue
         $mountCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
     } catch {}
 }

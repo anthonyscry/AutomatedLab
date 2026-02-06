@@ -1,19 +1,19 @@
 <#
 .SYNOPSIS
-    Deploy-OpenCodeLab-Slim.ps1 — Rebuildable 3‑VM OpenCode Development Lab (AutomatedLab)
+    Deploy-OpenCodeLab-Slim.ps1 â€” Rebuildable 3â€‘VM OpenCode Development Lab (AutomatedLab)
 
 .DESCRIPTION
-    Builds a deterministic 3‑VM lab on Hyper‑V using AutomatedLab:
+    Builds a deterministic 3â€‘VM lab on Hyperâ€‘V using AutomatedLab:
 
-      DC1  — Windows Server 2019 (AD DS, DNS, CA) + DHCP (for Linux) + SMB share + Git
-      WS1  — Windows 11 Enterprise Evaluation (domain-joined AppLocker test target)
-      LIN1 — Ubuntu Server 24.04.x (domain DNS, SSH keys, dev tooling, SMB mount)
+      DC1  â€” Windows Server 2019 (AD DS, DNS, CA) + DHCP (for Linux) + SMB share + Git
+      WS1  â€” Windows 11 Enterprise Evaluation (domain-joined AppLocker test target)
+      LIN1 â€” Ubuntu Server 24.04.x (domain DNS, SSH keys, dev tooling, SMB mount)
 
     Key pain this version fixes:
       - Linux network config no longer blocks install: DC1 is installed FIRST, then DHCP scope is created,
         then WS1/LIN1 install. This prevents the Ubuntu installer "autoconfiguration failed" screen.
       - Linux user is deterministic: we use a lowercase lab install user ("install") everywhere.
-      - Host-to-LIN1 SSH uses a lab keypair generated on the Hyper‑V host (no GitHub import/paste).
+      - Host-to-LIN1 SSH uses a lab keypair generated on the Hyperâ€‘V host (no GitHub import/paste).
 
 .NOTES
     Author:  Tony / Assistant
@@ -31,14 +31,19 @@ param(
     [string]$AdminPassword = ''
 )
 
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
+$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+if (Test-Path $ConfigPath) { . $ConfigPath }
+if (Test-Path $CommonPath) { . $CommonPath }
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 # ============================================================
-# CONFIGURATION — EDIT IF YOU WANT DIFFERENT IPs / NAMES
+# CONFIGURATION -- EDIT IF YOU WANT DIFFERENT IPs / NAMES
 # ============================================================
-$LabName        = 'OpenCodeLab'
-$DomainName     = 'opencode.lab'
+# Config loaded from Lab-Config.ps1
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
 $LabInstallUser = 'install'
@@ -51,54 +56,7 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     throw "AdminPassword is required. Provide -AdminPassword or set OPENCODELAB_ADMIN_PASSWORD."
 }
 
-$LabPath        = "C:\AutomatedLab\$LabName"
-$LabSourcesRoot = 'C:\LabSources'
 $IsoPath        = "$LabSourcesRoot\ISOs"
-
-# Networking: dedicated Internal vSwitch + host NAT
-$LabSwitch    = 'OpenCodeLabSwitch'
-$AddressSpace = '192.168.11.0/24'
-$GatewayIp    = '192.168.11.1'
-$NatName      = "${LabSwitch}NAT"
-
-# Static IP plan
-$DC1_Ip  = '192.168.11.3'
-$WS1_Ip  = '192.168.11.4'
-$LIN1_Ip = '192.168.11.5'   # we will set static AFTER install (install uses DHCP)
-
-$DnsIp   = $DC1_Ip
-
-# DHCP scope for the lab subnet (keeps .1-.99 free for statics)
-$DhcpScopeId = '192.168.11.0'
-$DhcpStart   = '192.168.11.100'
-$DhcpEnd     = '192.168.11.200'
-$DhcpMask    = '255.255.255.0'
-
-# VM sizing
-$DC_Memory      = 4GB
-$DC_MinMemory   = 2GB
-$DC_MaxMemory   = 6GB
-$DC_Processors  = 4
-
-$CL_Memory      = 4GB
-$CL_MinMemory   = 2GB
-$CL_MaxMemory   = 6GB
-$CL_Processors  = 4
-
-$UBU_Memory     = 4GB
-$UBU_MinMemory  = 2GB
-$UBU_MaxMemory  = 6GB
-$UBU_Processors = 4
-
-# Share settings (hosted on DC1)
-$ShareName   = 'LabShare'
-$SharePath   = 'C:\LabShare'
-$GitRepoPath = 'C:\LabShare\Repos'
-
-# SSH keypair (generated on the Hyper‑V host; used for Host -> LIN1 and Host -> DC1)
-$SSHKeyDir     = "$LabSourcesRoot\SSHKeys"
-$SSHPrivateKey = "$SSHKeyDir\id_ed25519"
-$SSHPublicKey  = "$SSHKeyDir\id_ed25519.pub"
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
 
 function Invoke-WindowsSshKeygen {
@@ -457,10 +415,11 @@ try {
     $linUser = $LabInstallUser
     $linHome = "/home/$linUser"
 
-    $lin1ScriptPath = "$LabSourcesRoot\lin1_setup.sh"
+
     $escapedPassword = $AdminPassword -replace "'", "'\\''"
 
-    $lin1ScriptContent = @"
+    # Use non-interpolating here-string to avoid PowerShell eating bash variables
+    $lin1ScriptContent = @'
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
@@ -472,15 +431,16 @@ if [ "$(id -u)" -ne 0 ]; then SUDO="sudo -n"; fi
 IFACE=$(ip -o link show | awk -F': ' '$2!="lo"{print $2; exit}')
 if [ -z "$IFACE" ]; then IFACE="eth0"; fi
 
-LIN_USER="$linUser"
-LIN_HOME="$linHome"
-DOMAIN="$DomainName"
-NETBIOS="$netbios"
-SHARE="$ShareName"
-PASS='$escapedPassword'
-GATEWAY="$GatewayIp"
-DNS="$DnsIp"
-STATIC_IP="$LIN1_Ip"
+LIN_USER="__LIN_USER__"
+LIN_HOME="__LIN_HOME__"
+DOMAIN="__DOMAIN__"
+NETBIOS="__NETBIOS__"
+SHARE="__SHARE__"
+PASS='__PASS__'
+GATEWAY="__GATEWAY__"
+DNS="__DNS__"
+STATIC_IP="__STATIC_IP__"
+HOST_PUBKEY_FILE="__HOST_PUBKEY__"
 
 echo "[LIN1] Updating packages..."
 $SUDO apt-get update -qq
@@ -493,10 +453,10 @@ $SUDO apt-get install -y -qq \
 $SUDO systemctl enable --now ssh || true
 
 # Ensure SSH allows password auth (optional; helps if you ever need it)
-$SUDO tee /etc/ssh/sshd_config.d/99-opencodelab.conf >/dev/null <<'EOF'
+$SUDO tee /etc/ssh/sshd_config.d/99-opencodelab.conf >/dev/null <<'SSHEOF'
 PasswordAuthentication yes
 PubkeyAuthentication yes
-EOF
+SSHEOF
 $SUDO systemctl restart ssh || true
 
 echo "[LIN1] Setting up SSH authorized_keys for ${LIN_USER}..."
@@ -505,8 +465,8 @@ chmod 700 "$LIN_HOME/.ssh"
 touch "$LIN_HOME/.ssh/authorized_keys"
 chmod 600 "$LIN_HOME/.ssh/authorized_keys"
 
-if [ -f /tmp/$HostPublicKeyFileName ]; then
-  cat /tmp/$HostPublicKeyFileName >> "$LIN_HOME/.ssh/authorized_keys" || true
+if [ -f "/tmp/$HOST_PUBKEY_FILE" ]; then
+  cat "/tmp/$HOST_PUBKEY_FILE" >> "$LIN_HOME/.ssh/authorized_keys" || true
 fi
 
 chown -R "${LIN_USER}:${LIN_USER}" "$LIN_HOME/.ssh"
@@ -518,11 +478,11 @@ echo "[LIN1] Configuring SMB mount..."
 $SUDO mkdir -p /mnt/labshare
 CREDS_FILE="/etc/opencodelab-labshare.cred"
 if [ ! -f "$CREDS_FILE" ]; then
-  $SUDO tee "$CREDS_FILE" >/dev/null <<EOF
+  $SUDO tee "$CREDS_FILE" >/dev/null <<CREDEOF
 username=$LIN_USER
 password=$PASS
 domain=$NETBIOS
-EOF
+CREDEOF
   $SUDO chmod 600 "$CREDS_FILE"
 fi
 FSTAB_ENTRY="//DC1.$DOMAIN/$SHARE /mnt/labshare cifs credentials=$CREDS_FILE,iocharset=utf8,_netdev 0 0"
@@ -532,7 +492,7 @@ fi
 $SUDO mount -a 2>/dev/null || true
 
 echo "[LIN1] Pinning static IP ($STATIC_IP) for stable SSH..."
-$SUDO tee /etc/netplan/99-opencodelab-static.yaml >/dev/null <<EOF
+$SUDO tee /etc/netplan/99-opencodelab-static.yaml >/dev/null <<NETEOF
 network:
   version: 2
   renderer: networkd
@@ -540,26 +500,34 @@ network:
     ${IFACE}:
       dhcp4: false
       addresses: [$STATIC_IP/24]
-      gateway4: $GATEWAY
+      routes:
+        - to: default
+          via: $GATEWAY
       nameservers:
         addresses: [$DNS, 1.1.1.1]
-EOF
+NETEOF
 
 # Apply netplan in the background so we don't hang the remote session mid-flight
 (sleep 2; $SUDO netplan apply) >/dev/null 2>&1 &
 
 echo "[LIN1] Done."
-"@
-
-    $lin1ScriptContent | Set-Content -Path $lin1ScriptPath -Encoding ASCII -Force
-
+'@
     Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
-    Copy-LabFileItem -Path $lin1ScriptPath -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
-    Invoke-LabCommand -ComputerName 'LIN1' -ActivityName 'Configure-LIN1' -ScriptBlock {
-        chmod +x /tmp/lin1_setup.sh
-        bash /tmp/lin1_setup.sh
-    } | Out-Null
+    $lin1Vars = @{
+        LIN_USER = $linUser
+        LIN_HOME = $linHome
+        DOMAIN = $DomainName
+        NETBIOS = $netbios
+        SHARE = $ShareName
+        PASS = $escapedPassword
+        GATEWAY = $GatewayIp
+        DNS = $DnsIp
+        STATIC_IP = $LIN1_Ip
+        HOST_PUBKEY = $HostPublicKeyFileName
+    }
+
+    Invoke-BashOnLIN1 -BashScript $lin1ScriptContent -ActivityName 'Configure-LIN1' -Variables $lin1Vars | Out-Null
 
     # ============================================================
     # SNAPSHOT
@@ -592,3 +560,11 @@ catch {
 finally {
     Stop-Transcript | Out-Null
 }
+
+
+
+
+
+
+
+

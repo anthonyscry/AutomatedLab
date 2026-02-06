@@ -11,11 +11,18 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$LabName = 'OpenCodeLab'
-$ExpectedVMs = @('DC1', 'WS1', 'LIN1')
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
+if (Test-Path $ConfigPath) { . $ConfigPath }
+
+# Defaults (overridden by Lab-Config.ps1 if present)
+if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WS1', 'LIN1') }
+if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $LinuxUser = 'install' }
+
+$ExpectedVMs = $LabVMs
 $DomainName = 'opencode.lab'
-$LinuxUser = 'install'
-$SSHKeyPath = 'C:\LabSources\SSHKeys\id_ed25519'
+$SSHKeyPath = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
 $Lin1Ip = '192.168.11.5'
 $issues = New-Object System.Collections.Generic.List[string]
 

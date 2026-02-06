@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.1.0 - Cleanup & Bugfix Release
+
+### Bug Fixes (17 total)
+- Fixed `Get-LIN1IPForUI` infinite recursion in menu
+- Fixed menu invoking scripts by wrong filenames
+- Fixed `Open-LabTerminal` param() block placement
+- Fixed Deploy heredoc using interpolating strings that destroyed bash `$(...)` syntax
+- Fixed stale script filenames in Lab-Config
+- Fixed raw bash syntax in Lab-Status ScriptBlock and missing variable passing
+- Fixed broken bash variable escaping in Push-ToWS1
+- Fixed broken bash variable escaping in Save-LabWork
+- Fixed `$LinuxUser` not passed to remote scriptblock in New-LabProject
+- Fixed duplicate step numbering in Bootstrap
+- Fixed hardcoded values in health check (now dot-sources Lab-Config)
+- Fixed `$args` automatic variable collision (renamed to `$scriptArgs`)
+- Fixed deprecated `gateway4:` in netplan for Ubuntu 24.04 (replaced with `routes:` block)
+- Deleted orphan code fragment in Deploy.ps1
+- Fixed PS double-quoted string breaking bash `\"` and `||` in Lab-Status
+- Fixed swapped here-string terminator in Save-LabWork
+- Added VM existence guard after bootstrap
+
+### Simplification Refactor
+- Renamed all scripts from verbose `_POLISHED_FINAL` / `_REBUILDABLE` suffixes to clean names
+- Deleted superseded `Lab-Menu_POLISHED_FINAL.ps1` (replaced by `OpenCodeLab-App.ps1`)
+- Added `Invoke-BashOnLIN1` helper to `Lab-Common.ps1` (copy `.sh` + remote execute pattern)
+- Added `Ensure-VMsReady` helper to `Lab-Common.ps1`
+- Centralized deploy hardcoded values into `Lab-Config.ps1`
+- Refactored daily scripts to use shared helpers
+- Simplified `Resolve-ScriptPath` in orchestrator (direct join, no glob)
+- Updated all internal cross-references to new filenames
+- Updated README and docs
+
 ## v1.0.0 - Automation Hardening Release
 
 - Added `OpenCodeLab-App.ps1` as the single orchestrator entry point.
@@ -15,5 +47,5 @@
 
 ## Breaking/Operational Notes
 
-- `Deploy-OpenCodeLab-Slim_REBUILDABLE_v3.2.ps1` now requires `-AdminPassword` or `OPENCODELAB_ADMIN_PASSWORD`.
+- `Deploy.ps1` now requires `-AdminPassword` or `OPENCODELAB_ADMIN_PASSWORD`.
 - `OpenCodeLab-App.ps1 -Action menu` is interactive-only; automation should use explicit actions.

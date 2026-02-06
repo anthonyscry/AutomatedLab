@@ -165,18 +165,11 @@ if ($DefaultsFile) {
 
 function Resolve-ScriptPath {
     param([Parameter(Mandatory)][string]$BaseName)
-
-    $exact = Join-Path $ScriptDir "$BaseName.ps1"
-    if (Test-Path $exact) { return $exact }
-
-    $matches = Get-ChildItem -Path $ScriptDir -Filter "$BaseName*.ps1" -File -ErrorAction SilentlyContinue |
-        Sort-Object Name
-
-    if ($matches -and $matches.Count -gt 0) {
-        return $matches[0].FullName
+    $path = Join-Path $ScriptDir "$BaseName.ps1"
+    if (-not (Test-Path $path)) {
+        throw "Script not found: $path"
     }
-
-    throw "Could not find script for '$BaseName' in $ScriptDir"
+    return $path
 }
 
 function Invoke-RepoScript {
@@ -315,7 +308,14 @@ function Invoke-OneButtonSetup {
     if ($NonInteractive) { $bootstrapArgs += '-NonInteractive' }
 
     Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight'
-    Invoke-RepoScript -BaseName 'Bootstrap-OpenCodeLab_REBUILDABLE_v1.2' -Arguments $bootstrapArgs
+    Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
+
+    # Verify VMs exist after bootstrap (bootstrap chains into deploy)
+    $missingVMs = $LabVMs | Where-Object { -not (Get-VM -Name $_ -ErrorAction SilentlyContinue) }
+    if ($missingVMs) {
+        throw "VMs not found after bootstrap: $($missingVMs -join ', '). Deploy may have failed."
+    }
+
     Invoke-RepoScript -BaseName 'Start-LabDay'
     Invoke-RepoScript -BaseName 'Lab-Status'
 
@@ -368,7 +368,7 @@ function Invoke-Setup {
     if ($NonInteractive) { $bootstrapArgs += '-NonInteractive' }
 
     Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight'
-    Invoke-RepoScript -BaseName 'Bootstrap-OpenCodeLab_REBUILDABLE_v1.2' -Arguments $bootstrapArgs
+    Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
 }
 
 function Show-Menu {
@@ -411,8 +411,8 @@ function Invoke-InteractiveMenu {
         $choice = (Read-Host "  Select").ToUpperInvariant()
         switch ($choice) {
             'A' { Invoke-OneButtonSetup; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'B' { Invoke-RepoScript -BaseName 'Bootstrap-OpenCodeLab_REBUILDABLE_v1.2'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'D' { Invoke-RepoScript -BaseName 'Deploy-OpenCodeLab-Slim_REBUILDABLE_v3.2'; Read-Host "`n  Press Enter to continue" | Out-Null }
+            'B' { Invoke-RepoScript -BaseName 'Bootstrap'; Read-Host "`n  Press Enter to continue" | Out-Null }
+            'D' { Invoke-RepoScript -BaseName 'Deploy'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'I' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'H' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '1' { Invoke-RepoScript -BaseName 'Start-LabDay'; Read-Host "`n  Press Enter to continue" | Out-Null }
@@ -483,36 +483,36 @@ try {
         'bootstrap' {
             $bootstrapArgs = @()
             if ($NonInteractive) { $bootstrapArgs += '-NonInteractive' }
-            Invoke-RepoScript -BaseName 'Bootstrap-OpenCodeLab_REBUILDABLE_v1.2' -Arguments $bootstrapArgs
+            Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
         }
         'deploy' {
             $deployArgs = @()
             if ($NonInteractive) { $deployArgs += '-NonInteractive' }
-            Invoke-RepoScript -BaseName 'Deploy-OpenCodeLab-Slim_REBUILDABLE_v3.2' -Arguments $deployArgs
+            Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
         }
         'health' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' }
         'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }
         'status' { Invoke-RepoScript -BaseName 'Lab-Status' }
         'terminal' { Invoke-RepoScript -BaseName 'Open-LabTerminal' }
         'new-project' {
-            $args = @()
-            if ($NonInteractive) { $args += @('-NonInteractive', '-AutoStart', '-Force') }
-            Invoke-RepoScript -BaseName 'New-LabProject' -Arguments $args
+            $scriptArgs = @()
+            if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart', '-Force') }
+            Invoke-RepoScript -BaseName 'New-LabProject' -Arguments $scriptArgs
         }
         'push' {
-            $args = @()
-            if ($NonInteractive) { $args += @('-NonInteractive', '-AutoStart', '-Force') }
-            Invoke-RepoScript -BaseName 'Push-ToWS1' -Arguments $args
+            $scriptArgs = @()
+            if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart', '-Force') }
+            Invoke-RepoScript -BaseName 'Push-ToWS1' -Arguments $scriptArgs
         }
         'test' {
-            $args = @()
-            if ($NonInteractive) { $args += @('-NonInteractive', '-AutoStart') }
-            Invoke-RepoScript -BaseName 'Test-OnWS1' -Arguments $args
+            $scriptArgs = @()
+            if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart') }
+            Invoke-RepoScript -BaseName 'Test-OnWS1' -Arguments $scriptArgs
         }
         'save' {
-            $args = @()
-            if ($NonInteractive) { $args += @('-NonInteractive', '-AutoStart') }
-            Invoke-RepoScript -BaseName 'Save-LabWork' -Arguments $args
+            $scriptArgs = @()
+            if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart') }
+            Invoke-RepoScript -BaseName 'Save-LabWork' -Arguments $scriptArgs
         }
         'stop' {
             Add-RunEvent -Step 'stop' -Status 'start' -Message 'Stop-LabVMsSafe'

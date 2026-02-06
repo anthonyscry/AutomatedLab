@@ -29,15 +29,7 @@ $ErrorActionPreference = 'Stop'
 
 Write-Host "`n=== TEST ON WS1 ===" -ForegroundColor Cyan
 
-if (-not (Ensure-VMRunning -VMNames @('DC1','WS1'))) {
-    if ($NonInteractive -or $AutoStart) {
-        Ensure-VMRunning -VMNames @('DC1','WS1') -AutoStart | Out-Null
-    } else {
-        $start = Read-Host "  DC1/WS1 not running. Start them now? (y/n)"
-        if ($start -ne 'y') { exit 0 }
-        Ensure-VMRunning -VMNames @('DC1','WS1') -AutoStart | Out-Null
-    }
-}
+Ensure-VMsReady -VMNames @('DC1','WS1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
 Import-Lab -Name $LabName -ErrorAction Stop
 

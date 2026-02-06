@@ -1,6 +1,6 @@
-﻿<#
+<#
 .SYNOPSIS
-    Bootstrap-OpenCodeLab.ps1 — One-click setup for AutomatedLab + OpenCode Dev Lab
+    Bootstrap.ps1 — One-click setup for AutomatedLab + OpenCode Dev Lab
 
 .DESCRIPTION
     Run this once. It handles everything:
@@ -13,9 +13,7 @@
       7. Hyper-V checks
       8. Lab vSwitch + NAT setup (recommended)
       9. ISO validation
-     10. Kicks off Deploy script
-      8. ISO validation
-      9. Kicks off Deploy-OpenCodeLab-Slim.ps1
+     10. Kicks off Deploy.ps1
 
     After this completes, your lab is ready.
 
@@ -40,11 +38,8 @@ $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
 $LabSourcesRoot = 'C:\LabSources'
 $ISOPath        = "$LabSourcesRoot\ISOs"
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$DeployScript   = (Join-Path $ScriptDir 'Deploy-OpenCodeLab-Slim_REBUILDABLE_v3.2.ps1')
-if (-not (Test-Path $DeployScript)) { $DeployScript = (Join-Path $ScriptDir 'Deploy-OpenCodeLab-Slim_FIXED_FINAL.ps1') }
-if (-not (Test-Path $DeployScript)) { $DeployScript = Join-Path $ScriptDir 'Deploy-OpenCodeLab-Slim_FIXED_FINAL.ps1' }
-if (-not (Test-Path $DeployScript)) { $DeployScript = Join-Path $ScriptDir 'Deploy-OpenCodeLab-Slim_FIXED.ps1' }
-if (-not (Test-Path $DeployScript)) { $DeployScript = Join-Path $ScriptDir 'Deploy-OpenCodeLab-Slim.ps1' }
+$DeployScript   = (Join-Path $ScriptDir 'Deploy.ps1')
+
 
 $RequiredISOs = @(
     'server2019.iso',
@@ -326,7 +321,7 @@ if (Test-Path $DeployScript) {
     }
 } else {
     Write-Fail "Deploy script not found at: $DeployScript"
-    Write-Host "  Make sure Deploy-OpenCodeLab-Slim.ps1 is in the same folder as this script." -ForegroundColor Yellow
+    Write-Host "  Make sure Deploy.ps1 is in the same folder as this script." -ForegroundColor Yellow
     Write-Host "  Expected location: $DeployScript" -ForegroundColor Yellow
     exit 1
 }
