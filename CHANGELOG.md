@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.0 - Compatibility Hardening
+
+- Replaced all `<# ... #>` block comments with `#` line comments across all 15 scripts
+- Stripped UTF-8 BOMs from Lab-Common, Start-LabDay, Test-OnWS1
+- Removed unicode/non-ASCII characters from Deploy.ps1 and Bootstrap.ps1
+- Removed redundant `#Requires -Modules AutomatedLab` from Deploy.ps1
+- All scripts now extract cleanly from GitHub release zips without parser errors
+
 ## v1.1.0 - Cleanup & Bugfix Release
 
 ### Bug Fixes (17 total)
