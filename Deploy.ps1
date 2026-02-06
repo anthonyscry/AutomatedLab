@@ -181,7 +181,7 @@ try {
         -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
         -Processors $DC_Processors
 
-    Install-Lab -Machines DC1
+    Install-Lab
 
     # ============================================================
     # DC1: DHCP ROLE + SCOPE
@@ -235,7 +235,7 @@ try {
         -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
         -Processors $UBU_Processors
 
-    Install-Lab -Machines WS1, LIN1
+    Install-Lab
 
     # ============================================================
     # POST-INSTALL: DC1 share + Git
