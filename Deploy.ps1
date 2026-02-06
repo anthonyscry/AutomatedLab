@@ -1,28 +1,8 @@
-<#
-.SYNOPSIS
-    Deploy-OpenCodeLab-Slim.ps1 - Rebuildable 3-VM OpenCode Development Lab (AutomatedLab)
-
-.DESCRIPTION
-    Builds a deterministic 3-VM lab on Hyper-V using AutomatedLab:
-
-      DC1  - Windows Server 2019 (AD DS, DNS, CA) + DHCP (for Linux) + SMB share + Git
-      WS1  - Windows 11 Enterprise Evaluation (domain-joined AppLocker test target)
-      LIN1 - Ubuntu Server 24.04.x (domain DNS, SSH keys, dev tooling, SMB mount)
-
-    Key pain this version fixes:
-      - Linux network config no longer blocks install: DC1 is installed FIRST, then DHCP scope is created,
-        then WS1/LIN1 install. This prevents the Ubuntu installer "autoconfiguration failed" screen.
-      - Linux user is deterministic: we use a lowercase lab install user ("install") everywhere.
-      - Host-to-LIN1 SSH uses a lab keypair generated on the Hyper-V host (no GitHub import/paste).
-
-.NOTES
-    Author:  Tony / Assistant
-    Version: 3.2 (Rebuildable / DHCP-first / Linux user fixed)
-    Requires: AutomatedLab module, Hyper-V, ISOs in C:\LabSources\ISOs
-#>
+# Deploy-OpenCodeLab-Slim.ps1 - Rebuildable 3-VM OpenCode Development Lab (AutomatedLab)
+# Builds DC1 (AD/DNS/DHCP/CA), WS1 (Win11), LIN1 (Ubuntu 24.04) on Hyper-V
+# Requires: AutomatedLab module, Hyper-V, ISOs in C:\LabSources\ISOs
 
 #Requires -RunAsAdministrator
-#Requires -Modules AutomatedLab
 
 [CmdletBinding()]
 param(
