@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Push-ToWS1.ps1 -- Copy project from LIN1 to WS1 via LabShare for testing
 .DESCRIPTION
@@ -22,20 +22,11 @@ $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
-
 $ErrorActionPreference = 'Stop'
 
 Write-Host "`n=== PUSH TO WS1 ===" -ForegroundColor Cyan
 
-if (-not (Ensure-VMRunning -VMNames @('DC1','LIN1'))) {
-    if ($NonInteractive -or $AutoStart) {
-        Ensure-VMRunning -VMNames @('DC1','LIN1') -AutoStart | Out-Null
-    } else {
-        $start = Read-Host "  DC1/LIN1 not running. Start them now? (y/n)"
-        if ($start -ne 'y') { exit 0 }
-        Ensure-VMRunning -VMNames @('DC1','LIN1') -AutoStart | Out-Null
-    }
-}
+Ensure-VMsReady -VMNames @('DC1','LIN1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
 # List available projects on LIN1
 Import-Lab -Name $LabName -ErrorAction Stop
@@ -74,35 +65,43 @@ if (-not ($NonInteractive -or $Force)) {
 
 # Execute
 Write-Host "`n  Copying..." -ForegroundColor Yellow
-Invoke-LabCommand -ComputerName 'LIN1' -ActivityName "Push-$ProjectName" -ScriptBlock {
-    param($Name)
-    $bash = @"
-SRC='$LinuxProjectsRoot/$Name'
-DEST='$LinuxLabShareMount/Transfer/$Name'
 
-if [ ! -d "\$SRC" ]; then
-  echo "[FAIL] Project not found: \$SRC"
+# Build bash script with non-interpolating here-string
+$pushScript = @'
+#!/bin/bash
+set -e
+SRC="__PROJECTS_ROOT__/__PROJECT_NAME__"
+DEST="__MOUNT_PATH__/Transfer/__PROJECT_NAME__"
+
+if [ ! -d "$SRC" ]; then
+  echo "[FAIL] Project not found: $SRC"
   exit 1
 fi
 
-if ! mountpoint -q '$LinuxLabShareMount' 2>/dev/null; then
-  echo "[FAIL] LabShare is not mounted at $LinuxLabShareMount"
+if ! mountpoint -q "__MOUNT_PATH__" 2>/dev/null; then
+  echo "[FAIL] LabShare is not mounted at __MOUNT_PATH__"
   exit 1
 fi
 
-mkdir -p "\$DEST"
+mkdir -p "$DEST"
 if command -v rsync >/dev/null 2>&1; then
-  rsync -av --delete "\$SRC/" "\$DEST/"
+  rsync -av --delete "$SRC/" "$DEST/"
 else
-  rm -rf "\$DEST"/*
-  cp -r "\$SRC"/* "\$DEST/"
+  rm -rf "$DEST"/*
+  cp -r "$SRC"/* "$DEST/"
 fi
 
 echo ""
-echo "Copied \$(find "\$DEST" -type f | wc -l) files to \$DEST"
-"@
-    bash -lc $bash
-} -ArgumentList $ProjectName
+echo "Copied $(find "$DEST" -type f | wc -l) files to $DEST"
+'@
+
+$pushVars = @{
+    PROJECTS_ROOT = $LinuxProjectsRoot
+    PROJECT_NAME = $ProjectName
+    MOUNT_PATH = $LinuxLabShareMount
+}
+
+Invoke-BashOnLIN1 -BashScript $pushScript -ActivityName "Push-$ProjectName" -Variables $pushVars | Out-Null
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green
 Write-Host "  On WS1:  cd L:\Transfer\$ProjectName" -ForegroundColor Gray

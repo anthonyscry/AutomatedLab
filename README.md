@@ -40,9 +40,9 @@ Use `OpenCodeLab-App.ps1` as the main entry point.
 .\OpenCodeLab-App.ps1 -Action save
 
 # direct script automation examples
-.\New-LabProject_POLISHED_FINAL.ps1 -NonInteractive -ProjectName demo-app -Visibility private -Force -AutoStart
+.\New-LabProject.ps1 -NonInteractive -ProjectName demo-app -Visibility private -Force -AutoStart
 .\Push-ToWS1_POLISHED_FINAL.ps1 -NonInteractive -ProjectName demo-app -AutoStart -Force
-.\Test-OnWS1_POLISHED_FINAL.ps1 -NonInteractive -ProjectName demo-app -ScriptName run-tests.ps1 -AutoStart -CheckLogs
+.\Test-OnWS1.ps1 -NonInteractive -ProjectName demo-app -ScriptName run-tests.ps1 -AutoStart -CheckLogs
 .\Save-LabWork_POLISHED_FINAL.ps1 -NonInteractive -ProjectName all -AutoStart -TakeSnapshot
 
 # stop and rollback
@@ -83,7 +83,7 @@ actions pass noninteractive flags to their underlying scripts.
 
 ## Admin Password Override
 
-`Deploy-OpenCodeLab-Slim_REBUILDABLE_v3.2.ps1` supports an environment override:
+`Deploy.ps1` supports an environment override:
 
 ```powershell
 $env:OPENCODELAB_ADMIN_PASSWORD = "YourStrongPassword"

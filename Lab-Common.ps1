@@ -47,6 +47,24 @@ function Ensure-VMRunning {
     return $true
 }
 
+function Ensure-VMsReady {
+    param(
+        [Parameter(Mandatory)][string[]]$VMNames,
+        [switch]$NonInteractive,
+        [switch]$AutoStart
+    )
+    if (-not (Ensure-VMRunning -VMNames $VMNames)) {
+        if ($NonInteractive -or $AutoStart) {
+            Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
+        } else {
+            $vmList = $VMNames -join ', '
+            $start = Read-Host "  $vmList not running. Start now? (y/n)"
+            if ($start -ne 'y') { exit 0 }
+            Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
+        }
+    }
+}
+
 function Get-LIN1IPv4 {
     $ip = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
         Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } |
@@ -75,4 +93,42 @@ function Get-GitIdentity {
     }
 
     return @{ Name = $name; Email = $email }
+}
+
+function Invoke-BashOnLIN1 {
+    param(
+        [Parameter(Mandatory)][string]$BashScript,
+        [Parameter(Mandatory)][string]$ActivityName,
+        [hashtable]$Variables = @{},
+        [switch]$PassThru
+    )
+    # Apply variable substitutions (placeholder pattern: __KEY__)
+    $content = $BashScript
+    foreach ($key in $Variables.Keys) {
+        $content = $content.Replace("__${key}__", $Variables[$key])
+    }
+
+    $tempName = "$ActivityName-$(Get-Date -Format 'HHmmss').sh"
+    $tempPath = Join-Path $env:TEMP $tempName
+    $content | Set-Content -Path $tempPath -Encoding ASCII -Force
+
+    try {
+        Copy-LabFileItem -Path $tempPath -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
+
+        $invokeParams = @{
+            ComputerName = 'LIN1'
+            ActivityName = $ActivityName
+            ScriptBlock = {
+                param($ScriptFile)
+                chmod +x "/tmp/$ScriptFile"
+                bash "/tmp/$ScriptFile"
+            }
+            ArgumentList = @($tempName)
+        }
+        if ($PassThru) { $invokeParams.PassThru = $true }
+
+        Invoke-LabCommand @invokeParams
+    } finally {
+        Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+    }
 }

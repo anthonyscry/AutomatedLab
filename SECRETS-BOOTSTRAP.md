@@ -6,7 +6,7 @@ Use this before any noninteractive deployment.
 
 - `OPENCODELAB_ADMIN_PASSWORD`
 
-`Deploy-OpenCodeLab-Slim_REBUILDABLE_v3.2.ps1` requires this value unless `-AdminPassword` is passed.
+`Deploy.ps1` requires this value unless `-AdminPassword` is passed.
 
 ## One-Time (Current Shell)
 

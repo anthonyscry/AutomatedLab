@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Save-LabWork.ps1 -- Commit, push, and optionally shut down the lab
 .DESCRIPTION
@@ -32,15 +32,7 @@ $ErrorActionPreference = 'Stop'
 
 Write-Host "`n=== SAVE WORK ===" -ForegroundColor Cyan
 
-if (-not (Ensure-VMRunning -VMNames @('LIN1'))) {
-    if ($NonInteractive -or $AutoStart) {
-        Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
-    } else {
-        $start = Read-Host "  LIN1 is not running. Start it now? (y/n)"
-        if ($start -ne 'y') { exit 0 }
-        Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
-    }
-}
+Ensure-VMsReady -VMNames @('LIN1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
 if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GitName) -or [string]::IsNullOrWhiteSpace($GitEmail))) {
     throw "NonInteractive mode requires GitName and GitEmail in Lab-Config.ps1."
@@ -54,10 +46,11 @@ Import-Lab -Name $LabName -ErrorAction Stop
 
 # List projects
 Write-Host "  Scanning projects on LIN1..." -ForegroundColor Yellow
+$scanCmd = 'for d in ' + $LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then basename "$d"; fi; done'
 $projects = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
-    param($ProjectsRoot)
-    bash -lc "for d in '$ProjectsRoot'/*/; do if [ -d \"\$d/.git\" ]; then basename \"\$d\"; fi; done"
-} -ArgumentList $LinuxProjectsRoot -PassThru -ErrorAction SilentlyContinue
+    param($BashCmd)
+    bash -lc $BashCmd
+} -ArgumentList $scanCmd -PassThru -ErrorAction SilentlyContinue
 
 if ($projects) {
     Write-Host "  Git projects:" -ForegroundColor Gray
@@ -99,31 +92,40 @@ if ($ProjectName -eq 'all') {
 foreach ($proj in $projectList) {
     Write-Host "`n  [$proj] Committing and pushing..." -ForegroundColor Yellow
 
-    Invoke-LabCommand -ComputerName 'LIN1' -ActivityName "Save-$proj" -ScriptBlock {
-        param($Name, $Msg, $GName, $GEmail)
-        $bash = @"
-export HOME='$LinuxHome'
-cd '$LinuxProjectsRoot/$Name' 2>/dev/null || { echo '[SKIP] $Name not found'; exit 0; }
+    $saveScript = @'
+#!/bin/bash
+set -e
+export HOME="__LIN_HOME__"
+cd "__PROJECTS_ROOT__/__PROJ_NAME__" 2>/dev/null || { echo "[SKIP] __PROJ_NAME__ not found"; exit 0; }
 
-git config --global user.name '$GName'
-git config --global user.email '$GEmail'
+git config --global user.name "__GIT_NAME__"
+git config --global user.email "__GIT_EMAIL__"
 
-if [ -z "\$(git status --porcelain)" ]; then
-  echo '  No changes to commit'
+if [ -z "$(git status --porcelain)" ]; then
+  echo "  No changes to commit"
 else
   git add -A
-  git commit -m "$Msg"
-  echo '  Committed'
+  git commit -m "__COMMIT_MSG__"
+  echo "  Committed"
 fi
 
 if git remote get-url origin >/dev/null 2>&1; then
-  git push origin main 2>&1 && echo '  Pushed to GitHub' || echo '  [WARN] Push failed -- check gh auth'
+  git push origin main 2>&1 && echo "  Pushed to GitHub" || echo "  [WARN] Push failed -- check gh auth"
 else
-  echo '  [SKIP] No remote configured'
+  echo "  [SKIP] No remote configured"
 fi
-"@
-        bash -lc $bash
-    } -ArgumentList $proj, $CommitMsg, $GitName, $GitEmail
+'@
+
+    $saveVars = @{
+        LIN_HOME = $LinuxHome
+        PROJECTS_ROOT = $LinuxProjectsRoot
+        PROJ_NAME = $proj
+        GIT_NAME = $GitName
+        GIT_EMAIL = $GitEmail
+        COMMIT_MSG = $CommitMsg
+    }
+
+    Invoke-BashOnLIN1 -BashScript $saveScript -ActivityName "Save-$proj" -Variables $saveVars | Out-Null
 }
 
 # Snapshot?
@@ -154,3 +156,4 @@ if ($doStop -eq 'y') {
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green
 Write-Host ""
+

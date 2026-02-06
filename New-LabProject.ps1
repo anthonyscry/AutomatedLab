@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     New-LabProject.ps1 -- Create a new project on LIN1 with Git + GitHub
 .DESCRIPTION
@@ -28,21 +28,11 @@ $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
-
 $ErrorActionPreference = 'Stop'
 
 Write-Host "`n=== NEW PROJECT ===" -ForegroundColor Cyan
 
-# Ensure LIN1 is running
-if (-not (Ensure-VMRunning -VMNames @('LIN1'))) {
-    if ($NonInteractive -or $AutoStart) {
-        Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
-    } else {
-        $start = Read-Host "  LIN1 is not running. Start it now? (y/n)"
-        if ($start -ne 'y') { exit 0 }
-        Ensure-VMRunning -VMNames @('LIN1') -AutoStart | Out-Null
-    }
-}
+Ensure-VMsReady -VMNames @('LIN1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
 if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GitName) -or [string]::IsNullOrWhiteSpace($GitEmail))) {
     throw "NonInteractive mode requires GitName and GitEmail in Lab-Config.ps1."
@@ -100,60 +90,66 @@ Import-Lab -Name $LabName -ErrorAction Stop
 # Build the bash commands
 $descFlag = if ($Description) { "--description `"$Description`"" } else { "" }
 
-$script = @"
+$script = @'
+#!/bin/bash
 set -e
-export HOME=$LinuxHome
 
-# Git identity
-git config --global user.name "$GitName"
-git config --global user.email "$GitEmail"
+LIN_USER="__LIN_USER__"
+LIN_HOME="__LIN_HOME__"
+GIT_NAME="__GIT_NAME__"
+GIT_EMAIL="__GIT_EMAIL__"
+PROJECT_NAME="__PROJECT_NAME__"
+VISIBILITY="__VISIBILITY__"
+DESCRIPTION="__DESCRIPTION__"
+DESC_FLAG="__DESC_FLAG__"
 
-# Create project
-mkdir -p ~/projects/$ProjectName
-cd ~/projects/$ProjectName
+CMD="export HOME=$LIN_HOME
+git config --global user.name \"$GIT_NAME\"
+git config --global user.email \"$GIT_EMAIL\"
+mkdir -p \"$LIN_HOME/projects/$PROJECT_NAME\"
+cd \"$LIN_HOME/projects/$PROJECT_NAME\"
 
-# Initialize
 git init
 git branch -M main
 
-# Create starter files
-echo "# $ProjectName" > README.md
-echo "$Description" >> README.md
-echo "" > .gitignore
+echo \"# $PROJECT_NAME\" > README.md
+echo \"$DESCRIPTION\" >> README.md
+echo \"\" > .gitignore
 
-# Initial commit
 git add -A
-git commit -m "Initial commit"
+git commit -m \"Initial commit\"
 
-# Create GitHub repo
-gh repo create $ProjectName --$Visibility --source . --remote origin $descFlag --push 2>&1 || {
-    echo "[WARN] gh repo create failed. You may need to run: gh auth login"
-    echo "       Then manually: git remote add origin https://github.com/YOUR_USER/$ProjectName.git"
-    echo "       Then: git push -u origin main"
+gh repo create \"$PROJECT_NAME\" --$VISIBILITY --source . --remote origin $DESC_FLAG --push 2>&1 || {
+    echo \"[WARN] gh repo create failed. You may need to run: gh auth login\"
+    echo \"       Then manually: git remote add origin https://github.com/YOUR_USER/$PROJECT_NAME.git\"
+    echo \"       Then: git push -u origin main\"
 }
 
-echo ""
-echo "=== PROJECT CREATED ==="
-echo "  Local:  ~/projects/$ProjectName"
-echo "  Remote: https://github.com/`$(gh api user -q .login 2>/dev/null || echo 'YOUR_USER')/$ProjectName"
-"@
+echo \"\"
+echo \"=== PROJECT CREATED ===\"
+echo \"  Local:  $LIN_HOME/projects/$PROJECT_NAME\"
+echo \"  Remote: https://github.com/$(gh api user -q .login 2>/dev/null || echo 'YOUR_USER')/$PROJECT_NAME\""
+
+if [ "$(id -u)" -eq 0 ]; then
+  sudo -u "$LIN_USER" -H bash -lc "$CMD"
+else
+  bash -lc "$CMD"
+fi
+'@
+
+$scriptVars = @{
+    LIN_USER = $LinuxUser
+    LIN_HOME = $LinuxHome
+    GIT_NAME = $GitName
+    GIT_EMAIL = $GitEmail
+    PROJECT_NAME = $ProjectName
+    VISIBILITY = $Visibility
+    DESCRIPTION = $Description
+    DESC_FLAG = $descFlag
+}
 
 Write-Host "`n  Creating project on LIN1..." -ForegroundColor Yellow
-
-# Write script to temp file and copy to LIN1
-$tempScript = "$env:TEMP\new-project-$ProjectName.sh"
-$script | Set-Content -Path $tempScript -Encoding ASCII -Force
-
-Copy-LabFileItem -Path $tempScript -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
-
-$scriptFileName = "new-project-$ProjectName.sh"
-Invoke-LabCommand -ComputerName 'LIN1' -ActivityName "Create-$ProjectName" -ScriptBlock {
-    param($ScriptFile)
-    chmod +x "/tmp/$ScriptFile"
-    su - $LinuxUser -c "bash /tmp/$ScriptFile"
-} -ArgumentList $scriptFileName
-
-Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+Invoke-BashOnLIN1 -BashScript $script -ActivityName "Create-$ProjectName" -Variables $scriptVars | Out-Null
 
 # Get LIN1 IP for connection info
 $lin1IP = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
@@ -164,7 +160,7 @@ Write-Host "`n=== DONE ===" -ForegroundColor Green
 if ($lin1IP) {
     Write-Host "  SSH in:  ssh -i $SSHKey $LinuxUser@$lin1IP" -ForegroundColor Gray
 } else {
-    Write-Host "  Connect: Use Lab Menu > SSH to LIN1" -ForegroundColor Gray
+    Write-Host "  Connect: Use Open-LabTerminal.ps1 to SSH into LIN1" -ForegroundColor Gray
 }
 Write-Host "  Then:    cd ~/projects/$ProjectName && opencode" -ForegroundColor Gray
 Write-Host ""
