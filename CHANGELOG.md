@@ -3,11 +3,6 @@
 ## v1.5.0 - Fix DC1 AD DS Promotion Failure & Recovery
 
 ### Bug Fixes
-- **Fix timeout config format**: Changed `Set-PSFConfig` timeout values from plain integers
-  to proper `TimeSpan` objects using `New-TimeSpan -Minutes $value`. AutomatedLab registers
-  these configs with TimeSpan validation, so passing raw integers (e.g. `120`) could be
-  misinterpreted as ticks (~0 seconds) instead of 120 minutes, causing immediate timeouts
-  during DC promotion.
 - **Add AD DS validation after Install-Lab**: After `Install-Lab` completes (or fails), the
   script now verifies that AD DS is actually operational on DC1 by checking the NTDS service,
   domain membership, and AD cmdlet availability. Previously, only network connectivity (ping

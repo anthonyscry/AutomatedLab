@@ -126,10 +126,10 @@ try {
     # Values MUST be TimeSpan objects -- passing plain integers is interpreted as
     # ticks (nanoseconds), which effectively sets the timeout to zero.
     Write-Host "  Applying AutomatedLab timeout overrides..." -ForegroundColor Yellow
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionRestartAfterDcpromo -Value (New-TimeSpan -Minutes $AL_Timeout_DcRestart)
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionAdwsReady -Value (New-TimeSpan -Minutes $AL_Timeout_AdwsReady)
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_StartLabMachine_Online -Value (New-TimeSpan -Minutes $AL_Timeout_StartVM)
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_WaitLabMachine_Online -Value (New-TimeSpan -Minutes $AL_Timeout_WaitVM)
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionRestartAfterDcpromo -Value $AL_Timeout_DcRestart
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionAdwsReady -Value $AL_Timeout_AdwsReady
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_StartLabMachine_Online -Value $AL_Timeout_StartVM
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_WaitLabMachine_Online -Value $AL_Timeout_WaitVM
     Write-Host "    DC restart: ${AL_Timeout_DcRestart}m, ADWS ready: ${AL_Timeout_AdwsReady}m, VM start/wait: ${AL_Timeout_StartVM}m" -ForegroundColor Gray
 
     New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $LabPath
