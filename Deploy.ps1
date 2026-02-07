@@ -175,9 +175,9 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # STAGE 1: DC1 + WS1 (Windows machines with static IPs)
+    # MACHINE DEFINITIONS
     # ============================================================
-    Write-Host "`n[STAGE 1] Defining and installing DC1 + WS1..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining all machines..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -196,10 +196,19 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
+    Add-LabMachineDefinition -Name 'LIN1' `
+        -Network $LabSwitch `
+        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
+        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
+        -Processors $UBU_Processors
+
     # ============================================================
-    # INSTALL STAGE 1 (AutomatedLab handles DC-first ordering)
+    # INSTALL LAB (single call - DC first, then WS1 + LIN1)
+    # AutomatedLab reduces Linux VM timeout to 15 min on Internal
+    # switches. Ubuntu from-scratch installs take longer, so we
+    # catch the timeout and wait for LIN1 manually afterwards.
     # ============================================================
-    Write-Host "`n[INSTALL] Installing DC1 + WS1..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing all machines..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -445,62 +454,40 @@ try {
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
 
     # ============================================================
-    # STAGE 2: LIN1 (requires DHCP to be ready on DC1)
+    # WAIT FOR LIN1: Ubuntu installs from ISO without network,
+    # but needs DHCP (now available) to become reachable afterwards.
     # ============================================================
-    Write-Host "`n[STAGE 2] Installing LIN1..." -ForegroundColor Cyan
-
-    # Reset AutomatedLab's exported flag so we can add more machines
-    Import-Lab -Name $LabName -NoValidation
-    & (Get-Module AutomatedLabDefinition) { $script:Lab.Exported = $false }
-
-    Add-LabMachineDefinition -Name 'LIN1' `
-        -Network $LabSwitch `
-        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
-        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
-        -Processors $UBU_Processors
-
-    # AutomatedLab reduces Linux VM timeout to 15 min on Internal switches.
-    # Ubuntu install from scratch often takes longer. Catch the timeout and
-    # wait for LIN1 manually so the deployment can continue.
-    try {
-        Install-Lab
-    } catch {
-        Write-Host "  [WARN] Install-Lab timed out for LIN1: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  Waiting for LIN1 to finish Ubuntu installation..." -ForegroundColor Yellow
-    }
-
-    # Ensure LIN1 VM is running and reachable before post-install
     $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
-    if (-not $lin1Vm) {
-        throw "LIN1 VM does not exist. Check Install-Lab output."
-    }
-    if ($lin1Vm.State -ne 'Running') {
-        Write-Host "  LIN1 VM is $($lin1Vm.State). Starting..." -ForegroundColor Yellow
-        Start-VM -Name 'LIN1'
-    }
-
-    # Wait for LIN1 to get a DHCP address and respond to ping
-    Write-Host "  Waiting for LIN1 to become reachable (up to 30 min)..." -ForegroundColor Yellow
-    $lin1Ready = $false
-    $lin1Deadline = [datetime]::Now.AddMinutes(30)
-    while ([datetime]::Now -lt $lin1Deadline) {
-        # Check if LIN1 has an IP from DHCP
-        $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-            Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
-        if ($lin1Ips) {
-            $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-            $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
-            if ($pingCheck) {
-                $lin1Ready = $true
-                Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
-                break
-            }
+    if ($lin1Vm) {
+        if ($lin1Vm.State -ne 'Running') {
+            Write-Host "  LIN1 VM is $($lin1Vm.State). Starting..." -ForegroundColor Yellow
+            Start-VM -Name 'LIN1'
         }
-        Start-Sleep -Seconds 30
-        Write-Host "    Still waiting for LIN1..." -ForegroundColor Gray
-    }
-    if (-not $lin1Ready) {
-        throw "LIN1 did not become reachable within 30 minutes. Check the VM console."
+
+        Write-Host "`n[LIN1] Waiting for LIN1 to finish installing and become reachable (up to 30 min)..." -ForegroundColor Cyan
+        $lin1Ready = $false
+        $lin1Deadline = [datetime]::Now.AddMinutes(30)
+        while ([datetime]::Now -lt $lin1Deadline) {
+            $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
+                Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+            if ($lin1Ips) {
+                $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+                $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
+                if ($pingCheck) {
+                    $lin1Ready = $true
+                    Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
+                    break
+                }
+            }
+            Start-Sleep -Seconds 30
+            Write-Host "    Still waiting for LIN1..." -ForegroundColor Gray
+        }
+        if (-not $lin1Ready) {
+            Write-Host "  [WARN] LIN1 not reachable after 30 min. Post-install config may fail." -ForegroundColor Yellow
+            Write-Host "  The VM exists and may still be installing. Check the VM console." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
     }
 
     # ============================================================

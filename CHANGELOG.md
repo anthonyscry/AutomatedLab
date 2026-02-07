@@ -15,14 +15,12 @@
   4. Re-validates that the forest is operational
 - **Wrap Install-Lab in try/catch**: `Install-Lab` timeout errors are now caught gracefully
   instead of aborting the entire deployment, allowing the recovery logic to attempt a fix.
-- **Fix "Lab is already exported" error**: Restored two-stage `Install-Lab` approach. Stage 1
-  installs DC1 + WS1 (Windows machines). After DHCP is configured on DC1, Stage 2 resets
-  AutomatedLab's exported flag and installs LIN1. LIN1 is kept without a static IP in its
-  definition because AutomatedLab's Linux autoinstall relies on DHCP during provisioning.
-- **Handle LIN1 installation timeout**: AutomatedLab reduces the Linux VM timeout to 15 min
-  on Internal switches, but Ubuntu installs from scratch often take longer. Stage 2's
-  `Install-Lab` is now wrapped in try/catch, and a manual wait loop (up to 30 min) checks
-  for LIN1 to get a DHCP address and respond to ping before proceeding to post-install.
+- **Fix "Lab is already exported" error + LIN1 timeout**: All three machines (DC1, WS1, LIN1)
+  are now defined upfront with a single `Install-Lab` call. AutomatedLab handles DC-first
+  ordering internally. LIN1 has no static IP (Ubuntu autoinstall needs DHCP). The `Install-Lab`
+  try/catch handles AutomatedLab's 15-minute Linux timeout on Internal switches. After DHCP
+  is set up on DC1 post-Install-Lab, a manual wait loop (30 min) checks for LIN1 to get a
+  DHCP address and become reachable before proceeding to post-install configuration.
 
 ## v1.4.1 - Increase AD Readiness Timeout for Slow Hosts
 
