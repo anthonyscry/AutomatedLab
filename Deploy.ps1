@@ -8,7 +8,7 @@
 param(
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
-    [string]$AdminPassword = ''
+    [string]$AdminPassword = 'Server123!'
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -33,7 +33,8 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     }
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    throw "AdminPassword is required. Provide -AdminPassword or set OPENCODELAB_ADMIN_PASSWORD."
+    $AdminPassword = 'Server123!'
+    Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
 }
 
 $IsoPath        = "$LabSourcesRoot\ISOs"
@@ -179,7 +180,7 @@ try {
     # ============================================================
     # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
     # ============================================================
-    Write-Host "`n[LAB] Defining Windows machines..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining core machines (DC1 + WS1)..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -198,14 +199,13 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
-    # LIN1 is NOT added to Install-Lab. AutomatedLab's Ubuntu 24.04
-    # autoinstall does not work on Internal switches (drops to interactive
-    # installer). LIN1 is created via Hyper-V cmdlets after DHCP is ready.
-
     # ============================================================
-    # INSTALL LAB (DC1 + WS1 only)
+    # INSTALL LAB STAGE 1 (Windows only)
+    # Keep Linux out of stage 1 so DC1 can bring DHCP online first.
+    # This prevents Ubuntu from dropping into interactive setup when
+    # no DHCP server exists yet on the internal switch.
     # ============================================================
-    Write-Host "`n[INSTALL] Installing DC1 + WS1..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing core machines (DC1 + WS1)..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -451,8 +451,26 @@ try {
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
 
     # ============================================================
-    # CREATE LIN1 VM (Hyper-V directly - AutomatedLab's Ubuntu 24.04
-    # autoinstall doesn't work on Internal switches)
+    # LIN1 STAGE 2: define/install Linux only after DHCP is live.
+    # This keeps Ubuntu 24.04 autoinstall fully unattended.
+    # ============================================================
+    Write-Host "`n[LIN1] Defining LIN1 after DHCP is available..." -ForegroundColor Cyan
+    Add-LabMachineDefinition -Name 'LIN1' `
+        -Network $LabSwitch `
+        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
+        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
+        -Processors $UBU_Processors
+
+    Write-Host "[LIN1] Installing LIN1 (unattended Ubuntu via AutomatedLab)..." -ForegroundColor Cyan
+    try {
+        Install-Lab
+    } catch {
+        Write-Host "  [WARN] Install-Lab reported during LIN1 stage: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  Continuing with explicit LIN1 readiness checks..." -ForegroundColor Yellow
+    }
+
+    # ============================================================
+    # WAIT FOR LIN1 to become reachable over SSH
     # ============================================================
     Write-Host "`n[LIN1] Creating Ubuntu VM via Hyper-V..." -ForegroundColor Cyan
 
@@ -465,65 +483,37 @@ try {
             throw "Ubuntu ISO not found at $ubuntuIso"
         }
 
-        $lin1VmPath = Join-Path $LabPath 'LIN1'
-        $lin1Vhd = Join-Path $lin1VmPath 'LIN1.vhdx'
-        New-Item -Path $lin1VmPath -ItemType Directory -Force | Out-Null
-
-        New-VM -Name 'LIN1' -Generation 2 -MemoryStartupBytes $UBU_Memory `
-            -NewVHDPath $lin1Vhd -NewVHDSizeBytes 64GB `
-            -SwitchName $LabSwitch -Path $LabPath | Out-Null
-
-        Set-VM -Name 'LIN1' -ProcessorCount $UBU_Processors `
-            -DynamicMemory -MemoryMinimumBytes $UBU_MinMemory -MemoryMaximumBytes $UBU_MaxMemory `
-            -AutomaticCheckpointsEnabled $false | Out-Null
-
-        # Gen 2 VM: add DVD, mount ISO, set boot order
-        Add-VMDvdDrive -VMName 'LIN1' -Path $ubuntuIso | Out-Null
-        $dvd = Get-VMDvdDrive -VMName 'LIN1'
-        Set-VMFirmware -VMName 'LIN1' -FirstBootDevice $dvd -EnableSecureBoot Off | Out-Null
-
-        Write-Host "  [OK] LIN1 VM created (Gen2, ${UBU_Processors}vCPU, $($UBU_Memory/1GB)GB)" -ForegroundColor Green
-    }
-
-    # Start LIN1
-    $lin1State = (Hyper-V\Get-VM -Name 'LIN1').State
-    if ($lin1State -ne 'Running') {
-        Start-VM -Name 'LIN1'
-        Write-Host "  [OK] LIN1 started - Ubuntu installer is booting" -ForegroundColor Green
-    }
-
-    # ============================================================
-    # WAIT FOR LIN1: user completes Ubuntu install interactively,
-    # then LIN1 picks up a DHCP address and becomes reachable.
-    # ============================================================
-    Write-Host "" -ForegroundColor Cyan
-    Write-Host "  *** MANUAL STEP: Complete Ubuntu installation in the LIN1 VM console. ***" -ForegroundColor Yellow
-    Write-Host "  Select: English > Ubuntu Server > DHCP (default) > defaults for disk/proxy/mirror" -ForegroundColor Yellow
-    Write-Host "  Set username: '$LabInstallUser'  password: (your admin password)" -ForegroundColor Yellow
-    Write-Host "  Enable OpenSSH server when prompted, then finish and reboot." -ForegroundColor Yellow
-    Write-Host "" -ForegroundColor Cyan
-    Write-Host "  Waiting for LIN1 to become reachable after install (up to 45 min)..." -ForegroundColor Cyan
-
-    $lin1Ready = $false
-    $lin1Deadline = [datetime]::Now.AddMinutes(45)
-    while ([datetime]::Now -lt $lin1Deadline) {
-        $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-            Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
-        if ($lin1Ips) {
-            $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-            $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
-            if ($pingCheck) {
-                $lin1Ready = $true
-                Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
-                break
+        $lin1WaitMinutes = 30
+        Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
+        $lin1Ready = $false
+        $lin1Deadline = [datetime]::Now.AddMinutes($lin1WaitMinutes)
+        $lastKnownIp = ''
+        while ([datetime]::Now -lt $lin1Deadline) {
+            $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
+                Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+            if ($lin1Ips) {
+                $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+                $lastKnownIp = $lin1DhcpIp
+                $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+                if ($sshCheck.TcpTestSucceeded) {
+                    $lin1Ready = $true
+                    Write-Host "  [OK] LIN1 SSH is reachable at $lin1DhcpIp" -ForegroundColor Green
+                    break
+                }
+            }
+            Start-Sleep -Seconds 30
+            if ($lastKnownIp) {
+                Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
+            } else {
+                Write-Host "    Still waiting for LIN1 DHCP lease..." -ForegroundColor Gray
             }
         }
-        Start-Sleep -Seconds 30
-        Write-Host "    Waiting for LIN1 ($([math]::Round(($lin1Deadline - [datetime]::Now).TotalMinutes)) min remaining)..." -ForegroundColor Gray
-    }
-    if (-not $lin1Ready) {
-        Write-Host "  [WARN] LIN1 not reachable after 45 min. Post-install config may fail." -ForegroundColor Yellow
-        Write-Host "  Complete the Ubuntu install in the VM console, then re-run this script." -ForegroundColor Yellow
+        if (-not $lin1Ready) {
+            Write-Host "  [WARN] LIN1 did not become SSH-reachable after $lin1WaitMinutes min." -ForegroundColor Yellow
+            Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
     }
 
     # ============================================================
@@ -587,30 +577,60 @@ try {
     # DC1: OpenSSH Server + allow key auth for admins (Host -> DC1)
     # ============================================================
     Write-Host "`n[POST] Configuring DC1 OpenSSH..." -ForegroundColor Cyan
+    $dc1SshReady = $false
+    try {
+        $dc1SshResult = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-OpenSSH-DC1' -ScriptBlock {
+            $result = @{ Ready = $false; Message = '' }
+            try {
+                Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction Stop | Out-Null
+            } catch {
+                $result.Message = "OpenSSH server capability install failed: $($_.Exception.Message)"
+                return $result
+            }
 
-    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Install-OpenSSH-DC1' -ScriptBlock {
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
-        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
-        Set-Service -Name sshd -StartupType Automatic
-        Start-Service sshd
-        New-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell `
-            -Value 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' `
-            -PropertyType String -Force | Out-Null
-        New-NetFirewallRule -DisplayName 'OpenSSH Server (TCP 22)' -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
-    } | Out-Null
-
-    Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
-
-    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Authorize-HostKey-DC1' -ScriptBlock {
-        param($PubKeyFileName)
-        $authKeysFile = 'C:\ProgramData\ssh\administrators_authorized_keys'
-        $pubKeyFile   = "C:\ProgramData\ssh\$PubKeyFileName"
-        if (Test-Path $pubKeyFile) {
-            Get-Content $pubKeyFile | Add-Content $authKeysFile -Force
-            icacls $authKeysFile /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)" | Out-Null
-            Remove-Item $pubKeyFile -Force -ErrorAction SilentlyContinue
+            try {
+                Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
+                Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+                Start-Service sshd -ErrorAction Stop
+                New-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell `
+                    -Value 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' `
+                    -PropertyType String -Force | Out-Null
+                New-NetFirewallRule -DisplayName 'OpenSSH Server (TCP 22)' -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
+                $result.Ready = $true
+                $result.Message = 'OpenSSH configured successfully.'
+            } catch {
+                $result.Message = "OpenSSH post-install configuration failed: $($_.Exception.Message)"
+            }
+            return $result
         }
-    } -ArgumentList $HostPublicKeyFileName | Out-Null
+
+        if ($dc1SshResult -and $dc1SshResult.Ready) {
+            $dc1SshReady = $true
+            Write-Host "  [OK] DC1 OpenSSH configured" -ForegroundColor Green
+        } else {
+            $msg = if ($dc1SshResult -and $dc1SshResult.Message) { $dc1SshResult.Message } else { 'Unknown OpenSSH configuration failure.' }
+            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without DC1 SSH key bootstrap." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  [WARN] DC1 OpenSSH setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Continuing deployment without DC1 SSH key bootstrap." -ForegroundColor Yellow
+    }
+
+    if ($dc1SshReady) {
+        Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
+
+        Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Authorize-HostKey-DC1' -ScriptBlock {
+            param($PubKeyFileName)
+            $authKeysFile = 'C:\ProgramData\ssh\administrators_authorized_keys'
+            $pubKeyFile   = "C:\ProgramData\ssh\$PubKeyFileName"
+            if (Test-Path $pubKeyFile) {
+                Get-Content $pubKeyFile | Add-Content $authKeysFile -Force
+                icacls $authKeysFile /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)" | Out-Null
+                Remove-Item $pubKeyFile -Force -ErrorAction SilentlyContinue
+            }
+        } -ArgumentList $HostPublicKeyFileName | Out-Null
+    }
 
     # DC1: WinRM HTTPS + ICMP (useful for remote management)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Configure-WinRM-HTTPS-DC1' -ScriptBlock {
@@ -830,7 +850,6 @@ catch {
 finally {
     Stop-Transcript | Out-Null
 }
-
 
 
 
