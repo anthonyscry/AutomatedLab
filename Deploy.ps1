@@ -122,6 +122,14 @@ try {
     # ============================================================
     Write-Host "`n[LAB] Defining lab '$LabName'..." -ForegroundColor Cyan
 
+    # Increase AutomatedLab timeouts for resource-constrained hosts
+    Write-Host "  Applying AutomatedLab timeout overrides..." -ForegroundColor Yellow
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionRestartAfterDcpromo -Value $AL_Timeout_DcRestart
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionAdwsReady -Value $AL_Timeout_AdwsReady
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_StartLabMachine_Online -Value $AL_Timeout_StartVM
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_WaitLabMachine_Online -Value $AL_Timeout_WaitVM
+    Write-Host "    DC restart: ${AL_Timeout_DcRestart}m, ADWS ready: ${AL_Timeout_AdwsReady}m, VM start/wait: ${AL_Timeout_StartVM}m" -ForegroundColor Gray
+
     New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $LabPath
 
     # Ensure vSwitch + NAT exist (idempotent)
