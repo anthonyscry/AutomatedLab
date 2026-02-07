@@ -175,9 +175,9 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # MACHINE DEFINITIONS
+    # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
     # ============================================================
-    Write-Host "`n[LAB] Defining all machines..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining Windows machines..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -196,19 +196,14 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
-    Add-LabMachineDefinition -Name 'LIN1' `
-        -Network $LabSwitch `
-        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
-        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
-        -Processors $UBU_Processors
+    # LIN1 is NOT added to Install-Lab. AutomatedLab's Ubuntu 24.04
+    # autoinstall does not work on Internal switches (drops to interactive
+    # installer). LIN1 is created via Hyper-V cmdlets after DHCP is ready.
 
     # ============================================================
-    # INSTALL LAB (single call - DC first, then WS1 + LIN1)
-    # AutomatedLab reduces Linux VM timeout to 15 min on Internal
-    # switches. Ubuntu from-scratch installs take longer, so we
-    # catch the timeout and wait for LIN1 manually afterwards.
+    # INSTALL LAB (DC1 + WS1 only)
     # ============================================================
-    Write-Host "`n[INSTALL] Installing all machines..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing DC1 + WS1..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -454,40 +449,79 @@ try {
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
 
     # ============================================================
-    # WAIT FOR LIN1: Ubuntu installs from ISO without network,
-    # but needs DHCP (now available) to become reachable afterwards.
+    # CREATE LIN1 VM (Hyper-V directly - AutomatedLab's Ubuntu 24.04
+    # autoinstall doesn't work on Internal switches)
     # ============================================================
-    $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
-    if ($lin1Vm) {
-        if ($lin1Vm.State -ne 'Running') {
-            Write-Host "  LIN1 VM is $($lin1Vm.State). Starting..." -ForegroundColor Yellow
-            Start-VM -Name 'LIN1'
+    Write-Host "`n[LIN1] Creating Ubuntu VM via Hyper-V..." -ForegroundColor Cyan
+
+    $lin1Existing = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+    if ($lin1Existing) {
+        Write-Host "  LIN1 VM already exists (state: $($lin1Existing.State)). Skipping creation." -ForegroundColor Yellow
+    } else {
+        $ubuntuIso = Join-Path $IsoPath 'ubuntu-24.04.3.iso'
+        if (-not (Test-Path $ubuntuIso)) {
+            throw "Ubuntu ISO not found at $ubuntuIso"
         }
 
-        Write-Host "`n[LIN1] Waiting for LIN1 to finish installing and become reachable (up to 30 min)..." -ForegroundColor Cyan
-        $lin1Ready = $false
-        $lin1Deadline = [datetime]::Now.AddMinutes(30)
-        while ([datetime]::Now -lt $lin1Deadline) {
-            $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-                Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
-            if ($lin1Ips) {
-                $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-                $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
-                if ($pingCheck) {
-                    $lin1Ready = $true
-                    Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
-                    break
-                }
+        $lin1VmPath = Join-Path $LabPath 'LIN1'
+        $lin1Vhd = Join-Path $lin1VmPath 'LIN1.vhdx'
+        New-Item -Path $lin1VmPath -ItemType Directory -Force | Out-Null
+
+        New-VM -Name 'LIN1' -Generation 2 -MemoryStartupBytes $UBU_Memory `
+            -NewVHDPath $lin1Vhd -NewVHDSizeBytes 64GB `
+            -SwitchName $LabSwitch -Path $LabPath | Out-Null
+
+        Set-VM -Name 'LIN1' -ProcessorCount $UBU_Processors `
+            -DynamicMemory -MemoryMinimumBytes $UBU_MinMemory -MemoryMaximumBytes $UBU_MaxMemory `
+            -AutomaticCheckpointsEnabled $false | Out-Null
+
+        # Gen 2 VM: add DVD, mount ISO, set boot order
+        Add-VMDvdDrive -VMName 'LIN1' -Path $ubuntuIso | Out-Null
+        $dvd = Get-VMDvdDrive -VMName 'LIN1'
+        Set-VMFirmware -VMName 'LIN1' -FirstBootDevice $dvd -EnableSecureBoot Off | Out-Null
+
+        Write-Host "  [OK] LIN1 VM created (Gen2, ${UBU_Processors}vCPU, $($UBU_Memory/1GB)GB)" -ForegroundColor Green
+    }
+
+    # Start LIN1
+    $lin1State = (Hyper-V\Get-VM -Name 'LIN1').State
+    if ($lin1State -ne 'Running') {
+        Start-VM -Name 'LIN1'
+        Write-Host "  [OK] LIN1 started - Ubuntu installer is booting" -ForegroundColor Green
+    }
+
+    # ============================================================
+    # WAIT FOR LIN1: user completes Ubuntu install interactively,
+    # then LIN1 picks up a DHCP address and becomes reachable.
+    # ============================================================
+    Write-Host "" -ForegroundColor Cyan
+    Write-Host "  *** MANUAL STEP: Complete Ubuntu installation in the LIN1 VM console. ***" -ForegroundColor Yellow
+    Write-Host "  Select: English > Ubuntu Server > DHCP (default) > defaults for disk/proxy/mirror" -ForegroundColor Yellow
+    Write-Host "  Set username: '$LabInstallUser'  password: (your admin password)" -ForegroundColor Yellow
+    Write-Host "  Enable OpenSSH server when prompted, then finish and reboot." -ForegroundColor Yellow
+    Write-Host "" -ForegroundColor Cyan
+    Write-Host "  Waiting for LIN1 to become reachable after install (up to 45 min)..." -ForegroundColor Cyan
+
+    $lin1Ready = $false
+    $lin1Deadline = [datetime]::Now.AddMinutes(45)
+    while ([datetime]::Now -lt $lin1Deadline) {
+        $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
+            Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+        if ($lin1Ips) {
+            $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+            $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
+            if ($pingCheck) {
+                $lin1Ready = $true
+                Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
+                break
             }
-            Start-Sleep -Seconds 30
-            Write-Host "    Still waiting for LIN1..." -ForegroundColor Gray
         }
-        if (-not $lin1Ready) {
-            Write-Host "  [WARN] LIN1 not reachable after 30 min. Post-install config may fail." -ForegroundColor Yellow
-            Write-Host "  The VM exists and may still be installing. Check the VM console." -ForegroundColor Yellow
-        }
-    } else {
-        Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+        Write-Host "    Waiting for LIN1 ($([math]::Round(($lin1Deadline - [datetime]::Now).TotalMinutes)) min remaining)..." -ForegroundColor Gray
+    }
+    if (-not $lin1Ready) {
+        Write-Host "  [WARN] LIN1 not reachable after 45 min. Post-install config may fail." -ForegroundColor Yellow
+        Write-Host "  Complete the Ubuntu install in the VM console, then re-run this script." -ForegroundColor Yellow
     }
 
     # ============================================================
