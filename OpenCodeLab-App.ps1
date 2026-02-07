@@ -255,7 +255,11 @@ function Invoke-BlowAway {
     Write-Host "  [2/5] Removing AutomatedLab definition..." -ForegroundColor Cyan
     try {
         Import-Module AutomatedLab -ErrorAction SilentlyContinue | Out-Null
-        Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue
+
+        # Remove-Lab can emit noisy non-terminating errors for already-missing
+        # metadata files (for example Network_<switch>.xml). Those are benign
+        # during blow-away, so suppress raw error stream and continue cleanup.
+        Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 2>$null
     } catch {
         Write-Host "  [WARN] Remove-Lab returned: $($_.Exception.Message)" -ForegroundColor Yellow
     }

@@ -86,11 +86,11 @@ actions pass noninteractive flags to their underlying scripts.
 `Deploy.ps1` supports an environment override:
 
 ```powershell
-$env:OPENCODELAB_ADMIN_PASSWORD = "YourStrongPassword"
+$env:OPENCODELAB_ADMIN_PASSWORD = "Server123!"
 .\OpenCodeLab-App.ps1 -Action one-button-setup -NonInteractive
 ```
 
-`OPENCODELAB_ADMIN_PASSWORD` (or `-AdminPassword` on deploy) is now required.
+`Deploy.ps1` now defaults to `Server123!`. You can still override with `OPENCODELAB_ADMIN_PASSWORD` or `-AdminPassword`. If an empty password is passed accidentally, deploy falls back to the default and continues.
 
 ## Run Artifacts (JSON + Text)
 
