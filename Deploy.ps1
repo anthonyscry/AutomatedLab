@@ -177,9 +177,9 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # MACHINE DEFINITIONS (all machines defined before Install-Lab)
+    # STAGE 1: DC1 + WS1 (Windows machines with static IPs)
     # ============================================================
-    Write-Host "`n[LAB] Defining all machines..." -ForegroundColor Cyan
+    Write-Host "`n[STAGE 1] Defining and installing DC1 + WS1..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -198,17 +198,10 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
-    Add-LabMachineDefinition -Name 'LIN1' `
-        -Network $LabSwitch `
-        -IpAddress $LIN1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
-        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
-        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
-        -Processors $UBU_Processors
-
     # ============================================================
-    # INSTALL LAB (single call - AutomatedLab handles DC-first ordering)
+    # INSTALL STAGE 1 (AutomatedLab handles DC-first ordering)
     # ============================================================
-    Write-Host "`n[INSTALL] Installing all machines (DC1 first, then WS1 + LIN1)..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing DC1 + WS1..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -452,6 +445,23 @@ try {
     } -ArgumentList $DhcpScopeId, $DhcpStart, $DhcpEnd, $DhcpMask, $GatewayIp, $DnsIp, $DomainName | Out-Null
 
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
+
+    # ============================================================
+    # STAGE 2: LIN1 (requires DHCP to be ready on DC1)
+    # ============================================================
+    Write-Host "`n[STAGE 2] Installing LIN1..." -ForegroundColor Cyan
+
+    # Reset AutomatedLab's exported flag so we can add more machines
+    Import-Lab -Name $LabName -NoValidation
+    & (Get-Module AutomatedLabDefinition) { $script:Lab.Exported = $false }
+
+    Add-LabMachineDefinition -Name 'LIN1' `
+        -Network $LabSwitch `
+        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
+        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
+        -Processors $UBU_Processors
+
+    Install-Lab
 
     # ============================================================
     # POST-INSTALL: DC1 share + Git

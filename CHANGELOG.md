@@ -15,11 +15,10 @@
   4. Re-validates that the forest is operational
 - **Wrap Install-Lab in try/catch**: `Install-Lab` timeout errors are now caught gracefully
   instead of aborting the entire deployment, allowing the recovery logic to attempt a fix.
-- **Fix "Lab is already exported" error**: Restructured from two-stage `Install-Lab` calls
-  to a single call. All machines (DC1, WS1, LIN1) are now defined upfront before `Install-Lab`,
-  which handles DC-first ordering internally. LIN1 now gets a static IP in its definition
-  (matching the existing post-install netplan config) so it no longer requires DHCP during
-  installation. DHCP setup on DC1 is retained for operational use after deployment.
+- **Fix "Lab is already exported" error**: Restored two-stage `Install-Lab` approach. Stage 1
+  installs DC1 + WS1 (Windows machines). After DHCP is configured on DC1, Stage 2 resets
+  AutomatedLab's exported flag and installs LIN1. LIN1 is kept without a static IP in its
+  definition because AutomatedLab's Linux autoinstall relies on DHCP during provisioning.
 
 ## v1.4.1 - Increase AD Readiness Timeout for Slow Hosts
 
