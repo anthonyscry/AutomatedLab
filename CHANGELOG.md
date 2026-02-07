@@ -15,6 +15,8 @@
   4. Re-validates that the forest is operational
 - **Wrap Install-Lab in try/catch**: `Install-Lab` timeout errors are now caught gracefully
   instead of aborting the entire deployment, allowing the recovery logic to attempt a fix.
+- **Fix Stage 2 "Lab is already exported" error**: After Stage 1's `Install-Lab` finalizes
+  the lab definition, Stage 2 now calls `Import-Lab` to re-open it before adding WS1/LIN1.
 
 ## v1.4.1 - Increase AD Readiness Timeout for Slow Hosts
 
