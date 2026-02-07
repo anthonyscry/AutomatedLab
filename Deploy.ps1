@@ -438,6 +438,10 @@ try {
     # ============================================================
     Write-Host "`n[STAGE 2] Installing WS1 + LIN1..." -ForegroundColor Cyan
 
+    # Install-Lab exports/finalizes the lab definition after Stage 1.
+    # We must import it back before adding more machines.
+    Import-Lab -Name $LabName -NoValidation
+
     Add-LabMachineDefinition -Name 'WS1' `
         -DomainName $DomainName `
         -Network $LabSwitch `
