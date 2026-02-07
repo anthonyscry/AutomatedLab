@@ -178,7 +178,7 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # MACHINE DEFINITIONS
+    # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
     # ============================================================
     Write-Host "`n[LAB] Defining core machines (DC1 + WS1)..." -ForegroundColor Cyan
 
@@ -472,11 +472,15 @@ try {
     # ============================================================
     # WAIT FOR LIN1 to become reachable over SSH
     # ============================================================
-    $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
-    if ($lin1Vm) {
-        if ($lin1Vm.State -ne 'Running') {
-            Write-Host "  LIN1 VM is $($lin1Vm.State). Starting..." -ForegroundColor Yellow
-            Start-VM -Name 'LIN1'
+    Write-Host "`n[LIN1] Creating Ubuntu VM via Hyper-V..." -ForegroundColor Cyan
+
+    $lin1Existing = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+    if ($lin1Existing) {
+        Write-Host "  LIN1 VM already exists (state: $($lin1Existing.State)). Skipping creation." -ForegroundColor Yellow
+    } else {
+        $ubuntuIso = Join-Path $IsoPath 'ubuntu-24.04.3.iso'
+        if (-not (Test-Path $ubuntuIso)) {
+            throw "Ubuntu ISO not found at $ubuntuIso"
         }
 
         $lin1WaitMinutes = 30
