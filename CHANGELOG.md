@@ -19,6 +19,10 @@
   installs DC1 + WS1 (Windows machines). After DHCP is configured on DC1, Stage 2 resets
   AutomatedLab's exported flag and installs LIN1. LIN1 is kept without a static IP in its
   definition because AutomatedLab's Linux autoinstall relies on DHCP during provisioning.
+- **Handle LIN1 installation timeout**: AutomatedLab reduces the Linux VM timeout to 15 min
+  on Internal switches, but Ubuntu installs from scratch often take longer. Stage 2's
+  `Install-Lab` is now wrapped in try/catch, and a manual wait loop (up to 30 min) checks
+  for LIN1 to get a DHCP address and respond to ping before proceeding to post-install.
 
 ## v1.4.1 - Increase AD Readiness Timeout for Slow Hosts
 
