@@ -175,9 +175,9 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # STAGE 1: DC1 ONLY (so we can stand up DHCP before Linux)
+    # MACHINE DEFINITIONS (all machines defined before Install-Lab)
     # ============================================================
-    Write-Host "`n[STAGE 1] Installing DC1 first (AD/DNS/CA)..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining all machines..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -187,6 +187,26 @@ try {
         -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
         -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
         -Processors $DC_Processors
+
+    Add-LabMachineDefinition -Name 'WS1' `
+        -DomainName $DomainName `
+        -Network $LabSwitch `
+        -IpAddress $WS1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+        -OperatingSystem 'Windows 11 Enterprise Evaluation' `
+        -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
+        -Processors $CL_Processors
+
+    Add-LabMachineDefinition -Name 'LIN1' `
+        -Network $LabSwitch `
+        -IpAddress $LIN1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
+        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
+        -Processors $UBU_Processors
+
+    # ============================================================
+    # INSTALL LAB (single call - AutomatedLab handles DC-first ordering)
+    # ============================================================
+    Write-Host "`n[INSTALL] Installing all machines (DC1 first, then WS1 + LIN1)..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -430,31 +450,6 @@ try {
     } -ArgumentList $DhcpScopeId, $DhcpStart, $DhcpEnd, $DhcpMask, $GatewayIp, $DnsIp, $DomainName | Out-Null
 
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
-
-    # ============================================================
-    # STAGE 2: WS1 + LIN1
-    # ============================================================
-    Write-Host "`n[STAGE 2] Installing WS1 + LIN1..." -ForegroundColor Cyan
-
-    # Install-Lab exports/finalizes the lab definition after Stage 1.
-    # We must import it back before adding more machines.
-    Import-Lab -Name $LabName -NoValidation
-
-    Add-LabMachineDefinition -Name 'WS1' `
-        -DomainName $DomainName `
-        -Network $LabSwitch `
-        -IpAddress $WS1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
-        -OperatingSystem 'Windows 11 Enterprise Evaluation' `
-        -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
-        -Processors $CL_Processors
-
-    Add-LabMachineDefinition -Name 'LIN1' `
-        -Network $LabSwitch `
-        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
-        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
-        -Processors $UBU_Processors
-
-    Install-Lab
 
     # ============================================================
     # POST-INSTALL: DC1 share + Git
