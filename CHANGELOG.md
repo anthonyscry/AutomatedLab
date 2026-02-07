@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.1 - Increase AD Readiness Timeout for Slow Hosts
+
+### Bug Fixes
+- Increased `AL_Timeout_AdwsReady` from 45 to 120 minutes in `Lab-Config.ps1`.
+- This addresses deployments where AD DS promotion completes, but AutomatedLab times out waiting for AD readiness on `DC1` on slower or heavily loaded hosts.
+- `Deploy.ps1` already applies this value through `Set-PSFConfig -Name Timeout_DcPromotionAdwsReady`.
+
 ## v1.4.0 - Network Validation & Error Propagation Fixes
 
 ### Bug Fixes

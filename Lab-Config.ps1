@@ -72,10 +72,10 @@ $RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso')
 
 # AutomatedLab timeout overrides (minutes)
 # Defaults are too short for resource-constrained hosts
-$AL_Timeout_DcRestart   = 90   # default 60 - wait for DC VM restart after promotion
-$AL_Timeout_AdwsReady   = 45   # default 20 - wait for AD Web Services after promotion
-$AL_Timeout_StartVM     = 90   # default 60 - wait for Start-LabVM
-$AL_Timeout_WaitVM      = 90   # default 60 - wait for Wait-LabVM
+$AL_Timeout_DcRestart   = 90    # default 60 - wait for DC VM restart after promotion
+$AL_Timeout_AdwsReady   = 120   # default 20 - wait for AD/ADWS readiness after promotion
+$AL_Timeout_StartVM     = 90    # default 60 - wait for Start-LabVM
+$AL_Timeout_WaitVM      = 90    # default 60 - wait for Wait-LabVM
 
 # Optional: Git identity (leave blank to prompt when needed)
 $GitName  = ''
