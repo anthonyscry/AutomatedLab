@@ -190,7 +190,159 @@ try {
         -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
         -Processors $DC_Processors
 
-    Install-Lab
+    $installLabFailed = $false
+    try {
+        Install-Lab
+    } catch {
+        Write-Host "  [WARN] Install-Lab encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  Will attempt to validate and recover DC1 AD DS installation..." -ForegroundColor Yellow
+        $installLabFailed = $true
+    }
+
+    # ============================================================
+    # STAGE 1 AD DS VALIDATION: Verify DC promotion succeeded
+    # ============================================================
+    Write-Host "`n[VALIDATE] Verifying AD DS promotion on DC1..." -ForegroundColor Cyan
+
+    # Ensure DC1 VM is running
+    $dc1Vm = Hyper-V\Get-VM -Name 'DC1' -ErrorAction SilentlyContinue
+    if ($dc1Vm -and $dc1Vm.State -ne 'Running') {
+        Write-Host "  DC1 VM is $($dc1Vm.State). Starting..." -ForegroundColor Yellow
+        Start-VM -Name 'DC1'
+        Start-Sleep -Seconds 30
+    }
+
+    # Wait for WinRM to become reachable
+    Write-Host "  Waiting for WinRM on DC1..." -ForegroundColor Gray
+    $winrmReady = $false
+    for ($w = 1; $w -le 12; $w++) {
+        $wrmCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        if ($wrmCheck.TcpTestSucceeded) { $winrmReady = $true; break }
+        Write-Host "    WinRM attempt $w/12..." -ForegroundColor Gray
+        Start-Sleep -Seconds 15
+    }
+    if (-not $winrmReady) {
+        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation."
+    }
+
+    # Check AD DS status on DC1
+    $adStatus = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Validate-ADDS-Status' -ScriptBlock {
+        $r = @{}
+        $feat = Get-WindowsFeature AD-Domain-Services -ErrorAction SilentlyContinue
+        $r.FeatureInstalled = ($feat -and $feat.InstallState -eq 'Installed')
+        $ntds = Get-Service NTDS -ErrorAction SilentlyContinue
+        $r.NTDSRunning = ($ntds -and $ntds.Status -eq 'Running')
+        $cs = Get-CimInstance Win32_ComputerSystem
+        $r.PartOfDomain = [bool]$cs.PartOfDomain
+        $r.CurrentDomain = $cs.Domain
+        try {
+            Import-Module ActiveDirectory -ErrorAction Stop
+            $forest = Get-ADForest -ErrorAction Stop
+            $r.ForestName = $forest.Name
+            $r.ADWorking = $true
+        } catch {
+            $r.ADWorking = $false
+            $r.ForestName = ''
+        }
+        $r
+    }
+
+    if ($adStatus.NTDSRunning -and $adStatus.ADWorking -and $adStatus.CurrentDomain -eq $DomainName) {
+        Write-Host "  [OK] DC1 is a domain controller for '$($adStatus.ForestName)'" -ForegroundColor Green
+    } else {
+        Write-Host "  [WARN] AD DS is NOT operational on DC1 after Install-Lab." -ForegroundColor Yellow
+        Write-Host "    AD DS feature installed: $($adStatus.FeatureInstalled)" -ForegroundColor Yellow
+        Write-Host "    NTDS service running:    $($adStatus.NTDSRunning)" -ForegroundColor Yellow
+        Write-Host "    AD cmdlets working:      $($adStatus.ADWorking)" -ForegroundColor Yellow
+        Write-Host "    Current domain:          '$($adStatus.CurrentDomain)' (expected: '$DomainName')" -ForegroundColor Yellow
+
+        Write-Host "`n  [RECOVERY] Attempting manual AD DS promotion on DC1..." -ForegroundColor Yellow
+
+        # Step 1: Ensure AD DS feature is installed
+        if (-not $adStatus.FeatureInstalled) {
+            Write-Host "    Installing AD-Domain-Services feature..." -ForegroundColor Yellow
+            Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Recovery-ADDS-Feature' -ScriptBlock {
+                Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
+            } | Out-Null
+            Write-Host "    [OK] AD DS feature installed" -ForegroundColor Green
+        }
+
+        # Step 2: Run Install-ADDSForest
+        $netbiosDomain = ($DomainName -split '\.')[0].ToUpper()
+        Write-Host "    Promoting DC1 to domain controller for '$DomainName' (NetBIOS: $netbiosDomain)..." -ForegroundColor Yellow
+
+        Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Recovery-ADDSForest' -ScriptBlock {
+            param($Domain, $Netbios, $Pwd)
+            $securePwd = ConvertTo-SecureString $Pwd -AsPlainText -Force
+            Install-ADDSForest `
+                -DomainName $Domain `
+                -DomainNetbiosName $Netbios `
+                -SafeModeAdministratorPassword $securePwd `
+                -InstallDns:$true `
+                -NoRebootOnCompletion:$false `
+                -Force `
+                -WarningAction SilentlyContinue
+        } -ArgumentList $DomainName, $netbiosDomain, $AdminPassword | Out-Null
+
+        Write-Host "    [OK] Install-ADDSForest initiated. Waiting for DC1 to restart..." -ForegroundColor Green
+
+        # Step 3: Wait for DC1 to go offline and come back
+        Start-Sleep -Seconds 60
+
+        $dc1Back = $false
+        $restartDeadline = [datetime]::Now.AddMinutes(15)
+        while ([datetime]::Now -lt $restartDeadline) {
+            $rCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if ($rCheck.TcpTestSucceeded) { $dc1Back = $true; break }
+            Write-Host "    Waiting for DC1 to come back online..." -ForegroundColor Gray
+            Start-Sleep -Seconds 15
+        }
+        if (-not $dc1Back) {
+            throw "DC1 did not come back online after AD DS recovery promotion. Check the VM manually."
+        }
+
+        # Step 4: Wait for ADWS and NTDS to start
+        Write-Host "    Waiting for AD services to initialize..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 60
+
+        $adwsReady = $false
+        $adwsDeadline = [datetime]::Now.AddMinutes(10)
+        while ([datetime]::Now -lt $adwsDeadline) {
+            try {
+                $svcCheck = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ScriptBlock {
+                    @{
+                        ADWS = (Get-Service ADWS -ErrorAction SilentlyContinue).Status.ToString()
+                        NTDS = (Get-Service NTDS -ErrorAction SilentlyContinue).Status.ToString()
+                    }
+                }
+                if ($svcCheck.ADWS -eq 'Running' -and $svcCheck.NTDS -eq 'Running') {
+                    $adwsReady = $true; break
+                }
+                Write-Host "      ADWS: $($svcCheck.ADWS), NTDS: $($svcCheck.NTDS) - waiting..." -ForegroundColor Gray
+            } catch {
+                Write-Host "      Waiting for WinRM..." -ForegroundColor Gray
+            }
+            Start-Sleep -Seconds 20
+        }
+        if (-not $adwsReady) {
+            throw "AD Web Services did not start on DC1 after recovery. Check DC1 event logs (Event Viewer > Directory Services)."
+        }
+
+        # Step 5: Final validation
+        $finalAd = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ScriptBlock {
+            try {
+                $forest = Get-ADForest -ErrorAction Stop
+                @{ ADWorking = $true; ForestName = $forest.Name; Domain = (Get-CimInstance Win32_ComputerSystem).Domain }
+            } catch {
+                @{ ADWorking = $false; ForestName = ''; Domain = (Get-CimInstance Win32_ComputerSystem).Domain }
+            }
+        }
+        if ($finalAd.ADWorking -and $finalAd.Domain -eq $DomainName) {
+            Write-Host "  [OK] Recovery successful! DC1 is domain controller for '$($finalAd.ForestName)'" -ForegroundColor Green
+        } else {
+            throw "AD DS recovery failed. DC1 domain: '$($finalAd.Domain)', AD working: $($finalAd.ADWorking). Check DC1 event logs."
+        }
+    }
 
     # ============================================================
     # STAGE 1 VALIDATION: Network connectivity check
