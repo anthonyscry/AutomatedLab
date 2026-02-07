@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.0 - Fix DC Promotion Timeout on Resource-Constrained Hosts
+
+### Bug Fix
+- Fixed deployment failure: "Timeout occurred waiting for Active Directory to be ready on Domain Controller: DC1"
+- AutomatedLab default ADWS timeout (20 min) was too short for smaller hosts
+- Added configurable timeout overrides in `Lab-Config.ps1`:
+  - `AL_Timeout_DcRestart` = 90 min (was 60)
+  - `AL_Timeout_AdwsReady` = 45 min (was 20) -- **root cause**
+  - `AL_Timeout_StartVM` = 90 min (was 60)
+  - `AL_Timeout_WaitVM` = 90 min (was 60)
+- `Deploy.ps1` now applies `Set-PSFConfig` overrides before `Install-Lab`
+
 ## v1.2.0 - Compatibility Hardening
 
 - Replaced all `<# ... #>` block comments with `#` line comments across all 15 scripts
