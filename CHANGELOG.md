@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.4.0 - Network Validation & Error Propagation Fixes
+
+### Bug Fixes
+- **Fix `Get-VM` PowerCLI conflict**: Module-qualified `Get-VM` → `Hyper-V\Get-VM` in
+  `OpenCodeLab-App.ps1` post-deploy VM check. Machines with VMware PowerCLI installed
+  would silently use the wrong `Get-VM` cmdlet, always reporting VMs as missing.
+- **Add Stage 1 network connectivity validation** in `Deploy.ps1`: After `Install-Lab`
+  creates DC1, the script now verifies before proceeding to Stage 2:
+  1. Host adapter (`vEthernet (OpenCodeLabSwitch)`) still has 192.168.11.1 assigned
+  2. NAT rule still exists
+  3. DC1 (192.168.11.3) responds to ping
+  4. WinRM port 5985 is reachable on DC1 (with 60s retry)
+  - If the host IP or NAT were removed by `Install-Lab`, they are automatically re-applied
+  - If DC1 is unreachable, deployment aborts with a clear error instead of waiting 80+ min
+- **Fix error propagation in `Deploy.ps1`**: The outer `catch` block now re-throws after
+  logging, so `Bootstrap.ps1` (and `OpenCodeLab-App.ps1`) correctly detect deployment
+  failure instead of reporting "ok"
+
 ## v1.3.0 - Fix DC Promotion Timeout on Resource-Constrained Hosts
 
 ### Bug Fix

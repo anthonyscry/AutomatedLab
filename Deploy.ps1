@@ -191,6 +191,62 @@ try {
     Install-Lab
 
     # ============================================================
+    # STAGE 1 VALIDATION: Network connectivity check
+    # ============================================================
+    Write-Host "`n[VALIDATE] Verifying host-to-DC1 network connectivity..." -ForegroundColor Cyan
+
+    # 1. Ensure host adapter still has the gateway IP (Install-Lab may have interfered)
+    $ifAlias = "vEthernet ($LabSwitch)"
+    $hostIp = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+              Where-Object { $_.IPAddress -eq $GatewayIp }
+    if (-not $hostIp) {
+        Write-Host "  [WARN] Host gateway IP $GatewayIp missing on $ifAlias after Install-Lab. Re-applying..." -ForegroundColor Yellow
+        Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
+        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIp -PrefixLength 24 | Out-Null
+        Write-Host "  [OK] Re-applied host gateway IP: $GatewayIp" -ForegroundColor Green
+    } else {
+        Write-Host "  [OK] Host gateway IP intact: $GatewayIp" -ForegroundColor Green
+    }
+
+    # 2. Verify NAT still exists
+    $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+    if (-not $nat) {
+        Write-Host "  [WARN] NAT '$NatName' missing after Install-Lab. Recreating..." -ForegroundColor Yellow
+        New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
+        Write-Host "  [OK] Recreated NAT: $NatName" -ForegroundColor Green
+    } else {
+        Write-Host "  [OK] NAT intact: $NatName" -ForegroundColor Green
+    }
+
+    # 3. Ping DC1 to verify L3 connectivity
+    $pingOk = Test-Connection -ComputerName $DC1_Ip -Count 3 -Quiet -ErrorAction SilentlyContinue
+    if (-not $pingOk) {
+        throw "Cannot ping DC1 ($DC1_Ip) from host after Stage 1. Check vSwitch '$LabSwitch' and host adapter '$ifAlias'. Aborting before Stage 2."
+    }
+    Write-Host "  [OK] DC1 ($DC1_Ip) responds to ping" -ForegroundColor Green
+
+    # 4. Verify WinRM connectivity (this is what AutomatedLab uses internally)
+    $winrmOk = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    if (-not $winrmOk.TcpTestSucceeded) {
+        Write-Host "  [WARN] WinRM port 5985 not reachable on DC1 ($DC1_Ip). AD may still be starting." -ForegroundColor Yellow
+        Write-Host "  Waiting 60s for WinRM to become available..." -ForegroundColor Yellow
+        $retries = 6
+        $winrmUp = $false
+        for ($i = 1; $i -le $retries; $i++) {
+            Start-Sleep -Seconds 10
+            $check = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if ($check.TcpTestSucceeded) { $winrmUp = $true; break }
+            Write-Host "    Retry $i/$retries..." -ForegroundColor Gray
+        }
+        if (-not $winrmUp) {
+            throw "WinRM (port 5985) on DC1 ($DC1_Ip) is unreachable after 60s. Cannot proceed to Stage 2."
+        }
+    }
+    Write-Host "  [OK] WinRM reachable on DC1 ($DC1_Ip):5985" -ForegroundColor Green
+    Write-Host "  [OK] Stage 1 validation passed - proceeding to DHCP + Stage 2" -ForegroundColor Green
+
+    # ============================================================
     # DC1: DHCP ROLE + SCOPE
     # ============================================================
     Write-Host "`n[DC1] Enabling DHCP for Linux installs (prevents Ubuntu DHCP/autoconfig failure)..." -ForegroundColor Cyan
@@ -543,6 +599,7 @@ catch {
     Write-Host "`nDEPLOYMENT FAILED:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     Write-Host "`nSee log: $logFile" -ForegroundColor Yellow
+    throw
 }
 finally {
     Stop-Transcript | Out-Null

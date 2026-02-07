@@ -307,7 +307,7 @@ function Invoke-OneButtonSetup {
     Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
 
     # Verify VMs exist after bootstrap (bootstrap chains into deploy)
-    $missingVMs = $LabVMs | Where-Object { -not (Get-VM -Name $_ -ErrorAction SilentlyContinue) }
+    $missingVMs = $LabVMs | Where-Object { -not (Hyper-V\Get-VM -Name $_ -ErrorAction SilentlyContinue) }
     if ($missingVMs) {
         throw "VMs not found after bootstrap: $($missingVMs -join ', '). Deploy may have failed."
     }
