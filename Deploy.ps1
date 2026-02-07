@@ -459,7 +459,49 @@ try {
         -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
         -Processors $UBU_Processors
 
-    Install-Lab
+    # AutomatedLab reduces Linux VM timeout to 15 min on Internal switches.
+    # Ubuntu install from scratch often takes longer. Catch the timeout and
+    # wait for LIN1 manually so the deployment can continue.
+    try {
+        Install-Lab
+    } catch {
+        Write-Host "  [WARN] Install-Lab timed out for LIN1: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  Waiting for LIN1 to finish Ubuntu installation..." -ForegroundColor Yellow
+    }
+
+    # Ensure LIN1 VM is running and reachable before post-install
+    $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+    if (-not $lin1Vm) {
+        throw "LIN1 VM does not exist. Check Install-Lab output."
+    }
+    if ($lin1Vm.State -ne 'Running') {
+        Write-Host "  LIN1 VM is $($lin1Vm.State). Starting..." -ForegroundColor Yellow
+        Start-VM -Name 'LIN1'
+    }
+
+    # Wait for LIN1 to get a DHCP address and respond to ping
+    Write-Host "  Waiting for LIN1 to become reachable (up to 30 min)..." -ForegroundColor Yellow
+    $lin1Ready = $false
+    $lin1Deadline = [datetime]::Now.AddMinutes(30)
+    while ([datetime]::Now -lt $lin1Deadline) {
+        # Check if LIN1 has an IP from DHCP
+        $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
+            Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+        if ($lin1Ips) {
+            $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+            $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
+            if ($pingCheck) {
+                $lin1Ready = $true
+                Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
+                break
+            }
+        }
+        Start-Sleep -Seconds 30
+        Write-Host "    Still waiting for LIN1..." -ForegroundColor Gray
+    }
+    if (-not $lin1Ready) {
+        throw "LIN1 did not become reachable within 30 minutes. Check the VM console."
+    }
 
     # ============================================================
     # POST-INSTALL: DC1 share + Git
