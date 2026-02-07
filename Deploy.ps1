@@ -180,7 +180,7 @@ try {
     # ============================================================
     # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
     # ============================================================
-    Write-Host "`n[LAB] Defining core machines (DC1 + WS1)..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -199,13 +199,19 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
+
+    Add-LabMachineDefinition -Name 'LIN1' `
+        -Network $LabSwitch `
+        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
+        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
+        -Processors $UBU_Processors
+
     # ============================================================
-    # INSTALL LAB STAGE 1 (Windows only)
-    # Keep Linux out of stage 1 so DC1 can bring DHCP online first.
-    # This prevents Ubuntu from dropping into interactive setup when
-    # no DHCP server exists yet on the internal switch.
+    # INSTALL LAB (single call for all machines)
+    # LIN1 is included here to avoid adding machine definitions after
+    # lab export, which causes "Lab is already exported" failures.
     # ============================================================
-    Write-Host "`n[INSTALL] Installing core machines (DC1 + WS1)..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -449,25 +455,6 @@ try {
     } -ArgumentList $DhcpScopeId, $DhcpStart, $DhcpEnd, $DhcpMask, $GatewayIp, $DnsIp, $DomainName | Out-Null
 
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
-
-    # ============================================================
-    # LIN1 STAGE 2: define/install Linux only after DHCP is live.
-    # This keeps Ubuntu 24.04 autoinstall fully unattended.
-    # ============================================================
-    Write-Host "`n[LIN1] Defining LIN1 after DHCP is available..." -ForegroundColor Cyan
-    Add-LabMachineDefinition -Name 'LIN1' `
-        -Network $LabSwitch `
-        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
-        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
-        -Processors $UBU_Processors
-
-    Write-Host "[LIN1] Installing LIN1 (unattended Ubuntu via AutomatedLab)..." -ForegroundColor Cyan
-    try {
-        Install-Lab
-    } catch {
-        Write-Host "  [WARN] Install-Lab reported during LIN1 stage: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  Continuing with explicit LIN1 readiness checks..." -ForegroundColor Yellow
-    }
 
     # ============================================================
     # WAIT FOR LIN1 to become reachable over SSH

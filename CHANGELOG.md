@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.5.7 - Quiet Benign Remove-Lab Metadata Errors During Blow-Away
+
+### Bug Fixes
+- Updated `OpenCodeLab-App.ps1` blow-away flow to suppress noisy non-terminating `Remove-Lab` error output for already-missing metadata files.
+- Teardown behavior remains unchanged: cleanup still continues through VM/file/network removal steps.
+
+## v1.5.6 - Fix "Lab is already exported" During LIN1 Stage
+
+### Bug Fixes
+- Removed late LIN1 machine-definition step in `Deploy.ps1` that attempted to call `Add-LabMachineDefinition` after `Install-Lab` export.
+- Restored single machine-definition phase for `DC1`, `WS1`, and `LIN1` before `Install-Lab`, preventing export-state failures.
+- Kept post-install LIN1 SSH readiness wait and DC1 OpenSSH non-blocking hardening in place.
+
 ## v1.5.5 - Do Not Fail Deploy on DC1 OpenSSH Capability Errors
 
 ### Bug Fixes
