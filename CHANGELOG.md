@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.5.0 - Fix DC1 AD DS Promotion Failure & Recovery
+
+### Bug Fixes
+- **Fix timeout config format**: Changed `Set-PSFConfig` timeout values from plain integers
+  to proper `TimeSpan` objects using `New-TimeSpan -Minutes $value`. AutomatedLab registers
+  these configs with TimeSpan validation, so passing raw integers (e.g. `120`) could be
+  misinterpreted as ticks (~0 seconds) instead of 120 minutes, causing immediate timeouts
+  during DC promotion.
+- **Add AD DS validation after Install-Lab**: After `Install-Lab` completes (or fails), the
+  script now verifies that AD DS is actually operational on DC1 by checking the NTDS service,
+  domain membership, and AD cmdlet availability. Previously, only network connectivity (ping
+  and WinRM) was validated, so a silently failed DC promotion would go undetected.
+- **Add AD DS recovery logic**: If validation detects that DC1 was not promoted (e.g.
+  `Install-ADDSForest` failed silently), the script now attempts automatic recovery:
+  1. Installs the AD-Domain-Services feature if missing
+  2. Runs `Install-ADDSForest` manually with the correct domain parameters
+  3. Waits for DC1 to restart and AD Web Services to initialize
+  4. Re-validates that the forest is operational
+- **Wrap Install-Lab in try/catch**: `Install-Lab` timeout errors are now caught gracefully
+  instead of aborting the entire deployment, allowing the recovery logic to attempt a fix.
+
 ## v1.4.1 - Increase AD Readiness Timeout for Slow Hosts
 
 ### Bug Fixes
