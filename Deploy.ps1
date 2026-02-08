@@ -243,7 +243,7 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # MACHINE DEFINITIONS
+    # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
     # ============================================================
     if ($IncludeLIN1) {
         Write-Host "`n[LAB] Defining all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
