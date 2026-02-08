@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.6.0 - Add Pre-Install LIN1 Collision Guard
+
+### Bug Fixes
+- Added a second stale-VM cleanup guard immediately before `Install-Lab` in `Deploy.ps1`.
+- Prevents late `LIN1 already exists` / malformed LIN1 notes XML failures by verifying no lab VM names remain before AutomatedLab VM creation starts.
+
 ## v1.5.9 - Enforce Stale VM Removal Before Install
 
 ### Bug Fixes
