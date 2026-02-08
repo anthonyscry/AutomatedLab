@@ -533,6 +533,37 @@ try {
 
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
 
+    # Configure DNS forwarders on DC1 so lab clients can resolve external hosts (GitHub, package feeds).
+    try {
+        $dnsForwarderResults = @(Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Configure-DNS-Forwarders' -ScriptBlock {
+            $targetForwarders = @('1.1.1.1','8.8.8.8')
+            $existing = @(Get-DnsServerForwarder -ErrorAction SilentlyContinue | ForEach-Object { $_.IPAddress.IPAddressToString })
+            $missing = @($targetForwarders | Where-Object { $_ -notin $existing })
+
+            if ($missing.Count -gt 0) {
+                Add-DnsServerForwarder -IPAddress $missing -PassThru -ErrorAction Stop | Out-Null
+            }
+
+            $probe = Resolve-DnsName -Name 'release-assets.githubusercontent.com' -Type A -ErrorAction SilentlyContinue
+            if ($probe) {
+                return [pscustomobject]@{ Ready = $true; Message = 'DNS forwarders configured and external resolution verified.' }
+            }
+
+            return [pscustomobject]@{ Ready = $false; Message = 'Forwarders configured but external DNS probe did not resolve yet.' }
+        } -PassThru)
+
+        $dnsForwarderResult = @($dnsForwarderResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Ready' } | Select-Object -Last 1)
+        if ($dnsForwarderResult.Count -gt 0 -and $dnsForwarderResult[0].Ready) {
+            Write-Host "  [OK] $($dnsForwarderResult[0].Message)" -ForegroundColor Green
+        } elseif ($dnsForwarderResult.Count -gt 0) {
+            Write-Host "  [WARN] $($dnsForwarderResult[0].Message)" -ForegroundColor Yellow
+        } else {
+            Write-Host "  [WARN] DNS forwarder step returned no structured result." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  [WARN] DNS forwarder configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
     $lin1Ready = $false
 
     # ============================================================
@@ -605,9 +636,17 @@ try {
             Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
             $lin1Deadline = [datetime]::Now.AddMinutes($lin1WaitMinutes)
             $lastKnownIp = ''
+            $lastLeaseIp = ''
+            $waitTick = 0
             while ([datetime]::Now -lt $lin1Deadline) {
-                $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-                    Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+                $waitTick++
+
+                $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+                $lin1Ips = @()
+                if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
+                    $lin1Ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
+                }
+
                 if ($lin1Ips) {
                     $lin1DhcpIp = $lin1Ips | Select-Object -First 1
                     $lastKnownIp = $lin1DhcpIp
@@ -618,16 +657,34 @@ try {
                         break
                     }
                 }
+
+                if (-not $lastKnownIp -and (Get-Command Get-LIN1DhcpLeaseIPv4 -ErrorAction SilentlyContinue)) {
+                    $leaseIp = Get-LIN1DhcpLeaseIPv4 -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+                    if ($leaseIp) {
+                        $lastLeaseIp = $leaseIp
+                    }
+                }
+
                 Start-Sleep -Seconds 30
                 if ($lastKnownIp) {
                     Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
+                } elseif ($lastLeaseIp) {
+                    Write-Host "    DHCP lease seen for LIN1 ($lastLeaseIp), waiting for Hyper-V guest IP + SSH..." -ForegroundColor Gray
                 } else {
                     Write-Host "    Still waiting for LIN1 DHCP lease..." -ForegroundColor Gray
+                }
+
+                if (($waitTick % 6) -eq 0) {
+                    $vmState = (Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue).State
+                    Write-Host "    LIN1 VM state: $vmState" -ForegroundColor DarkGray
                 }
             }
             if (-not $lin1Ready) {
                 Write-Host "  [WARN] LIN1 did not become SSH-reachable after $lin1WaitMinutes min." -ForegroundColor Yellow
                 Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
+                if ($lastLeaseIp) {
+                    Write-Host "  [INFO] LIN1 DHCP lease observed at: $lastLeaseIp" -ForegroundColor DarkGray
+                }
             }
         } else {
             Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
@@ -690,20 +747,114 @@ try {
         }
     } | Out-Null
 
-    # Install Git on DC1 (winget if available, else direct)
-    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Install-Git-DC1' -ScriptBlock {
-        $winget = Get-Command winget -ErrorAction SilentlyContinue
-        if ($winget) {
-            winget install --id Git.Git --accept-package-agreements --accept-source-agreements --silent 2>$null
-        } else {
+    # Install Git on DC1 (winget preferred, with offline/web fallback)
+    try {
+        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock {
+            $result = [pscustomobject]@{ Installed = $false; Message = '' }
+
+            function Invoke-ProcessWithTimeout {
+                param(
+                    [Parameter(Mandatory)][string]$FilePath,
+                    [Parameter(Mandatory)][string]$Arguments,
+                    [int]$TimeoutSeconds = 600
+                )
+
+                $proc = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru -NoNewWindow
+                $completed = $true
+                try {
+                    Wait-Process -Id $proc.Id -Timeout $TimeoutSeconds -ErrorAction Stop
+                } catch {
+                    $completed = $false
+                }
+
+                if (-not $completed) {
+                    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                    return $null
+                }
+
+                $proc.Refresh()
+                return $proc.ExitCode
+            }
+
+            if (Get-Command git -ErrorAction SilentlyContinue) {
+                $result.Installed = $true
+                $result.Message = 'Git already installed.'
+                return $result
+            }
+
+            $winget = Get-Command winget -ErrorAction SilentlyContinue
+            if ($winget) {
+                $wingetExit = Invoke-ProcessWithTimeout -FilePath $winget.Source -Arguments 'install --id Git.Git --accept-package-agreements --accept-source-agreements --silent --disable-interactivity' -TimeoutSeconds 180
+                if ((Get-Command git -ErrorAction SilentlyContinue) -or $wingetExit -eq 0) {
+                    $result.Installed = $true
+                    $result.Message = 'Git installed via winget.'
+                    return $result
+                }
+                if ($null -eq $wingetExit) {
+                    $result.Message = 'winget install timed out; trying fallback installers.'
+                }
+            }
+
+            $localInstaller = 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe'
+            if (Test-Path $localInstaller) {
+                $localExit = Invoke-ProcessWithTimeout -FilePath $localInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
+                if ((Get-Command git -ErrorAction SilentlyContinue) -or $localExit -eq 0) {
+                    $result.Installed = $true
+                    $result.Message = 'Git installed from local cached installer.'
+                    return $result
+                }
+            }
+
+            $dnsProbe = Resolve-DnsName -Name 'release-assets.githubusercontent.com' -Type A -ErrorAction SilentlyContinue
+            if (-not $dnsProbe) {
+                if ([string]::IsNullOrWhiteSpace($result.Message)) {
+                    $result.Message = 'External DNS not resolving release-assets.githubusercontent.com; skipping web installer.'
+                }
+                return $result
+            }
+
             $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe'
             $gitInstaller = "$env:TEMP\GitInstall.exe"
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
-            Start-Process -FilePath $gitInstaller -ArgumentList '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -Wait -NoNewWindow
+
+            for ($attempt = 1; $attempt -le 2; $attempt++) {
+                try {
+                    Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
+                    $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
+                    if ((Get-Command git -ErrorAction SilentlyContinue) -or $webExit -eq 0) {
+                        $result.Installed = $true
+                        $result.Message = "Git installed via direct download (attempt $attempt)."
+                        break
+                    }
+                } catch {
+                    $result.Message = "Git download/install attempt $attempt failed: $($_.Exception.Message)"
+                    Start-Sleep -Seconds (5 * $attempt)
+                }
+            }
+
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            if (-not $result.Installed -and [string]::IsNullOrWhiteSpace($result.Message)) {
+                $result.Message = 'Git installer path exhausted (winget/local/web).'
+            }
+            return $result
+        })
+
+        $dc1GitResult = @($dc1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
+
+        if ($dc1GitResult.Count -gt 0 -and $dc1GitResult[0].Installed) {
+            Write-Host "  [OK] $($dc1GitResult[0].Message)" -ForegroundColor Green
+        } elseif ($dc1GitResult.Count -gt 0) {
+            $msg = if ($dc1GitResult[0].Message) { $dc1GitResult[0].Message } else { 'Unknown Git install failure on DC1.' }
+            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without guaranteed Git on DC1." -ForegroundColor Yellow
+        } else {
+            Write-Host "  [WARN] Git installation step on DC1 returned no structured result." -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without guaranteed Git on DC1." -ForegroundColor Yellow
         }
-    } | Out-Null
+    } catch {
+        Write-Host "  [WARN] Git installation step on DC1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Continuing deployment without guaranteed Git on DC1." -ForegroundColor Yellow
+    }
 
     # ============================================================
     # DC1: OpenSSH Server + allow key auth for admins (Host -> DC1)
@@ -851,13 +1002,114 @@ try {
         New-NetFirewallRule -DisplayName 'ICMPv4 Allow' -Protocol ICMPv4 -IcmpType 8 -Action Allow -Direction Inbound -ErrorAction SilentlyContinue | Out-Null
     } | Out-Null
 
-    # WS1: Git (winget)
-    Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Install-Git-WS1' -ScriptBlock {
-        $winget = Get-Command winget -ErrorAction SilentlyContinue
-        if ($winget) {
-            winget install --id Git.Git --accept-package-agreements --accept-source-agreements --silent 2>$null
+    # WS1: Git (winget preferred, with offline/web fallback)
+    try {
+        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'WS1' -PassThru -ActivityName 'Install-Git-WS1' -ScriptBlock {
+            $result = [pscustomobject]@{ Installed = $false; Message = '' }
+
+            function Invoke-ProcessWithTimeout {
+                param(
+                    [Parameter(Mandatory)][string]$FilePath,
+                    [Parameter(Mandatory)][string]$Arguments,
+                    [int]$TimeoutSeconds = 600
+                )
+
+                $proc = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru -NoNewWindow
+                $completed = $true
+                try {
+                    Wait-Process -Id $proc.Id -Timeout $TimeoutSeconds -ErrorAction Stop
+                } catch {
+                    $completed = $false
+                }
+
+                if (-not $completed) {
+                    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                    return $null
+                }
+
+                $proc.Refresh()
+                return $proc.ExitCode
+            }
+
+            if (Get-Command git -ErrorAction SilentlyContinue) {
+                $result.Installed = $true
+                $result.Message = 'Git already installed.'
+                return $result
+            }
+
+            $winget = Get-Command winget -ErrorAction SilentlyContinue
+            if ($winget) {
+                $wingetExit = Invoke-ProcessWithTimeout -FilePath $winget.Source -Arguments 'install --id Git.Git --accept-package-agreements --accept-source-agreements --silent --disable-interactivity' -TimeoutSeconds 180
+                if ((Get-Command git -ErrorAction SilentlyContinue) -or $wingetExit -eq 0) {
+                    $result.Installed = $true
+                    $result.Message = 'Git installed via winget.'
+                    return $result
+                }
+                if ($null -eq $wingetExit) {
+                    $result.Message = 'winget install timed out; trying fallback installers.'
+                }
+            }
+
+            $localInstaller = 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe'
+            if (Test-Path $localInstaller) {
+                $localExit = Invoke-ProcessWithTimeout -FilePath $localInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
+                if ((Get-Command git -ErrorAction SilentlyContinue) -or $localExit -eq 0) {
+                    $result.Installed = $true
+                    $result.Message = 'Git installed from local cached installer.'
+                    return $result
+                }
+            }
+
+            $dnsProbe = Resolve-DnsName -Name 'release-assets.githubusercontent.com' -Type A -ErrorAction SilentlyContinue
+            if (-not $dnsProbe) {
+                if ([string]::IsNullOrWhiteSpace($result.Message)) {
+                    $result.Message = 'External DNS not resolving release-assets.githubusercontent.com; skipping web installer.'
+                }
+                return $result
+            }
+
+            $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe'
+            $gitInstaller = "$env:TEMP\GitInstall.exe"
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+            for ($attempt = 1; $attempt -le 2; $attempt++) {
+                try {
+                    Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
+                    $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
+                    if ((Get-Command git -ErrorAction SilentlyContinue) -or $webExit -eq 0) {
+                        $result.Installed = $true
+                        $result.Message = "Git installed via direct download (attempt $attempt)."
+                        break
+                    }
+                } catch {
+                    $result.Message = "Git download/install attempt $attempt failed: $($_.Exception.Message)"
+                    Start-Sleep -Seconds (5 * $attempt)
+                }
+            }
+
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            if (-not $result.Installed -and [string]::IsNullOrWhiteSpace($result.Message)) {
+                $result.Message = 'Git installer path exhausted (winget/local/web).'
+            }
+            return $result
+        })
+
+        $ws1GitResult = @($ws1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
+
+        if ($ws1GitResult.Count -gt 0 -and $ws1GitResult[0].Installed) {
+            Write-Host "  [OK] $($ws1GitResult[0].Message)" -ForegroundColor Green
+        } elseif ($ws1GitResult.Count -gt 0) {
+            $msg = if ($ws1GitResult[0].Message) { $ws1GitResult[0].Message } else { 'Unknown Git install failure on WS1.' }
+            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without guaranteed Git on WS1." -ForegroundColor Yellow
+        } else {
+            Write-Host "  [WARN] Git installation step on WS1 returned no structured result." -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without guaranteed Git on WS1." -ForegroundColor Yellow
         }
-    } | Out-Null
+    } catch {
+        Write-Host "  [WARN] Git installation step on WS1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Continuing deployment without guaranteed Git on WS1." -ForegroundColor Yellow
+    }
 
 
     # ============================================================
@@ -1028,6 +1280,3 @@ catch {
 finally {
     Stop-Transcript | Out-Null
 }
-
-
-
