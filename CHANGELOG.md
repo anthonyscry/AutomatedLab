@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.0 - Fix LIN1 Ubuntu 24.04 Install Hang & WS1 RSAT Access Denied
+
+### Bug Fixes
+- **Fix LIN1 Ubuntu 24.04 installation hang**: AutomatedLab does not support Ubuntu 24.04 (missing OS definition in `OperatingSystem.cs` and generates cloud-init YAML without the `autoinstall:` directive). The Subiquity installer drops to an interactive wizard and hangs forever. LIN1 is now created manually using native Hyper-V cmdlets with a CIDATA seed disk instead of going through AutomatedLab.
+- **Fix WS1 RSAT "Access is denied" COMException**: Domain-joined Win11 inherits Group Policy that redirects Windows Update through DC1, but DC1 doesn't run WSUS. `Add-WindowsCapability` for RSAT features fails with a COMException. Deploy now temporarily bypasses WSUS (`UseWUServer = 0`) during RSAT install and restores the original value afterward. RSAT failure is now non-fatal — deployment logs a warning and continues.
+
+### Changes
+- Added `Get-Sha512PasswordHash` function to `Lab-Common.ps1` — generates SHA-512 crypt password hashes for Ubuntu autoinstall identity section (tries OpenSSL first, falls back to .NET crypto).
+- Added `New-CidataVhdx` function to `Lab-Common.ps1` — creates a 64 MB FAT32-formatted VHDX with volume label `CIDATA` containing proper `user-data` (with `autoinstall:` directive) and `meta-data` files. Uses VHDX instead of ISO to avoid requiring `oscdimg.exe` or other external tools.
+- Added `New-LIN1VM` function to `Lab-Common.ps1` — creates a Gen2 Hyper-V VM with Secure Boot disabled, attaches the Ubuntu ISO as DVD and the CIDATA VHDX as a second SCSI disk, and sets boot order to DVD-first.
+- `Deploy.ps1` now creates LIN1 manually (outside AutomatedLab) after DHCP is configured on DC1, when `-IncludeLIN1` is specified. Calls `Remove-HyperVVMStale`, `Get-Sha512PasswordHash`, `New-CidataVhdx`, `New-LIN1VM`, then `Start-VM` before entering the existing SSH wait loop.
+- RSAT install scriptblock in `Deploy.ps1` now saves/restores `UseWUServer` registry value and restarts `wuauserv` around `Add-WindowsCapability` calls. Wrapped at host level in try/catch so RSAT failure is non-fatal.
+
 ## v1.7.2 - Add Numbered End-to-End Run Order
 
 ### Changes
