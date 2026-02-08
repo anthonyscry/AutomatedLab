@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
-    [string]$AdminPassword = '$Server123!'
+    [string]$AdminPassword = 'Server123!'
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -21,7 +21,7 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword) -and $env:OPENCODELAB_ADMIN_PAS
     $AdminPassword = $env:OPENCODELAB_ADMIN_PASSWORD
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    $AdminPassword = '$Server123!'
+    $AdminPassword = 'Server123!'
     Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
 }
 
