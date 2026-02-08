@@ -9,7 +9,7 @@ param(
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
     [switch]$IncludeLIN1,
-    [string]$AdminPassword = 'Server123!'
+    [string]$AdminPassword = '$Server123!'
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -27,14 +27,14 @@ $ProgressPreference = 'SilentlyContinue'
 # Config loaded from Lab-Config.ps1
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
-$LabInstallUser = 'install'
+$LabInstallUser = 'anthonyscry'
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     if ($env:OPENCODELAB_ADMIN_PASSWORD) {
         $AdminPassword = $env:OPENCODELAB_ADMIN_PASSWORD
     }
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    $AdminPassword = 'Server123!'
+    $AdminPassword = '$Server123!'
     Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
 }
 

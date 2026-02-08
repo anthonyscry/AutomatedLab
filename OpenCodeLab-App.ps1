@@ -456,9 +456,9 @@ function Show-Menu {
     Write-Host "   [A] One-Button Setup (bootstrap + deploy + start + status)" -ForegroundColor Green
     Write-Host "   [B] Bootstrap + Deploy" -ForegroundColor White
     Write-Host "   [D] Deploy only" -ForegroundColor White
-    Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
     Write-Host "   [N] Add LIN1 VM (Ubuntu 24.04)" -ForegroundColor White
     Write-Host "   [L] Configure LIN1 SSH (post-deploy)" -ForegroundColor White
+    Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
     Write-Host ""
     Write-Host "  DAILY" -ForegroundColor DarkCyan
     Write-Host "   [H] Health Gate" -ForegroundColor White
@@ -488,9 +488,9 @@ function Invoke-InteractiveMenu {
             'A' { Invoke-OneButtonSetup; Read-Host "`n  Press Enter to continue" | Out-Null }
             'B' { Invoke-RepoScript -BaseName 'Bootstrap'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'D' { Invoke-RepoScript -BaseName 'Deploy'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'I' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'N' { Invoke-RepoScript -BaseName 'Add-LIN1'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'L' { Invoke-RepoScript -BaseName 'Configure-LIN1'; Read-Host "`n  Press Enter to continue" | Out-Null }
+            'I' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'H' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '1' { Invoke-RepoScript -BaseName 'Start-LabDay'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '2' { Invoke-RepoScript -BaseName 'Lab-Status'; Read-Host "`n  Press Enter to continue" | Out-Null }
