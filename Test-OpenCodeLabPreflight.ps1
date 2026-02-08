@@ -3,7 +3,9 @@
 #Requires -RunAsAdministrator
 
 [CmdletBinding()]
-param()
+param(
+    [switch]$IncludeLIN1
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -19,6 +21,14 @@ if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $N
 if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso') }
 
 $IsoPath = Join-Path $LabSourcesRoot 'ISOs'
+$requiredIsoList = @($RequiredISOs)
+if ($IncludeLIN1) {
+    if (-not ($requiredIsoList -contains 'ubuntu-24.04.3.iso')) {
+        $requiredIsoList += 'ubuntu-24.04.3.iso'
+    }
+} else {
+    $requiredIsoList = $requiredIsoList | Where-Object { $_ -ne 'ubuntu-24.04.3.iso' }
+}
 
 $issues = @()
 
@@ -34,6 +44,11 @@ function Add-Ok {
 }
 
 Write-Host "`n=== OPENCODELAB PREFLIGHT ===" -ForegroundColor Cyan
+if ($IncludeLIN1) {
+    Write-Host "  Mode: FULL (Ubuntu LIN1 required)" -ForegroundColor Green
+} else {
+    Write-Host "  Mode: CORE (Ubuntu LIN1 not required)" -ForegroundColor Yellow
+}
 
 try {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -70,7 +85,7 @@ if (Test-Path $IsoPath) {
     Add-Issue "ISO folder missing: $IsoPath"
 }
 
-foreach ($iso in $RequiredISOs) {
+foreach ($iso in $requiredIsoList) {
     $p = Join-Path $IsoPath $iso
     if (Test-Path $p) {
         Add-Ok "Found ISO: $iso"

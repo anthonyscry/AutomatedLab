@@ -20,6 +20,7 @@
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
+    [switch]$IncludeLIN1,
     [switch]$SkipDeploy
 )
 
@@ -303,11 +304,24 @@ if ($SkipDeploy) {
 if (Test-Path $DeployScript) {
     Write-Host "`n  All prerequisites met. Starting deployment..." -ForegroundColor Green
     Write-Host "  Script: $DeployScript" -ForegroundColor Gray
+    if ($IncludeLIN1) {
+        Write-Host "  Mode: FULL (including LIN1 Ubuntu)" -ForegroundColor Green
+    } else {
+        Write-Host "  Mode: CORE (without LIN1 Ubuntu)" -ForegroundColor Yellow
+    }
     Write-Host "  This will take 30-60 minutes on first run.`n" -ForegroundColor Gray
     if ($NonInteractive) {
-        & $DeployScript -NonInteractive
+        if ($IncludeLIN1) {
+            & $DeployScript -NonInteractive -IncludeLIN1
+        } else {
+            & $DeployScript -NonInteractive
+        }
     } else {
-        & $DeployScript
+        if ($IncludeLIN1) {
+            & $DeployScript -IncludeLIN1
+        } else {
+            & $DeployScript
+        }
     }
 } else {
     Write-Fail "Deploy script not found at: $DeployScript"
@@ -315,4 +329,3 @@ if (Test-Path $DeployScript) {
     Write-Host "  Expected location: $DeployScript" -ForegroundColor Yellow
     exit 1
 }
-

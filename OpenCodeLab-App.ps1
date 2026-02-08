@@ -18,6 +18,7 @@ param(
         'add-lin1',
         'lin1-config',
         'health',
+        'lint',
         'start',
         'status',
         'terminal',
@@ -33,6 +34,7 @@ param(
     [switch]$Force,
     [switch]$RemoveNetwork,
     [switch]$NonInteractive,
+    [switch]$CoreOnly,
     [string]$DefaultsFile,
     [switch]$DryRun,
     [int]$LogRetentionDays = 14
@@ -87,6 +89,7 @@ function Write-RunArtifacts {
         run_id = $RunId
         action = $Action
         noninteractive = [bool]$NonInteractive
+        core_only = [bool]$CoreOnly
         force = [bool]$Force
         remove_network = [bool]$RemoveNetwork
         dry_run = [bool]$DryRun
@@ -106,6 +109,7 @@ function Write-RunArtifacts {
     $lines = @(
         "run_id: $RunId",
         "action: $Action",
+        "core_only: $CoreOnly",
         "success: $Success",
         "started_utc: $($RunStart.ToUniversalTime().ToString('o'))",
         "ended_utc: $($ended.ToUniversalTime().ToString('o'))",
@@ -116,8 +120,8 @@ function Write-RunArtifacts {
         "events:"
     )
 
-    foreach ($event in $RunEvents) {
-        $lines += "- [$($event.Time)] $($event.Step) :: $($event.Status) :: $($event.Message)"
+    foreach ($runEvent in $RunEvents) {
+        $lines += "- [$($runEvent.Time)] $($runEvent.Step) :: $($runEvent.Status) :: $($runEvent.Message)"
     }
 
     $lines | Set-Content -Path $txtPath -Encoding UTF8
@@ -159,6 +163,7 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.RemoveNetwork) { $RemoveNetwork = [bool]$defaults.RemoveNetwork }
     if ($null -ne $defaults.Force) { $Force = [bool]$defaults.Force }
     if ($null -ne $defaults.NonInteractive) { $NonInteractive = [bool]$defaults.NonInteractive }
+    if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
 }
 
 function Resolve-ScriptPath {
@@ -168,6 +173,33 @@ function Resolve-ScriptPath {
         throw "Script not found: $path"
     }
     return $path
+}
+
+function Convert-ArgumentArrayToSplat {
+    param([string[]]$ArgumentList)
+
+    $splat = @{}
+    for ($i = 0; $i -lt $ArgumentList.Count; $i++) {
+        $token = $ArgumentList[$i]
+        if (-not $token.StartsWith('-')) {
+            throw "Unsupported argument token '$token'. Use named parameters (for example -NonInteractive)."
+        }
+
+        $name = $token.TrimStart('-')
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            throw "Invalid argument token '$token'."
+        }
+
+        $nextIsValue = ($i + 1 -lt $ArgumentList.Count) -and (-not $ArgumentList[$i + 1].StartsWith('-'))
+        if ($nextIsValue) {
+            $splat[$name] = $ArgumentList[$i + 1]
+            $i++
+        } else {
+            $splat[$name] = $true
+        }
+    }
+
+    return $splat
 }
 
 function Invoke-RepoScript {
@@ -182,7 +214,8 @@ function Invoke-RepoScript {
     Write-Host "  Running: $([System.IO.Path]::GetFileName($path))" -ForegroundColor Gray
     try {
         if ($Arguments -and $Arguments.Count -gt 0) {
-            & $path @Arguments
+            $scriptSplat = Convert-ArgumentArrayToSplat -ArgumentList $Arguments
+            & $path @scriptSplat
         } else {
             & $path
         }
@@ -191,6 +224,39 @@ function Invoke-RepoScript {
         Add-RunEvent -Step $BaseName -Status 'fail' -Message $_.Exception.Message
         throw
     }
+}
+
+function Get-ExpectedVMs {
+    if ($CoreOnly) {
+        return @('DC1', 'WS1')
+    }
+    return @($LabVMs)
+}
+
+function Get-PreflightArgs {
+    $scriptArgs = @()
+    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
+    return $scriptArgs
+}
+
+function Get-BootstrapArgs {
+    $scriptArgs = @()
+    if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
+    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
+    return $scriptArgs
+}
+
+function Get-DeployArgs {
+    $scriptArgs = @()
+    if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
+    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
+    return $scriptArgs
+}
+
+function Get-HealthArgs {
+    $scriptArgs = @()
+    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
+    return $scriptArgs
 }
 
 function Ensure-LabImported {
@@ -375,16 +441,22 @@ function Invoke-BlowAway {
 
 function Invoke-OneButtonSetup {
     Write-Host "`n=== ONE-BUTTON SETUP ===" -ForegroundColor Cyan
+    if ($CoreOnly) {
+        Write-Host "  Mode: CORE (DC1 + WS1)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  Mode: FULL (DC1 + WS1 + LIN1 Ubuntu)" -ForegroundColor Green
+    }
     Write-Host "  Bootstrapping prerequisites + deploying lab + start + status" -ForegroundColor Gray
 
-    $bootstrapArgs = @()
-    if ($NonInteractive) { $bootstrapArgs += '-NonInteractive' }
+    $preflightArgs = Get-PreflightArgs
+    $bootstrapArgs = Get-BootstrapArgs
 
-    Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight'
+    Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
     Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
 
-    # Verify VMs exist after bootstrap (bootstrap chains into deploy)
-    $missingVMs = $LabVMs | Where-Object { -not (Hyper-V\Get-VM -Name $_ -ErrorAction SilentlyContinue) }
+    # Verify expected VMs exist after bootstrap (bootstrap chains into deploy)
+    $expectedVMs = Get-ExpectedVMs
+    $missingVMs = $expectedVMs | Where-Object { -not (Hyper-V\Get-VM -Name $_ -ErrorAction SilentlyContinue) }
     if ($missingVMs) {
         throw "VMs not found after bootstrap: $($missingVMs -join ', '). Deploy may have failed."
     }
@@ -392,8 +464,9 @@ function Invoke-OneButtonSetup {
     Invoke-RepoScript -BaseName 'Start-LabDay'
     Invoke-RepoScript -BaseName 'Lab-Status'
 
+    $healthArgs = Get-HealthArgs
     try {
-        Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth'
+        Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
         Write-Host "  [OK] Post-deploy health gate passed" -ForegroundColor Green
     } catch {
         Write-Host "  [FAIL] Post-deploy health gate failed" -ForegroundColor Red
@@ -437,11 +510,36 @@ function Invoke-OneButtonReset {
 }
 
 function Invoke-Setup {
-    $bootstrapArgs = @()
-    if ($NonInteractive) { $bootstrapArgs += '-NonInteractive' }
+    $preflightArgs = Get-PreflightArgs
+    $bootstrapArgs = Get-BootstrapArgs
 
-    Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight'
+    Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
     Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
+}
+
+function Pause-Menu {
+    Read-Host "`n  Press Enter to continue" | Out-Null
+}
+
+function Invoke-MenuCommand {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][scriptblock]$Command,
+        [switch]$NoPause
+    )
+
+    Add-RunEvent -Step "menu:$Name" -Status 'start' -Message 'interactive'
+    try {
+        & $Command
+        Add-RunEvent -Step "menu:$Name" -Status 'ok' -Message 'completed'
+    } catch {
+        Add-RunEvent -Step "menu:$Name" -Status 'fail' -Message $_.Exception.Message
+        Write-Host "  [FAIL] $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    if (-not $NoPause) {
+        Pause-Menu
+    }
 }
 
 function Show-Menu {
@@ -453,15 +551,16 @@ function Show-Menu {
     Write-Host "  =============================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  SETUP" -ForegroundColor DarkCyan
-    Write-Host "   [A] One-Button Setup (bootstrap + deploy + start + status)" -ForegroundColor Green
-    Write-Host "   [B] Bootstrap + Deploy" -ForegroundColor White
+    Write-Host "   [A] One-Button Setup (includes Ubuntu LIN1)" -ForegroundColor Green
+    Write-Host "   [B] Bootstrap + Deploy (includes Ubuntu LIN1)" -ForegroundColor White
     Write-Host "   [D] Deploy only" -ForegroundColor White
-    Write-Host "   [N] Add LIN1 VM (Ubuntu 24.04)" -ForegroundColor White
+    Write-Host "   [N] Rebuild LIN1 VM only (Ubuntu 24.04)" -ForegroundColor White
     Write-Host "   [L] Configure LIN1 SSH (post-deploy)" -ForegroundColor White
     Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
     Write-Host ""
-    Write-Host "  DAILY" -ForegroundColor DarkCyan
+    Write-Host "  OPERATE" -ForegroundColor DarkCyan
     Write-Host "   [H] Health Gate" -ForegroundColor White
+    Write-Host "   [T] Lint Scripts" -ForegroundColor White
     Write-Host "   [1] Start Lab" -ForegroundColor White
     Write-Host "   [2] Lab Status" -ForegroundColor White
     Write-Host "   [3] Open Terminal" -ForegroundColor White
@@ -473,7 +572,7 @@ function Show-Menu {
     Write-Host "   [9] Rollback to LabReady" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  DESTRUCTIVE" -ForegroundColor DarkRed
-    Write-Host "   [K] One-Button Reset/Rebuild" -ForegroundColor Red
+    Write-Host "   [K] One-Button Reset + Rebuild" -ForegroundColor Red
     Write-Host "   [X] Blow Away Lab" -ForegroundColor Red
     Write-Host ""
     Write-Host "   [Q] Quit" -ForegroundColor DarkGray
@@ -483,53 +582,57 @@ function Show-Menu {
 function Invoke-InteractiveMenu {
     do {
         Show-Menu
-        $choice = (Read-Host "  Select").ToUpperInvariant()
+        $choice = (Read-Host "  Select").Trim().ToUpperInvariant()
         switch ($choice) {
-            'A' { Invoke-OneButtonSetup; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'B' { Invoke-RepoScript -BaseName 'Bootstrap'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'D' { Invoke-RepoScript -BaseName 'Deploy'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'N' { Invoke-RepoScript -BaseName 'Add-LIN1'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'L' { Invoke-RepoScript -BaseName 'Configure-LIN1'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'I' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            'H' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '1' { Invoke-RepoScript -BaseName 'Start-LabDay'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '2' { Invoke-RepoScript -BaseName 'Lab-Status'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '3' { Invoke-RepoScript -BaseName 'Open-LabTerminal'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '4' { Invoke-RepoScript -BaseName 'New-LabProject'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '5' { Invoke-RepoScript -BaseName 'Push-ToWS1'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '6' { Invoke-RepoScript -BaseName 'Test-OnWS1'; Read-Host "`n  Press Enter to continue" | Out-Null }
-            '7' { Invoke-RepoScript -BaseName 'Save-LabWork'; Read-Host "`n  Press Enter to continue" | Out-Null }
+            'A' { Invoke-MenuCommand -Name 'one-button-setup' -Command { Invoke-OneButtonSetup } }
+            'B' { Invoke-MenuCommand -Name 'bootstrap' -Command { $bootstrapArgs = Get-BootstrapArgs; Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs } }
+            'D' { Invoke-MenuCommand -Name 'deploy' -Command { $deployArgs = Get-DeployArgs; Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs } }
+            'N' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-RepoScript -BaseName 'Add-LIN1' } }
+            'L' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-RepoScript -BaseName 'Configure-LIN1' } }
+            'I' { Invoke-MenuCommand -Name 'install-shortcuts' -Command { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts' } }
+            'H' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs } }
+            'T' { Invoke-MenuCommand -Name 'lint' -Command { Invoke-RepoScript -BaseName 'Test-OpenCodeLabLint' } }
+            '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-RepoScript -BaseName 'Start-LabDay' } }
+            '2' { Invoke-MenuCommand -Name 'status' -Command { Invoke-RepoScript -BaseName 'Lab-Status' } }
+            '3' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-RepoScript -BaseName 'Open-LabTerminal' } }
+            '4' { Invoke-MenuCommand -Name 'new-project' -Command { Invoke-RepoScript -BaseName 'New-LabProject' } }
+            '5' { Invoke-MenuCommand -Name 'push' -Command { Invoke-RepoScript -BaseName 'Push-ToWS1' } }
+            '6' { Invoke-MenuCommand -Name 'test' -Command { Invoke-RepoScript -BaseName 'Test-OnWS1' } }
+            '7' { Invoke-MenuCommand -Name 'save' -Command { Invoke-RepoScript -BaseName 'Save-LabWork' } }
             '8' {
-                Stop-LabVMsSafe
-                Write-Host "  [OK] Stop requested for all lab VMs" -ForegroundColor Green
-                Read-Host "`n  Press Enter to continue" | Out-Null
+                Invoke-MenuCommand -Name 'stop' -Command {
+                    Stop-LabVMsSafe
+                    Write-Host "  [OK] Stop requested for all lab VMs" -ForegroundColor Green
+                }
             }
             '9' {
-                Ensure-LabImported
-                if (-not (Test-LabReadySnapshot)) {
-                    Write-Host "  [WARN] LabReady snapshot not found on one or more VMs." -ForegroundColor Yellow
-                    Write-Host "  Re-run deploy to recreate baseline." -ForegroundColor Yellow
-                    Read-Host "`n  Press Enter to continue" | Out-Null
-                    break
+                Invoke-MenuCommand -Name 'rollback' -Command {
+                    Ensure-LabImported
+                    if (-not (Test-LabReadySnapshot)) {
+                        Write-Host "  [WARN] LabReady snapshot not found on one or more VMs." -ForegroundColor Yellow
+                        Write-Host "  Re-run deploy to recreate baseline." -ForegroundColor Yellow
+                        return
+                    }
+                    Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
+                    Write-Host "  [OK] Restored to LabReady" -ForegroundColor Green
                 }
-                Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-                Write-Host "  [OK] Restored to LabReady" -ForegroundColor Green
-                Read-Host "`n  Press Enter to continue" | Out-Null
             }
             'X' {
-                $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").ToLowerInvariant() -eq 'y'
-                Invoke-BlowAway -DropNetwork:$dropNet
-                Read-Host "`n  Press Enter to continue" | Out-Null
+                Invoke-MenuCommand -Name 'blow-away' -Command {
+                    $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").Trim().ToLowerInvariant() -eq 'y'
+                    Invoke-BlowAway -DropNetwork:$dropNet
+                }
             }
             'K' {
-                $confirm = Read-Host "  Type REBUILD to confirm reset+rebuild"
-                if ($confirm -eq 'REBUILD') {
-                    $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").ToLowerInvariant() -eq 'y'
-                    Invoke-OneButtonReset -DropNetwork:$dropNet
-                } else {
-                    Write-Host "  [ABORT] Cancelled" -ForegroundColor Yellow
+                Invoke-MenuCommand -Name 'one-button-reset' -Command {
+                    $confirm = (Read-Host "  Type REBUILD to confirm reset+rebuild").Trim()
+                    if ($confirm -eq 'REBUILD') {
+                        $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").Trim().ToLowerInvariant() -eq 'y'
+                        Invoke-OneButtonReset -DropNetwork:$dropNet
+                    } else {
+                        Write-Host "  [ABORT] Cancelled" -ForegroundColor Yellow
+                    }
                 }
-                Read-Host "`n  Press Enter to continue" | Out-Null
             }
             'Q' { break }
             default {
@@ -556,15 +659,16 @@ try {
         'one-button-setup' { Invoke-OneButtonSetup }
         'one-button-reset' { Invoke-OneButtonReset -DropNetwork:$RemoveNetwork }
         'install-shortcuts' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts' }
-        'preflight' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' }
+        'preflight' {
+            $preflightArgs = Get-PreflightArgs
+            Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
+        }
         'bootstrap' {
-            $bootstrapArgs = @()
-            if ($NonInteractive) { $bootstrapArgs += '-NonInteractive' }
+            $bootstrapArgs = Get-BootstrapArgs
             Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
         }
         'deploy' {
-            $deployArgs = @()
-            if ($NonInteractive) { $deployArgs += '-NonInteractive' }
+            $deployArgs = Get-DeployArgs
             Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
         }
         'add-lin1' {
@@ -576,7 +680,11 @@ try {
             if ($NonInteractive) { $linArgs += '-NonInteractive' }
             Invoke-RepoScript -BaseName 'Configure-LIN1' -Arguments $linArgs
         }
-        'health' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' }
+        'health' {
+            $healthArgs = Get-HealthArgs
+            Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
+        }
+        'lint' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabLint' }
         'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }
         'status' { Invoke-RepoScript -BaseName 'Lab-Status' }
         'terminal' { Invoke-RepoScript -BaseName 'Open-LabTerminal' }
