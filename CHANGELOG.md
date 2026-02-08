@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.6.1 - Handle Stuck LIN1 VM State During Cleanup
+
+### Bug Fixes
+- Added `Remove-HyperVVMStale` in `Deploy.ps1` with retries, snapshot cleanup, DVD removal, and vmwp process kill fallback for stuck VMs.
+- Updated both deploy cleanup guards to use the shared hardened VM-removal function.
+- Added `Remove-VMHardSafe` in `OpenCodeLab-App.ps1` so blow-away can remove stuck VMs (including LIN1) more reliably.
+
 ## v1.6.0 - Add Pre-Install LIN1 Collision Guard
 
 ### Bug Fixes
