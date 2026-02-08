@@ -163,15 +163,30 @@ Hyper-V\Get-VM -ComputerName $env:COMPUTERNAME -Name LIN1 -ErrorAction SilentlyC
 If `Get-VM` still returns nothing but Hyper-V Manager still shows LIN1, reboot the host (this clears VMMS cache), then reopen Hyper-V Manager and click **Refresh**.
 
 
-### Optional: Include LIN1 in Deploy
+### LIN1 Ubuntu 24.04 Deployment (v1.8.0+)
 
-By default, `Deploy.ps1` now deploys only `DC1` + `WS1` to avoid AutomatedLab's Linux timeout on internal switches.
+**Default Behavior**: `Deploy.ps1` deploys only `DC1` + `WS1` (core Windows lab).
 
-To include LIN1 in the same run:
+**Why LIN1 is Optional**: AutomatedLab lacks Ubuntu 24.04 support. LIN1 is created manually using native Hyper-V cmdlets to work around this limitation.
+
+**To Include LIN1**:
 
 ```powershell
 .\Deploy.ps1 -IncludeLIN1
 ```
+
+**What Happens**:
+1. Creates LIN1 VM manually (bypasses AutomatedLab)
+2. Generates CIDATA VHDX with Ubuntu 24.04 autoinstall configuration
+3. Attaches Ubuntu ISO + CIDATA VHDX to Gen2 VM (Secure Boot disabled)
+4. Starts VM - Ubuntu autoinstall proceeds unattended (10-15 minutes)
+5. Waits up to 30 minutes for SSH to become reachable
+
+**Requirements**:
+- Ubuntu 24.04 ISO at: `C:\LabSources\ISOs\ubuntu-24.04.3.iso`
+- Download from: https://releases.ubuntu.com/24.04.3/ubuntu-24.04.3-live-server-amd64.iso
+
+**Note**: No ISO modifications needed! The implementation creates a CIDATA VHDX automatically with proper autoinstall configuration.
 
 
 ## Recommended Run Order (Numbered)
