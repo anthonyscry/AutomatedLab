@@ -243,6 +243,33 @@ try {
     # ============================================================
     Write-Host "`n[INSTALL] Installing all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
 
+
+    # Final guard: stale VMs can occasionally survive prior cleanup and cause
+    # AutomatedLab errors like "machine already exists" or malformed LIN1 notes XML.
+    Write-Host "  Final stale-VM check before Install-Lab..." -ForegroundColor Yellow
+    foreach ($vmName in $LabVMs) {
+        $existingVm = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if (-not $existingVm) { continue }
+
+        Write-Host "    [WARN] VM '$vmName' still exists right before install. Removing..." -ForegroundColor Yellow
+        Hyper-V\Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+
+        if ($existingVm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $vmName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+
+        if (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
+            throw "VM '$vmName' still exists before Install-Lab. Remove it manually in Hyper-V Manager and re-run."
+        }
+
+        Write-Host "    [OK] Removed lingering VM '$vmName'" -ForegroundColor Green
+    }
+
     $installLabFailed = $false
     try {
         Install-Lab
