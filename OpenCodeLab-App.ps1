@@ -216,6 +216,40 @@ function Stop-LabVMsSafe {
     }
 }
 
+
+function Remove-VMHardSafe {
+    param([Parameter(Mandatory)][string]$VMName)
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $vm) { return $true }
+
+        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
+
+        if ($vm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+
+        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $stillThere) { return $true }
+
+        $vmId = $stillThere.VMId.Guid
+        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*$vmId*" } |
+            Select-Object -First 1
+        if ($vmwp) { Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue }
+    }
+
+    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
+}
+
 function Invoke-BlowAway {
     param(
         [switch]$BypassPrompt,
@@ -266,10 +300,10 @@ function Invoke-BlowAway {
 
     Write-Host "  [3/5] Removing Hyper-V VMs/checkpoints if present..." -ForegroundColor Cyan
     foreach ($vmName in $LabVMs) {
-        $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
-        if ($vm) {
-            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
+        if (Remove-VMHardSafe -VMName $vmName) {
             Write-Host "    removed VM $vmName" -ForegroundColor Gray
+        } elseif (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
+            Write-Host "    [WARN] Could not fully remove VM $vmName. Reboot host, then run blow-away again." -ForegroundColor Yellow
         }
     }
 

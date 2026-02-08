@@ -40,6 +40,54 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
 $IsoPath        = "$LabSourcesRoot\ISOs"
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
 
+function Remove-HyperVVMStale {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter()][string]$Context = 'cleanup',
+        [Parameter()][int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $vm) { return $true }
+
+        Write-Host "    [WARN] Found VM '$VMName' during $Context (attempt $attempt/$MaxAttempts). Removing..." -ForegroundColor Yellow
+
+        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+
+        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
+
+        if ($vm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+
+        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $stillThere) {
+            Write-Host "    [OK] Removed VM '$VMName'" -ForegroundColor Green
+            return $true
+        }
+
+        # Last-resort: kill worker process tied to this VM ID if still stuck.
+        $vmId = $stillThere.VMId.Guid
+        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*$vmId*" } |
+            Select-Object -First 1
+        if ($vmwp) {
+            Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
+}
+
 function Invoke-WindowsSshKeygen {
     [CmdletBinding()]
     param(
@@ -140,29 +188,9 @@ try {
     # This avoids "machine already exists" and broken-notes XML errors during Install-Lab.
     Write-Host "  Checking for stale lab VMs from prior runs..." -ForegroundColor Yellow
     foreach ($vmName in $LabVMs) {
-        $existingVm = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
-        if (-not $existingVm) { continue }
-
-        Write-Host "    [WARN] Found existing VM '$vmName'. Removing stale VM..." -ForegroundColor Yellow
-
-        # Remove checkpoints first (they can block VM removal).
-        Hyper-V\Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
-
-        if ($existingVm.State -ne 'Off') {
-            Hyper-V\Stop-VM -Name $vmName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 2
-        }
-
-        Hyper-V\Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-
-        $stillExists = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
-        if ($stillExists) {
+        if (-not (Remove-HyperVVMStale -VMName $vmName -Context 'initial cleanup')) {
             throw "Failed to remove stale VM '$vmName'. Remove it manually in Hyper-V Manager, then re-run deploy."
         }
-
-        Write-Host "    [OK] Removed stale VM '$vmName'" -ForegroundColor Green
     }
 
     # Ensure vSwitch + NAT exist (idempotent)
@@ -248,26 +276,9 @@ try {
     # AutomatedLab errors like "machine already exists" or malformed LIN1 notes XML.
     Write-Host "  Final stale-VM check before Install-Lab..." -ForegroundColor Yellow
     foreach ($vmName in $LabVMs) {
-        $existingVm = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
-        if (-not $existingVm) { continue }
-
-        Write-Host "    [WARN] VM '$vmName' still exists right before install. Removing..." -ForegroundColor Yellow
-        Hyper-V\Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
-
-        if ($existingVm.State -ne 'Off') {
-            Hyper-V\Stop-VM -Name $vmName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 2
-        }
-
-        Hyper-V\Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-
-        if (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
+        if (-not (Remove-HyperVVMStale -VMName $vmName -Context 'final pre-install guard')) {
             throw "VM '$vmName' still exists before Install-Lab. Remove it manually in Hyper-V Manager and re-run."
         }
-
-        Write-Host "    [OK] Removed lingering VM '$vmName'" -ForegroundColor Green
     }
 
     $installLabFailed = $false
