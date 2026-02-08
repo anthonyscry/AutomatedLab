@@ -36,6 +36,43 @@ function Add-Ok {
     Write-Host "  [OK] $Message" -ForegroundColor Green
 }
 
+function Invoke-LabStructuredCheck {
+    param(
+        [Parameter(Mandatory)][string]$ComputerName,
+        [Parameter(Mandatory)][scriptblock]$ScriptBlock,
+        [object[]]$ArgumentList = @(),
+        [Parameter(Mandatory)][string]$RequiredProperty,
+        [int]$Attempts = 3,
+        [int]$DelaySeconds = 10
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            $raw = @()
+            if ($ArgumentList -and $ArgumentList.Count -gt 0) {
+                $raw = @(Invoke-LabCommand -ComputerName $ComputerName -PassThru -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList)
+            } else {
+                $raw = @(Invoke-LabCommand -ComputerName $ComputerName -PassThru -ScriptBlock $ScriptBlock)
+            }
+
+            $structured = @($raw | Where-Object { $_ -and ($_.PSObject.Properties.Name -contains $RequiredProperty) } | Select-Object -Last 1)
+            if ($structured.Count -gt 0) {
+                return $structured[0]
+            }
+        } catch {
+            if ($attempt -ge $Attempts) {
+                throw
+            }
+        }
+
+        if ($attempt -lt $Attempts) {
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+
+    return $null
+}
+
 Write-Host "`n=== OPENCODELAB HEALTH GATE ===" -ForegroundColor Cyan
 if ($IncludeLIN1) {
     Write-Host "  Mode: FULL (LIN1 checks enabled)" -ForegroundColor Green
@@ -66,13 +103,17 @@ foreach ($vmName in $ExpectedVMs) {
 
 if (-not $issues.Count) {
     try {
-        $dcChecks = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ScriptBlock {
-            $result = @{}
+        $dcChecks = Invoke-LabStructuredCheck -ComputerName 'DC1' -RequiredProperty 'NTDS' -Attempts 6 -DelaySeconds 10 -ScriptBlock {
+            $result = [pscustomobject]@{}
             $result.NTDS = (Get-Service NTDS -ErrorAction SilentlyContinue).Status
             $result.DNS = (Get-Service DNS -ErrorAction SilentlyContinue).Status
             $result.SSHD = (Get-Service sshd -ErrorAction SilentlyContinue).Status
             $result.Share = [bool](Get-SmbShare -Name 'LabShare' -ErrorAction SilentlyContinue)
             $result
+        }
+
+        if (-not $dcChecks) {
+            throw 'DC1 check returned no structured data.'
         }
 
         if ($dcChecks.NTDS -eq 'Running') { Add-Ok 'DC1 NTDS running' } else { Add-Issue 'DC1 NTDS not running' }
@@ -84,9 +125,9 @@ if (-not $issues.Count) {
     }
 
     try {
-        $wsChecks = Invoke-LabCommand -ComputerName 'WS1' -PassThru -ScriptBlock {
+        $wsChecks = Invoke-LabStructuredCheck -ComputerName 'WS1' -RequiredProperty 'AppIDSvc' -Attempts 4 -DelaySeconds 10 -ScriptBlock {
             param($Domain)
-            $result = @{}
+            $result = [pscustomobject]@{}
             $result.AppIDSvc = (Get-Service AppIDSvc -ErrorAction SilentlyContinue).Status
             $result.LDrive = Test-Path 'L:\'
             $cs = Get-CimInstance Win32_ComputerSystem
@@ -96,6 +137,10 @@ if (-not $issues.Count) {
             $result.DnsOk = [bool]$dns
             $result
         } -ArgumentList $DomainName
+
+        if (-not $wsChecks) {
+            throw 'WS1 check returned no structured data.'
+        }
 
         if ($wsChecks.AppIDSvc -eq 'Running') { Add-Ok 'WS1 AppIDSvc running' } else { Add-Issue 'WS1 AppIDSvc not running' }
         if ($wsChecks.LDrive) { Add-Ok 'WS1 L: mapped' } else { Add-Issue 'WS1 L: not mapped' }

@@ -140,9 +140,20 @@ function Invoke-LogRetention {
 }
 
 function Test-LabReadySnapshot {
+    param([string[]]$VMNames)
+
     try {
         Ensure-LabImported
-        foreach ($vmName in $LabVMs) {
+        $targets = @()
+        if ($VMNames -and $VMNames.Count -gt 0) {
+            $targets = @($VMNames)
+        } elseif (Get-Command Get-ExpectedVMs -ErrorAction SilentlyContinue) {
+            $targets = @(Get-ExpectedVMs)
+        } else {
+            $targets = @($LabVMs)
+        }
+
+        foreach ($vmName in $targets) {
             $snap = Get-VMSnapshot -VMName $vmName -Name 'LabReady' -ErrorAction SilentlyContinue
             if (-not $snap) {
                 return $false
