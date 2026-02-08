@@ -8,6 +8,7 @@
 param(
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
+    [switch]$IncludeLIN1,
     [string]$AdminPassword = 'Server123!'
 )
 
@@ -244,7 +245,13 @@ try {
     # ============================================================
     # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
     # ============================================================
-    Write-Host "`n[LAB] Defining all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
+    if ($IncludeLIN1) {
+        Write-Host "`n[LAB] Defining all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
+    } else {
+        Write-Host "`n[LAB] Defining core machines (DC1 + WS1)..." -ForegroundColor Cyan
+        Write-Host "  [INFO] LIN1 is deferred by default to avoid AutomatedLab Linux timeout on Internal switch." -ForegroundColor Gray
+        Write-Host "  [INFO] Use -IncludeLIN1 to include LIN1 in this run." -ForegroundColor Gray
+    }
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -264,18 +271,20 @@ try {
         -Processors $CL_Processors
 
 
+if ($IncludeLIN1) {
     Add-LabMachineDefinition -Name 'LIN1' `
         -Network $LabSwitch `
         -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
         -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
         -Processors $UBU_Processors
+}
 
     # ============================================================
     # INSTALL LAB (single call for all machines)
     # LIN1 is included here to avoid adding machine definitions after
     # lab export, which causes "Lab is already exported" failures.
     # ============================================================
-    Write-Host "`n[INSTALL] Installing all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
+    if ($IncludeLIN1) { Write-Host "`n[INSTALL] Installing all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan } else { Write-Host "`n[INSTALL] Installing core machines (DC1 + WS1)..." -ForegroundColor Cyan }
 
 
     # Final guard: stale VMs can occasionally survive prior cleanup and cause
@@ -530,51 +539,52 @@ try {
 
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
 
+    $lin1Ready = $false
+
     # ============================================================
     # WAIT FOR LIN1 to become reachable over SSH
     # ============================================================
-    Write-Host "`n[LIN1] Creating Ubuntu VM via Hyper-V..." -ForegroundColor Cyan
+    if ($IncludeLIN1) {
+        $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if ($lin1Vm) {
+            if ($lin1Vm.State -ne 'Running') {
+                Write-Host "  LIN1 VM is $($lin1Vm.State). Starting..." -ForegroundColor Yellow
+                Start-VM -Name 'LIN1'
+            }
 
-    $lin1Existing = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
-    if ($lin1Existing) {
-        Write-Host "  LIN1 VM already exists (state: $($lin1Existing.State)). Skipping creation." -ForegroundColor Yellow
-    } else {
-        $ubuntuIso = Join-Path $IsoPath 'ubuntu-24.04.3.iso'
-        if (-not (Test-Path $ubuntuIso)) {
-            throw "Ubuntu ISO not found at $ubuntuIso"
-        }
-
-        $lin1WaitMinutes = 30
-        Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
-        $lin1Ready = $false
-        $lin1Deadline = [datetime]::Now.AddMinutes($lin1WaitMinutes)
-        $lastKnownIp = ''
-        while ([datetime]::Now -lt $lin1Deadline) {
-            $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-                Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
-            if ($lin1Ips) {
-                $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-                $lastKnownIp = $lin1DhcpIp
-                $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-                if ($sshCheck.TcpTestSucceeded) {
-                    $lin1Ready = $true
-                    Write-Host "  [OK] LIN1 SSH is reachable at $lin1DhcpIp" -ForegroundColor Green
-                    break
+            $lin1WaitMinutes = 30
+            Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
+            $lin1Deadline = [datetime]::Now.AddMinutes($lin1WaitMinutes)
+            $lastKnownIp = ''
+            while ([datetime]::Now -lt $lin1Deadline) {
+                $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
+                    Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+                if ($lin1Ips) {
+                    $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+                    $lastKnownIp = $lin1DhcpIp
+                    $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+                    if ($sshCheck.TcpTestSucceeded) {
+                        $lin1Ready = $true
+                        Write-Host "  [OK] LIN1 SSH is reachable at $lin1DhcpIp" -ForegroundColor Green
+                        break
+                    }
+                }
+                Start-Sleep -Seconds 30
+                if ($lastKnownIp) {
+                    Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
+                } else {
+                    Write-Host "    Still waiting for LIN1 DHCP lease..." -ForegroundColor Gray
                 }
             }
-            Start-Sleep -Seconds 30
-            if ($lastKnownIp) {
-                Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
-            } else {
-                Write-Host "    Still waiting for LIN1 DHCP lease..." -ForegroundColor Gray
+            if (-not $lin1Ready) {
+                Write-Host "  [WARN] LIN1 did not become SSH-reachable after $lin1WaitMinutes min." -ForegroundColor Yellow
+                Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
             }
-        }
-        if (-not $lin1Ready) {
-            Write-Host "  [WARN] LIN1 did not become SSH-reachable after $lin1WaitMinutes min." -ForegroundColor Yellow
-            Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
+        } else {
+            Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
         }
     } else {
-        Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
+        Write-Host "`n[LIN1] Skipping LIN1 deployment/config in this run (deferred)." -ForegroundColor Yellow
     }
 
     # ============================================================
@@ -759,6 +769,7 @@ try {
     # ============================================================
     # LIN1: deterministic user, SSH keys, static IP, SMB mount, dev tools
     # ============================================================
+    if ($IncludeLIN1 -and $lin1Ready) {
     Write-Host "`n[POST] Configuring LIN1 (Ubuntu dev host)..." -ForegroundColor Cyan
 
     $netbios = ($DomainName -split '\.')[0].ToUpper()
@@ -878,6 +889,9 @@ echo "[LIN1] Done."
     }
 
     Invoke-BashOnLIN1 -BashScript $lin1ScriptContent -ActivityName 'Configure-LIN1' -Variables $lin1Vars | Out-Null
+    } else {
+        Write-Host "  [WARN] Skipping LIN1 post-config (not included or not reachable)." -ForegroundColor Yellow
+    }
 
     # ============================================================
     # SNAPSHOT
@@ -892,13 +906,17 @@ echo "[LIN1] Done."
     Write-Host "`n[SUMMARY]" -ForegroundColor Cyan
     Write-Host "  DC1:  $DC1_Ip" -ForegroundColor Gray
     Write-Host "  WS1:  $WS1_Ip" -ForegroundColor Gray
-    Write-Host "  LIN1: $LIN1_Ip (static configured by script)" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "  Host -> LIN1 SSH:" -ForegroundColor Cyan
-    Write-Host "    ssh -o IdentitiesOnly=yes -i $SSHPrivateKey $LabInstallUser@$LIN1_Ip" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  If you see the 'REMOTE HOST IDENTIFICATION HAS CHANGED' warning after a rebuild:" -ForegroundColor Cyan
-    Write-Host "    ssh-keygen -R $LIN1_Ip" -ForegroundColor Yellow
+    if ($IncludeLIN1 -and $lin1Ready) {
+        Write-Host "  LIN1: $LIN1_Ip (static configured by script)" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "  Host -> LIN1 SSH:" -ForegroundColor Cyan
+        Write-Host "    ssh -o IdentitiesOnly=yes -i $SSHPrivateKey $LabInstallUser@$LIN1_Ip" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  If you see the 'REMOTE HOST IDENTIFICATION HAS CHANGED' warning after a rebuild:" -ForegroundColor Cyan
+        Write-Host "    ssh-keygen -R $LIN1_Ip" -ForegroundColor Yellow
+    } else {
+        Write-Host "  LIN1: deferred (run Deploy.ps1 -IncludeLIN1 when ready)" -ForegroundColor Gray
+    }
     Write-Host ""
     Write-Host "DONE. Log saved to: $logFile" -ForegroundColor Green
 }

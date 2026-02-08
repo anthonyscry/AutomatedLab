@@ -15,6 +15,7 @@ param(
         'preflight',
         'bootstrap',
         'deploy',
+        'lin1-config',
         'health',
         'start',
         'status',
@@ -455,6 +456,7 @@ function Show-Menu {
     Write-Host "   [B] Bootstrap + Deploy" -ForegroundColor White
     Write-Host "   [D] Deploy only" -ForegroundColor White
     Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
+    Write-Host "   [L] Configure LIN1 SSH (post-deploy)" -ForegroundColor White
     Write-Host ""
     Write-Host "  DAILY" -ForegroundColor DarkCyan
     Write-Host "   [H] Health Gate" -ForegroundColor White
@@ -485,6 +487,7 @@ function Invoke-InteractiveMenu {
             'B' { Invoke-RepoScript -BaseName 'Bootstrap'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'D' { Invoke-RepoScript -BaseName 'Deploy'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'I' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts'; Read-Host "`n  Press Enter to continue" | Out-Null }
+            'L' { Invoke-RepoScript -BaseName 'Configure-LIN1'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'H' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '1' { Invoke-RepoScript -BaseName 'Start-LabDay'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '2' { Invoke-RepoScript -BaseName 'Lab-Status'; Read-Host "`n  Press Enter to continue" | Out-Null }
@@ -560,6 +563,11 @@ try {
             $deployArgs = @()
             if ($NonInteractive) { $deployArgs += '-NonInteractive' }
             Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+        }
+        'lin1-config' {
+            $linArgs = @()
+            if ($NonInteractive) { $linArgs += '-NonInteractive' }
+            Invoke-RepoScript -BaseName 'Configure-LIN1' -Arguments $linArgs
         }
         'health' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' }
         'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }

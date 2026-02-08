@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.7.2 - Add Numbered End-to-End Run Order
+
+### Changes
+- Added a clearly numbered run sequence to `README.md` covering blow-away, core setup, health checks, optional LIN1 inclusion, and post-deploy LIN1 SSH config.
+
+## v1.7.1 - One-Click LIN1 SSH Post-Deploy Configuration
+
+### Changes
+- Added `Configure-LIN1.ps1` for post-deploy LIN1 SSH bootstrap/config when core lab is already up.
+- Added new app action/menu entry `lin1-config` / `[L] Configure LIN1 SSH (post-deploy)` in `OpenCodeLab-App.ps1`.
+
+## v1.7.0 - Defer LIN1 by Default to Avoid AutomatedLab Linux Timeout
+
+### Changes
+- Added `-IncludeLIN1` switch to `Deploy.ps1`.
+- Default deploy path now provisions only `DC1` and `WS1`, deferring LIN1 to avoid 15-minute AutomatedLab Linux timeout on internal switches.
+- LIN1 wait/post-config/summary now run only when `-IncludeLIN1` is used and LIN1 is SSH-reachable.
+
 ## v1.6.5 - Stronger Phantom LIN1 Recovery (Service Order + Reboot Guidance)
 
 ### Changes

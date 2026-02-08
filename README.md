@@ -90,6 +90,12 @@ $env:OPENCODELAB_ADMIN_PASSWORD = "Server123!"
 .\OpenCodeLab-App.ps1 -Action one-button-setup -NonInteractive
 ```
 
+Configure LIN1 SSH after deploy:
+
+```powershell
+.\OpenCodeLab-App.ps1 -Action lin1-config
+```
+
 `Deploy.ps1` now defaults to `Server123!`. You can still override with `OPENCODELAB_ADMIN_PASSWORD` or `-AdminPassword`. If an empty password is passed accidentally, deploy falls back to the default and continues.
 
 ## Run Artifacts (JSON + Text)
@@ -155,3 +161,46 @@ Hyper-V\Get-VM -ComputerName $env:COMPUTERNAME -Name LIN1 -ErrorAction SilentlyC
 ```
 
 If `Get-VM` still returns nothing but Hyper-V Manager still shows LIN1, reboot the host (this clears VMMS cache), then reopen Hyper-V Manager and click **Refresh**.
+
+
+### Optional: Include LIN1 in Deploy
+
+By default, `Deploy.ps1` now deploys only `DC1` + `WS1` to avoid AutomatedLab's Linux timeout on internal switches.
+
+To include LIN1 in the same run:
+
+```powershell
+.\Deploy.ps1 -IncludeLIN1
+```
+
+
+## Recommended Run Order (Numbered)
+
+Use this exact order:
+
+1. **Optional clean slate**
+   ```powershell
+   .\OpenCodeLab-App.ps1 -Action blow-away -RemoveNetwork
+   ```
+2. **Build core lab (DC1 + WS1)**
+   ```powershell
+   .\OpenCodeLab-App.ps1 -Action one-button-setup
+   ```
+3. **Start/verify health**
+   ```powershell
+   .\OpenCodeLab-App.ps1 -Action start
+   .\OpenCodeLab-App.ps1 -Action health
+   ```
+4. **(Optional) Include LIN1 in full deploy run**
+   ```powershell
+   .\Deploy.ps1 -IncludeLIN1
+   ```
+5. **One-click LIN1 SSH config after LIN1 exists**
+   ```powershell
+   .\OpenCodeLab-App.ps1 -Action lin1-config
+   ```
+
+### Important
+- Step 2 is the default reliable path (core Windows lab).
+- Step 5 is the preferred after-the-fact LIN1 SSH bootstrap path.
+- If Hyper-V still shows phantom LIN1 but `Get-VM` does not, follow the troubleshooting section below and reboot host if needed.
