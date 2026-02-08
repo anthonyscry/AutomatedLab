@@ -135,6 +135,36 @@ try {
 
     New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $LabPath
 
+
+    # Remove stale/conflicting VMs from previous failed runs.
+    # This avoids "machine already exists" and broken-notes XML errors during Install-Lab.
+    Write-Host "  Checking for stale lab VMs from prior runs..." -ForegroundColor Yellow
+    foreach ($vmName in $LabVMs) {
+        $existingVm = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if (-not $existingVm) { continue }
+
+        Write-Host "    [WARN] Found existing VM '$vmName'. Removing stale VM..." -ForegroundColor Yellow
+
+        # Remove checkpoints first (they can block VM removal).
+        Hyper-V\Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+
+        if ($existingVm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $vmName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+
+        $stillExists = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if ($stillExists) {
+            throw "Failed to remove stale VM '$vmName'. Remove it manually in Hyper-V Manager, then re-run deploy."
+        }
+
+        Write-Host "    [OK] Removed stale VM '$vmName'" -ForegroundColor Green
+    }
+
     # Ensure vSwitch + NAT exist (idempotent)
     Write-Host "  Ensuring Hyper-V lab switch + NAT ($LabSwitch / $AddressSpace)..." -ForegroundColor Yellow
 

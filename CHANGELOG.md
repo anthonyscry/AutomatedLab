@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.5.9 - Enforce Stale VM Removal Before Install
+
+### Bug Fixes
+- Strengthened stale VM cleanup in `Deploy.ps1` to remove checkpoints, stop VMs, remove VMs, and verify deletion before continuing.
+- Deployment now fails fast with a clear message if a stale VM (for example `LIN1`) cannot be removed, preventing later AutomatedLab `does already exist` and notes-XML errors.
+
+## v1.5.8 - Remove Stale VMs Before Install-Lab
+
+### Bug Fixes
+- Added pre-definition stale VM cleanup in `Deploy.ps1` for `DC1`, `WS1`, and `LIN1`.
+- Prevents `Install-Lab` from failing or warning with `The machine 'LIN1' does already exist` after partial/failed teardown cycles.
+
 ## v1.5.7 - Quiet Benign Remove-Lab Metadata Errors During Blow-Away
 
 ### Bug Fixes
