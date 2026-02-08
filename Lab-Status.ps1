@@ -67,7 +67,7 @@ $labImported = Import-OpenCodeLab -Name $LabName
 
 # -- Live checks (only if VMs are running) --
 $running = $labVMs | Where-Object { $_.State -eq 'Running' }
-if ($running.Name -contains 'DC1') {
+if ($labImported -and ($running.Name -contains 'DC1')) {
     try {
         Import-Lab -Name $LabName -ErrorAction Stop 2>$null
 
@@ -82,10 +82,12 @@ if ($running.Name -contains 'DC1') {
             $results
         } -PassThru -ErrorAction SilentlyContinue
         $svcCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
-    } catch {}
+    } catch {
+        Write-Verbose "DC1 live status check failed: $($_.Exception.Message)"
+    }
 }
 
-if ($running.Name -contains 'WS1') {
+if ($labImported -and ($running.Name -contains 'WS1')) {
     try {
         Write-Host "`n  SERVICES (WS1):" -ForegroundColor Yellow
         $ws1Check = Invoke-LabCommand -ComputerName 'WS1' -ScriptBlock {
@@ -95,10 +97,12 @@ if ($running.Name -contains 'WS1') {
             $results
         } -PassThru -ErrorAction SilentlyContinue
         $ws1Check | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
-    } catch {}
+    } catch {
+        Write-Verbose "WS1 live status check failed: $($_.Exception.Message)"
+    }
 }
 
-if ($running.Name -contains 'LIN1') {
+if ($labImported -and ($running.Name -contains 'LIN1')) {
     try {
         Write-Host "`n  GIT PROJECTS (LIN1):" -ForegroundColor Yellow
         $bashCmd = 'for d in ' + $LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then name=$(basename "$d"); cd "$d"; branch=$(git branch --show-current 2>/dev/null); changes=$(git status --porcelain 2>/dev/null | wc -l); remote=$(git remote get-url origin 2>/dev/null || echo "(no remote)"); echo "  $name [$branch] $changes uncommitted | $remote"; fi; done'
@@ -119,7 +123,9 @@ if ($running.Name -contains 'LIN1') {
             bash -lc $Cmd
         } -ArgumentList $mountCmd -PassThru -ErrorAction SilentlyContinue
         $mountCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
-    } catch {}
+    } catch {
+        Write-Verbose "LIN1 live status check failed: $($_.Exception.Message)"
+    }
 }
 
 Write-Host "`n=== END STATUS ===" -ForegroundColor Cyan

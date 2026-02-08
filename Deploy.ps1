@@ -27,7 +27,7 @@ $ProgressPreference = 'SilentlyContinue'
 # Config loaded from Lab-Config.ps1
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
-$LabInstallUser = 'anthonyscry'
+$LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     if ($env:OPENCODELAB_ADMIN_PASSWORD) {
         $AdminPassword = $env:OPENCODELAB_ADMIN_PASSWORD
@@ -290,13 +290,11 @@ try {
         }
     }
 
-    $installLabFailed = $false
     try {
         Install-Lab
     } catch {
         Write-Host "  [WARN] Install-Lab encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
         Write-Host "  Will attempt to validate and recover DC1 AD DS installation..." -ForegroundColor Yellow
-        $installLabFailed = $true
     }
 
     # ============================================================
@@ -372,8 +370,8 @@ try {
         Write-Host "    Promoting DC1 to domain controller for '$DomainName' (NetBIOS: $netbiosDomain)..." -ForegroundColor Yellow
 
         Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Recovery-ADDSForest' -ScriptBlock {
-            param($Domain, $Netbios, $Pwd)
-            $securePwd = ConvertTo-SecureString $Pwd -AsPlainText -Force
+            param($Domain, $Netbios, $SafeModePassword)
+            $securePwd = ConvertTo-SecureString $SafeModePassword -AsPlainText -Force
             Install-ADDSForest `
                 -DomainName $Domain `
                 -DomainNetbiosName $Netbios `
@@ -514,7 +512,9 @@ try {
         # Authorize DHCP in AD (ignore if already authorized)
         try {
             if ($Dns) { Add-DhcpServerInDC -DnsName "$env:COMPUTERNAME.$env:USERDNSDOMAIN" -IPAddress $Dns | Out-Null }
-        } catch {}
+        } catch {
+            Write-Verbose "DHCP authorization already present or unavailable: $($_.Exception.Message)"
+        }
 
         # Create scope if missing
         $existing = Get-DhcpServerv4Scope -ErrorAction SilentlyContinue | Where-Object { $_.ScopeId.IPAddressToString -eq $ScopeId }
@@ -652,9 +652,15 @@ try {
         $netbios = ($DomainName -split '\.')[0].ToUpper()
         try {
             New-ADGroup -Name 'LabShareUsers' -GroupScope DomainLocal -Path "CN=Users,DC=$($DomainName -replace '\.',',DC=')" -ErrorAction Stop | Out-Null
-        } catch {}
+        } catch {
+            Write-Verbose "LabShareUsers group create skipped: $($_.Exception.Message)"
+        }
 
-        try { Add-ADGroupMember -Identity 'LabShareUsers' -Members 'Domain Users' -ErrorAction SilentlyContinue } catch {}
+        try {
+            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'Domain Users' -ErrorAction SilentlyContinue
+        } catch {
+            Write-Verbose "LabShareUsers add Domain Users skipped: $($_.Exception.Message)"
+        }
 
         try {
             if (-not (Get-SmbShare -Name $ShareName -ErrorAction SilentlyContinue)) {
@@ -662,7 +668,9 @@ try {
                     -FullAccess "$netbios\LabShareUsers", "$netbios\Domain Admins" `
                     -Description 'OpenCode Lab Shared Storage' | Out-Null
             }
-        } catch {}
+        } catch {
+            Write-Verbose "SMB share create/check skipped: $($_.Exception.Message)"
+        }
 
         $acl = Get-Acl $SharePath
         $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
@@ -675,7 +683,11 @@ try {
 
     # Add WS1$ to share group (after join)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Add-WS1-To-ShareGroup' -ScriptBlock {
-        try { Add-ADGroupMember -Identity 'LabShareUsers' -Members 'WS1$' -ErrorAction Stop | Out-Null } catch {}
+        try {
+            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'WS1$' -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Verbose "LabShareUsers add WS1$ skipped: $($_.Exception.Message)"
+        }
     } | Out-Null
 
     # Install Git on DC1 (winget if available, else direct)
@@ -975,6 +987,11 @@ echo "[LIN1] Done."
         Write-Host "  [WARN] Skipping LIN1 post-config (not included or not reachable)." -ForegroundColor Yellow
     }
 
+    if ($IncludeLIN1 -and $lin1Ready) {
+        Write-Host "`n[LIN1] Finalizing boot media (detach installer + seed disk)..." -ForegroundColor Cyan
+        Finalize-LIN1InstallMedia -VMName 'LIN1' | Out-Null
+    }
+
     # ============================================================
     # SNAPSHOT
     # ============================================================
@@ -1011,10 +1028,6 @@ catch {
 finally {
     Stop-Transcript | Out-Null
 }
-
-
-
-
 
 
 

@@ -13,7 +13,7 @@ $LabSourcesRoot = 'C:\LabSources'
 $ScriptsRoot    = Join-Path $LabSourcesRoot 'Scripts'
 
 # Linux VM defaults (LIN1)
-$LinuxUser   = 'install'
+$LinuxUser   = 'anthonyscry'
 $LinuxHome   = "/home/$LinuxUser"
 $LinuxProjectsRoot = "$LinuxHome/projects"
 $LinuxLabShareMount = "/mnt/labshare"

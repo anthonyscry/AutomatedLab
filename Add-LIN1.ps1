@@ -9,8 +9,6 @@ param(
     [string]$AdminPassword = 'Server123!'
 )
 
-$LabInstallUser = 'anthonyscry'
-
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
@@ -24,6 +22,8 @@ if (-not (Test-Path $CommonPath)) {
 
 . $ConfigPath
 . $CommonPath
+
+$LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
 
 $ErrorActionPreference = 'Stop'
 
@@ -122,7 +122,7 @@ try {
 
     # Create the LIN1 VM (Gen2, SecureBoot off, Ubuntu ISO + CIDATA VHDX)
     Write-Host "  Creating Hyper-V Gen2 VM..." -ForegroundColor Gray
-    $lin1Vm = New-LIN1VM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath
+    New-LIN1VM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath | Out-Null
 
     # Start VM -- Ubuntu autoinstall should proceed unattended
     Start-VM -Name 'LIN1'
@@ -190,7 +190,7 @@ Write-Host "[LIN1] Running post-install configuration..." -ForegroundColor Cyan
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
 Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
-$linUser = $LinuxUser
+$linUser = $LabInstallUser
 $linHome = "/home/$linUser"
 $escapedPassword = $AdminPassword -replace "'", "'\\''"
 
@@ -237,10 +237,9 @@ catch {
     Write-Host "  You can run .\Configure-LIN1.ps1 manually later" -ForegroundColor Yellow
 }
 
-# Clean up CIDATA VHDX
-Write-Host "  Cleaning up CIDATA seed disk..." -ForegroundColor Gray
-Get-VMHardDiskDrive -VMName 'LIN1' | Where-Object { $_.Path -like '*cidata*' } | Remove-VMHardDiskDrive -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
+# Finalize boot media so LIN1 does not return to installer on reboot
+Write-Host "  Finalizing LIN1 boot media (detach installer + seed disk)..." -ForegroundColor Gray
+Finalize-LIN1InstallMedia -VMName 'LIN1' | Out-Null
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green

@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.9.1 - Core/Full Mode Controls, LIN1 Boot Finalization, and Script Hygiene
+
+### New Features
+- Added `-CoreOnly` support in `OpenCodeLab-App.ps1` for setup/health/deploy paths that intentionally skip LIN1.
+- Added `lint` action and menu option (`[T]`) wired to `Test-OpenCodeLabLint.ps1`.
+
+### Improvements
+- `Bootstrap.ps1`, `Test-OpenCodeLabPreflight.ps1`, and `Test-OpenCodeLabHealth.ps1` now support explicit core/full execution modes.
+- Added `Finalize-LIN1InstallMedia` in `Lab-Common.ps1` and integrated it into deploy and LIN1 add/config flows to detach installer media and avoid rebooting back into Ubuntu installer.
+- Improved interactive menu execution logging and input handling in `OpenCodeLab-App.ps1`.
+- `Test-OpenCodeLabLint.ps1` now defaults to a CI-focused high-signal gate, with `-Full` available for complete analyzer audits.
+
+### Bug Fixes
+- Standardized LIN1 user defaults around `Lab-Config.ps1` (`$LinuxUser`) so autoinstall/post-config/health checks stay aligned.
+- Fixed LIN1 host SSH health probe target variable (`$LIN1_Ip`) in `Test-OpenCodeLabHealth.ps1`.
+- Removed `PSAvoidAssignmentToAutomaticVariable` linter warnings by avoiding `$args` as a local variable name in `OpenCodeLab-App.ps1` helpers.
+
 ## v1.9.0 - Standalone Add-LIN1 Script & Menu Option
 
 ### New Features

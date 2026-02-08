@@ -60,7 +60,7 @@ if (-not $lin1Ready) {
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
 Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
-$linUser = $LinuxUser
+$linUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
 $linHome = "/home/$linUser"
 $escapedPassword = $AdminPassword -replace "'", "'\\''"
 
@@ -98,5 +98,8 @@ $vars = @{
     PASS = $escapedPassword
 }
 Invoke-BashOnLIN1 -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars | Out-Null
+
+Write-Host "[LIN1] Finalizing boot media (detach installer + seed disk)..." -ForegroundColor Cyan
+Finalize-LIN1InstallMedia -VMName 'LIN1' | Out-Null
 
 Write-Host "[OK] LIN1 SSH bootstrap complete." -ForegroundColor Green

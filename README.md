@@ -20,11 +20,23 @@ Use `OpenCodeLab-App.ps1` as the main entry point.
 # post-deploy health gate only
 .\OpenCodeLab-App.ps1 -Action health
 
+# lint scripts (PSScriptAnalyzer)
+.\OpenCodeLab-App.ps1 -Action lint
+
+# full lint audit (includes advisory/style rules)
+.\Test-OpenCodeLabLint.ps1 -Full
+
 # one-button full setup (bootstrap + deploy + start + status)
 .\OpenCodeLab-App.ps1 -Action one-button-setup
 
+# one-button core-only setup (DC1 + WS1 only)
+.\OpenCodeLab-App.ps1 -Action one-button-setup -CoreOnly
+
 # noninteractive mode (for task scheduler / automation)
 .\OpenCodeLab-App.ps1 -Action one-button-setup -NonInteractive
+
+# noninteractive core-only mode
+.\OpenCodeLab-App.ps1 -Action one-button-setup -NonInteractive -CoreOnly
 
 # one-button setup now enforces health gate and auto-rolls back to LabReady on failure
 
@@ -41,9 +53,9 @@ Use `OpenCodeLab-App.ps1` as the main entry point.
 
 # direct script automation examples
 .\New-LabProject.ps1 -NonInteractive -ProjectName demo-app -Visibility private -Force -AutoStart
-.\Push-ToWS1_POLISHED_FINAL.ps1 -NonInteractive -ProjectName demo-app -AutoStart -Force
+.\Push-ToWS1.ps1 -NonInteractive -ProjectName demo-app -AutoStart -Force
 .\Test-OnWS1.ps1 -NonInteractive -ProjectName demo-app -ScriptName run-tests.ps1 -AutoStart -CheckLogs
-.\Save-LabWork_POLISHED_FINAL.ps1 -NonInteractive -ProjectName all -AutoStart -TakeSnapshot
+.\Save-LabWork.ps1 -NonInteractive -ProjectName all -AutoStart -TakeSnapshot
 
 # stop and rollback
 .\OpenCodeLab-App.ps1 -Action stop
@@ -73,13 +85,15 @@ Example `opencodelab.defaults.json`:
 ```json
 {
   "NonInteractive": true,
+  "CoreOnly": false,
   "Force": true,
   "RemoveNetwork": false
 }
 ```
 
 When `NonInteractive` is true, orchestrator `new-project`, `push`, `test`, and `save`
-actions pass noninteractive flags to their underlying scripts.
+actions pass noninteractive flags to their underlying scripts. Set `CoreOnly` to `true`
+to keep setup/health flows in DC1+WS1 mode.
 
 ## Admin Password Override
 
@@ -165,7 +179,11 @@ If `Get-VM` still returns nothing but Hyper-V Manager still shows LIN1, reboot t
 
 ### LIN1 Ubuntu 24.04 Deployment (v1.8.0+)
 
-**Default Behavior**: `Deploy.ps1` deploys only `DC1` + `WS1` (core Windows lab).
+`Deploy.ps1` alone defaults to `DC1` + `WS1` (core lab). LIN1 is enabled with
+`-IncludeLIN1`.
+
+`OpenCodeLab-App.ps1` defaults to full mode (includes LIN1). Use `-CoreOnly` for
+DC1/WS1-only runs.
 
 **Why LIN1 is Optional**: AutomatedLab lacks Ubuntu 24.04 support. LIN1 is created manually using native Hyper-V cmdlets to work around this limitation.
 
@@ -197,18 +215,22 @@ Use this exact order:
    ```powershell
    .\OpenCodeLab-App.ps1 -Action blow-away -RemoveNetwork
    ```
-2. **Build core lab (DC1 + WS1)**
+2. **Build lab (default full mode includes LIN1)**
    ```powershell
    .\OpenCodeLab-App.ps1 -Action one-button-setup
+   ```
+   **Core-only variant:**
+   ```powershell
+   .\OpenCodeLab-App.ps1 -Action one-button-setup -CoreOnly
    ```
 3. **Start/verify health**
    ```powershell
    .\OpenCodeLab-App.ps1 -Action start
    .\OpenCodeLab-App.ps1 -Action health
    ```
-4. **(Optional) Include LIN1 in full deploy run**
+4. **(Optional) Add/rebuild LIN1 after a core-only run**
    ```powershell
-   .\Deploy.ps1 -IncludeLIN1
+   .\OpenCodeLab-App.ps1 -Action add-lin1
    ```
 5. **One-click LIN1 SSH config after LIN1 exists**
    ```powershell
@@ -216,6 +238,6 @@ Use this exact order:
    ```
 
 ### Important
-- Step 2 is the default reliable path (core Windows lab).
+- Step 2 default now includes LIN1; use `-CoreOnly` for a faster core-only setup.
 - Step 5 is the preferred after-the-fact LIN1 SSH bootstrap path.
 - If Hyper-V still shows phantom LIN1 but `Get-VM` does not, follow the troubleshooting section below and reboot host if needed.

@@ -44,6 +44,59 @@ function Ensure-VMRunning {
     return $true
 }
 
+function Remove-HyperVVMStale {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter()][string]$Context = 'cleanup',
+        [Parameter()][int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $vm) { return $true }
+
+        Write-Host "    [WARN] Found VM '$VMName' during $Context (attempt $attempt/$MaxAttempts). Removing..." -ForegroundColor Yellow
+
+        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+
+        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
+
+        if ($vm.State -like 'Saved*') {
+            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 1
+            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        }
+
+        if ($vm -and $vm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+
+        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $stillThere) {
+            Write-Host "    [OK] Removed VM '$VMName'" -ForegroundColor Green
+            return $true
+        }
+
+        $vmId = $stillThere.VMId.Guid
+        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*$vmId*" } |
+            Select-Object -First 1
+        if ($vmwp) {
+            Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
+}
+
 function Ensure-VMsReady {
     param(
         [Parameter(Mandatory)][string[]]$VMNames,
@@ -162,7 +215,7 @@ function Get-Sha512PasswordHash {
                     return $hash.Trim()
                 }
             } catch {
-                # Continue to next path or .NET fallback
+                Write-Verbose "OpenSSL hash attempt failed at '$opensslPath': $($_.Exception.Message)"
             }
         }
     }
@@ -239,17 +292,20 @@ function New-CidataVhdx {
 "@
     }
 
-    $userData = @"
+$userData = @"
 #cloud-config
 autoinstall:
   version: 1
+  interactive-sections: []
   locale: en_US.UTF-8
   keyboard:
     layout: us
   network:
     version: 2
     ethernets:
-      eth0:
+      primary:
+        match:
+          name: "e*"
         dhcp4: true
   identity:
     hostname: $Hostname
@@ -285,6 +341,7 @@ local-hostname: $Hostname
     try {
         [IO.File]::WriteAllText((Join-Path $staging 'user-data'), $userData, $utf8NoBom)
         [IO.File]::WriteAllText((Join-Path $staging 'meta-data'), $metaData, $utf8NoBom)
+        [IO.File]::WriteAllText((Join-Path $staging 'autoinstall'), "", $utf8NoBom)
 
         # Create parent directory for the VHDX
         $dir = Split-Path $OutputPath -Parent
@@ -304,6 +361,7 @@ local-hostname: $Hostname
         $driveRoot = "${driveLetter}:\"
         Copy-Item (Join-Path $staging 'user-data') (Join-Path $driveRoot 'user-data') -Force
         Copy-Item (Join-Path $staging 'meta-data') (Join-Path $driveRoot 'meta-data') -Force
+        Copy-Item (Join-Path $staging 'autoinstall') (Join-Path $driveRoot 'autoinstall') -Force
 
         Dismount-VHD -Path $OutputPath
         Write-Host "    [OK] CIDATA VHDX created: $OutputPath" -ForegroundColor Green
@@ -311,7 +369,11 @@ local-hostname: $Hostname
     }
     catch {
         # Ensure VHD is dismounted on failure
-        try { Dismount-VHD -Path $OutputPath -ErrorAction SilentlyContinue } catch {}
+        try {
+            Dismount-VHD -Path $OutputPath -ErrorAction SilentlyContinue
+        } catch {
+            Write-Verbose "Cleanup dismount failed for '$OutputPath': $($_.Exception.Message)"
+        }
         throw
     }
     finally {
@@ -410,4 +472,65 @@ function New-LIN1VM {
 
     Write-Host "    [OK] VM '$VMName' created (Gen2, SecureBoot=Off, DVD+CIDATA)" -ForegroundColor Green
     return Hyper-V\Get-VM -Name $VMName
+}
+
+function Finalize-LIN1InstallMedia {
+    <#
+    .SYNOPSIS
+    Finalize LIN1 boot media after Ubuntu install completes.
+
+    Removes installer DVD/CIDATA devices and sets firmware to boot from OS disk
+    so the VM does not return to the Ubuntu installer wizard on subsequent boots.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$VMName = 'LIN1'
+    )
+
+    $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+    if (-not $vm) {
+        Write-Verbose "VM '$VMName' not found; skipping install-media finalization."
+        return $false
+    }
+
+    $osDisk = Hyper-V\Get-VMHardDiskDrive -VMName $VMName -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -and $_.Path -notmatch '(?i)cidata' } |
+        Select-Object -First 1
+    if ($osDisk) {
+        try {
+            Hyper-V\Set-VMFirmware -VMName $VMName -FirstBootDevice $osDisk -ErrorAction Stop
+            Write-Host "    [OK] $VMName firmware set to boot from OS disk" -ForegroundColor Green
+        } catch {
+            Write-Verbose "Unable to set first boot device for '$VMName': $($_.Exception.Message)"
+        }
+    }
+
+    Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $dvd = $_
+            try {
+                Hyper-V\Remove-VMDvdDrive -VMDvdDrive $dvd -ErrorAction Stop
+                Write-Host "    [OK] Detached installer DVD from $VMName" -ForegroundColor Green
+            } catch {
+                Write-Verbose "Unable to remove DVD drive from '$VMName': $($_.Exception.Message)"
+            }
+        }
+
+    Hyper-V\Get-VMHardDiskDrive -VMName $VMName -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -and $_.Path -match '(?i)cidata' } |
+        ForEach-Object {
+            $seed = $_
+            try {
+                Hyper-V\Remove-VMHardDiskDrive -VMHardDiskDrive $seed -ErrorAction Stop
+                Write-Host "    [OK] Detached CIDATA seed disk from $VMName" -ForegroundColor Green
+            } catch {
+                Write-Verbose "Unable to detach CIDATA disk from '$VMName': $($_.Exception.Message)"
+            }
+
+            if ($seed.Path -and (Test-Path $seed.Path)) {
+                Remove-Item $seed.Path -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+    return $true
 }
