@@ -15,6 +15,7 @@ param(
         'preflight',
         'bootstrap',
         'deploy',
+        'lin1-config',
         'health',
         'start',
         'status',
@@ -216,6 +217,46 @@ function Stop-LabVMsSafe {
     }
 }
 
+
+function Remove-VMHardSafe {
+    param([Parameter(Mandatory)][string]$VMName)
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $vm) { return $true }
+
+        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
+
+        if ($vm.State -like 'Saved*') {
+            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 1
+            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        }
+
+        if ($vm -and $vm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+
+        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $stillThere) { return $true }
+
+        $vmId = $stillThere.VMId.Guid
+        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*$vmId*" } |
+            Select-Object -First 1
+        if ($vmwp) { Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue }
+    }
+
+    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
+}
+
 function Invoke-BlowAway {
     param(
         [switch]$BypassPrompt,
@@ -255,18 +296,53 @@ function Invoke-BlowAway {
     Write-Host "  [2/5] Removing AutomatedLab definition..." -ForegroundColor Cyan
     try {
         Import-Module AutomatedLab -ErrorAction SilentlyContinue | Out-Null
-        Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue
+
+        # Remove-Lab can emit noisy non-terminating errors for already-missing
+        # metadata files (for example Network_<switch>.xml). Those are benign
+        # during blow-away, so suppress raw error stream and continue cleanup.
+        Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 2>$null
     } catch {
         Write-Host "  [WARN] Remove-Lab returned: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 
     Write-Host "  [3/5] Removing Hyper-V VMs/checkpoints if present..." -ForegroundColor Cyan
     foreach ($vmName in $LabVMs) {
-        $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
-        if ($vm) {
-            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
+        if (Remove-VMHardSafe -VMName $vmName) {
             Write-Host "    removed VM $vmName" -ForegroundColor Gray
+        } elseif (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
+            Write-Host "    [WARN] Could not fully remove VM $vmName. Reboot host, then run blow-away again." -ForegroundColor Yellow
         }
+    }
+
+    $remainingLabVms = foreach ($vmName in $LabVMs) {
+        Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+    }
+    if (-not $remainingLabVms) {
+        Write-Host "    [OK] No lab VMs remain in Hyper-V inventory." -ForegroundColor Green
+
+        # Hyper-V Manager can still show phantom entries until management services/UI refresh.
+        try {
+            Get-Process vmconnect -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-Process mmc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+            Stop-Service vmcompute -Force -ErrorAction SilentlyContinue
+            Stop-Service vmms -Force -ErrorAction Stop
+            Start-Sleep -Seconds 2
+            Start-Service vmms -ErrorAction Stop
+            Start-Service vmcompute -ErrorAction SilentlyContinue
+
+            Write-Host "    [OK] Refreshed Hyper-V management services and closed stale UI sessions." -ForegroundColor Green
+        } catch {
+            Write-Host "    [WARN] Could not fully refresh Hyper-V services automatically: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        $ghostCheck = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if (-not $ghostCheck) {
+            Write-Host "    [OK] PowerShell confirms LIN1 is not present." -ForegroundColor Green
+        }
+
+        Write-Host "    [NOTE] If Hyper-V Manager still shows LIN1 now, reboot the host to clear VMMS cache." -ForegroundColor DarkGray
+        Write-Host "           Then open Hyper-V Manager and refresh the server node." -ForegroundColor DarkGray
     }
 
     Write-Host "  [4/5] Removing lab files..." -ForegroundColor Cyan
@@ -380,6 +456,7 @@ function Show-Menu {
     Write-Host "   [B] Bootstrap + Deploy" -ForegroundColor White
     Write-Host "   [D] Deploy only" -ForegroundColor White
     Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
+    Write-Host "   [L] Configure LIN1 SSH (post-deploy)" -ForegroundColor White
     Write-Host ""
     Write-Host "  DAILY" -ForegroundColor DarkCyan
     Write-Host "   [H] Health Gate" -ForegroundColor White
@@ -410,6 +487,7 @@ function Invoke-InteractiveMenu {
             'B' { Invoke-RepoScript -BaseName 'Bootstrap'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'D' { Invoke-RepoScript -BaseName 'Deploy'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'I' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts'; Read-Host "`n  Press Enter to continue" | Out-Null }
+            'L' { Invoke-RepoScript -BaseName 'Configure-LIN1'; Read-Host "`n  Press Enter to continue" | Out-Null }
             'H' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '1' { Invoke-RepoScript -BaseName 'Start-LabDay'; Read-Host "`n  Press Enter to continue" | Out-Null }
             '2' { Invoke-RepoScript -BaseName 'Lab-Status'; Read-Host "`n  Press Enter to continue" | Out-Null }
@@ -485,6 +563,11 @@ try {
             $deployArgs = @()
             if ($NonInteractive) { $deployArgs += '-NonInteractive' }
             Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+        }
+        'lin1-config' {
+            $linArgs = @()
+            if ($NonInteractive) { $linArgs += '-NonInteractive' }
+            Invoke-RepoScript -BaseName 'Configure-LIN1' -Arguments $linArgs
         }
         'health' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' }
         'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }
