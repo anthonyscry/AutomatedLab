@@ -578,6 +578,13 @@ try {
             }
             catch {
                 Write-Host "  [WARN] LIN1 VM creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                
+                # Rollback: Clean up partial artifacts
+                Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
+                Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
+                Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
+                Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
+                
                 Write-Host "  [WARN] Continuing without LIN1. Create it manually later with Configure-LIN1.ps1" -ForegroundColor Yellow
             }
         }
