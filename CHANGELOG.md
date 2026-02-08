@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.9.0 - Standalone Add-LIN1 Script & Menu Option
+
+### New Features
+- Added `Add-LIN1.ps1` — standalone script to add LIN1 (Ubuntu 24.04) to an existing lab without reinstalling DC1/WS1. Fully automated: creates VM, generates CIDATA, waits for SSH, runs post-install config, cleans up.
+- Added menu option `[N] Add LIN1 VM (Ubuntu 24.04)` in `OpenCodeLab-App.ps1`.
+- Added CLI action `add-lin1`: `.\OpenCodeLab-App.ps1 -Action add-lin1`.
+
+### Improvements
+- `Deploy.ps1`: Added rollback cleanup of partial VM artifacts when LIN1 creation fails.
+- `Add-LIN1.ps1`: Uses glob matching (`ubuntu-24.04*.iso`) so future point releases work without code changes.
+- `Add-LIN1.ps1`: Progress indicators show elapsed/remaining time during SSH wait loop.
+- `Add-LIN1.ps1`: Automatically cleans up CIDATA VHDX after successful SSH connection.
+
 ## v1.8.0 - Fix LIN1 Ubuntu 24.04 Install Hang & WS1 RSAT Access Denied
 
 ### Bug Fixes
