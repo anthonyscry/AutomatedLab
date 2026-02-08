@@ -104,12 +104,12 @@ foreach ($vmName in $ExpectedVMs) {
 if (-not $issues.Count) {
     try {
         $dcChecks = Invoke-LabStructuredCheck -ComputerName 'DC1' -RequiredProperty 'NTDS' -Attempts 6 -DelaySeconds 10 -ScriptBlock {
-            $result = [pscustomobject]@{}
-            $result.NTDS = (Get-Service NTDS -ErrorAction SilentlyContinue).Status
-            $result.DNS = (Get-Service DNS -ErrorAction SilentlyContinue).Status
-            $result.SSHD = (Get-Service sshd -ErrorAction SilentlyContinue).Status
-            $result.Share = [bool](Get-SmbShare -Name 'LabShare' -ErrorAction SilentlyContinue)
-            $result
+            [pscustomobject]@{
+                NTDS = (Get-Service NTDS -ErrorAction SilentlyContinue).Status
+                DNS = (Get-Service DNS -ErrorAction SilentlyContinue).Status
+                SSHD = (Get-Service sshd -ErrorAction SilentlyContinue).Status
+                Share = [bool](Get-SmbShare -Name 'LabShare' -ErrorAction SilentlyContinue)
+            }
         }
 
         if (-not $dcChecks) {
@@ -127,15 +127,18 @@ if (-not $issues.Count) {
     try {
         $wsChecks = Invoke-LabStructuredCheck -ComputerName 'WS1' -RequiredProperty 'AppIDSvc' -Attempts 4 -DelaySeconds 10 -ScriptBlock {
             param($Domain)
-            $result = [pscustomobject]@{}
-            $result.AppIDSvc = (Get-Service AppIDSvc -ErrorAction SilentlyContinue).Status
-            $result.LDrive = Test-Path 'L:\'
+            $lDrive = Test-Path 'L:\'
+            $shareReachable = Test-Path '\\DC1\LabShare'
             $cs = Get-CimInstance Win32_ComputerSystem
-            $result.PartOfDomain = [bool]$cs.PartOfDomain
-            $result.Domain = $cs.Domain
             $dns = Resolve-DnsName -Name "dc1.$Domain" -ErrorAction SilentlyContinue
-            $result.DnsOk = [bool]$dns
-            $result
+            [pscustomobject]@{
+                AppIDSvc = (Get-Service AppIDSvc -ErrorAction SilentlyContinue).Status
+                LDrive = $lDrive
+                ShareReachable = $shareReachable
+                PartOfDomain = [bool]$cs.PartOfDomain
+                Domain = $cs.Domain
+                DnsOk = [bool]$dns
+            }
         } -ArgumentList $DomainName
 
         if (-not $wsChecks) {
@@ -143,7 +146,13 @@ if (-not $issues.Count) {
         }
 
         if ($wsChecks.AppIDSvc -eq 'Running') { Add-Ok 'WS1 AppIDSvc running' } else { Add-Issue 'WS1 AppIDSvc not running' }
-        if ($wsChecks.LDrive) { Add-Ok 'WS1 L: mapped' } else { Add-Issue 'WS1 L: not mapped' }
+        if ($wsChecks.LDrive) {
+            Add-Ok 'WS1 L: mapped'
+        } elseif ($wsChecks.ShareReachable) {
+            Add-Ok 'WS1 LabShare reachable via UNC (L: not mapped in service context)'
+        } else {
+            Add-Issue 'WS1 LabShare not reachable (L: and UNC both unavailable)'
+        }
         if ($wsChecks.PartOfDomain -and $wsChecks.Domain -ieq $DomainName) { Add-Ok 'WS1 domain join healthy' } else { Add-Issue "WS1 domain join invalid ($($wsChecks.Domain))" }
         if ($wsChecks.DnsOk) { Add-Ok 'WS1 DNS resolution works for DC1' } else { Add-Issue 'WS1 DNS resolution for DC1 failed' }
     } catch {
