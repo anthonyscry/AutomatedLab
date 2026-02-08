@@ -86,11 +86,11 @@ actions pass noninteractive flags to their underlying scripts.
 `Deploy.ps1` supports an environment override:
 
 ```powershell
-$env:OPENCODELAB_ADMIN_PASSWORD = "YourStrongPassword"
+$env:OPENCODELAB_ADMIN_PASSWORD = "Server123!"
 .\OpenCodeLab-App.ps1 -Action one-button-setup -NonInteractive
 ```
 
-`OPENCODELAB_ADMIN_PASSWORD` (or `-AdminPassword` on deploy) is now required.
+`Deploy.ps1` now defaults to `Server123!`. You can still override with `OPENCODELAB_ADMIN_PASSWORD` or `-AdminPassword`. If an empty password is passed accidentally, deploy falls back to the default and continues.
 
 ## Run Artifacts (JSON + Text)
 
@@ -136,3 +136,22 @@ The app maps to the SOP flow:
 - `CHANGELOG.md`
 - `SECRETS-BOOTSTRAP.md`
 - `RUNBOOK-ROLLBACK.md`
+
+
+## Troubleshooting: Phantom LIN1 in Hyper-V Manager
+
+If Hyper-V Manager still shows `LIN1`, but PowerShell says `Remove-VM` / `Get-VM` cannot find it, the VM is usually already deleted and the UI is stale.
+
+Run in elevated PowerShell:
+
+```powershell
+Hyper-V\Get-VM -ComputerName $env:COMPUTERNAME -Name LIN1 -ErrorAction SilentlyContinue
+Get-Process vmconnect,mmc -ErrorAction SilentlyContinue | Stop-Process -Force
+Stop-Service vmcompute -Force
+Stop-Service vmms -Force
+Start-Service vmms
+Start-Service vmcompute
+Hyper-V\Get-VM -ComputerName $env:COMPUTERNAME -Name LIN1 -ErrorAction SilentlyContinue
+```
+
+If `Get-VM` still returns nothing but Hyper-V Manager still shows LIN1, reboot the host (this clears VMMS cache), then reopen Hyper-V Manager and click **Refresh**.

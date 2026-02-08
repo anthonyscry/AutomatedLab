@@ -1,5 +1,102 @@
 # Changelog
 
+## v1.6.5 - Stronger Phantom LIN1 Recovery (Service Order + Reboot Guidance)
+
+### Changes
+- Blow-away now closes stale Hyper-V UI processes (`mmc`, `vmconnect`) and performs ordered Hyper-V service restart (`vmcompute` then `vmms`, then start).
+- Added post-refresh LIN1 verification and explicit host reboot guidance when Hyper-V Manager still shows phantom entries despite `Get-VM` object-not-found.
+- Updated README troubleshooting steps to match the stronger recovery sequence.
+
+## v1.6.4 - Auto-Refresh Hyper-V Services After Blow-Away
+
+### Changes
+- Updated blow-away flow to restart Hyper-V management services (`vmms` and `vmcompute`) when no lab VMs remain, reducing phantom LIN1 UI entries.
+- Expanded README phantom-LIN1 troubleshooting with stronger verification and UI refresh steps.
+
+## v1.6.3 - Add Phantom VM Guidance for Hyper-V Manager
+
+### Changes
+- Updated blow-away output in `OpenCodeLab-App.ps1` to report when no lab VMs remain and to explain stale Hyper-V Manager cache behavior.
+- Added README troubleshooting guidance for phantom `LIN1` entries when `Get-VM`/`Remove-VM` report object not found.
+
+## v1.6.2 - Clear Saved-Critical VM State During Cleanup
+
+### Bug Fixes
+- Updated stuck-VM cleanup helpers in `Deploy.ps1` and `OpenCodeLab-App.ps1` to explicitly clear saved VM state (`Remove-VMSavedState`) before stop/remove attempts.
+- This handles Hyper-V `Saved-Critical` LIN1 states that block normal stop/remove operations in UI and scripts.
+
+## v1.6.1 - Handle Stuck LIN1 VM State During Cleanup
+
+### Bug Fixes
+- Added `Remove-HyperVVMStale` in `Deploy.ps1` with retries, snapshot cleanup, DVD removal, and vmwp process kill fallback for stuck VMs.
+- Updated both deploy cleanup guards to use the shared hardened VM-removal function.
+- Added `Remove-VMHardSafe` in `OpenCodeLab-App.ps1` so blow-away can remove stuck VMs (including LIN1) more reliably.
+
+## v1.6.0 - Add Pre-Install LIN1 Collision Guard
+
+### Bug Fixes
+- Added a second stale-VM cleanup guard immediately before `Install-Lab` in `Deploy.ps1`.
+- Prevents late `LIN1 already exists` / malformed LIN1 notes XML failures by verifying no lab VM names remain before AutomatedLab VM creation starts.
+
+## v1.5.9 - Enforce Stale VM Removal Before Install
+
+### Bug Fixes
+- Strengthened stale VM cleanup in `Deploy.ps1` to remove checkpoints, stop VMs, remove VMs, and verify deletion before continuing.
+- Deployment now fails fast with a clear message if a stale VM (for example `LIN1`) cannot be removed, preventing later AutomatedLab `does already exist` and notes-XML errors.
+
+## v1.5.8 - Remove Stale VMs Before Install-Lab
+
+### Bug Fixes
+- Added pre-definition stale VM cleanup in `Deploy.ps1` for `DC1`, `WS1`, and `LIN1`.
+- Prevents `Install-Lab` from failing or warning with `The machine 'LIN1' does already exist` after partial/failed teardown cycles.
+
+## v1.5.7 - Quiet Benign Remove-Lab Metadata Errors During Blow-Away
+
+### Bug Fixes
+- Updated `OpenCodeLab-App.ps1` blow-away flow to suppress noisy non-terminating `Remove-Lab` error output for already-missing metadata files.
+- Teardown behavior remains unchanged: cleanup still continues through VM/file/network removal steps.
+
+## v1.5.6 - Fix "Lab is already exported" During LIN1 Stage
+
+### Bug Fixes
+- Removed late LIN1 machine-definition step in `Deploy.ps1` that attempted to call `Add-LabMachineDefinition` after `Install-Lab` export.
+- Restored single machine-definition phase for `DC1`, `WS1`, and `LIN1` before `Install-Lab`, preventing export-state failures.
+- Kept post-install LIN1 SSH readiness wait and DC1 OpenSSH non-blocking hardening in place.
+
+## v1.5.5 - Do Not Fail Deploy on DC1 OpenSSH Capability Errors
+
+### Bug Fixes
+- Hardened DC1 OpenSSH setup in `Deploy.ps1` so capability install/configuration failures no longer abort the entire deployment.
+- Deployment now logs a warning and continues when OpenSSH optional feature install fails (for example, DISM `Access is denied`).
+- Host key bootstrap to DC1 is now conditional and runs only when OpenSSH is confirmed ready.
+
+## v1.5.4 - Remove Empty-Password Blocker
+
+### Changes
+- Updated `Deploy.ps1` to stop throwing when `-AdminPassword` is passed as empty.
+- If password input resolves empty after overrides, deployment now falls back to `Server123!` and continues with a warning.
+
+## v1.5.3 - Default Deploy Password for Non-Interactive Runs
+
+### Changes
+- Set `Deploy.ps1` default `-AdminPassword` value to `Server123!` so deployment can run without interactive password entry.
+- Kept environment/parameter overrides (`OPENCODELAB_ADMIN_PASSWORD` and `-AdminPassword`) for customization.
+- Updated README setup notes to reflect the new default password behavior.
+
+## v1.5.2 - Restore Fully Unattended LIN1 Install Flow
+
+### Bug Fixes
+- Reworked deployment order in `Deploy.ps1` so stage 1 installs only `DC1` and `WS1`.
+- DHCP is now configured on `DC1` before `LIN1` is defined/installed, so Ubuntu autoinstall is no longer started on an internal switch without DHCP.
+- Added a dedicated LIN1 stage: define LIN1, run `Install-Lab` again for the pending Linux machine, then explicitly wait for SSH readiness.
+
+## v1.5.1 - LIN1 Reachability Wait Hardened
+
+### Bug Fixes
+- Increased LIN1 readiness wait window from 30 to 75 minutes in `Deploy.ps1` to better accommodate fully unattended Ubuntu installs on slower hosts.
+- LIN1 readiness now requires both ICMP reachability and SSH (TCP/22) before post-install Linux configuration begins.
+- Wait-loop progress logging now distinguishes between "no DHCP/IP yet" and "IP present but services not ready" to make unattended progress clearer.
+
 ## v1.5.0 - Fix DC1 AD DS Promotion Failure & Recovery
 
 ### Bug Fixes
