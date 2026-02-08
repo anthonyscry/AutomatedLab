@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.6.5 - Stronger Phantom LIN1 Recovery (Service Order + Reboot Guidance)
+
+### Changes
+- Blow-away now closes stale Hyper-V UI processes (`mmc`, `vmconnect`) and performs ordered Hyper-V service restart (`vmcompute` then `vmms`, then start).
+- Added post-refresh LIN1 verification and explicit host reboot guidance when Hyper-V Manager still shows phantom entries despite `Get-VM` object-not-found.
+- Updated README troubleshooting steps to match the stronger recovery sequence.
+
+## v1.6.4 - Auto-Refresh Hyper-V Services After Blow-Away
+
+### Changes
+- Updated blow-away flow to restart Hyper-V management services (`vmms` and `vmcompute`) when no lab VMs remain, reducing phantom LIN1 UI entries.
+- Expanded README phantom-LIN1 troubleshooting with stronger verification and UI refresh steps.
+
+## v1.6.3 - Add Phantom VM Guidance for Hyper-V Manager
+
+### Changes
+- Updated blow-away output in `OpenCodeLab-App.ps1` to report when no lab VMs remain and to explain stale Hyper-V Manager cache behavior.
+- Added README troubleshooting guidance for phantom `LIN1` entries when `Get-VM`/`Remove-VM` report object not found.
+
+## v1.6.2 - Clear Saved-Critical VM State During Cleanup
+
+### Bug Fixes
+- Updated stuck-VM cleanup helpers in `Deploy.ps1` and `OpenCodeLab-App.ps1` to explicitly clear saved VM state (`Remove-VMSavedState`) before stop/remove attempts.
+- This handles Hyper-V `Saved-Critical` LIN1 states that block normal stop/remove operations in UI and scripts.
+
 ## v1.6.1 - Handle Stuck LIN1 VM State During Cleanup
 
 ### Bug Fixes

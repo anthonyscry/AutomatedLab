@@ -229,7 +229,13 @@ function Remove-VMHardSafe {
         Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
             Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
 
-        if ($vm.State -ne 'Off') {
+        if ($vm.State -like 'Saved*') {
+            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 1
+            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        }
+
+        if ($vm -and $vm.State -ne 'Off') {
             Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
             Start-Sleep -Seconds 2
         }
@@ -305,6 +311,37 @@ function Invoke-BlowAway {
         } elseif (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
             Write-Host "    [WARN] Could not fully remove VM $vmName. Reboot host, then run blow-away again." -ForegroundColor Yellow
         }
+    }
+
+    $remainingLabVms = foreach ($vmName in $LabVMs) {
+        Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+    }
+    if (-not $remainingLabVms) {
+        Write-Host "    [OK] No lab VMs remain in Hyper-V inventory." -ForegroundColor Green
+
+        # Hyper-V Manager can still show phantom entries until management services/UI refresh.
+        try {
+            Get-Process vmconnect -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-Process mmc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+            Stop-Service vmcompute -Force -ErrorAction SilentlyContinue
+            Stop-Service vmms -Force -ErrorAction Stop
+            Start-Sleep -Seconds 2
+            Start-Service vmms -ErrorAction Stop
+            Start-Service vmcompute -ErrorAction SilentlyContinue
+
+            Write-Host "    [OK] Refreshed Hyper-V management services and closed stale UI sessions." -ForegroundColor Green
+        } catch {
+            Write-Host "    [WARN] Could not fully refresh Hyper-V services automatically: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        $ghostCheck = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if (-not $ghostCheck) {
+            Write-Host "    [OK] PowerShell confirms LIN1 is not present." -ForegroundColor Green
+        }
+
+        Write-Host "    [NOTE] If Hyper-V Manager still shows LIN1 now, reboot the host to clear VMMS cache." -ForegroundColor DarkGray
+        Write-Host "           Then open Hyper-V Manager and refresh the server node." -ForegroundColor DarkGray
     }
 
     Write-Host "  [4/5] Removing lab files..." -ForegroundColor Cyan

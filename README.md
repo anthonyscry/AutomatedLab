@@ -136,3 +136,22 @@ The app maps to the SOP flow:
 - `CHANGELOG.md`
 - `SECRETS-BOOTSTRAP.md`
 - `RUNBOOK-ROLLBACK.md`
+
+
+## Troubleshooting: Phantom LIN1 in Hyper-V Manager
+
+If Hyper-V Manager still shows `LIN1`, but PowerShell says `Remove-VM` / `Get-VM` cannot find it, the VM is usually already deleted and the UI is stale.
+
+Run in elevated PowerShell:
+
+```powershell
+Hyper-V\Get-VM -ComputerName $env:COMPUTERNAME -Name LIN1 -ErrorAction SilentlyContinue
+Get-Process vmconnect,mmc -ErrorAction SilentlyContinue | Stop-Process -Force
+Stop-Service vmcompute -Force
+Stop-Service vmms -Force
+Start-Service vmms
+Start-Service vmcompute
+Hyper-V\Get-VM -ComputerName $env:COMPUTERNAME -Name LIN1 -ErrorAction SilentlyContinue
+```
+
+If `Get-VM` still returns nothing but Hyper-V Manager still shows LIN1, reboot the host (this clears VMMS cache), then reopen Hyper-V Manager and click **Refresh**.

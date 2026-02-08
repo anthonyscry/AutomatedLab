@@ -60,7 +60,13 @@ function Remove-HyperVVMStale {
         Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
             Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
 
-        if ($vm.State -ne 'Off') {
+        if ($vm.State -like 'Saved*') {
+            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 1
+            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        }
+
+        if ($vm -and $vm.State -ne 'Off') {
             Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
             Start-Sleep -Seconds 2
         }
