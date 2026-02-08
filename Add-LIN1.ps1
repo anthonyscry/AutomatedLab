@@ -149,13 +149,19 @@ Write-Host ""
 $lin1Ready = $false
 $lin1Deadline = [datetime]::Now.AddMinutes(30)
 $startTime = [datetime]::Now
+$lastKnownIp = ''
+$lastLeaseIp = ''
 
 while ([datetime]::Now -lt $lin1Deadline) {
-    $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-        Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $lin1Ips = @()
+    if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
+        $lin1Ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
+    }
     
     if ($lin1Ips) {
         $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+        $lastKnownIp = $lin1DhcpIp
         $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         if ($sshCheck.TcpTestSucceeded) {
             $lin1Ready = $true
@@ -163,10 +169,23 @@ while ([datetime]::Now -lt $lin1Deadline) {
             break
         }
     }
+
+    if (-not $lastKnownIp -and (Get-Command Get-LIN1DhcpLeaseIPv4 -ErrorAction SilentlyContinue)) {
+        $leaseIp = Get-LIN1DhcpLeaseIPv4 -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+        if ($leaseIp) {
+            $lastLeaseIp = $leaseIp
+        }
+    }
     
     $elapsed = [datetime]::Now - $startTime
     $remaining = $lin1Deadline - [datetime]::Now
-    Write-Host "    Still waiting for LIN1 DHCP lease... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
+    if ($lastKnownIp) {
+        Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
+    } elseif ($lastLeaseIp) {
+        Write-Host "    DHCP lease seen for LIN1 ($lastLeaseIp), waiting for Hyper-V guest IP + SSH... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
+    } else {
+        Write-Host "    Still waiting for LIN1 DHCP lease... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
+    }
     Start-Sleep -Seconds 30
 }
 
@@ -174,6 +193,9 @@ if (-not $lin1Ready) {
     Write-Host ""
     Write-Host "  [WARN] LIN1 did not become SSH-reachable within 30 minutes" -ForegroundColor Yellow
     Write-Host "  This is normal if autoinstall is still in progress." -ForegroundColor Yellow
+    if ($lastLeaseIp) {
+        Write-Host "  [INFO] LIN1 DHCP lease observed at: $lastLeaseIp" -ForegroundColor DarkGray
+    }
     Write-Host ""
     Write-Host "  Next steps:" -ForegroundColor Cyan
     Write-Host "    1. Open Hyper-V Manager and connect to LIN1 console" -ForegroundColor White

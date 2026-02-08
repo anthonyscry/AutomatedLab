@@ -43,9 +43,20 @@ foreach ($vm in $vms) {
 }
 
 # Get LIN1 IP for connection info
-$lin1IP = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-    Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } |
-    Select-Object -First 1
+$lin1IP = $null
+$lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+if ($lin1Vm) {
+    if (Get-Command Get-LIN1IPv4 -ErrorAction SilentlyContinue) {
+        $lin1IP = Get-LIN1IPv4
+    } else {
+        $lin1Adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($lin1Adapter -and ($lin1Adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
+            $lin1IP = @($lin1Adapter.IPAddresses) |
+                Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' } |
+                Select-Object -First 1
+        }
+    }
+}
 
 Write-Host "`n=== LAB READY ===" -ForegroundColor Green
 Write-Host "  DC1:   Enter-PSSession -VMName DC1" -ForegroundColor Gray
@@ -53,6 +64,10 @@ Write-Host "  WS1:   Enter-PSSession -VMName WS1" -ForegroundColor Gray
 if ($lin1IP) {
     Write-Host "  LIN1:  ssh -i $SSHKey $LinuxUser@$lin1IP" -ForegroundColor Gray
 } else {
-    Write-Host "  LIN1:  (waiting for IP -- check Lab Status in a minute)" -ForegroundColor Yellow
+    if ($lin1Vm) {
+        Write-Host "  LIN1:  (waiting for IP -- check Lab Status in a minute)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  LIN1:  (not present in this lab run)" -ForegroundColor DarkGray
+    }
 }
 Write-Host ""

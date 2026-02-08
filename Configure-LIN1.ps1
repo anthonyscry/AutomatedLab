@@ -40,20 +40,37 @@ if ($lin1Vm.State -ne 'Running') {
 Write-Host "[LIN1] Waiting for SSH reachability (up to 30 min)..." -ForegroundColor Cyan
 $lin1Ready = $false
 $lin1Deadline = [datetime]::Now.AddMinutes(30)
+$lastKnownIp = ''
+$lastLeaseIp = ''
 while ([datetime]::Now -lt $lin1Deadline) {
-    $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-        Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $lin1Ips = @()
+    if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
+        $lin1Ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
+    }
     if ($lin1Ips) {
         $lin1DhcpIp = $lin1Ips | Select-Object -First 1
+        $lastKnownIp = $lin1DhcpIp
         $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         if ($sshCheck.TcpTestSucceeded) {
             $lin1Ready = $true
             break
         }
     }
+
+    if (-not $lastKnownIp -and (Get-Command Get-LIN1DhcpLeaseIPv4 -ErrorAction SilentlyContinue)) {
+        $leaseIp = Get-LIN1DhcpLeaseIPv4 -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+        if ($leaseIp) {
+            $lastLeaseIp = $leaseIp
+        }
+    }
+
     Start-Sleep -Seconds 30
 }
 if (-not $lin1Ready) {
+    if ($lastLeaseIp) {
+        Write-Host "  [INFO] LIN1 DHCP lease observed at: $lastLeaseIp" -ForegroundColor DarkGray
+    }
     throw "LIN1 is not SSH reachable yet. Finish Ubuntu install/reboot, then run Configure-LIN1.ps1 again."
 }
 

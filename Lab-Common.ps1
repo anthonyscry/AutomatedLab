@@ -116,10 +116,69 @@ function Ensure-VMsReady {
 }
 
 function Get-LIN1IPv4 {
-    $ip = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
-        Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } |
+    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $adapter) { return $null }
+
+    $ipList = @()
+    if ($adapter.PSObject.Properties.Name -contains 'IPAddresses') {
+        $ipList = @($adapter.IPAddresses)
+    }
+
+    $ip = $ipList |
+        Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' } |
         Select-Object -First 1
     return $ip
+}
+
+function Get-LIN1DhcpLeaseIPv4 {
+    param(
+        [string]$DhcpServer = 'DC1',
+        [string]$ScopeId = '192.168.11.0'
+    )
+
+    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $adapter -or [string]::IsNullOrWhiteSpace($adapter.MacAddress)) {
+        return $null
+    }
+
+    $macCompact = ($adapter.MacAddress -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+    if ($macCompact.Length -ne 12) { return $null }
+    $macHyphen = ($macCompact -replace '(.{2})(?=.)','$1-').TrimEnd('-')
+
+    try {
+        $leaseResult = Invoke-LabCommand -ComputerName $DhcpServer -PassThru -ErrorAction SilentlyContinue -ScriptBlock {
+            param($LeaseScope, $MacCompactArg, $MacHyphenArg)
+
+            $leases = Get-DhcpServerv4Lease -ScopeId $LeaseScope -ErrorAction SilentlyContinue
+            if (-not $leases) { return $null }
+
+            $match = $leases | Where-Object {
+                $cid = (($_.ClientId | Out-String).Trim() -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+                $cid -eq $MacCompactArg
+            } | Select-Object -First 1
+
+            if (-not $match) {
+                $match = $leases | Where-Object {
+                    (($_.ClientId | Out-String).Trim().ToUpperInvariant() -eq $MacHyphenArg) -or
+                    ($_.HostName -eq 'LIN1')
+                } | Select-Object -First 1
+            }
+
+            if ($match -and $match.IPAddress) {
+                return $match.IPAddress.IPAddressToString
+            }
+
+            return $null
+        } -ArgumentList $ScopeId, $macCompact, $macHyphen
+
+        if ($leaseResult) {
+            return ($leaseResult | Select-Object -First 1)
+        }
+    } catch {
+        return $null
+    }
+
+    return $null
 }
 
 function Ensure-SSHKey {
