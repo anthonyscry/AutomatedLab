@@ -270,21 +270,15 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
-
-if ($IncludeLIN1) {
-    Add-LabMachineDefinition -Name 'LIN1' `
-        -Network $LabSwitch `
-        -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
-        -Memory $UBU_Memory -MinMemory $UBU_MinMemory -MaxMemory $UBU_MaxMemory `
-        -Processors $UBU_Processors
-}
+    # NOTE: LIN1 is NOT added to AutomatedLab machine definitions
+    # It will be created manually after Install-Lab to work around
+    # AutomatedLab's lack of Ubuntu 24.04 support
 
     # ============================================================
-    # INSTALL LAB (single call for all machines)
-    # LIN1 is included here to avoid adding machine definitions after
-    # lab export, which causes "Lab is already exported" failures.
+    # INSTALL LAB (DC1 + WS1 only via AutomatedLab)
+    # LIN1 will be created manually after this step if -IncludeLIN1 is set
     # ============================================================
-    if ($IncludeLIN1) { Write-Host "`n[INSTALL] Installing all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan } else { Write-Host "`n[INSTALL] Installing core machines (DC1 + WS1)..." -ForegroundColor Cyan }
+    Write-Host "`n[INSTALL] Installing core machines (DC1 + WS1)..." -ForegroundColor Cyan
 
 
     # Final guard: stale VMs can occasionally survive prior cleanup and cause
@@ -542,6 +536,54 @@ if ($IncludeLIN1) {
     $lin1Ready = $false
 
     # ============================================================
+    # LIN1: Manual VM creation (bypasses AutomatedLab -- no Ubuntu 24.04 support)
+    # ============================================================
+    if ($IncludeLIN1) {
+        Write-Host "`n[LIN1] Creating LIN1 VM manually (AutomatedLab lacks Ubuntu 24.04 autoinstall support)..." -ForegroundColor Cyan
+
+        $ubuntuIso = Join-Path $IsoPath 'ubuntu-24.04.3.iso'
+        if (-not (Test-Path $ubuntuIso)) {
+            Write-Host "  [WARN] Ubuntu ISO not found: $ubuntuIso. Skipping LIN1." -ForegroundColor Yellow
+        } else {
+            try {
+                # Remove stale LIN1 VM from previous runs
+                Remove-HyperVVMStale -VMName 'LIN1' -Context 'LIN1 pre-create cleanup' | Out-Null
+
+                # Generate password hash for autoinstall identity
+                Write-Host "  Generating password hash..." -ForegroundColor Gray
+                $lin1PwHash = Get-Sha512PasswordHash -Password $AdminPassword
+
+                # Read SSH public key if available
+                $lin1SshPubKey = ''
+                if (Test-Path $SSHPublicKey) {
+                    $lin1SshPubKey = (Get-Content $SSHPublicKey -Raw).Trim()
+                }
+
+                # Create CIDATA VHDX seed disk with autoinstall user-data
+                $cidataPath = Join-Path $LabPath 'LIN1-cidata.vhdx'
+                Write-Host "  Creating CIDATA seed disk with autoinstall config..." -ForegroundColor Gray
+                New-CidataVhdx -OutputPath $cidataPath `
+                    -Hostname 'LIN1' `
+                    -Username $LabInstallUser `
+                    -PasswordHash $lin1PwHash `
+                    -SSHPublicKey $lin1SshPubKey
+
+                # Create the LIN1 VM (Gen2, SecureBoot off, Ubuntu ISO + CIDATA VHDX)
+                Write-Host "  Creating Hyper-V Gen2 VM..." -ForegroundColor Gray
+                $lin1Vm = New-LIN1VM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath
+
+                # Start VM -- Ubuntu autoinstall should proceed unattended
+                Start-VM -Name 'LIN1'
+                Write-Host "  [OK] LIN1 VM started. Ubuntu autoinstall in progress..." -ForegroundColor Green
+            }
+            catch {
+                Write-Host "  [WARN] LIN1 VM creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                Write-Host "  [WARN] Continuing without LIN1. Create it manually later with Configure-LIN1.ps1" -ForegroundColor Yellow
+            }
+        }
+    }
+
+    # ============================================================
     # WAIT FOR LIN1 to become reachable over SSH
     # ============================================================
     if ($IncludeLIN1) {
@@ -723,20 +765,53 @@ if ($IncludeLIN1) {
     # ============================================================
     Write-Host "`n[POST] Configuring WS1..." -ForegroundColor Cyan
 
-    Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Install-RSAT-WS1' -ScriptBlock {
-        $rsatCapabilities = @(
-            'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0',
-            'Rsat.Dns.Tools~~~~0.0.1.0',
-            'Rsat.DHCP.Tools~~~~0.0.1.0',
-            'Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0'
-        )
-        foreach ($cap in $rsatCapabilities) {
-            $state = (Get-WindowsCapability -Online -Name $cap -ErrorAction SilentlyContinue).State
-            if ($state -ne 'Installed') { Add-WindowsCapability -Online -Name $cap -ErrorAction SilentlyContinue | Out-Null }
-        }
-        Set-Service -Name AppIDSvc -StartupType Automatic
-        Start-Service -Name AppIDSvc -ErrorAction SilentlyContinue
-    } | Out-Null
+    # RSAT install: domain GP may redirect Windows Update through DC1 (no WSUS),
+    # causing "Access is denied" COMException. Temporarily bypass the WSUS policy.
+    try {
+        Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Install-RSAT-WS1' -ScriptBlock {
+            $wuAuPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+            $originalUseWU = $null
+
+            # Save and bypass WSUS redirect if present
+            if (Test-Path $wuAuPath) {
+                $originalUseWU = (Get-ItemProperty -Path $wuAuPath -Name UseWUServer -ErrorAction SilentlyContinue).UseWUServer
+                if ($null -ne $originalUseWU) {
+                    Set-ItemProperty -Path $wuAuPath -Name UseWUServer -Value 0 -ErrorAction SilentlyContinue
+                    Restart-Service wuauserv -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 5
+                }
+            }
+
+            try {
+                $rsatCapabilities = @(
+                    'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0',
+                    'Rsat.Dns.Tools~~~~0.0.1.0',
+                    'Rsat.DHCP.Tools~~~~0.0.1.0',
+                    'Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0'
+                )
+                foreach ($cap in $rsatCapabilities) {
+                    $state = (Get-WindowsCapability -Online -Name $cap -ErrorAction SilentlyContinue).State
+                    if ($state -ne 'Installed') {
+                        Add-WindowsCapability -Online -Name $cap -ErrorAction Stop | Out-Null
+                    }
+                }
+                Set-Service -Name AppIDSvc -StartupType Automatic
+                Start-Service -Name AppIDSvc -ErrorAction SilentlyContinue
+            }
+            finally {
+                # Restore original WSUS setting
+                if ($null -ne $originalUseWU) {
+                    Set-ItemProperty -Path $wuAuPath -Name UseWUServer -Value $originalUseWU -ErrorAction SilentlyContinue
+                    Restart-Service wuauserv -Force -ErrorAction SilentlyContinue
+                }
+            }
+        } | Out-Null
+        Write-Host "  [OK] RSAT capabilities installed on WS1" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  [WARN] RSAT installation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] WS1 will work without RSAT. Install manually later if needed." -ForegroundColor Yellow
+    }
 
     Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Map-LabShare' -ScriptBlock {
         param($ShareName)
