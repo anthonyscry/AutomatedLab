@@ -8,7 +8,7 @@
 param(
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
-    [string]$AdminPassword = ''
+    [string]$AdminPassword = 'Server123!'
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -33,7 +33,8 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     }
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    throw "AdminPassword is required. Provide -AdminPassword or set OPENCODELAB_ADMIN_PASSWORD."
+    $AdminPassword = 'Server123!'
+    Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
 }
 
 $IsoPath        = "$LabSourcesRoot\ISOs"
@@ -134,6 +135,36 @@ try {
 
     New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $LabPath
 
+
+    # Remove stale/conflicting VMs from previous failed runs.
+    # This avoids "machine already exists" and broken-notes XML errors during Install-Lab.
+    Write-Host "  Checking for stale lab VMs from prior runs..." -ForegroundColor Yellow
+    foreach ($vmName in $LabVMs) {
+        $existingVm = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if (-not $existingVm) { continue }
+
+        Write-Host "    [WARN] Found existing VM '$vmName'. Removing stale VM..." -ForegroundColor Yellow
+
+        # Remove checkpoints first (they can block VM removal).
+        Hyper-V\Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+
+        if ($existingVm.State -ne 'Off') {
+            Hyper-V\Stop-VM -Name $vmName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 2
+        }
+
+        Hyper-V\Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+
+        $stillExists = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if ($stillExists) {
+            throw "Failed to remove stale VM '$vmName'. Remove it manually in Hyper-V Manager, then re-run deploy."
+        }
+
+        Write-Host "    [OK] Removed stale VM '$vmName'" -ForegroundColor Green
+    }
+
     # Ensure vSwitch + NAT exist (idempotent)
     Write-Host "  Ensuring Hyper-V lab switch + NAT ($LabSwitch / $AddressSpace)..." -ForegroundColor Yellow
 
@@ -179,7 +210,7 @@ try {
     # ============================================================
     # MACHINE DEFINITIONS
     # ============================================================
-    Write-Host "`n[LAB] Defining all machines..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
 
     Add-LabMachineDefinition -Name 'DC1' `
         -Roles RootDC, CaRoot `
@@ -198,6 +229,7 @@ try {
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
 
+
     Add-LabMachineDefinition -Name 'LIN1' `
         -Network $LabSwitch `
         -OperatingSystem 'Ubuntu-Server 24.04.3 LTS "Noble Numbat"' `
@@ -205,12 +237,11 @@ try {
         -Processors $UBU_Processors
 
     # ============================================================
-    # INSTALL LAB (single call - DC first, then WS1 + LIN1)
-    # AutomatedLab reduces Linux VM timeout to 15 min on Internal
-    # switches. Ubuntu from-scratch installs take longer, so we
-    # catch the timeout and wait for LIN1 manually afterwards.
+    # INSTALL LAB (single call for all machines)
+    # LIN1 is included here to avoid adding machine definitions after
+    # lab export, which causes "Lab is already exported" failures.
     # ============================================================
-    Write-Host "`n[INSTALL] Installing all machines..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
 
     $installLabFailed = $false
     try {
@@ -456,8 +487,7 @@ try {
     Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
 
     # ============================================================
-    # WAIT FOR LIN1: Ubuntu installs from ISO without network,
-    # but needs DHCP (now available) to become reachable afterwards.
+    # WAIT FOR LIN1 to become reachable over SSH
     # ============================================================
     $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
     if ($lin1Vm) {
@@ -466,27 +496,34 @@ try {
             Start-VM -Name 'LIN1'
         }
 
-        Write-Host "`n[LIN1] Waiting for LIN1 to finish installing and become reachable (up to 30 min)..." -ForegroundColor Cyan
+        $lin1WaitMinutes = 30
+        Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
         $lin1Ready = $false
-        $lin1Deadline = [datetime]::Now.AddMinutes(30)
+        $lin1Deadline = [datetime]::Now.AddMinutes($lin1WaitMinutes)
+        $lastKnownIp = ''
         while ([datetime]::Now -lt $lin1Deadline) {
             $lin1Ips = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |
                 Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
             if ($lin1Ips) {
                 $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-                $pingCheck = Test-Connection -ComputerName $lin1DhcpIp -Count 1 -Quiet -ErrorAction SilentlyContinue
-                if ($pingCheck) {
+                $lastKnownIp = $lin1DhcpIp
+                $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+                if ($sshCheck.TcpTestSucceeded) {
                     $lin1Ready = $true
-                    Write-Host "  [OK] LIN1 is reachable at $lin1DhcpIp" -ForegroundColor Green
+                    Write-Host "  [OK] LIN1 SSH is reachable at $lin1DhcpIp" -ForegroundColor Green
                     break
                 }
             }
             Start-Sleep -Seconds 30
-            Write-Host "    Still waiting for LIN1..." -ForegroundColor Gray
+            if ($lastKnownIp) {
+                Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
+            } else {
+                Write-Host "    Still waiting for LIN1 DHCP lease..." -ForegroundColor Gray
+            }
         }
         if (-not $lin1Ready) {
-            Write-Host "  [WARN] LIN1 not reachable after 30 min. Post-install config may fail." -ForegroundColor Yellow
-            Write-Host "  The VM exists and may still be installing. Check the VM console." -ForegroundColor Yellow
+            Write-Host "  [WARN] LIN1 did not become SSH-reachable after $lin1WaitMinutes min." -ForegroundColor Yellow
+            Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
         }
     } else {
         Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
@@ -553,30 +590,60 @@ try {
     # DC1: OpenSSH Server + allow key auth for admins (Host -> DC1)
     # ============================================================
     Write-Host "`n[POST] Configuring DC1 OpenSSH..." -ForegroundColor Cyan
+    $dc1SshReady = $false
+    try {
+        $dc1SshResult = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-OpenSSH-DC1' -ScriptBlock {
+            $result = @{ Ready = $false; Message = '' }
+            try {
+                Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction Stop | Out-Null
+            } catch {
+                $result.Message = "OpenSSH server capability install failed: $($_.Exception.Message)"
+                return $result
+            }
 
-    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Install-OpenSSH-DC1' -ScriptBlock {
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
-        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
-        Set-Service -Name sshd -StartupType Automatic
-        Start-Service sshd
-        New-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell `
-            -Value 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' `
-            -PropertyType String -Force | Out-Null
-        New-NetFirewallRule -DisplayName 'OpenSSH Server (TCP 22)' -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
-    } | Out-Null
-
-    Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
-
-    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Authorize-HostKey-DC1' -ScriptBlock {
-        param($PubKeyFileName)
-        $authKeysFile = 'C:\ProgramData\ssh\administrators_authorized_keys'
-        $pubKeyFile   = "C:\ProgramData\ssh\$PubKeyFileName"
-        if (Test-Path $pubKeyFile) {
-            Get-Content $pubKeyFile | Add-Content $authKeysFile -Force
-            icacls $authKeysFile /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)" | Out-Null
-            Remove-Item $pubKeyFile -Force -ErrorAction SilentlyContinue
+            try {
+                Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
+                Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+                Start-Service sshd -ErrorAction Stop
+                New-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell `
+                    -Value 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' `
+                    -PropertyType String -Force | Out-Null
+                New-NetFirewallRule -DisplayName 'OpenSSH Server (TCP 22)' -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
+                $result.Ready = $true
+                $result.Message = 'OpenSSH configured successfully.'
+            } catch {
+                $result.Message = "OpenSSH post-install configuration failed: $($_.Exception.Message)"
+            }
+            return $result
         }
-    } -ArgumentList $HostPublicKeyFileName | Out-Null
+
+        if ($dc1SshResult -and $dc1SshResult.Ready) {
+            $dc1SshReady = $true
+            Write-Host "  [OK] DC1 OpenSSH configured" -ForegroundColor Green
+        } else {
+            $msg = if ($dc1SshResult -and $dc1SshResult.Message) { $dc1SshResult.Message } else { 'Unknown OpenSSH configuration failure.' }
+            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without DC1 SSH key bootstrap." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  [WARN] DC1 OpenSSH setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Continuing deployment without DC1 SSH key bootstrap." -ForegroundColor Yellow
+    }
+
+    if ($dc1SshReady) {
+        Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
+
+        Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Authorize-HostKey-DC1' -ScriptBlock {
+            param($PubKeyFileName)
+            $authKeysFile = 'C:\ProgramData\ssh\administrators_authorized_keys'
+            $pubKeyFile   = "C:\ProgramData\ssh\$PubKeyFileName"
+            if (Test-Path $pubKeyFile) {
+                Get-Content $pubKeyFile | Add-Content $authKeysFile -Force
+                icacls $authKeysFile /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)" | Out-Null
+                Remove-Item $pubKeyFile -Force -ErrorAction SilentlyContinue
+            }
+        } -ArgumentList $HostPublicKeyFileName | Out-Null
+    }
 
     # DC1: WinRM HTTPS + ICMP (useful for remote management)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Configure-WinRM-HTTPS-DC1' -ScriptBlock {
@@ -796,7 +863,6 @@ catch {
 finally {
     Stop-Transcript | Out-Null
 }
-
 
 
 
