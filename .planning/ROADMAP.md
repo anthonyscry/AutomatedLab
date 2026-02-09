@@ -32,13 +32,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. User receives clear error message when Hyper-V is not enabled on their machine
   2. Tool generates JSON report after each operation containing operation type, timestamp, and status
   3. All operations use structured error handling that prevents silent failures
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Project scaffolding and directory structure
-- [ ] 01-02: Hyper-V detection and validation
-- [ ] 01-03: Structured error handling framework
-- [ ] 01-04: Run artifact generation (JSON reports)
+- [ ] 01-01-PLAN.md — Project scaffolding and directory structure
+- [ ] 01-02-PLAN.md — Hyper-V detection and validation
+- [ ] 01-03-PLAN.md — Run artifact generation and error handling framework
 
 ### Phase 2: Pre-flight Validation
 **Goal**: Verify all prerequisites and ISOs exist before attempting lab operations
