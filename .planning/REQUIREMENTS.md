@@ -73,33 +73,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUILD-01 | Phase 1 | Pending |
-| BUILD-02 | Phase 1 | Pending |
-| BUILD-03 | Phase 1 | Pending |
-| BUILD-04 | Phase 1 | Pending |
-| LIFE-01 | Phase 2 | Pending |
-| LIFE-02 | Phase 2 | Pending |
-| LIFE-03 | Phase 2 | Pending |
-| LIFE-04 | Phase 2 | Pending |
-| LIFE-05 | Phase 2 | Pending |
-| LIFE-06 | Phase 2 | Pending |
-| LIFE-07 | Phase 3 | Pending |
-| LIFE-08 | Phase 3 | Pending |
-| NET-01 | Phase 1 | Pending |
-| NET-02 | Phase 1 | Pending |
-| NET-03 | Phase 2 | Pending |
-| UX-01 | Phase 4 | Pending |
-| UX-02 | Phase 4 | Pending |
-| UX-03 | Phase 4 | Pending |
-| UX-04 | Phase 4 | Pending |
+| BUILD-01 | Phase 4 | Pending |
+| BUILD-02 | Phase 5 | Pending |
+| BUILD-03 | Phase 2 | Pending |
+| BUILD-04 | Phase 4 | Pending |
+| LIFE-01 | Phase 6 | Pending |
+| LIFE-02 | Phase 6 | Pending |
+| LIFE-03 | Phase 6 | Pending |
+| LIFE-04 | Phase 6 | Pending |
+| LIFE-05 | Phase 7 | Pending |
+| LIFE-06 | Phase 7 | Pending |
+| LIFE-07 | Phase 8 | Pending |
+| LIFE-08 | Phase 8 | Pending |
+| NET-01 | Phase 3 | Pending |
+| NET-02 | Phase 3 | Pending |
+| NET-03 | Phase 6 | Pending |
+| UX-01 | Phase 1 | Pending |
+| UX-02 | Phase 9 | Pending |
+| UX-03 | Phase 1 | Pending |
+| UX-04 | Phase 9 | Pending |
 | VAL-01 | Phase 1 | Pending |
-| VAL-02 | Phase 1 | Pending |
+| VAL-02 | Phase 2 | Pending |
 
 **Coverage:**
 - v1 requirements: 20 total
 - Mapped to phases: 20
 - Unmapped: 0 ✓
 
+**Note:** NET-03 is functionally equivalent to LIFE-01 (start all lab VMs) and is mapped to Phase 6 for implementation purposes.
+
 ---
 *Requirements defined: 2025-02-09*
-*Last updated: 2025-02-09 after initial definition*
+*Last updated: 2026-02-09 after roadmap creation*
