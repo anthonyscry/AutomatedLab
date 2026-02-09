@@ -33,5 +33,6 @@ Export-ModuleMember -Function @(
     'Test-HyperVEnabled',
     'Test-LabIso',
     'Test-LabPrereqs',
-    'Write-RunArtifact'
+    'Write-RunArtifact',
+    'Write-ValidationReport'
 )
