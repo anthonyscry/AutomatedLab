@@ -32,5 +32,6 @@ foreach ($file in $PublicFunctions) {
 Export-ModuleMember -Function @(
     'Test-HyperVEnabled',
     'Test-LabIso',
+    'Test-LabPrereqs',
     'Write-RunArtifact'
 )
