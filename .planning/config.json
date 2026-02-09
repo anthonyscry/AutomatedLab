@@ -1,12 +1,15 @@
 {
-  "mode": "yolo",
-  "depth": "comprehensive",
-  "parallelization": true,
-  "commit_docs": true,
-  "model_profile": "balanced",
-  "workflow": {
-    "research": true,
-    "plan_check": true,
-    "verifier": true
+  "IsoPaths": {
+    "Server2019": "C:\\Lab\\ISOs\\Server2019.iso",
+    "Windows11": "C:\\Lab\\ISOs\\Windows11.iso"
+  },
+  "IsoSearchPaths": [
+    "C:\\Lab\\ISOs",
+    "D:\\ISOs",
+    ".\\ISOs"
+  ],
+  "Requirements": {
+    "MinDiskSpaceGB": 100,
+    "MinMemoryGB": 16
   }
 }
