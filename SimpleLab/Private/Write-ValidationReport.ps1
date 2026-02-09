@@ -50,7 +50,8 @@ function Write-ValidationReport {
         }
 
         # Special handling for ISO failures - show expected path and fix instructions
-        if ($check.Name -like "ISO_*" -and $check.Status -eq "Fail") {
+        # Only for main ISO entries, not search results (which end with _Search)
+        if ($check.Name -like "ISO_*" -and $check.Status -eq "Fail" -and $check.Name -notlike "*_Search") {
             if ($check.Message -match "Path:\s+(.+)") {
                 $expectedPath = $matches[1]
                 Write-Host "         Expected: $expectedPath" -ForegroundColor Yellow

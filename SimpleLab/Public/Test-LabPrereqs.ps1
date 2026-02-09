@@ -105,8 +105,8 @@ function Test-LabPrereqs {
         }
     }
     catch {
-        # Handle any unexpected errors
-        Write-Error "Failed to run pre-flight checks: $($_.Exception.Message)"
+        # Handle any unexpected errors - don't use Write-Error as it may terminate
+        # when parent scope has ErrorActionPreference = 'Stop'
         $duration = (New-TimeSpan -Start $startTime -End (Get-Date)).TotalSeconds
         $timestamp = (Get-Date).ToString("o")
 
