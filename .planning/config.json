@@ -11,5 +11,16 @@
   "Requirements": {
     "MinDiskSpaceGB": 100,
     "MinMemoryGB": 16
+  },
+  "NetworkConfiguration": {
+    "Subnet": "10.0.0.0/24",
+    "PrefixLength": 24,
+    "Gateway": "",
+    "DNSServers": [],
+    "VMIPs": {
+      "SimpleDC": "10.0.0.1",
+      "SimpleServer": "10.0.0.2",
+      "SimpleWin11": "10.0.0.3"
+    }
   }
 }
