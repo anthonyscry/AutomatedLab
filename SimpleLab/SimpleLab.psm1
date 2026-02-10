@@ -30,8 +30,10 @@ foreach ($file in $PublicFunctions) {
 
 # Export public functions explicitly
 Export-ModuleMember -Function @(
+    'New-LabSwitch',
     'Test-HyperVEnabled',
     'Test-LabIso',
+    'Test-LabNetwork',
     'Test-LabPrereqs',
     'Write-RunArtifact',
     'Write-ValidationReport'
