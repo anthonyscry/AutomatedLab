@@ -34,7 +34,7 @@ param(
     [switch]$Force,
     [switch]$RemoveNetwork,
     [switch]$NonInteractive,
-    [switch]$CoreOnly,
+    [switch]$CoreOnly = $true,
     [string]$DefaultsFile,
     [switch]$DryRun,
     [int]$LogRetentionDays = 14
@@ -44,11 +44,16 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$LabName = 'OpenCodeLab'
-$LabVMs = @('DC1', 'WS1', 'LIN1')
-$LabPath = 'C:\AutomatedLab\OpenCodeLab'
-$SwitchName = 'OpenCodeLabSwitch'
-$NatName = 'OpenCodeLabSwitchNAT'
+$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
+if (Test-Path $ConfigPath) { . $ConfigPath }
+
+if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WSUS1', 'WS1') }
+if (-not (Get-Variable -Name LabPath -ErrorAction SilentlyContinue)) { $LabPath = "C:\AutomatedLab\$LabName" }
+if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue)) { $LabSwitch = 'OpenCodeLabSwitch' }
+if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue)) { $NatName = 'OpenCodeLabSwitchNAT' }
+
+$SwitchName = $LabSwitch
 $RunStart = Get-Date
 $RunId = (Get-Date -Format 'yyyyMMdd-HHmmss')
 $RunLogRoot = 'C:\LabSources\Logs'
@@ -238,36 +243,27 @@ function Invoke-RepoScript {
 }
 
 function Get-ExpectedVMs {
-    if ($CoreOnly) {
-        return @('DC1', 'WS1')
-    }
     return @($LabVMs)
 }
 
 function Get-PreflightArgs {
-    $scriptArgs = @()
-    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
-    return $scriptArgs
+    return @()
 }
 
 function Get-BootstrapArgs {
     $scriptArgs = @()
     if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
-    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
     return $scriptArgs
 }
 
 function Get-DeployArgs {
     $scriptArgs = @()
     if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
-    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
     return $scriptArgs
 }
 
 function Get-HealthArgs {
-    $scriptArgs = @()
-    if (-not $CoreOnly) { $scriptArgs += '-IncludeLIN1' }
-    return $scriptArgs
+    return @()
 }
 
 function Ensure-LabImported {
@@ -452,11 +448,7 @@ function Invoke-BlowAway {
 
 function Invoke-OneButtonSetup {
     Write-Host "`n=== ONE-BUTTON SETUP ===" -ForegroundColor Cyan
-    if ($CoreOnly) {
-        Write-Host "  Mode: CORE (DC1 + WS1)" -ForegroundColor Yellow
-    } else {
-        Write-Host "  Mode: FULL (DC1 + WS1 + LIN1 Ubuntu)" -ForegroundColor Green
-    }
+    Write-Host "  Mode: WINDOWS CORE (DC1 + WSUS1 + WS1)" -ForegroundColor Green
     Write-Host "  Bootstrapping prerequisites + deploying lab + start + status" -ForegroundColor Gray
 
     $preflightArgs = Get-PreflightArgs
@@ -562,11 +554,9 @@ function Show-Menu {
     Write-Host "  =============================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  SETUP" -ForegroundColor DarkCyan
-    Write-Host "   [A] One-Button Setup (includes Ubuntu LIN1)" -ForegroundColor Green
-    Write-Host "   [B] Bootstrap + Deploy (includes Ubuntu LIN1)" -ForegroundColor White
+    Write-Host "   [A] One-Button Setup (DC1 + WSUS1 + WS1)" -ForegroundColor Green
+    Write-Host "   [B] Bootstrap + Deploy (Windows topology)" -ForegroundColor White
     Write-Host "   [D] Deploy only" -ForegroundColor White
-    Write-Host "   [N] Rebuild LIN1 VM only (Ubuntu 24.04)" -ForegroundColor White
-    Write-Host "   [L] Configure LIN1 SSH (post-deploy)" -ForegroundColor White
     Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
     Write-Host ""
     Write-Host "  OPERATE" -ForegroundColor DarkCyan
@@ -598,8 +588,6 @@ function Invoke-InteractiveMenu {
             'A' { Invoke-MenuCommand -Name 'one-button-setup' -Command { Invoke-OneButtonSetup } }
             'B' { Invoke-MenuCommand -Name 'bootstrap' -Command { $bootstrapArgs = Get-BootstrapArgs; Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs } }
             'D' { Invoke-MenuCommand -Name 'deploy' -Command { $deployArgs = Get-DeployArgs; Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs } }
-            'N' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-RepoScript -BaseName 'Add-LIN1' } }
-            'L' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-RepoScript -BaseName 'Configure-LIN1' } }
             'I' { Invoke-MenuCommand -Name 'install-shortcuts' -Command { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts' } }
             'H' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs } }
             'T' { Invoke-MenuCommand -Name 'lint' -Command { Invoke-RepoScript -BaseName 'Test-OpenCodeLabLint' } }

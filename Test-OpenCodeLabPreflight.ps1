@@ -18,7 +18,7 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
 if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'OpenCodeLabSwitch' }
 if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = 'OpenCodeLabSwitchNAT' }
-if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso') }
+if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso') }
 
 $IsoPath = Join-Path $LabSourcesRoot 'ISOs'
 $requiredIsoList = @($RequiredISOs)
@@ -45,9 +45,9 @@ function Add-Ok {
 
 Write-Host "`n=== OPENCODELAB PREFLIGHT ===" -ForegroundColor Cyan
 if ($IncludeLIN1) {
-    Write-Host "  Mode: FULL (Ubuntu LIN1 required)" -ForegroundColor Green
+    Write-Host "  Mode: FULL (Windows core + optional Ubuntu LIN1)" -ForegroundColor Green
 } else {
-    Write-Host "  Mode: CORE (Ubuntu LIN1 not required)" -ForegroundColor Yellow
+    Write-Host "  Mode: WINDOWS CORE (DC1 + WSUS1 + WS1)" -ForegroundColor Yellow
 }
 
 try {

@@ -16,12 +16,13 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 
 # Defaults (overridden by Lab-Config.ps1 if present)
 if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WS1', 'LIN1') }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WSUS1', 'WS1') }
 if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $LinuxUser = 'anthonyscry' }
+if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
 
-$ExpectedVMs = if ($IncludeLIN1) { @($LabVMs) } else { @($LabVMs | Where-Object { $_ -ne 'LIN1' }) }
+$ExpectedVMs = if ($IncludeLIN1) { @($LabVMs + 'LIN1' | Select-Object -Unique) } else { @($LabVMs | Where-Object { $_ -ne 'LIN1' }) }
 if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $DomainName = 'opencode.lab' }
-if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '192.168.11.5' }
+if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '192.168.11.6' }
 $SSHKeyPath = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
 $issues = New-Object System.Collections.Generic.List[string]
 
@@ -77,7 +78,7 @@ Write-Host "`n=== OPENCODELAB HEALTH GATE ===" -ForegroundColor Cyan
 if ($IncludeLIN1) {
     Write-Host "  Mode: FULL (LIN1 checks enabled)" -ForegroundColor Green
 } else {
-    Write-Host "  Mode: CORE (LIN1 checks skipped)" -ForegroundColor Yellow
+    Write-Host "  Mode: WINDOWS CORE (LIN1 checks skipped)" -ForegroundColor Yellow
 }
 
 try {
@@ -157,6 +158,34 @@ if (-not $issues.Count) {
         if ($wsChecks.DnsOk) { Add-Ok 'WS1 DNS resolution works for DC1' } else { Add-Issue 'WS1 DNS resolution for DC1 failed' }
     } catch {
         Add-Issue "WS1 health checks failed: $($_.Exception.Message)"
+    }
+
+    if ($ExpectedVMs -contains 'WSUS1') {
+        try {
+            $wsusChecks = Invoke-LabStructuredCheck -ComputerName 'WSUS1' -RequiredProperty 'PartOfDomain' -Attempts 4 -DelaySeconds 10 -ScriptBlock {
+                param($Domain)
+                $cs = Get-CimInstance Win32_ComputerSystem
+                $dns = Resolve-DnsName -Name "dc1.$Domain" -ErrorAction SilentlyContinue
+                [pscustomobject]@{
+                    PartOfDomain = [bool]$cs.PartOfDomain
+                    Domain = $cs.Domain
+                    DnsOk = [bool]$dns
+                    WinRM = (Get-Service WinRM -ErrorAction SilentlyContinue).Status
+                    LanmanServer = (Get-Service LanmanServer -ErrorAction SilentlyContinue).Status
+                }
+            } -ArgumentList $DomainName
+
+            if (-not $wsusChecks) {
+                throw 'WSUS1 check returned no structured data.'
+            }
+
+            if ($wsusChecks.PartOfDomain -and $wsusChecks.Domain -ieq $DomainName) { Add-Ok 'WSUS1 domain join healthy' } else { Add-Issue "WSUS1 domain join invalid ($($wsusChecks.Domain))" }
+            if ($wsusChecks.DnsOk) { Add-Ok 'WSUS1 DNS resolution works for DC1' } else { Add-Issue 'WSUS1 DNS resolution for DC1 failed' }
+            if ($wsusChecks.WinRM -eq 'Running') { Add-Ok 'WSUS1 WinRM running' } else { Add-Issue 'WSUS1 WinRM not running' }
+            if ($wsusChecks.LanmanServer -eq 'Running') { Add-Ok 'WSUS1 Server service running' } else { Add-Issue 'WSUS1 Server service not running' }
+        } catch {
+            Add-Issue "WSUS1 health checks failed: $($_.Exception.Message)"
+        }
     }
 
     if ($IncludeLIN1) {

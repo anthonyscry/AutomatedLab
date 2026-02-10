@@ -3,9 +3,9 @@
 # You can edit values here once instead of in every script.
 
 # Lab identity
-$LabName     = 'OpenCodeLab'
-$LabVMs      = @('DC1','WS1','LIN1')
-$DomainName  = 'opencode.lab'
+$LabName     = 'SimpleLab'
+$LabVMs      = @('DC1','Server1','Win11')
+$DomainName  = 'simplelab.local'
 
 # Lab paths
 $LabPath        = "C:\AutomatedLab\$LabName"
@@ -25,16 +25,21 @@ $SSHPublicKey  = "$SSHPrivateKey.pub"
 $SSHKey        = $SSHPrivateKey
 
 # Networking: dedicated Internal vSwitch + host NAT
-$LabSwitch    = 'OpenCodeLabSwitch'
+$LabSwitch    = 'SimpleLabSwitch'
 $AddressSpace = '192.168.11.0/24'
 $GatewayIp    = '192.168.11.1'
 $NatName      = "${LabSwitch}NAT"
 
 # Static IP plan
-$DC1_Ip  = '192.168.11.3'
-$WS1_Ip  = '192.168.11.4'
-$LIN1_Ip = '192.168.11.5'
-$DnsIp   = $DC1_Ip
+$DC1_Ip     = '192.168.11.3'
+$Server1_Ip = '192.168.11.4'
+$Win11_Ip   = '192.168.11.5'
+$LIN1_Ip    = '192.168.11.6'
+$DnsIp      = $DC1_Ip
+
+# Legacy aliases (for backward compatibility)
+$WSUS1_Ip = $Server1_Ip
+$WS1_Ip   = $Win11_Ip
 
 # DHCP scope for the lab subnet (keeps .1-.99 free for statics)
 $DhcpScopeId = '192.168.11.0'
@@ -53,6 +58,17 @@ $CL_MinMemory   = 2GB
 $CL_MaxMemory   = 6GB
 $CL_Processors  = 4
 
+$Server_Memory      = 4GB
+$Server_MinMemory   = 2GB
+$Server_MaxMemory   = 6GB
+$Server_Processors  = 4
+
+# Legacy alias (for backward compatibility)
+$WSUS_Memory     = $Server_Memory
+$WSUS_MinMemory  = $Server_MinMemory
+$WSUS_MaxMemory  = $Server_MaxMemory
+$WSUS_Processors = $Server_Processors
+
 $UBU_Memory     = 4GB
 $UBU_MinMemory  = 2GB
 $UBU_MaxMemory  = 6GB
@@ -68,7 +84,7 @@ $BootstrapScript = 'Bootstrap.ps1'
 $DeployScript    = 'Deploy.ps1'
 
 # Required ISOs (used by Bootstrap, Deploy, Preflight)
-$RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso')
+$RequiredISOs = @('server2019.iso', 'windows11.iso')
 
 # AutomatedLab timeout overrides (minutes)
 # Defaults are too short for resource-constrained hosts

@@ -1,6 +1,6 @@
 # Lab-Status.ps1 -- Detailed status dashboard for OpenCode Dev Lab
 # Shows VM states, resource usage, network info, share health,
-# recent snapshots, and Git status on LIN1.
+# recent snapshots, and service status for the Windows lab topology.
 
 #Requires -RunAsAdministrator
 
@@ -10,6 +10,8 @@ $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1','WSUS1','WS1') }
+
 
 
 Write-Host "`n=== OPENCODE LAB STATUS ===" -ForegroundColor Cyan
@@ -17,7 +19,7 @@ Write-Host "  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
 
 # -- VM States + Resources --
 Write-Host "`n  VM STATUS:" -ForegroundColor Yellow
-$labVMs = Get-VM | Where-Object { $_.Name -in 'DC1','WS1','LIN1' }
+$labVMs = Get-VM | Where-Object { $_.Name -in $LabVMs }
 foreach ($vm in $labVMs) {
     $color = if ($vm.State -eq 'Running') { 'Green' } else { 'Red' }
     $mem = if ($vm.MemoryAssigned -gt 0) { "$([math]::Round($vm.MemoryAssigned / 1GB, 1)) GB" } else { '--' }
@@ -39,7 +41,7 @@ foreach ($vm in $labVMs) {
 
 # -- Snapshots --
 Write-Host "`n  SNAPSHOTS:" -ForegroundColor Yellow
-$snaps = Get-VM | Where-Object { $_.Name -in 'DC1','WS1','LIN1' } | Get-VMSnapshot -ErrorAction SilentlyContinue
+$snaps = Get-VM | Where-Object { $_.Name -in $LabVMs } | Get-VMSnapshot -ErrorAction SilentlyContinue
 if ($snaps) {
     $snaps | Sort-Object CreationTime -Descending | Select-Object -First 5 | ForEach-Object {
         Write-Host "    $($_.VMName.PadRight(6)) $($_.Name.PadRight(25)) $(($_.CreationTime).ToString('MM/dd HH:mm'))" -ForegroundColor Gray
@@ -99,6 +101,24 @@ if ($labImported -and ($running.Name -contains 'WS1')) {
         $ws1Check | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
     } catch {
         Write-Verbose "WS1 live status check failed: $($_.Exception.Message)"
+    }
+}
+
+if ($labImported -and ($running.Name -contains 'WSUS1')) {
+    try {
+        Write-Host "`n  SERVICES (WSUS1):" -ForegroundColor Yellow
+        $wsusCheck = Invoke-LabCommand -ComputerName 'WSUS1' -ScriptBlock {
+            $results = @()
+            $cs = Get-CimInstance Win32_ComputerSystem
+            $results += "Domain:   $($cs.Domain)"
+            $results += "WinRM:    $((Get-Service WinRM -ErrorAction SilentlyContinue).Status)"
+            $results += "Server:   $((Get-Service LanmanServer -ErrorAction SilentlyContinue).Status)"
+            $results += "W32Time:  $((Get-Service W32Time -ErrorAction SilentlyContinue).Status)"
+            $results
+        } -PassThru -ErrorAction SilentlyContinue
+        $wsusCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+    } catch {
+        Write-Verbose "WSUS1 live status check failed: $($_.Exception.Message)"
     }
 }
 

@@ -1,9 +1,10 @@
 {
   "IsoPaths": {
-    "Server2019": "C:\\Lab\\ISOs\\Server2019.iso",
-    "Windows11": "C:\\Lab\\ISOs\\Windows11.iso"
+    "Server2019": "C:\\LabSources\\ISOs\\server2019.iso",
+    "Windows11": "C:\\LabSources\\ISOs\\windows11.iso"
   },
   "IsoSearchPaths": [
+    "C:\\LabSources\\ISOs",
     "C:\\Lab\\ISOs",
     "D:\\ISOs",
     ".\\ISOs"

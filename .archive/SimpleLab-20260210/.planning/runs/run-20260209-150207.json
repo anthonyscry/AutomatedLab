@@ -1,0 +1,66 @@
+{
+  "Operation": "Validate",
+  "Timestamp": "2026-02-09T15:02:07.2657188-08:00",
+  "Status": "Failed",
+  "Duration": 0.3943838,
+  "ExitCode": 2,
+  "VMNames": [],
+  "Phase": "01-project-foundation",
+  "HostInfo": {
+    "ComputerName": null,
+    "Username": null,
+    "PowerShellVersion": "7.5.4",
+    "OS": null,
+    "IsWindows": false
+  },
+  "ValidationResults": {
+    "Timestamp": "2026-02-09T15:02:07.2464842-08:00",
+    "OverallStatus": "Fail",
+    "Checks": [
+      {
+        "Name": "HyperV",
+        "Status": "Fail",
+        "Message": "Hyper-V is not enabled"
+      },
+      {
+        "Name": "Configuration",
+        "Status": "Pass",
+        "Message": "Configuration loaded"
+      },
+      {
+        "Name": "DiskSpace",
+        "Status": "Fail",
+        "Message": "Drive 'C' not found"
+      },
+      {
+        "Name": "ISO_Server2019",
+        "Status": "Fail",
+        "Message": "Path: C:\\Lab\\ISOs\\Server2019.iso"
+      },
+      {
+        "Name": "ISO_Server2019_Search",
+        "Status": "Fail",
+        "Message": "ISO not found in any search path"
+      },
+      {
+        "Name": "ISO_Windows11",
+        "Status": "Fail",
+        "Message": "Path: C:\\Lab\\ISOs\\Windows11.iso"
+      },
+      {
+        "Name": "ISO_Windows11_Search",
+        "Status": "Fail",
+        "Message": "ISO not found in any search path"
+      }
+    ],
+    "FailedChecks": [
+      "HyperV",
+      "DiskSpace",
+      "ISO_Server2019",
+      "ISO_Server2019_Search",
+      "ISO_Windows11",
+      "ISO_Windows11_Search"
+    ],
+    "Duration": 0.0717141
+  }
+}

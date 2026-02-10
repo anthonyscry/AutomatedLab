@@ -13,10 +13,10 @@ SimpleLab delivers a streamlined Windows domain lab experience through foundatio
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Project Foundation** - Infrastructure scaffolding and error handling (Complete 2026-02-09)
-- [ ] **Phase 2: Pre-flight Validation** - ISO and prerequisite verification
-- [ ] **Phase 3: Network Infrastructure** - vSwitch and IP configuration
-- [ ] **Phase 4: VM Provisioning** - Hyper-V VM creation and setup
-- [ ] **Phase 5: Domain Configuration** - Active Directory deployment
+- [x] **Phase 2: Pre-flight Validation** - ISO and prerequisite verification (Complete 2026-02-09)
+- [x] **Phase 3: Network Infrastructure** - vSwitch and IP configuration (Complete 2026-02-10)
+- [x] **Phase 4: VM Provisioning** - Hyper-V VM creation and setup (Complete 2026-02-09)
+- [x] **Phase 5: Domain Configuration** - Active Directory deployment (Complete 2026-02-09)
 - [ ] **Phase 6: Lifecycle Operations** - Start, stop, restart, and status
 - [ ] **Phase 7: Teardown Operations** - VM removal and clean slate
 - [ ] **Phase 8: Snapshot Management** - Checkpoint creation and rollback
@@ -81,10 +81,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — VM configuration and detection infrastructure
-- [ ] 04-02-PLAN.md — VM provisioning and removal functions
-- [ ] 04-03-PLAN.md — Multi-VM orchestrator for complete lab setup
-- [ ] 04-04-PLAN.md — Aggressive cleanup for reliable provisioning
+- [x] 04-01-PLAN.md — VM configuration and detection infrastructure
+- [x] 04-02-PLAN.md — VM provisioning and removal functions
+- [x] 04-03-PLAN.md — Multi-VM orchestrator for complete lab setup
+- [x] 04-04-PLAN.md — Aggressive cleanup for reliable provisioning
 
 ### Phase 5: Domain Configuration
 **Goal**: Deploy Active Directory domain controller with DNS and join member servers
@@ -98,10 +98,10 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 05-01: DC promotion automation
-- [ ] 05-02: DNS configuration
-- [ ] 05-03: Domain join automation
-- [ ] 05-04: Domain health validation
+- [x] 05-01: DC promotion automation
+- [x] 05-02: DNS configuration
+- [x] 05-03: Domain join automation
+- [x] 05-04: Domain health validation
 
 ### Phase 6: Lifecycle Operations
 **Goal**: Enable start, stop, restart, and status operations for lab VMs
@@ -115,10 +115,10 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 06-01: Start all VMs command
-- [ ] 06-02: Stop all VMs command
-- [ ] 06-03: Individual VM restart
-- [ ] 06-04: VM status reporting
+- [x] 06-01: Individual VM restart
+- [x] 06-02: Enhanced VM operations
+- [x] 06-03: Lab control functions
+- [x] 06-04: Status display improvements
 
 ### Phase 7: Teardown Operations
 **Goal**: Provide commands for VM removal and clean slate reset
@@ -132,10 +132,10 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 07-01: VM removal command (preserves templates)
-- [ ] 07-02: Clean slate command (removes everything)
-- [ ] 07-03: Teardown confirmation UX
-- [ ] 07-04: Artifact cleanup validation
+- [x] 07-01: VM removal command (preserves templates)
+- [x] 07-02: Clean slate command (removes everything)
+- [x] 07-03: Teardown confirmation UX
+- [x] 07-04: Artifact cleanup validation
 
 ### Phase 8: Snapshot Management
 **Goal**: Enable lab snapshots for quick rollback to known-good states
@@ -149,10 +149,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 08-01: Checkpoint creation
-- [ ] 08-02: Snapshot listing and selection
-- [ ] 08-03: Rollback execution
-- [ ] 08-04: LabReady checkpoint automation
+- [x] 08-01: LabReady checkpoint automation
 
 ### Phase 9: User Experience
 **Goal**: Deliver menu-driven interface and non-interactive CLI mode
@@ -166,10 +163,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 09-01: Interactive menu system
-- [ ] 09-02: CLI argument parsing
-- [ ] 09-03: Status display integration
-- [ ] 09-04: Exit code handling for automation
+- [x] 09-01: User Experience - Menu and CLI
 
 ## Progress
 
@@ -181,9 +175,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 1. Project Foundation | 3/3 | Complete | 2026-02-09 |
 | 2. Pre-flight Validation | 3/3 | Complete | 2026-02-09 |
 | 3. Network Infrastructure | 3/3 | Complete | 2026-02-10 |
-| 4. VM Provisioning | 0/4 | Ready to execute | - |
-| 5. Domain Configuration | 0/4 | Not started | - |
-| 6. Lifecycle Operations | 0/4 | Not started | - |
-| 7. Teardown Operations | 0/4 | Not started | - |
-| 8. Snapshot Management | 0/4 | Not started | - |
-| 9. User Experience | 0/4 | Not started | - |
+| 4. VM Provisioning | 4/4 | Complete | 2026-02-09 |
+| 5. Domain Configuration | 4/4 | Complete | 2026-02-09 |
+| 6. Lifecycle Operations | 4/4 | Complete | 2026-02-10 |
+| 7. Teardown Operations | 4/4 | Complete | 2026-02-10 |
+| 8. Snapshot Management | 1/1 | Complete | 2026-02-10 |
+| 9. User Experience | 1/1 | Complete | 2026-02-10 |

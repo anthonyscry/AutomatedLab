@@ -1,0 +1,115 @@
+# SimpleLab Private Functions Tests
+# Tests for internal helper functions
+
+BeforeDiscovery {
+    $modulePath = $PSScriptRoot | Split-Path | Join-Path -ChildPath "SimpleLab.psd1"
+}
+
+BeforeAll {
+    # Import the module
+    $modulePath = $PSScriptRoot | Split-Path | Join-Path -ChildPath "SimpleLab.psd1"
+    Import-Module $modulePath -Force
+
+    # Helper function to detect platform
+    function Test-IsWindows {
+        $isWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
+        return $isWindows
+    }
+}
+
+Describe 'Get-LabNetworkConfig' {
+    It 'Returns network configuration with VM IPs' {
+        $result = Get-LabNetworkConfig
+        $result | Should -Not -BeNullOrEmpty
+        $result.PSObject.Properties.Name | Should -Contain 'VMIPs'
+        $result.PSObject.Properties.Name | Should -Contain 'PrefixLength'
+    }
+
+    It 'Contains IPs for all lab VMs' {
+        $result = Get-LabNetworkConfig
+        $result.VMIPs.PSObject.Properties.Name | Should -Contain 'SimpleDC'
+        $result.VMIPs.PSObject.Properties.Name | Should -Contain 'SimpleServer'
+        $result.VMIPs.PSObject.Properties.Name | Should -Contain 'SimpleWin11'
+    }
+}
+
+Describe 'Test-LabVM' {
+    It 'Returns result object with Exists property' {
+        $result = Test-LabVM -VMName 'NonExistentTestVM'
+        $result.PSObject.Properties.Name | Should -Contain 'Exists'
+        $result.Exists | Should -BeOfType [bool]
+    }
+}
+
+Describe 'Find-LabIso' {
+    It 'Returns result object with Found property' {
+        $searchPaths = @($env:TEMP)
+        $result = Find-LabIso -IsoName 'TestISO' -SearchPaths $searchPaths
+        $result.PSObject.Properties.Name | Should -Contain 'Found'
+        $result.Found | Should -BeOfType [bool]
+    }
+
+    It 'Returns Found=false when ISO does not exist' {
+        $searchPaths = @($env:TEMP)
+        $result = Find-LabIso -IsoName 'DefinitelyNotExistingISO_12345' -SearchPaths $searchPaths
+        $result.Found | Should -Be $false
+    }
+}
+
+Describe 'Initialize-LabConfig' {
+    It 'Creates config file when it does not exist' {
+        # Test in a temp location
+        $tempDir = Join-Path $env:TEMP "SimpleLabConfigTest_$(Get-Random)"
+        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+
+        try {
+            $tempConfigPath = Join-Path $tempDir "test-config.json"
+
+            # This test verifies the function can be called
+            # Actual file creation depends on the implementation
+            { Initialize-LabConfig -ConfigPath $tempConfigPath -ErrorAction Stop } | Should -Not -Throw
+        }
+        finally {
+            Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Write-ValidationReport' {
+    It 'Returns result object with ExitCode' {
+        $mockResults = [PSCustomObject]@{
+            OverallStatus = 'Pass'
+            Checks = @()
+            FailedChecks = @()
+            Duration = 1.0
+        }
+
+        $result = Write-ValidationReport -Results $mockResults
+        $result.PSObject.Properties.Name | Should -Contain 'ExitCode'
+        $result.ExitCode | Should -BeOfType [int]
+    }
+
+    It 'Returns ExitCode 0 for Pass status' {
+        $mockResults = [PSCustomObject]@{
+            OverallStatus = 'Pass'
+            Checks = @()
+            FailedChecks = @()
+            Duration = 1.0
+        }
+
+        $result = Write-ValidationReport -Results $mockResults
+        $result.ExitCode | Should -Be 0
+    }
+
+    It 'Returns non-zero ExitCode for Fail status' {
+        $mockResults = [PSCustomObject]@{
+            OverallStatus = 'Fail'
+            Checks = @()
+            FailedChecks = @('HyperV')
+            Duration = 1.0
+        }
+
+        $result = Write-ValidationReport -Results $mockResults
+        $result.ExitCode | Should -Not -Be 0
+    }
+}

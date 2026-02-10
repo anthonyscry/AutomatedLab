@@ -1,5 +1,5 @@
-# Deploy-OpenCodeLab-Slim.ps1 - Rebuildable 3-VM OpenCode Development Lab (AutomatedLab)
-# Builds DC1 (AD/DNS/DHCP/CA), WS1 (Win11), LIN1 (Ubuntu 24.04) on Hyper-V
+# Deploy-SimpleLab.ps1 - Rebuildable 3-VM SimpleLab (AutomatedLab)
+# Builds DC1 (AD/DNS/DHCP/CA), Server1 (Server 2019), Win11 (Windows 11) on Hyper-V
 # Requires: AutomatedLab module, Hyper-V, ISOs in C:\LabSources\ISOs
 
 #Requires -RunAsAdministrator
@@ -40,6 +40,19 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
 
 $IsoPath        = "$LabSourcesRoot\ISOs"
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
+
+# Backward-compatible defaults for Server1 topology if Lab-Config.ps1 is older.
+if (-not (Get-Variable -Name Server1_Ip -ErrorAction SilentlyContinue)) { $Server1_Ip = '192.168.11.4' }
+if (-not (Get-Variable -Name Server_Memory -ErrorAction SilentlyContinue)) { $Server_Memory = $DC_Memory }
+if (-not (Get-Variable -Name Server_MinMemory -ErrorAction SilentlyContinue)) { $Server_MinMemory = $DC_MinMemory }
+if (-not (Get-Variable -Name Server_MaxMemory -ErrorAction SilentlyContinue)) { $Server_MaxMemory = $DC_MaxMemory }
+if (-not (Get-Variable -Name Server_Processors -ErrorAction SilentlyContinue)) { $Server_Processors = $DC_Processors }
+
+# Legacy aliases (for backward compatibility)
+if (-not (Get-Variable -Name WSUS_Memory -ErrorAction SilentlyContinue)) { $WSUS_Memory = $Server_Memory }
+if (-not (Get-Variable -Name WSUS_MinMemory -ErrorAction SilentlyContinue)) { $WSUS_MinMemory = $Server_MinMemory }
+if (-not (Get-Variable -Name WSUS_MaxMemory -ErrorAction SilentlyContinue)) { $WSUS_MaxMemory = $Server_MaxMemory }
+if (-not (Get-Variable -Name WSUS_Processors -ErrorAction SilentlyContinue)) { $WSUS_Processors = $Server_Processors }
 
 function Remove-HyperVVMStale {
     [CmdletBinding()]
@@ -130,7 +143,7 @@ function Invoke-WindowsSshKeygen {
 # ============================================================
 $logDir  = "$LabSourcesRoot\Logs"
 if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
-$logFile = "$logDir\Deploy-OpenCodeLab-Slim_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').log"
+$logFile = "$logDir\Deploy-SimpleLab_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').log"
 Start-Transcript -Path $logFile -Append
 
 try {
@@ -157,8 +170,19 @@ try {
         }
 
         if ($allowRebuild) {
-            Remove-Lab -Name $LabName -Confirm:$false
-            Write-Host "  Removed existing lab." -ForegroundColor Green
+            Write-Host "  Removing existing lab..." -ForegroundColor Yellow
+            $labMetaPath = Join-Path 'C:\ProgramData\AutomatedLab\Labs' $LabName
+            Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+
+            if (Get-Lab -List | Where-Object { $_ -eq $LabName }) {
+                Write-Host "  [WARN] AutomatedLab still reports '$LabName' after removal attempt." -ForegroundColor Yellow
+                if (Test-Path $labMetaPath) {
+                    Remove-Item -Path $labMetaPath -Recurse -Force -ErrorAction SilentlyContinue
+                    Write-Host "  [WARN] Removed stale lab metadata folder: $labMetaPath" -ForegroundColor Yellow
+                }
+            }
+
+            Write-Host "  Removal step completed (continuing rebuild)." -ForegroundColor Green
         } else {
             throw "Aborting by user choice."
         }
@@ -243,14 +267,14 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # MACHINE DEFINITIONS (Windows VMs only - LIN1 handled separately)
+    # MACHINE DEFINITIONS (Simple 3-VM topology)
     # ============================================================
     if ($IncludeLIN1) {
-        Write-Host "`n[LAB] Defining all machines (DC1 + WS1 + LIN1)..." -ForegroundColor Cyan
+        Write-Host "`n[LAB] Defining all machines (DC1 + Server1 + Win11 + LIN1)..." -ForegroundColor Cyan
     } else {
-        Write-Host "`n[LAB] Defining core machines (DC1 + WS1)..." -ForegroundColor Cyan
-        Write-Host "  [INFO] LIN1 is deferred by default to avoid AutomatedLab Linux timeout on Internal switch." -ForegroundColor Gray
-        Write-Host "  [INFO] Use -IncludeLIN1 to include LIN1 in this run." -ForegroundColor Gray
+        Write-Host "`n[LAB] Defining Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
+        Write-Host "  [INFO] Linux nodes are disabled for this run." -ForegroundColor Gray
+        Write-Host "  [INFO] Use -IncludeLIN1 only if you explicitly need Ubuntu." -ForegroundColor Gray
     }
 
     Add-LabMachineDefinition -Name 'DC1' `
@@ -262,10 +286,18 @@ try {
         -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
         -Processors $DC_Processors
 
-    Add-LabMachineDefinition -Name 'WS1' `
+    Add-LabMachineDefinition -Name 'Server1' `
         -DomainName $DomainName `
         -Network $LabSwitch `
-        -IpAddress $WS1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+        -IpAddress $Server1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+        -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
+        -Memory $Server_Memory -MinMemory $Server_MinMemory -MaxMemory $Server_MaxMemory `
+        -Processors $Server_Processors
+
+    Add-LabMachineDefinition -Name 'Win11' `
+        -DomainName $DomainName `
+        -Network $LabSwitch `
+        -IpAddress $Win11_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
         -OperatingSystem 'Windows 11 Enterprise Evaluation' `
         -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
         -Processors $CL_Processors
@@ -275,10 +307,10 @@ try {
     # AutomatedLab's lack of Ubuntu 24.04 support
 
     # ============================================================
-    # INSTALL LAB (DC1 + WS1 only via AutomatedLab)
+    # INSTALL LAB (DC1 + Server1 + Win11 via AutomatedLab)
     # LIN1 will be created manually after this step if -IncludeLIN1 is set
     # ============================================================
-    Write-Host "`n[INSTALL] Installing core machines (DC1 + WS1)..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
 
 
     # Final guard: stale VMs can occasionally survive prior cleanup and cause
@@ -290,10 +322,13 @@ try {
         }
     }
 
+    $installLabError = $null
     try {
-        Install-Lab
+        Install-Lab -ErrorAction Stop
     } catch {
+        $installLabError = $_
         Write-Host "  [WARN] Install-Lab encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Exception type: $($_.Exception.GetType().FullName)" -ForegroundColor DarkYellow
         Write-Host "  Will attempt to validate and recover DC1 AD DS installation..." -ForegroundColor Yellow
     }
 
@@ -304,6 +339,14 @@ try {
 
     # Ensure DC1 VM is running
     $dc1Vm = Hyper-V\Get-VM -Name 'DC1' -ErrorAction SilentlyContinue
+    if (-not $dc1Vm) {
+        $installContext = ''
+        if ($installLabError) {
+            $installContext = " Install-Lab error: $($installLabError.Exception.Message)"
+        }
+        throw "DC1 VM was not created by Install-Lab.$installContext"
+    }
+
     if ($dc1Vm -and $dc1Vm.State -ne 'Running') {
         Write-Host "  DC1 VM is $($dc1Vm.State). Starting..." -ForegroundColor Yellow
         Start-VM -Name 'DC1'
@@ -519,7 +562,7 @@ try {
         # Create scope if missing
         $existing = Get-DhcpServerv4Scope -ErrorAction SilentlyContinue | Where-Object { $_.ScopeId.IPAddressToString -eq $ScopeId }
         if (-not $existing) {
-            Add-DhcpServerv4Scope -Name "OpenCodeLab" -StartRange $StartRange -EndRange $EndRange -SubnetMask $Mask -State Active | Out-Null
+            Add-DhcpServerv4Scope -Name "SimpleLab" -StartRange $StartRange -EndRange $EndRange -SubnetMask $Mask -State Active | Out-Null
         }
 
         # Options
@@ -738,12 +781,13 @@ try {
         "Share ready"
     } -ArgumentList $SharePath, $ShareName, $GitRepoPath, $DomainName | Out-Null
 
-    # Add WS1$ to share group (after join)
-    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Add-WS1-To-ShareGroup' -ScriptBlock {
+    # Add domain members to share group (after join)
+    Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Add-Clients-To-ShareGroup' -ScriptBlock {
         try {
-            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'WS1$' -ErrorAction Stop | Out-Null
+            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'Win11$' -ErrorAction Stop | Out-Null
+            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'Server1$' -ErrorAction SilentlyContinue | Out-Null
         } catch {
-            Write-Verbose "LabShareUsers add WS1$ skipped: $($_.Exception.Message)"
+            Write-Verbose "LabShareUsers membership update skipped: $($_.Exception.Message)"
         }
     } | Out-Null
 
@@ -931,14 +975,21 @@ try {
 
 
     # ============================================================
-    # WS1: client basics (RSAT + drive map)
+    # Server1: keep as fresh Windows Server 2019 member server
     # ============================================================
-    Write-Host "`n[POST] Configuring WS1..." -ForegroundColor Cyan
+    Write-Host "`n[POST] Server1 baseline..." -ForegroundColor Cyan
+    Write-Host "  [OK] Server1 left as a clean Windows Server 2019 VM (no WSUS role installed)." -ForegroundColor Green
+    Write-Host "  [INFO] Install additional roles/features on Server1 manually when ready." -ForegroundColor Gray
+
+    # ============================================================
+    # Win11: client basics (RSAT + drive map)
+    # ============================================================
+    Write-Host "`n[POST] Configuring Win11..." -ForegroundColor Cyan
 
     # RSAT install: domain GP may redirect Windows Update through DC1 (no WSUS),
     # causing "Access is denied" COMException. Temporarily bypass the WSUS policy.
     try {
-        Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Install-RSAT-WS1' -ScriptBlock {
+        Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Install-RSAT-Win11' -ScriptBlock {
             $wuAuPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
             $originalUseWU = $null
 
@@ -976,20 +1027,20 @@ try {
                 }
             }
         } | Out-Null
-        Write-Host "  [OK] RSAT capabilities installed on WS1" -ForegroundColor Green
+        Write-Host "  [OK] RSAT capabilities installed on Win11" -ForegroundColor Green
     }
     catch {
         Write-Host "  [WARN] RSAT installation failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] WS1 will work without RSAT. Install manually later if needed." -ForegroundColor Yellow
+        Write-Host "  [WARN] Win11 will work without RSAT. Install manually later if needed." -ForegroundColor Yellow
     }
 
-    Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Map-LabShare' -ScriptBlock {
+    Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Map-LabShare' -ScriptBlock {
         param($ShareName)
         net use L: "\\DC1\$ShareName" /persistent:yes 2>$null
     } -ArgumentList $ShareName | Out-Null
 
-    # WS1: WinRM HTTPS + ICMP
-    Invoke-LabCommand -ComputerName 'WS1' -ActivityName 'Configure-WinRM-HTTPS-WS1' -ScriptBlock {
+    # Win11: WinRM HTTPS + ICMP
+    Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Configure-WinRM-HTTPS-Win11' -ScriptBlock {
         $fqdn = "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
         $cert = New-SelfSignedCertificate -DnsName $fqdn, $env:COMPUTERNAME -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
 
@@ -1002,9 +1053,9 @@ try {
         New-NetFirewallRule -DisplayName 'ICMPv4 Allow' -Protocol ICMPv4 -IcmpType 8 -Action Allow -Direction Inbound -ErrorAction SilentlyContinue | Out-Null
     } | Out-Null
 
-    # WS1: Git (winget preferred, with offline/web fallback)
+    # Win11: Git (winget preferred, with offline/web fallback)
     try {
-        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'WS1' -PassThru -ActivityName 'Install-Git-WS1' -ScriptBlock {
+        $win11GitResults = @(Invoke-LabCommand -ComputerName 'Win11' -PassThru -ActivityName 'Install-Git-Win11' -ScriptBlock {
             $result = [pscustomobject]@{ Installed = $false; Message = '' }
 
             function Invoke-ProcessWithTimeout {
@@ -1094,21 +1145,21 @@ try {
             return $result
         })
 
-        $ws1GitResult = @($ws1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
+        $win11GitResult = @($win11GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
-        if ($ws1GitResult.Count -gt 0 -and $ws1GitResult[0].Installed) {
-            Write-Host "  [OK] $($ws1GitResult[0].Message)" -ForegroundColor Green
-        } elseif ($ws1GitResult.Count -gt 0) {
-            $msg = if ($ws1GitResult[0].Message) { $ws1GitResult[0].Message } else { 'Unknown Git install failure on WS1.' }
+        if ($win11GitResult.Count -gt 0 -and $win11GitResult[0].Installed) {
+            Write-Host "  [OK] $($win11GitResult[0].Message)" -ForegroundColor Green
+        } elseif ($win11GitResult.Count -gt 0) {
+            $msg = if ($win11GitResult[0].Message) { $win11GitResult[0].Message } else { 'Unknown Git install failure on Win11.' }
             Write-Host "  [WARN] $msg" -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without guaranteed Git on WS1." -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without guaranteed Git on Win11." -ForegroundColor Yellow
         } else {
-            Write-Host "  [WARN] Git installation step on WS1 returned no structured result." -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without guaranteed Git on WS1." -ForegroundColor Yellow
+            Write-Host "  [WARN] Git installation step on Win11 returned no structured result." -ForegroundColor Yellow
+            Write-Host "  [WARN] Continuing deployment without guaranteed Git on Win11." -ForegroundColor Yellow
         }
     } catch {
-        Write-Host "  [WARN] Git installation step on WS1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] Continuing deployment without guaranteed Git on WS1." -ForegroundColor Yellow
+        Write-Host "  [WARN] Git installation step on Win11 failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Continuing deployment without guaranteed Git on Win11." -ForegroundColor Yellow
     }
 
 
@@ -1256,7 +1307,8 @@ echo "[LIN1] Done."
     # ============================================================
     Write-Host "`n[SUMMARY]" -ForegroundColor Cyan
     Write-Host "  DC1:  $DC1_Ip" -ForegroundColor Gray
-    Write-Host "  WS1:  $WS1_Ip" -ForegroundColor Gray
+    Write-Host "  Server1: $Server1_Ip" -ForegroundColor Gray
+    Write-Host "  Win11:  $Win11_Ip" -ForegroundColor Gray
     if ($IncludeLIN1 -and $lin1Ready) {
         Write-Host "  LIN1: $LIN1_Ip (static configured by script)" -ForegroundColor Gray
         Write-Host ""
@@ -1266,7 +1318,7 @@ echo "[LIN1] Done."
         Write-Host "  If you see the 'REMOTE HOST IDENTIFICATION HAS CHANGED' warning after a rebuild:" -ForegroundColor Cyan
         Write-Host "    ssh-keygen -R $LIN1_Ip" -ForegroundColor Yellow
     } else {
-        Write-Host "  LIN1: deferred (run Deploy.ps1 -IncludeLIN1 when ready)" -ForegroundColor Gray
+        Write-Host "  Linux nodes: not included in this topology" -ForegroundColor DarkGray
     }
     Write-Host ""
     Write-Host "DONE. Log saved to: $logFile" -ForegroundColor Green

@@ -38,7 +38,7 @@ if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $L
 if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $AddressSpace = '192.168.11.0/24' }
 if (-not (Get-Variable -Name GatewayIp -ErrorAction SilentlyContinue))      { $GatewayIp = '192.168.11.1' }
 if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = "${LabSwitch}NAT" }
-if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso', 'ubuntu-24.04.3.iso') }
+if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso') }
 
 $ISOPath        = "$LabSourcesRoot\ISOs"
 $DeployScript   = (Join-Path $ScriptDir 'Deploy.ps1')
@@ -305,9 +305,9 @@ if (Test-Path $DeployScript) {
     Write-Host "`n  All prerequisites met. Starting deployment..." -ForegroundColor Green
     Write-Host "  Script: $DeployScript" -ForegroundColor Gray
     if ($IncludeLIN1) {
-        Write-Host "  Mode: FULL (including LIN1 Ubuntu)" -ForegroundColor Green
+        Write-Host "  Mode: FULL (Windows core + optional LIN1 Ubuntu)" -ForegroundColor Green
     } else {
-        Write-Host "  Mode: CORE (without LIN1 Ubuntu)" -ForegroundColor Yellow
+        Write-Host "  Mode: WINDOWS CORE (DC1 + WSUS1 + WS1)" -ForegroundColor Yellow
     }
     Write-Host "  This will take 30-60 minutes on first run.`n" -ForegroundColor Gray
     if ($NonInteractive) {

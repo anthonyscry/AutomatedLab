@@ -27,6 +27,21 @@ try {
 
 # Start all VMs
 Write-Host "`n  Starting VMs..." -ForegroundColor Yellow
+$missingVMs = @()
+$definedVMs = @(Get-LabVM)
+foreach ($vm in $definedVMs) {
+    if (-not (Get-VM -Name $vm.Name -ErrorAction SilentlyContinue)) {
+        $missingVMs += $vm.Name
+    }
+}
+
+if ($missingVMs.Count -gt 0) {
+    Write-Host "  [FAIL] Hyper-V VM(s) missing: $($missingVMs -join ', ')" -ForegroundColor Red
+    Write-Host "  Lab definition exists but VM instances are not present on this host." -ForegroundColor Yellow
+    Write-Host "  Recreate them with: .\Deploy.ps1 -NonInteractive" -ForegroundColor Yellow
+    exit 1
+}
+
 Start-LabVM -All -Wait
 Write-Host "  [OK] All VMs started" -ForegroundColor Green
 
@@ -60,6 +75,7 @@ if ($lin1Vm) {
 
 Write-Host "`n=== LAB READY ===" -ForegroundColor Green
 Write-Host "  DC1:   Enter-PSSession -VMName DC1" -ForegroundColor Gray
+Write-Host "  WSUS1: Enter-PSSession -VMName WSUS1" -ForegroundColor Gray
 Write-Host "  WS1:   Enter-PSSession -VMName WS1" -ForegroundColor Gray
 if ($lin1IP) {
     Write-Host "  LIN1:  ssh -i $SSHKey $LinuxUser@$lin1IP" -ForegroundColor Gray
