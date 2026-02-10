@@ -1,0 +1,70 @@
+# SimpleLab.psm1
+# SimpleLab Module - Streamlined Windows domain lab automation
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Dot-source private functions
+$PrivateFunctions = Get-ChildItem -Path "$PSScriptRoot\Private\*.ps1" -ErrorAction SilentlyContinue
+foreach ($file in $PrivateFunctions) {
+    try {
+        . $file.FullName
+    }
+    catch {
+        Write-Error "Failed to import function $($file.BaseName): $_"
+        throw
+    }
+}
+
+# Dot-source public functions
+$PublicFunctions = Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1" -ErrorAction SilentlyContinue
+foreach ($file in $PublicFunctions) {
+    try {
+        . $file.FullName
+    }
+    catch {
+        Write-Error "Failed to import function $($file.BaseName): $_"
+        throw
+    }
+}
+
+# Export public functions explicitly
+Export-ModuleMember -Function @(
+    'Connect-LabVM',
+    'Get-LabCheckpoint',
+    'Get-LabStatus',
+    'Initialize-LabDNS',
+    'Initialize-LabDomain',
+    'Initialize-LabNetwork',
+    'Initialize-LabVMs',
+    'Join-LabDomain',
+    'New-LabSwitch',
+    'New-LabVM',
+    'New-LabNAT',
+    'Remove-LabSwitch',
+    'Remove-LabVM',
+    'Remove-LabVMs',
+    'Reset-Lab',
+    'Restart-LabVM',
+    'Restart-LabVMs',
+    'Restore-LabCheckpoint',
+    'Resume-LabVM',
+    'Save-LabCheckpoint',
+    'Save-LabReadyCheckpoint',
+    'Show-LabStatus',
+    'Start-LabVMs',
+    'Stop-LabVMs',
+    'Suspend-LabVM',
+    'Suspend-LabVMs',
+    'Test-HyperVEnabled',
+    'Test-LabIso',
+    'Test-LabNetwork',
+    'Test-LabNetworkHealth',
+    'Test-LabCleanup',
+    'Test-LabDomainHealth',
+    'Test-LabPrereqs',
+    'Wait-LabVMReady',
+    'Write-RunArtifact',
+    'Write-ValidationReport',
+    'New-LabSSHKey'
+)
