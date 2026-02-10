@@ -65,7 +65,7 @@ PowerShellVersion = '5.1'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('Initialize-LabNetwork', 'New-LabSwitch', 'New-LabVM', 'Remove-LabVM', 'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth', 'Test-LabPrereqs', 'Write-RunArtifact', 'Write-ValidationReport')
+FunctionsToExport = @('Initialize-LabNetwork', 'Initialize-LabVMs', 'New-LabSwitch', 'New-LabVM', 'Remove-LabVM', 'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth', 'Test-LabPrereqs', 'Write-RunArtifact', 'Write-ValidationReport')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()

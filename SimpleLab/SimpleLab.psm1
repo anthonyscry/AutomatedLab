@@ -31,6 +31,7 @@ foreach ($file in $PublicFunctions) {
 # Export public functions explicitly
 Export-ModuleMember -Function @(
     'Initialize-LabNetwork',
+    'Initialize-LabVMs',
     'New-LabSwitch',
     'New-LabVM',
     'Remove-LabVM',
