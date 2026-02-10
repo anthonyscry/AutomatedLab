@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-02-09)
 ## Current Position
 
 Phase: 4 of 9 (VM Provisioning)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: Completed
-Last activity: 2026-02-10 — Completed Phase 4 Plan 1: VM Configuration and Detection
+Last activity: 2026-02-10 — Completed Phase 4 Plan 2: VM Provisioning Functions
 
-Progress: [███████░░░░] 38%
+Progress: [████████░░░] 44%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 6 min
-- Total execution time: 1.0 hours
+- Total execution time: 1.1 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [███████░░░░] 38%
 | 1. Project Foundation | 3 | 3 | 10 min |
 | 2. Pre-flight Validation | 3 | 3 | 6 min |
 | 3. Network Infrastructure | 3 | 3 | 1 min |
-| 4. VM Provisioning | 1 | 4 | 2 min |
+| 4. VM Provisioning | 2 | 4 | 2 min |
 
 **Recent Trend:**
-- Last 3 plans: 03-03, 04-01
-- Trend: Phase 4 started - VM Provisioning
+- Last 3 plans: 03-03, 04-01, 04-02
+- Trend: Phase 4 progressing - VM Provisioning
 
 *Updated after each plan completion*
 
@@ -77,6 +77,8 @@ Recent decisions affecting current work:
 - VM configurations follow Get-LabNetworkConfig pattern with defaults and config.json override
 - Get-LabVMConfig and Test-LabVM remain internal (Private/) for use by future VM creation orchestrators
 - Default VM hardware: DC/Server (2GB/2CPU/60GB/Gen2), Win11 (4GB/2CPU/60GB/Gen2)
+- [Phase 04]: Implemented VM lifecycle functions using native Hyper-V cmdlets (New-VM, Remove-VM, Set-VMProcessor, Set-VMMemory) with idempotent patterns for duplicate prevention
+- [Phase 04]: VM creation supports ISO attachment for bootable installations with pre-validation of ISO file paths
 
 ### Pending Todos
 
@@ -88,8 +90,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-10 (Phase 4 Plan 1 execution)
-Stopped at: Completed Phase 4 Plan 1: VM Configuration and Detection
+Last session: 2026-02-10 (Phase 4 Plan 2 execution)
+Stopped at: Completed Phase 4 Plan 2: VM Provisioning Functions
 Resume file: None
 
 ## Phase 1 Summary
@@ -194,7 +196,7 @@ Resume file: None
 
 **Plans Executed:**
 - [x] 04-01: VM Configuration and Detection
-- [ ] 04-02: VM Creation with New-LabVM
+- [x] 04-02: VM Creation with New-LabVM
 - [ ] 04-03: VM Startup and Initialization
 - [ ] 04-04: VM Teardown
 
@@ -202,9 +204,22 @@ Resume file: None
 - Get-LabVMConfig function for VM hardware specifications (memory, CPU, disk, generation)
 - Test-LabVM function for VM existence detection using Get-VM cmdlet
 
+**Artifacts Created (04-02):**
+- New-LabVM function for single VM creation with idempotent pattern
+- Remove-LabVM function for VM removal with resource cleanup
+
 **Success Criteria Met (Plan 04-01):**
 1. Get-LabVMConfig returns VM hardware specifications with proper defaults ✓
 2. Get-LabVMConfig supports config.json override for custom configurations ✓
 3. Test-LabVM correctly detects VM existence using Get-VM ✓
 4. Test-LabVM returns VM state when VM exists ✓
 5. Both functions remain internal (not exported) following established patterns ✓
+
+**Success Criteria Met (Plan 04-02):**
+1. New-LabVM creates VMs with specified hardware configuration ✓
+2. New-LabVM checks for existing VMs before creation (idempotent) ✓
+3. New-LabVM attaches ISO files when provided ✓
+4. New-LabVM configures static memory and processor count ✓
+5. Remove-LabVM removes VMs with optional VHD deletion ✓
+6. Both functions are properly exported from the module ✓
+7. Both functions return structured PSCustomObject results ✓
