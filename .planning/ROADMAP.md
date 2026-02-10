@@ -62,12 +62,12 @@ Plans:
   1. Tool creates dedicated Internal vSwitch named "SimpleLab" that persists across lab rebuilds
   2. VMs receive static IP assignments on lab network (DC: 10.0.0.1, Server: 10.0.0.2, Win11: 10.0.0.3)
   3. Lab VMs can communicate with each other after network setup completes
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Internal vSwitch creation
-- [ ] 03-02: IP configuration and assignment
-- [ ] 03-03: Network connectivity validation
+- [ ] 03-01-PLAN.md — Internal vSwitch creation (Test-LabNetwork, New-LabSwitch)
+- [ ] 03-02-PLAN.md — IP configuration and assignment (Initialize-LabNetwork)
+- [ ] 03-03-PLAN.md — Network connectivity validation (Test-LabNetworkHealth)
 
 ### Phase 4: VM Provisioning
 **Goal**: Provision Hyper-V VMs with appropriate hardware configuration
@@ -174,13 +174,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Project Foundation | 3/3 | Complete | 2026-02-09 |
 | 2. Pre-flight Validation | 0/3 | Not started | - |
-| 3. Network Infrastructure | 0/3 | Not started | - |
+| 3. Network Infrastructure | 0/3 | Ready to execute | - |
 | 4. VM Provisioning | 0/4 | Not started | - |
 | 5. Domain Configuration | 0/4 | Not started | - |
 | 6. Lifecycle Operations | 0/4 | Not started | - |
