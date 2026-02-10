@@ -11,7 +11,7 @@
 RootModule = 'SimpleLab.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.0'
+ModuleVersion = '3.1.0'
 
 # ID used to uniquely identify this module
 GUID = 'a1b2c3d4-e5f6-4a5b-8c7d-1e2f3a4b5c6d'
