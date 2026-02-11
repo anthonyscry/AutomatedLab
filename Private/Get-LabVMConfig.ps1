@@ -19,6 +19,7 @@ function Get-LabVMConfig {
             Generation = 2
             ISO = 'Server2019'
             EnableSecureBoot = $true
+            Type = 'Windows'
         }
         "SimpleServer" = [PSCustomObject]@{
             MemoryGB = 4
@@ -29,6 +30,7 @@ function Get-LabVMConfig {
             Generation = 2
             ISO = 'Server2019'
             EnableSecureBoot = $true
+            Type = 'Windows'
         }
         "SimpleWin11" = [PSCustomObject]@{
             MemoryGB = 4
@@ -39,6 +41,7 @@ function Get-LabVMConfig {
             Generation = 2
             ISO = 'Windows11'
             EnableSecureBoot = $true
+            Type = 'Windows'
         }
         "SimpleLIN" = [PSCustomObject]@{
             MemoryGB = 4
