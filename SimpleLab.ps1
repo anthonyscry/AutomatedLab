@@ -362,7 +362,7 @@ function Invoke-BuildLab {
 
         # ============================================================
         # INSTALL LAB
-        ============================================================
+        # ============================================================
         Write-Host "Installing lab (this will take 15-30 minutes)..." -ForegroundColor Cyan
         Write-Host "  dc1  - Domain Controller" -ForegroundColor White
         Write-Host "  svr1 - Member Server" -ForegroundColor White
