@@ -1,9 +1,8 @@
 {
-  "_comment": "SimpleLab v3.0.0 - Enhanced configuration with Deploy.ps1 features",
+  "_comment": "SimpleLab v3.1.1 - Windows-only lab configuration (Linux disabled)",
   "IsoPaths": {
     "Server2019": "C:\\LabSources\\ISOs\\server2019.iso",
-    "Windows11": "C:\\LabSources\\ISOs\\windows11.iso",
-    "Ubuntu": "C:\\LabSources\\ISOs\\ubuntu-24.04-live-server-amd64.iso"
+    "Windows11": "C:\\LabSources\\ISOs\\windows11.iso"
   },
   "IsoSearchPaths": [
     "C:\\LabSources\\ISOs",
@@ -20,9 +19,7 @@
     "LabPath": "C:\\AutomatedLab\\SimpleLab",
     "DomainName": "simplelab.local",
     "EnableLinux": false,
-    "EnableNAT": false,
-    "SSHKeyDir": "C:\\LabSources\\SSHKeys",
-    "SSHPrivateKey": "C:\\LabSources\\SSHKeys\\id_ed25519"
+    "EnableNAT": false
   },
   "NetworkConfiguration": {
     "_comment": "Simple internal switch (default) or NAT with gateway (if EnableNAT=true)",
@@ -41,15 +38,8 @@
     "VMIPs": {
       "SimpleDC": "10.0.0.2",
       "SimpleServer": "10.0.0.3",
-      "SimpleWin11": "10.0.0.4",
-      "SimpleLIN": "10.0.0.5"
+      "SimpleWin11": "10.0.0.4"
     }
-  },
-  "LinuxSettings": {
-    "_comment": "Linux VM configuration (when EnableLinux=true)",
-    "DefaultUser": "labuser",
-    "SSHAuthorizedKeys": [],
-    "ProjectMount": "/mnt/labshare"
   },
   "VMConfiguration": {
     "SimpleDC": {
@@ -78,17 +68,6 @@
       "DiskSizeGB": 60,
       "Generation": 2,
       "ISO": "Windows11"
-    },
-    "SimpleLIN": {
-      "_comment": "Linux VM (Ubuntu Server) - only created when EnableLinux=true",
-      "MemoryGB": 4,
-      "MinMemoryGB": 2,
-      "MaxMemoryGB": 6,
-      "ProcessorCount": 4,
-      "DiskSizeGB": 40,
-      "Generation": 2,
-      "ISO": "Ubuntu",
-      "EnableSecureBoot": false
     }
   }
 }

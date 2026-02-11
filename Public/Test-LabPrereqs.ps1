@@ -88,9 +88,21 @@ function Test-LabPrereqs {
         # Check 4: ISOs (only if config loaded, and only on Windows)
         if ($null -ne $config) {
             if ($isWindows) {
+                # Check if Linux is enabled
+                $enableLinux = if ($config.PSObject.Properties.Name -contains 'LabSettings') {
+                    $config.LabSettings.PSObject.Properties.Name -contains 'EnableLinux' -and $config.LabSettings.EnableLinux -eq $true
+                } else {
+                    $false
+                }
+
                 foreach ($isoEntry in $config.IsoPaths.PSObject.Properties) {
                     $isoName = $isoEntry.Name
                     $isoPath = $isoEntry.Value
+
+                    # Skip Linux ISOs if Linux is not enabled
+                    if (-not $enableLinux -and $isoName -eq 'Ubuntu') {
+                        continue
+                    }
 
                     $isoResult = Test-LabIso -IsoName $isoName -IsoPath $isoPath
                     $checks += [PSCustomObject]@{
@@ -102,8 +114,9 @@ function Test-LabPrereqs {
                     # If ISO not found, try to find it
                     if ($isoResult.Status -eq "Fail") {
                         $searchPaths = $config.IsoSearchPaths
-                        if ($searchPaths -and $searchPaths.Count -gt 0) {
-                            $findResult = Find-LabIso -IsoName $isoName -SearchPaths $searchPaths
+                        # Use @() to ensure we always have an array, then check count
+                        if ($searchPaths -and @($searchPaths).Count -gt 0) {
+                            $findResult = Find-LabIso -IsoName $isoName -SearchPaths @($searchPaths)
                             if ($findResult.Found) {
                                 $checks += [PSCustomObject]@{
                                     Name = "ISO_${isoName}_Search"
