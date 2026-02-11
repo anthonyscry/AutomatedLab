@@ -23,13 +23,13 @@ function Wait-LabVMReady {
         PSCustomObject with ReadyVMs, NotReadyVMs, OverallStatus, Duration, Message.
 
     .EXAMPLE
-        Wait-LabVMReady -VMNames @("SimpleDC", "SimpleServer", "SimpleWin11")
+        Wait-LabVMReady -VMNames @("dc1", "svr1", "ws1")
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string[]]$VMNames = @("SimpleDC", "SimpleServer", "SimpleWin11"),
+        [string[]]$VMNames = @("dc1", "svr1", "ws1"),
 
         [Parameter()]
         [int]$TimeoutMinutes = 75,  # 75 min is sufficient for SSD, fast CPU

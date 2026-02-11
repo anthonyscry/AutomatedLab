@@ -13,9 +13,9 @@ function Get-LabNetworkConfig {
         Gateway = ""
         DNSServers = @()
         VMIPs = @{
-            "SimpleDC" = "10.0.0.1"
-            "SimpleServer" = "10.0.0.2"
-            "SimpleWin11" = "10.0.0.3"
+            "dc1" = "10.0.0.1"
+            "svr1" = "10.0.0.2"
+            "ws1" = "10.0.0.3"
         }
     }
 

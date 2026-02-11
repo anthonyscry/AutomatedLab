@@ -27,13 +27,13 @@ function Restart-LabVM {
         OverallStatus, Message, Duration, StopDuration, and StartDuration.
 
     .EXAMPLE
-        Restart-LabVM -VMName SimpleDC
+        Restart-LabVM -VMName dc1
 
     .EXAMPLE
-        Restart-LabVM -VMName SimpleDC -Force
+        Restart-LabVM -VMName dc1 -Force
 
     .EXAMPLE
-        Restart-LabVM -VMName SimpleServer -Wait
+        Restart-LabVM -VMName svr1 -Wait
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

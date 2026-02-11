@@ -19,13 +19,13 @@ function Initialize-LabNetwork {
         Initialize-LabNetwork
 
     .EXAMPLE
-        Initialize-LabNetwork -VMNames @("SimpleDC", "SimpleServer")
+        Initialize-LabNetwork -VMNames @("dc1", "svr1")
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string[]]$VMNames = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        [string[]]$VMNames = @("dc1", "svr1", "ws1")
     )
 
     # Start timing

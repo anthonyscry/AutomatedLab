@@ -71,7 +71,7 @@ function Save-LabCheckpoint {
         }
 
         # Checkpoint order: DC first, then servers, then clients
-        $checkpointOrder = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $checkpointOrder = @("dc1", "svr1", "ws1")
 
         foreach ($vmName in $checkpointOrder) {
             # Check if VM exists

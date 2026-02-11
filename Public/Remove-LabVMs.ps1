@@ -66,7 +66,7 @@ function Remove-LabVMs {
         }
 
         # Step 3: Find existing VMs
-        $removalOrder = @("SimpleWin11", "SimpleServer", "SimpleDC")
+        $removalOrder = @("ws1", "svr1", "dc1")
         $existingVMs = @()
 
         foreach ($vmName in $removalOrder) {

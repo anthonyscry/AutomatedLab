@@ -77,7 +77,7 @@ function Restart-LabVMs {
         }
 
         # Step 3: Restart order: DC first, then other servers, then clients
-        $restartOrder = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $restartOrder = @("dc1", "svr1", "ws1")
 
         foreach ($vmName in $restartOrder) {
             Write-Verbose "Restarting VM '$vmName'..."

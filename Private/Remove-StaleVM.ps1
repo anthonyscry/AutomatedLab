@@ -3,7 +3,7 @@ function Remove-StaleVM {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string[]]$LabVMs = @("SimpleDC", "SimpleServer", "SimpleWin11"),
+        [string[]]$LabVMs = @("dc1", "svr1", "ws1"),
 
         [Parameter()]
         [switch]$Force

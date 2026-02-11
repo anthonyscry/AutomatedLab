@@ -15,10 +15,10 @@ function Connect-LabVM {
         OverallStatus, and Message.
 
     .EXAMPLE
-        Connect-LabVM -VMName SimpleDC
+        Connect-LabVM -VMName dc1
 
     .EXAMPLE
-        Connect-LabVM SimpleServer
+        Connect-LabVM svr1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

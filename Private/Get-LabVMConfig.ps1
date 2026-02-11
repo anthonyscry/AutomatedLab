@@ -10,7 +10,7 @@ function Get-LabVMConfig {
 
     # Initialize default VM configurations
     $defaultVMConfigs = @{
-        "SimpleDC" = [PSCustomObject]@{
+        "dc1" = [PSCustomObject]@{
             MemoryGB = 4
             MinMemoryGB = 2
             MaxMemoryGB = 6
@@ -21,7 +21,7 @@ function Get-LabVMConfig {
             EnableSecureBoot = $true
             Type = 'Windows'
         }
-        "SimpleServer" = [PSCustomObject]@{
+        "svr1" = [PSCustomObject]@{
             MemoryGB = 4
             MinMemoryGB = 2
             MaxMemoryGB = 6
@@ -32,7 +32,7 @@ function Get-LabVMConfig {
             EnableSecureBoot = $true
             Type = 'Windows'
         }
-        "SimpleWin11" = [PSCustomObject]@{
+        "ws1" = [PSCustomObject]@{
             MemoryGB = 4
             MinMemoryGB = 2
             MaxMemoryGB = 6

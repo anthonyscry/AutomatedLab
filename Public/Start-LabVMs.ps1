@@ -71,7 +71,7 @@ function Start-LabVMs {
         }
 
         # Step 3: Start order: DC first, then other servers, then clients
-        $startOrder = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $startOrder = @("dc1", "svr1", "ws1")
 
         foreach ($vmName in $startOrder) {
             # Check if VM exists

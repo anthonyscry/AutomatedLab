@@ -19,13 +19,13 @@ function Test-LabNetworkHealth {
         Test-LabNetworkHealth
 
     .EXAMPLE
-        Test-LabNetworkHealth -VMNames @("SimpleDC", "SimpleServer")
+        Test-LabNetworkHealth -VMNames @("dc1", "svr1")
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string[]]$VMNames = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        [string[]]$VMNames = @("dc1", "svr1", "ws1")
     )
 
     # Start timing

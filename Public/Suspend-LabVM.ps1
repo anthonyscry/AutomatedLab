@@ -21,10 +21,10 @@ function Suspend-LabVM {
         CurrentState, OverallStatus, Message, and Duration.
 
     .EXAMPLE
-        Suspend-LabVM -VMName SimpleDC
+        Suspend-LabVM -VMName dc1
 
     .EXAMPLE
-        Suspend-LabVM -VMName SimpleServer -Wait
+        Suspend-LabVM -VMName svr1 -Wait
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

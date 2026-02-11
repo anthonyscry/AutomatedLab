@@ -35,8 +35,8 @@ function Get-LabDomainConfig {
 
     # Get network config for DC IP address
     $networkConfig = Get-LabNetworkConfig
-    if ($null -ne $networkConfig -and $networkConfig.VMIPs.SimpleDC) {
-        $defaultDomainConfig.DnsServerAddress = $networkConfig.VMIPs.SimpleDC
+    if ($null -ne $networkConfig -and $networkConfig.VMIPs.dc1) {
+        $defaultDomainConfig.DnsServerAddress = $networkConfig.VMIPs.dc1
     }
 
     # Check if DomainConfiguration section exists

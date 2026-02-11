@@ -59,7 +59,7 @@ function Reset-Lab {
         }
 
         # Step 2: Check what exists
-        $labVMs = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $labVMs = @("dc1", "svr1", "ws1")
         $existingVMs = @()
         $totalCheckpoints = 0
 

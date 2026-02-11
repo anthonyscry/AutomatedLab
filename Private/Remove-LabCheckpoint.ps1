@@ -40,7 +40,7 @@ function Remove-LabCheckpoint {
         }
 
         # Step 2: Get lab VMs
-        $labVMs = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $labVMs = @("dc1", "svr1", "ws1")
 
         foreach ($vmName in $labVMs) {
             # Check if VM exists

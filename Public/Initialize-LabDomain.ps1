@@ -9,7 +9,7 @@ function Initialize-LabDomain {
         post-promotion verification. Uses PowerShell Direct for in-VM operations.
 
     .PARAMETER VMName
-        Name of the VM to promote (default: "SimpleDC").
+        Name of the VM to promote (default: "dc1").
 
     .PARAMETER SafeModePassword
         Safe Mode administrator password for the domain controller.
@@ -31,13 +31,13 @@ function Initialize-LabDomain {
         Initialize-LabDomain
 
     .EXAMPLE
-        Initialize-LabDomain -VMName "SimpleDC" -Force -WaitTimeoutMinutes 20
+        Initialize-LabDomain -VMName "dc1" -Force -WaitTimeoutMinutes 20
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$VMName = "SimpleDC",
+        [string]$VMName = "dc1",
 
         [Parameter()]
         [securestring]$SafeModePassword,
