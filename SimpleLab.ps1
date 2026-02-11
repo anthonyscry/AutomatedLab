@@ -1,5 +1,5 @@
 # SimpleLab.ps1
-# SimpleLab v3.2.2 - Enhanced Windows Domain Lab Automation
+# SimpleLab v3.2.3 - Enhanced Windows Domain Lab Automation
 # Main entry point with interactive menu and CLI support
 # Now with optional NAT networking and Linux VM support
 
@@ -39,7 +39,7 @@ function Import-SimpleLabModule {
 
 function Show-Banner {
     Write-Host ""
-    Write-Host "SimpleLab v3.2.2 - Enhanced Windows Domain Lab Automation" -ForegroundColor Cyan
+    Write-Host "SimpleLab v3.2.3 - Enhanced Windows Domain Lab Automation" -ForegroundColor Cyan
     Write-Host ("=" * 60) -ForegroundColor Gray
     Write-Host ""
 }
@@ -371,7 +371,7 @@ function Invoke-PreflightCheck {
 
 function Show-Help {
     Write-Host ""
-    Write-Host "SimpleLab v3.2.2 - Enhanced Windows Domain Lab Automation" -ForegroundColor Cyan
+    Write-Host "SimpleLab v3.2.3 - Enhanced Windows Domain Lab Automation" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Usage:" -ForegroundColor White
     Write-Host "  .\SimpleLab.ps1 [Operation]"
@@ -391,7 +391,7 @@ function Show-Help {
     Write-Host "  Menu        - Show interactive menu (default)"
     Write-Host "  Help        - Show this help message"
     Write-Host ""
-    Write-Host "New in v3.2.2:" -ForegroundColor Green
+    Write-Host "New in v3.2.3:" -ForegroundColor Green
     Write-Host "  - NAT network support for lab Internet access"
     Write-Host "  - SSH key generation for Linux VMs"
     Write-Host "  - Dynamic memory configuration (Min/Max)"
@@ -422,57 +422,57 @@ function Invoke-Operation {
 
     switch ($Op) {
         "Build" {
-            Write-Host "SimpleLab v3.2.2 - Building Lab..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Building Lab..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-BuildLab
         }
         "Start" {
-            Write-Host "SimpleLab v3.2.2 - Starting Lab..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Starting Lab..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-StartLab
         }
         "Stop" {
-            Write-Host "SimpleLab v3.2.2 - Stopping Lab..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Stopping Lab..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-StopLab
         }
         "Restart" {
-            Write-Host "SimpleLab v3.2.2 - Restarting Lab..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Restarting Lab..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-RestartLab
         }
         "Suspend" {
-            Write-Host "SimpleLab v3.2.2 - Suspending Lab..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Suspending Lab..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-SuspendLab
         }
         "Status" {
-            Write-Host "SimpleLab v3.2.2 - Lab Status" -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Lab Status" -ForegroundColor Cyan
             Write-Host ""
             Invoke-ShowStatus
         }
         "Checkpoint" {
-            Write-Host "SimpleLab v3.2.2 - Creating LabReady Checkpoint..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Creating LabReady Checkpoint..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-CreateCheckpoint
         }
         "NAT" {
-            Write-Host "SimpleLab v3.2.2 - Setting up NAT Network..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Setting up NAT Network..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-SetupNAT
         }
         "SSHKey" {
-            Write-Host "SimpleLab v3.2.2 - Generating SSH Key Pair..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Generating SSH Key Pair..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-GenerateSSHKey
         }
         "Preflight" {
-            Write-Host "SimpleLab v3.2.2 - Preflight Check..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Preflight Check..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-PreflightCheck
         }
         "Reset" {
-            Write-Host "SimpleLab v3.2.2 - Resetting Lab..." -ForegroundColor Cyan
+            Write-Host "SimpleLab v3.2.3 - Resetting Lab..." -ForegroundColor Cyan
             Write-Host ""
             Invoke-ResetLab
         }

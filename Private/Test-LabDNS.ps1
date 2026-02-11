@@ -114,14 +114,13 @@ function Test-LabDNS {
                 # Check 4: DNS server is responding to queries
                 if ($dnsRunning) {
                     try {
-                        $dnsTest = Test-DnsServerDnsServer -ComputerName localhost -ErrorAction Stop
-                        if ($dnsTest) {
-                            $dnsResponding = $true
-                            $checks += [PSCustomObject]@{
-                                Name = "DNSResponding"
-                                Status = "Pass"
-                                Message = "DNS server is responding to queries"
-                            }
+                        # Test DNS resolution using a known target
+                        $dnsTest = Resolve-DnsName -Name "localhost" -Server localhost -ErrorAction Stop
+                        $dnsResponding = $true
+                        $checks += [PSCustomObject]@{
+                            Name = "DNSResponding"
+                            Status = "Pass"
+                            Message = "DNS server is responding to queries"
                         }
                     }
                     catch {

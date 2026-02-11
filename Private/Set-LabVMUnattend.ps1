@@ -148,7 +148,7 @@ function Set-LabVMUnattend {
 
             # Step 7: Write unattend.xml to VHD
             Write-Verbose "Writing unattend.xml to: $unattendPath"
-            $unattendXml | Out-File -FilePath $unattendPath -Encoding UTF8 -Force -ErrorAction Stop
+            $unattendXml | Out-File -FilePath $unattendPath -Encoding UTF8 -NoNewline -Force -ErrorAction Stop
 
             $result.UnattendPath = $unattendPath
             Write-Verbose "unattend.xml written successfully"
@@ -156,7 +156,7 @@ function Set-LabVMUnattend {
             # Step 8: Also try to place it in the Panther\Unattend folder for Windows Setup
             $pantherUnattendPath = Join-Path $drivePath "Windows\Panther\Unattend\unattend.xml"
             if (Test-Path (Split-Path $pantherUnattendPath)) {
-                $unattendXml | Out-File -FilePath $pantherUnattendPath -Encoding UTF8 -Force -ErrorAction SilentlyContinue
+                $unattendXml | Out-File -FilePath $pantherUnattendPath -Encoding UTF8 -NoNewline -Force -ErrorAction SilentlyContinue
                 Write-Verbose "Also placed at: $pantherUnattendPath"
             }
 
