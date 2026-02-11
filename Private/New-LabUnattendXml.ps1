@@ -26,7 +26,7 @@ function New-LabUnattendXml {
         XML document as string.
 
     .EXAMPLE
-        New-LabUnattendXml -ComputerName "SimpleDC" -AdministratorPassword "P@ssw0rd" -OSType "Server2019"
+        New-LabUnattendXml -ComputerName "dc1" -AdministratorPassword "P@ssw0rd" -OSType "Server2019"
     #>
     [CmdletBinding()]
     [OutputType([string])]

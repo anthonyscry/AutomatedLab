@@ -8,7 +8,7 @@ function Join-LabDomain {
         Handles credentials, reboots, and verification of domain membership.
 
     .PARAMETER VMNames
-        Array of VM names to join to the domain (default: SimpleServer, SimpleWin11).
+        Array of VM names to join to the domain (default: svr1, ws1).
 
     .PARAMETER DomainName
         Domain name to join (default: from config or "simplelab.local").
@@ -32,13 +32,13 @@ function Join-LabDomain {
         Join-LabDomain
 
     .EXAMPLE
-        Join-LabDomain -VMNames @("SimpleServer") -Force
+        Join-LabDomain -VMNames @("svr1") -Force
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string[]]$VMNames = @("SimpleServer", "SimpleWin11"),
+        [string[]]$VMNames = @("svr1", "ws1"),
 
         [Parameter()]
         [string]$DomainName,

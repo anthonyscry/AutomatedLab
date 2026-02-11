@@ -8,7 +8,7 @@ function Initialize-LabDNS {
         functionality. Uses PowerShell Direct for in-VM configuration.
 
     .PARAMETER VMName
-        Name of the domain controller VM (default: "SimpleDC").
+        Name of the domain controller VM (default: "dc1").
 
     .PARAMETER Forwarder
         IP addresses of DNS forwarders (default: Google DNS: 8.8.8.8, 8.8.4.4).
@@ -29,7 +29,7 @@ function Initialize-LabDNS {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$VMName = "SimpleDC",
+        [string]$VMName = "dc1",
 
         [Parameter()]
         [ipaddress[]]$Forwarder = @([ipaddress]"8.8.8.8", [ipaddress]"8.8.4.4"),

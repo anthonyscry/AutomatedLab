@@ -8,7 +8,7 @@ function Test-LabDNS {
         and name resolution capabilities. Uses PowerShell Direct for in-VM checks.
 
     .PARAMETER VMName
-        Name of the domain controller VM to test (default: "SimpleDC").
+        Name of the domain controller VM to test (default: "dc1").
 
     .PARAMETER TestInternetResolution
         Test Internet name resolution through forwarders.
@@ -26,7 +26,7 @@ function Test-LabDNS {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$VMName = "SimpleDC",
+        [string]$VMName = "dc1",
 
         [Parameter()]
         [switch]$TestInternetResolution

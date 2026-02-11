@@ -66,7 +66,7 @@ function Suspend-LabVMs {
         }
 
         # Step 3: Suspend order: reverse of start (clients first, then DC)
-        $suspendOrder = @("SimpleWin11", "SimpleServer", "SimpleDC")
+        $suspendOrder = @("ws1", "svr1", "dc1")
 
         foreach ($vmName in $suspendOrder) {
             Write-Verbose "Suspending VM '$vmName'..."

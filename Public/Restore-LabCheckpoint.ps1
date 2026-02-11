@@ -64,7 +64,7 @@ function Restore-LabCheckpoint {
         }
 
         # Restore order: reverse (clients first, then DC)
-        $restoreOrder = @("SimpleWin11", "SimpleServer", "SimpleDC")
+        $restoreOrder = @("ws1", "svr1", "dc1")
 
         foreach ($vmName in $restoreOrder) {
             # Check if VM exists

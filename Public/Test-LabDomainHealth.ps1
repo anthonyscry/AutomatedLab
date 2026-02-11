@@ -78,7 +78,7 @@ function Test-LabDomainHealth {
         Write-Verbose "Checking domain controller health..."
 
         $dcHealth = [PSCustomObject]@{
-            VMName = "SimpleDC"
+            VMName = "dc1"
             Running = $false
             Accessible = $false
             ADDSServiceRunning = $false
@@ -89,10 +89,10 @@ function Test-LabDomainHealth {
         }
 
         # Check DC VM exists and is running
-        $dcVM = Get-VM -Name "SimpleDC" -ErrorAction SilentlyContinue
+        $dcVM = Get-VM -Name "dc1" -ErrorAction SilentlyContinue
         if ($null -eq $dcVM) {
             $dcHealth.Status = "NotFound"
-            $dcHealth.Message = "Domain controller VM 'SimpleDC' not found"
+            $dcHealth.Message = "Domain controller VM 'dc1' not found"
             $result.Checks += [PSCustomObject]@{
                 Name = "DC_VMExists"
                 Status = "Fail"
@@ -118,7 +118,7 @@ function Test-LabDomainHealth {
 
             # Check DC is accessible via PowerShell Direct
             try {
-                $accessible = Invoke-Command -VMName "SimpleDC" -ScriptBlock {
+                $accessible = Invoke-Command -VMName "dc1" -ScriptBlock {
                     $true
                 } -ErrorAction SilentlyContinue
 
@@ -132,7 +132,7 @@ function Test-LabDomainHealth {
 
                     # Check AD DS service
                     try {
-                        $addsdService = Invoke-Command -VMName "SimpleDC" -ScriptBlock {
+                        $addsdService = Invoke-Command -VMName "dc1" -ScriptBlock {
                             $service = Get-Service -Name NTDS -ErrorAction SilentlyContinue
                             return $service.Status -eq "Running"
                         } -ErrorAction SilentlyContinue
@@ -163,7 +163,7 @@ function Test-LabDomainHealth {
 
                     # Check domain is reachable
                     try {
-                        $domainCheck = Invoke-Command -VMName "SimpleDC" -ScriptBlock {
+                        $domainCheck = Invoke-Command -VMName "dc1" -ScriptBlock {
                             param($domainName)
                             Get-ADDomain -Identity $domainName -ErrorAction SilentlyContinue
                         } -ArgumentList $targetDomain -ErrorAction SilentlyContinue
@@ -249,7 +249,7 @@ function Test-LabDomainHealth {
         if ($dcHealth.Running -and $dcHealth.Accessible) {
             # Run DNS checks from DC
             try {
-                $dnsChecks = Invoke-Command -VMName "SimpleDC" -ScriptBlock {
+                $dnsChecks = Invoke-Command -VMName "dc1" -ScriptBlock {
                     $checks = @()
                     $serviceRunning = $false
                     $responding = $false
@@ -409,7 +409,7 @@ function Test-LabDomainHealth {
         if ($IncludeMemberServers) {
             Write-Verbose "Checking member server health..."
 
-            $memberVMs = @("SimpleServer", "SimpleWin11")
+            $memberVMs = @("svr1", "ws1")
 
             foreach ($memberVM in $memberVMs) {
                 Write-Verbose "Checking member server '$memberVM'..."

@@ -21,10 +21,10 @@ function Test-LabDomainJoin {
         PSCustomObject with domain membership status and diagnostic information.
 
     .EXAMPLE
-        Test-LabDomainJoin -VMName "SimpleServer"
+        Test-LabDomainJoin -VMName "svr1"
 
     .EXAMPLE
-        Test-LabDomainJoin -VMName "SimpleWin11" -DomainName "simplelab.local"
+        Test-LabDomainJoin -VMName "ws1" -DomainName "simplelab.local"
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

@@ -56,7 +56,7 @@ function Test-LabCleanup {
             return $result
         }
 
-        $labVMs = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $labVMs = @("dc1", "svr1", "ws1")
         $allPassed = $true
 
         # Step 2: Check for orphaned VMs

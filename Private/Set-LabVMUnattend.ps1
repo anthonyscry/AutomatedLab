@@ -26,7 +26,7 @@ function Set-LabVMUnattend {
         PSCustomObject with status and details.
 
     .EXAMPLE
-        Set-LabVMUnattend -VMName "SimpleDC" -ComputerName "SimpleDC" -AdministratorPassword "P@ssw0rd" -OSType "Server2019"
+        Set-LabVMUnattend -VMName "dc1" -ComputerName "dc1" -AdministratorPassword "P@ssw0rd" -OSType "Server2019"
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

@@ -17,10 +17,10 @@ function Remove-LabVM {
         PSCustomObject with VMName, Removed (bool), Status, Message, and VHDDeleted (bool).
 
     .EXAMPLE
-        Remove-LabVM -VMName "SimpleDC"
+        Remove-LabVM -VMName "dc1"
 
     .EXAMPLE
-        Remove-LabVM -VMName "SimpleDC" -DeleteVHD
+        Remove-LabVM -VMName "dc1" -DeleteVHD
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

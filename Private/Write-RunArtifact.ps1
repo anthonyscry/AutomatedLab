@@ -36,7 +36,7 @@ function Write-RunArtifact {
         String. Path to the created artifact file, or null on failure.
 
     .EXAMPLE
-        Write-RunArtifact -Operation "CreateVM" -Status "Success" -Duration 45.2 -ExitCode 0 -VMNames @("SimpleDC")
+        Write-RunArtifact -Operation "CreateVM" -Status "Success" -Duration 45.2 -ExitCode 0 -VMNames @("dc1")
     #>
     [CmdletBinding()]
     param(

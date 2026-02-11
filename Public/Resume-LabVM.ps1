@@ -22,10 +22,10 @@ function Resume-LabVM {
         CurrentState, OverallStatus, Message, and Duration.
 
     .EXAMPLE
-        Resume-LabVM -VMName SimpleDC
+        Resume-LabVM -VMName dc1
 
     .EXAMPLE
-        Resume-LabVM -VMName SimpleServer -Wait
+        Resume-LabVM -VMName svr1 -Wait
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

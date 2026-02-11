@@ -51,7 +51,7 @@ function Get-LabStatus {
         }
 
         $results = @()
-        $labVMs = @("SimpleDC", "SimpleServer", "SimpleWin11")
+        $labVMs = @("dc1", "svr1", "ws1")
 
         foreach ($vmName in $labVMs) {
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue

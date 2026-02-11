@@ -36,13 +36,13 @@
     "DhcpMask": "255.255.255.0",
     "DNSServers": [],
     "VMIPs": {
-      "SimpleDC": "10.0.0.2",
-      "SimpleServer": "10.0.0.3",
-      "SimpleWin11": "10.0.0.4"
+      "dc1": "10.0.0.2",
+      "svr1": "10.0.0.3",
+      "ws1": "10.0.0.4"
     }
   },
   "VMConfiguration": {
-    "SimpleDC": {
+    "dc1": {
       "MemoryGB": 4,
       "MinMemoryGB": 2,
       "MaxMemoryGB": 6,
@@ -51,7 +51,7 @@
       "Generation": 2,
       "ISO": "Server2019"
     },
-    "SimpleServer": {
+    "svr1": {
       "MemoryGB": 4,
       "MinMemoryGB": 2,
       "MaxMemoryGB": 6,
@@ -60,7 +60,7 @@
       "Generation": 2,
       "ISO": "Server2019"
     },
-    "SimpleWin11": {
+    "ws1": {
       "MemoryGB": 4,
       "MinMemoryGB": 2,
       "MaxMemoryGB": 6,

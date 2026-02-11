@@ -64,7 +64,7 @@ function Initialize-LabVMs {
     $failureCount = 0
 
     # VM creation order: DC, Server, Win11
-    $vmOrder = @("SimpleDC", "SimpleServer", "SimpleWin11")
+    $vmOrder = @("dc1", "svr1", "ws1")
 
     # Default admin password for unattended install
     $defaultPassword = "SimpleLab123!"

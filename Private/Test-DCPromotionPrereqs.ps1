@@ -8,19 +8,19 @@ function Test-DCPromotionPrereqs {
         and has network connectivity. Uses PowerShell Direct for in-VM checks.
 
     .PARAMETER VMName
-        Name of the VM to test (default: "SimpleDC").
+        Name of the VM to test (default: "dc1").
 
     .OUTPUTS
         PSCustomObject with VMName, CanPromote (bool), Status, Message, and Checks array.
 
     .EXAMPLE
-        $prereqs = Test-DCPromotionPrereqs -VMName "SimpleDC"
+        $prereqs = Test-DCPromotionPrereqs -VMName "dc1"
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$VMName = "SimpleDC"
+        [string]$VMName = "dc1"
     )
 
     # Start timing

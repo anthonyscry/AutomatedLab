@@ -77,7 +77,7 @@ function Stop-LabVMs {
         }
 
         # Step 3: Stop order: reverse of start (clients first, then DC)
-        $stopOrder = @("SimpleWin11", "SimpleServer", "SimpleDC")
+        $stopOrder = @("ws1", "svr1", "dc1")
 
         foreach ($vmName in $stopOrder) {
             # Check if VM exists
