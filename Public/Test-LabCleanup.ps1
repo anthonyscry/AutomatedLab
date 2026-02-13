@@ -56,7 +56,9 @@ function Test-LabCleanup {
             return $result
         }
 
-        $labVMs = @("dc1", "svr1", "ws1")
+        $labVMs = @(if ($LabVMs) { $LabVMs } else { @('dc1','svr1','dsc','ws1') })
+        $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if ($lin1VM -and ('LIN1' -notin $labVMs)) { $labVMs += 'LIN1' }
         $allPassed = $true
 
         # Step 2: Check for orphaned VMs

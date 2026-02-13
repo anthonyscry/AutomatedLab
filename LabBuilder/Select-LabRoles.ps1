@@ -43,9 +43,15 @@ function Select-LabRoles {
         }
     }
 
-    # Main loop
+    # Main loop — initial clear, then reposition cursor to avoid flicker
+    Clear-Host
+    $firstDraw = $true
     while ($true) {
-        Clear-Host
+        if ($firstDraw) {
+            $firstDraw = $false
+        } else {
+            [Console]::SetCursorPosition(0, 0)
+        }
 
         # Banner
         Write-Host ''

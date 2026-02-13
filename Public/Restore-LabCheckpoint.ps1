@@ -64,37 +64,67 @@ function Restore-LabCheckpoint {
             return $result
         }
 
-        # Restore order: reverse (clients first, then DC)
-        $restoreOrder = @("ws1", "svr1", "dc1")
+        # Restore order: reverse (clients first, then DC) — dynamic from config + auto-detect LIN1
+        $configVMs = @(if ($LabVMs) { $LabVMs } else { @('dc1','svr1','dsc','ws1') })
+        $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if ($lin1VM -and ('LIN1' -notin $configVMs)) { $configVMs += 'LIN1' }
+        [array]::Reverse($configVMs)
+        $restoreOrder = $configVMs
 
+        # Pre-filter: skip missing VMs and VMs without the checkpoint
+        $eligibleVMs = @()
         foreach ($vmName in $restoreOrder) {
-            # Check if VM exists
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($null -eq $vm) {
                 Write-Verbose "VM '$vmName' does not exist, skipping"
                 $result.SkippedVMs += $vmName
                 continue
             }
-
-            # Check if checkpoint exists for this VM
             $checkpoint = Get-VMCheckpoint -VMName $vmName -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $CheckpointName }
             if ($null -eq $checkpoint) {
                 Write-Warning "Checkpoint '$CheckpointName' not found for VM '$vmName'"
                 $result.SkippedVMs += $vmName
                 continue
             }
+            $eligibleVMs += $vmName
+        }
 
-            # Restore checkpoint
-            try {
-                Write-Verbose "Restoring checkpoint '$CheckpointName' for VM '$vmName'..."
-                Restore-VMCheckpoint -Name $vmName -SnapshotName $CheckpointName -ErrorAction Stop
-                $result.VMsRestored += $vmName
-                Write-Verbose "Checkpoint restored for VM '$vmName'"
+        # Parallel restore via Start-Job
+        $cpName = $CheckpointName
+        $jobs = @()
+        foreach ($vmName in $eligibleVMs) {
+            Write-Verbose "Launching restore job for VM '$vmName'..."
+            $jobs += Start-Job -Name "restore-$vmName" -ScriptBlock {
+                param($vm, $cp)
+                Restore-VMCheckpoint -VMName $vm -Name $cp -Confirm:$false -ErrorAction Stop
+            } -ArgumentList $vmName, $cpName
+        }
+
+        # Wait for all jobs with timeout (120s)
+        if ($jobs.Count -gt 0) {
+            $null = $jobs | Wait-Job -Timeout 120
+        }
+
+        # Collect results
+        foreach ($job in $jobs) {
+            $vmName = $job.Name -replace '^restore-', ''
+            if ($job.State -eq 'Completed') {
+                try {
+                    Receive-Job -Job $job -ErrorAction Stop | Out-Null
+                    $result.VMsRestored += $vmName
+                    Write-Verbose "Checkpoint restored for VM '$vmName'"
+                }
+                catch {
+                    Write-Error "Failed to restore checkpoint for VM '$vmName': $($_.Exception.Message)"
+                    $result.FailedVMs += $vmName
+                }
             }
-            catch {
-                Write-Error "Failed to restore checkpoint for VM '$vmName': $($_.Exception.Message)"
+            else {
+                Write-Error "Restore job for VM '$vmName' did not complete (state: $($job.State))"
                 $result.FailedVMs += $vmName
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
             }
+            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
         }
 
         # Determine overall status

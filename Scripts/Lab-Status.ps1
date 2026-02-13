@@ -131,25 +131,52 @@ if ($labImported -and ($running.Name -contains 'WSUS1')) {
 
 if ($labImported -and ($running.Name -contains 'LIN1')) {
     try {
-        Write-Host "`n  GIT PROJECTS (LIN1):" -ForegroundColor Yellow
+        # Launch git and mount checks in parallel
         $bashCmd = 'for d in ' + $LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then name=$(basename "$d"); cd "$d"; branch=$(git branch --show-current 2>/dev/null); changes=$(git status --porcelain 2>/dev/null | wc -l); remote=$(git remote get-url origin 2>/dev/null || echo "(no remote)"); echo "  $name [$branch] $changes uncommitted | $remote"; fi; done'
-        $gitStatus = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
-            param($Cmd)
-            bash -lc $Cmd
-        } -ArgumentList $bashCmd -PassThru -ErrorAction SilentlyContinue
-        if ($gitStatus) {
-            $gitStatus | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+        $mountCmd = 'if mountpoint -q "' + $LinuxLabShareMount + '" 2>/dev/null; then echo "  ' + $LinuxLabShareMount + ': MOUNTED"; else echo "  ' + $LinuxLabShareMount + ': NOT MOUNTED"; fi'
+
+        $gitJob = Start-Job -ScriptBlock {
+            param($LabName, $Cmd)
+            Import-Lab -Name $LabName -ErrorAction Stop 2>$null
+            Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
+                param($C); bash -lc $C
+            } -ArgumentList $Cmd -PassThru -ErrorAction SilentlyContinue
+        } -ArgumentList $LabName, $bashCmd
+
+        $mountJob = Start-Job -ScriptBlock {
+            param($LabName, $Cmd)
+            Import-Lab -Name $LabName -ErrorAction Stop 2>$null
+            Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
+                param($C); bash -lc $C
+            } -ArgumentList $Cmd -PassThru -ErrorAction SilentlyContinue
+        } -ArgumentList $LabName, $mountCmd
+
+        # Wait with 30s timeout
+        $null = Wait-Job -Job $gitJob, $mountJob -Timeout 30
+
+        Write-Host "`n  GIT PROJECTS (LIN1):" -ForegroundColor Yellow
+        if ($gitJob.State -eq 'Completed') {
+            $gitStatus = Receive-Job -Job $gitJob -ErrorAction SilentlyContinue
+            if ($gitStatus) {
+                $gitStatus | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+            } else {
+                Write-Host "    (no projects)" -ForegroundColor DarkGray
+            }
         } else {
-            Write-Host "    (no projects)" -ForegroundColor DarkGray
+            Write-Host "    (timed out)" -ForegroundColor DarkGray
+            Stop-Job -Job $gitJob -ErrorAction SilentlyContinue
         }
 
         Write-Host "`n  MOUNT (LIN1):" -ForegroundColor Yellow
-        $mountCmd = 'if mountpoint -q "' + $LinuxLabShareMount + '" 2>/dev/null; then echo "  ' + $LinuxLabShareMount + ': MOUNTED"; else echo "  ' + $LinuxLabShareMount + ': NOT MOUNTED"; fi'
-        $mountCheck = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
-            param($Cmd)
-            bash -lc $Cmd
-        } -ArgumentList $mountCmd -PassThru -ErrorAction SilentlyContinue
-        $mountCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+        if ($mountJob.State -eq 'Completed') {
+            $mountCheck = Receive-Job -Job $mountJob -ErrorAction SilentlyContinue
+            $mountCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+        } else {
+            Write-Host "    (timed out)" -ForegroundColor DarkGray
+            Stop-Job -Job $mountJob -ErrorAction SilentlyContinue
+        }
+
+        Remove-Job -Job $gitJob, $mountJob -Force -ErrorAction SilentlyContinue
     } catch {
         Write-Verbose "LIN1 live status check failed: $($_.Exception.Message)"
     }

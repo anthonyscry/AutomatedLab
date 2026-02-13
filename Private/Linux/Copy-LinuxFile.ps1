@@ -19,4 +19,7 @@ function Copy-LinuxFile {
     }
 
     & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $KeyPath $LocalPath "${User}@${IP}:${RemotePath}" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "SCP failed with exit code $LASTEXITCODE copying '$LocalPath' to '${User}@${IP}:${RemotePath}'"
+    }
 }
