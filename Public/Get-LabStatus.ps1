@@ -43,29 +43,44 @@ function Get-LabStatus {
             return @()
         }
 
-        # Get VM configurations
-        $vmConfigs = Get-LabVMConfig
-        if ($null -eq $vmConfigs) {
-            Write-Warning "Failed to retrieve VM configurations"
-            return @()
+        $results = New-Object System.Collections.Generic.List[object]
+        $labVMs = @("dc1", "svr1", "dsc", "ws1")
+        if (Get-VM -Name "LIN1" -ErrorAction SilentlyContinue) {
+            $labVMs += "LIN1"
         }
 
-        $results = @()
-        $labVMs = @("dc1", "svr1", "ws1")
+        $knownVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.Name -in $labVMs }
+        $vmMap = @{}
+        foreach ($vm in $knownVMs) {
+            $vmMap[$vm.Name.ToLowerInvariant()] = $vm
+        }
+
+        $adapterMap = @{}
+        if (-not $Compact -and $knownVMs.Count -gt 0) {
+            $vmNames = @($knownVMs | ForEach-Object { $_.Name })
+            $allAdapters = Get-VMNetworkAdapter -VMName $vmNames -ErrorAction SilentlyContinue
+            foreach ($adapter in $allAdapters) {
+                $adapterKey = $adapter.VMName.ToLowerInvariant()
+                if (-not $adapterMap.ContainsKey($adapterKey)) {
+                    $adapterMap[$adapterKey] = New-Object System.Collections.Generic.List[object]
+                }
+                $adapterMap[$adapterKey].Add($adapter) | Out-Null
+            }
+        }
 
         foreach ($vmName in $labVMs) {
-            $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+            $vm = $vmMap[$vmName.ToLowerInvariant()]
 
             if ($null -eq $vm) {
                 if ($Compact) {
-                    $results += [PSCustomObject]@{
+                    $results.Add([PSCustomObject]@{
                         VMName = $vmName
                         State = "NotCreated"
                         Heartbeat = "N/A"
-                    }
+                    }) | Out-Null
                 }
                 else {
-                    $results += [PSCustomObject]@{
+                    $results.Add([PSCustomObject]@{
                         VMName = $vmName
                         State = "NotCreated"
                         Status = "VM does not exist"
@@ -74,13 +89,13 @@ function Get-LabStatus {
                         Uptime = "N/A"
                         NetworkStatus = "N/A"
                         Heartbeat = "N/A"
-                    }
+                    }) | Out-Null
                 }
                 continue
             }
 
             # Get heartbeat status
-            $heartbeat = switch ($vm.Heartbeat) {
+            $heartbeat = switch ([string]$vm.Heartbeat) {
                 "Ok" { "Healthy" }
                 "Error" { "Error" }
                 "LostCommunication" { "Lost" }
@@ -88,11 +103,11 @@ function Get-LabStatus {
             }
 
             if ($Compact) {
-                $results += [PSCustomObject]@{
+                $results.Add([PSCustomObject]@{
                     VMName = $vmName
-                    State = $vm.State
+                    State = [string]$vm.State
                     Heartbeat = $heartbeat
-                }
+                }) | Out-Null
             }
             else {
                 # Calculate uptime if running
@@ -113,41 +128,42 @@ function Get-LabStatus {
                 }
 
                 # Get memory assigned
-                $memoryGB = if ($vm.Memory) {
-                    "$([math]::Round($vm.Memory / 1GB, 2)) GB"
+                $memoryBytes = if ($vm.MemoryAssigned -and $vm.MemoryAssigned -gt 0) { $vm.MemoryAssigned } else { $vm.MemoryStartup }
+                $memoryGB = if ($memoryBytes) {
+                    "$([math]::Round($memoryBytes / 1GB, 2)) GB"
                 }
                 else {
                     "N/A"
                 }
 
                 # Get network adapter status
-                $netStatus = try {
-                    $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue
-                    if ($adapter) {
-                        "$($adapter.SwitchName) [$($adapter.Status)]"
+                $netStatus = "No adapter"
+                $adapterKey = $vmName.ToLowerInvariant()
+                if ($adapterMap.ContainsKey($adapterKey)) {
+                    $adapterStatus = @(
+                        $adapterMap[$adapterKey] | ForEach-Object {
+                            "$($_.SwitchName) [$($_.Status)]"
+                        }
+                    )
+                    if ($adapterStatus.Count -gt 0) {
+                        $netStatus = $adapterStatus -join "; "
                     }
-                    else {
-                        "No adapter"
-                    }
-                }
-                catch {
-                    "Unknown"
                 }
 
-                $results += [PSCustomObject]@{
+                $results.Add([PSCustomObject]@{
                     VMName = $vmName
-                    State = $vm.State
+                    State = [string]$vm.State
                     Status = if ($vm.State -eq "Running") { "Running" } else { "Stopped" }
                     CPUUsage = $cpuUsage
                     MemoryGB = $memoryGB
                     Uptime = $uptime
                     NetworkStatus = $netStatus
                     Heartbeat = $heartbeat
-                }
+                }) | Out-Null
             }
         }
 
-        return $results
+        return @($results)
     }
     catch {
         Write-Error "Failed to get lab status: $($_.Exception.Message)"

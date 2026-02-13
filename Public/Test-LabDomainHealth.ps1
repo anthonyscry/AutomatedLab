@@ -369,7 +369,7 @@ function Test-LabDomainHealth {
                     $dnsFailures = ($dnsChecks.Checks | Where-Object { $_.Status -eq "Fail" }).Count
                     $dnsWarnings = ($dnsChecks.Checks | Where-Object { $_.Status -eq "Warning" }).Count
 
-                    if ($dnsFailures -eq 0) {
+                    if ($dnsFailures -eq 0 -and $dnsWarnings -eq 0) {
                         $dnsHealth.Status = "Healthy"
                         $dnsHealth.Message = "DNS is fully functional"
                     }
@@ -417,6 +417,10 @@ function Test-LabDomainHealth {
             Write-Verbose "Checking member server health..."
 
             $memberVMs = @("svr1", "ws1")
+            $dcHostForPing = "dc1"
+            if (-not [string]::IsNullOrWhiteSpace($targetDomain)) {
+                $dcHostForPing = "dc1.$targetDomain"
+            }
 
             foreach ($memberVM in $memberVMs) {
                 Write-Verbose "Checking member server '$memberVM'..."
@@ -500,10 +504,9 @@ function Test-LabDomainHealth {
                         # Check can ping DC
                         try {
                             $pingTest = Invoke-Command -VMName $memberVM -ScriptBlock {
-                                param($domainName)
-                                $dcName = ($domainName -split '\.')[0] + "DC"
-                                Test-Connection -ComputerName $dcName -Count 1 -Quiet -ErrorAction SilentlyContinue
-                            } -ArgumentList $targetDomain -ErrorAction SilentlyContinue
+                                param($dcHost)
+                                Test-Connection -ComputerName $dcHost -Count 1 -Quiet -ErrorAction SilentlyContinue
+                            } -ArgumentList $dcHostForPing -ErrorAction SilentlyContinue
 
                             if ($pingTest) {
                                 $memberHealth.CanPingDC = $true

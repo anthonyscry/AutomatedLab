@@ -10,6 +10,9 @@ function Show-LabStatus {
     .PARAMETER Compact
         Show compact view with key properties only.
 
+    .PARAMETER NoColor
+        Disable ANSI color rendering.
+
     .OUTPUTS
         Formatted table display with optional color coding.
 
@@ -22,7 +25,10 @@ function Show-LabStatus {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [switch]$Compact
+        [switch]$Compact,
+
+        [Parameter()]
+        [switch]$NoColor
     )
 
     # Get status data
@@ -35,7 +41,10 @@ function Show-LabStatus {
 
     # Check if ANSI colors are supported
     $ansiSupported = $false
-    if ($PSVersionTable.PSVersion.Major -ge 7) {
+    if ($NoColor) {
+        $ansiSupported = $false
+    }
+    elseif ($PSVersionTable.PSVersion.Major -ge 7) {
         # PowerShell 7+ supports ANSI
         $ansiSupported = $true
     }
@@ -58,6 +67,7 @@ function Show-LabStatus {
                 "Red"    { "`e[31m" }
                 "Yellow" { "`e[33m" }
                 "Gray"   { "`e[90m" }
+                "DarkGray" { "`e[90m" }
                 "Cyan"   { "`e[36m" }
                 default  { "`e[0m" }
             }
@@ -75,6 +85,9 @@ function Show-LabStatus {
 
     # Display table
     if ($Compact) {
+        Write-Host ("{0,-16}{1,-12}{2,-10}" -f "VM", "State", "Heartbeat") -ForegroundColor Cyan
+        Write-Host ("-" * 38) -ForegroundColor Gray
+
         # Compact table
         foreach ($vm in $statusData) {
             # VM Name
@@ -162,10 +175,18 @@ function Show-LabStatus {
     # Display summary
     Write-Host ("=" * 60) -ForegroundColor Gray
 
-    $runningCount = ($statusData | Where-Object { $_.State -eq "Running" }).Count
-    $stoppedCount = ($statusData | Where-Object { $_.State -eq "Off" }).Count
-    $savedCount = ($statusData | Where-Object { $_.State -eq "Saved" }).Count
-    $otherCount = ($statusData | Where-Object { $_.State -notin @("Running", "Off", "Saved") }).Count
+    $runningCount = 0
+    $stoppedCount = 0
+    $savedCount = 0
+    $otherCount = 0
+    foreach ($vm in $statusData) {
+        switch ($vm.State) {
+            "Running" { $runningCount++ }
+            "Off" { $stoppedCount++ }
+            "Saved" { $savedCount++ }
+            default { $otherCount++ }
+        }
+    }
 
     Write-Host "Total: $($statusData.Count) VMs | " -NoNewline -ForegroundColor Gray
     Write-ColorText "Running: $runningCount " "Green"
