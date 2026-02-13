@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactored module/script loaders (`SimpleLab.psm1`, `Lab-Common.ps1`) to use deterministic sorted imports with clearer failure messages.
+- Added resilient module root resolution in `SimpleLab.psm1` for environments where `$PSScriptRoot` is unavailable during import.
+- Standardized user-facing topology naming in key orchestration flows from legacy `WSUS1` wording to `SVR1` where applicable.
+- Expanded `.gitignore` coverage for test and coverage XML artifacts to keep generated files out of version control.
+
+### Added
+- Added `docs/ARCHITECTURE.md` with runtime model and workflow boundaries.
+- Added `docs/REPOSITORY-STRUCTURE.md` with folder responsibilities and repo hygiene conventions.
+- Rewrote `README.md` to match current entry points, topology, and usage patterns.
+
+### Removed
+- Removed tracked root `testResults.xml` artifact.
+
 ## [0.2.0] - 2025-02-09
 
 ### Added
