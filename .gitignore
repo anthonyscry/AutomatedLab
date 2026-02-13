@@ -8,6 +8,7 @@ Tests/*.xml
 # Logs
 *.log
 LabBuilder/Logs/
+.planning/runs/
 
 # Archives (old backups preserved in git history)
 # .archive/  -- kept for deprecated scripts

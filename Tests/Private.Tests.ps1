@@ -10,6 +10,13 @@ BeforeAll {
     $modulePath = $PSScriptRoot | Split-Path | Join-Path -ChildPath "SimpleLab.psd1"
     Import-Module $modulePath -Force
 
+    # Dot-source private helpers under test.
+    $repoRoot = Split-Path -Parent $PSScriptRoot
+    $privateScripts = @(Get-ChildItem -Path (Join-Path $repoRoot 'Private\*.ps1') -ErrorAction SilentlyContinue)
+    foreach ($script in $privateScripts) {
+        . $script.FullName
+    }
+
     # Helper function to detect platform
     function Test-IsWindows {
         $isWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
@@ -27,9 +34,14 @@ Describe 'Get-LabNetworkConfig' {
 
     It 'Contains IPs for all lab VMs' {
         $result = Get-LabNetworkConfig
-        $result.VMIPs.PSObject.Properties.Name | Should -Contain 'SimpleDC'
-        $result.VMIPs.PSObject.Properties.Name | Should -Contain 'SimpleServer'
-        $result.VMIPs.PSObject.Properties.Name | Should -Contain 'SimpleWin11'
+        $vmIpKeys = if ($result.VMIPs -is [hashtable]) {
+            $result.VMIPs.Keys
+        } else {
+            $result.VMIPs.PSObject.Properties.Name
+        }
+        $vmIpKeys | Should -Contain 'dc1'
+        $vmIpKeys | Should -Contain 'svr1'
+        $vmIpKeys | Should -Contain 'ws1'
     }
 }
 
@@ -82,6 +94,7 @@ Describe 'Write-ValidationReport' {
             Checks = @()
             FailedChecks = @()
             Duration = 1.0
+            Timestamp = (Get-Date).ToString('o')
         }
 
         $result = Write-ValidationReport -Results $mockResults
@@ -95,6 +108,7 @@ Describe 'Write-ValidationReport' {
             Checks = @()
             FailedChecks = @()
             Duration = 1.0
+            Timestamp = (Get-Date).ToString('o')
         }
 
         $result = Write-ValidationReport -Results $mockResults
@@ -107,6 +121,7 @@ Describe 'Write-ValidationReport' {
             Checks = @()
             FailedChecks = @('HyperV')
             Duration = 1.0
+            Timestamp = (Get-Date).ToString('o')
         }
 
         $result = Write-ValidationReport -Results $mockResults

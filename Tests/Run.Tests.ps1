@@ -3,7 +3,7 @@
 
 param(
     [Parameter()]
-    [string]$OutputPath = (Join-Path $PSScriptRoot "TestResults.xml"),
+    [string]$OutputPath,
 
     [Parameter()]
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic')]
@@ -22,11 +22,20 @@ Import-Module Pester -MinimumVersion 5.0
 # Get the module root
 $moduleRoot = $PSScriptRoot | Split-Path
 
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $OutputPath = Join-Path $PSScriptRoot "TestResults.xml"
+}
+
 # Configure Pester
 $config = New-PesterConfiguration
 
 # Set output paths
-$config.Run.Path = $PSScriptRoot
+$testFiles = @(
+    Get-ChildItem -Path $PSScriptRoot -Filter '*.Tests.ps1' -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne 'Run.Tests.ps1' } |
+    Select-Object -ExpandProperty FullName
+)
+$config.Run.Path = $testFiles
 $config.Output.Verbosity = $Verbosity
 $config.TestResult.Enabled = $true
 $config.TestResult.OutputPath = $OutputPath

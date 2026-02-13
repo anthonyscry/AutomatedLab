@@ -12,11 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added resilient module root resolution in `SimpleLab.psm1` for environments where `$PSScriptRoot` is unavailable during import.
 - Standardized user-facing topology naming in key orchestration flows from legacy `WSUS1` wording to `SVR1` where applicable.
 - Expanded `.gitignore` coverage for test and coverage XML artifacts to keep generated files out of version control.
+- Centralized admin password resolution for deploy/LIN1 flows through `Resolve-LabPassword` and removed insecure default-password fallback behavior.
+- Updated Linux/network defaults to align helper scripts with the `10.0.10.0/24` topology.
+- Updated test runner to execute only `*.Tests.ps1` suites (excluding `Run.Tests.ps1`) and fixed noninteractive output-path handling.
 
 ### Added
 - Added `docs/ARCHITECTURE.md` with runtime model and workflow boundaries.
 - Added `docs/REPOSITORY-STRUCTURE.md` with folder responsibilities and repo hygiene conventions.
 - Rewrote `README.md` to match current entry points, topology, and usage patterns.
+- Added `.planning/runs/` to gitignore to avoid committing generated run artifacts.
 
 ### Removed
 - Removed tracked root `testResults.xml` artifact.

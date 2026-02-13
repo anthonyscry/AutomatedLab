@@ -11,6 +11,13 @@ BeforeAll {
     $modulePath = $PSScriptRoot | Split-Path | Join-Path -ChildPath "SimpleLab.psd1"
     Import-Module $modulePath -Force
 
+    # Dot-source private helpers needed by tests that validate internal behavior.
+    $repoRoot = Split-Path -Parent $PSScriptRoot
+    $privateScripts = @(Get-ChildItem -Path (Join-Path $repoRoot 'Private\*.ps1') -ErrorAction SilentlyContinue)
+    foreach ($script in $privateScripts) {
+        . $script.FullName
+    }
+
     # Helper function to detect platform
     function Test-IsWindows {
         $isWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
@@ -79,13 +86,13 @@ Describe 'Get-LabVMConfig' {
     It 'Returns default configurations when no config file exists' {
         $result = Get-LabVMConfig
         $result | Should -Not -BeNullOrEmpty
-        $result.Keys | Should -Contain 'SimpleDC'
-        $result.Keys | Should -Contain 'SimpleServer'
-        $result.Keys | Should -Contain 'SimpleWin11'
+        $result.Keys | Should -Contain 'dc1'
+        $result.Keys | Should -Contain 'svr1'
+        $result.Keys | Should -Contain 'ws1'
     }
 
     It 'Returns specific VM configuration when requested' {
-        $result = Get-LabVMConfig -VMName 'SimpleDC'
+        $result = Get-LabVMConfig -VMName 'dc1'
         $result | Should -Not -BeNullOrEmpty
         $result.MemoryGB | Should -BeGreaterThan 0
         $result.ProcessorCount | Should -BeGreaterThan 0
@@ -178,8 +185,7 @@ Describe 'Get-LabStatus' {
 
     It 'Returns an array of VM status objects' {
         $result = Get-LabStatus
-        $result | Should -Not -BeNullOrEmpty
-        $result | Should -BeOfType [PSCustomObject[]]
+        @($result).Count | Should -BeGreaterThan 0
     }
 
     It 'Each VM status has required properties' {
