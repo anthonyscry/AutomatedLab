@@ -1,4 +1,7 @@
 # Lab-Config.ps1 -- Central config for AutomatedLab deployment
+# SCOPE: Used by Deploy.ps1, OpenCodeLab-App.ps1, and standalone scripts.
+# NOTE: LabBuilder uses LabBuilder/Config/LabDefaults.psd1 separately.
+#       Both configs target the same lab; keep shared values (IPs, domain) in sync.
 # Config for 4-VM lab: dc1 (DC), svr1 (Member), dsc (DSC Pull), ws1 (Client)
 
 # Lab identity

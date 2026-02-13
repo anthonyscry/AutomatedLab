@@ -274,6 +274,14 @@ function Get-HealthArgs {
 }
 
 function Ensure-LabImported {
+    if (Get-Module -Name AutomatedLab -ErrorAction SilentlyContinue) {
+        # Module already loaded; just ensure lab is imported
+        try {
+            $lab = Get-Lab -ErrorAction SilentlyContinue
+            if ($lab -and $lab.Name -eq $LabName) { return }
+        } catch {}
+    }
+
     try {
         Import-Module AutomatedLab -ErrorAction Stop | Out-Null
     } catch {
@@ -523,8 +531,11 @@ function Show-Menu {
     Write-Host ""
     Write-Host "  SETUP" -ForegroundColor DarkCyan
     Write-Host "   [A] One-Button Setup (DC1 + WSUS1 + WS1)" -ForegroundColor Green
+    Write-Host "       Automated: Bootstrap -> Deploy -> Start -> Health check" -ForegroundColor DarkGray
+    Write-Host "       Duration: 45-90 min | Requires: ISOs in C:\LabSources\ISOs" -ForegroundColor DarkGray
     Write-Host "   [B] Bootstrap + Deploy (Windows topology)" -ForegroundColor White
-    Write-Host "   [D] Deploy only" -ForegroundColor White
+    Write-Host "       Duration: 30-60 min | Requires: ISOs, Hyper-V enabled" -ForegroundColor DarkGray
+    Write-Host "   [D] Deploy only (skip prerequisite check)" -ForegroundColor White
     Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
     Write-Host ""
     Write-Host "  OPERATE" -ForegroundColor DarkCyan
@@ -542,12 +553,14 @@ function Show-Menu {
     Write-Host ""
     Write-Host "  LINUX" -ForegroundColor DarkCyan
     Write-Host "   [L] Add LIN1 (Ubuntu VM)" -ForegroundColor White
-    Write-Host "   [C] Configure LIN1 (SSH bootstrap)" -ForegroundColor White
-    Write-Host "   [N] Install Ansible" -ForegroundColor White
+    Write-Host "       Creates Ubuntu 24.04 VM with cloud-init autoinstall" -ForegroundColor DarkGray
+    Write-Host "       Duration: 15-30 min | Requires: Ubuntu ISO, running DC1" -ForegroundColor DarkGray
+    Write-Host "   [C] Configure LIN1 (SSH + dev tools + SMB mount)" -ForegroundColor White
+    Write-Host "   [N] Install Ansible (control node on LIN1)" -ForegroundColor White
     Write-Host "" 
     Write-Host "  DESTRUCTIVE" -ForegroundColor DarkRed
-    Write-Host "   [K] One-Button Reset + Rebuild" -ForegroundColor Red
-    Write-Host "   [X] Blow Away Lab" -ForegroundColor Red
+    Write-Host "   [K] One-Button Reset + Rebuild (requires 'REBUILD' confirmation)" -ForegroundColor Red
+    Write-Host "   [X] Blow Away Lab (requires 'BLOW-IT-AWAY' confirmation)" -ForegroundColor Red
     Write-Host ""
     Write-Host "   [Q] Quit" -ForegroundColor DarkGray
     Write-Host ""

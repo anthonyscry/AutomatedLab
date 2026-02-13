@@ -1,3 +1,6 @@
+# SCOPE: Used by LabBuilder (Build-LabFromSelection.ps1, Invoke-LabBuilder.ps1, role files).
+# NOTE: Deploy.ps1 and standalone scripts use Lab-Config.ps1 separately.
+#       Both configs target the same lab; keep shared values (IPs, domain) in sync.
 @{
     # ── Lab Identity ──
     LabName        = 'LabBuilder'

@@ -300,16 +300,18 @@ function Build-LabFromSelection {
                 $jobConfig = $Config
                 $jobLabCommon = Join-Path $PSScriptRoot '..\Lab-Common.ps1'
                 $jobLabConfig = Join-Path $PSScriptRoot '..\Lab-Config.ps1'
+                $jobLinuxRoleBase = Join-Path $PSScriptRoot 'Roles\LinuxRoleBase.ps1'
 
                 $job = Start-Job -ScriptBlock {
-                    param($ConfigData, $CommonPath, $ConfigPath, $CreateScript)
+                    param($ConfigData, $CommonPath, $ConfigPath, $LinuxRoleBasePath, $CreateScript)
 
                     if (Test-Path $ConfigPath) { . $ConfigPath }
                     if (Test-Path $CommonPath) { . $CommonPath }
+                    if (Test-Path $LinuxRoleBasePath) { . $LinuxRoleBasePath }
 
                     $block = [scriptblock]::Create($CreateScript)
                     & $block $ConfigData
-                } -ArgumentList $jobConfig, $jobLabCommon, $jobLabConfig, $createBlock.ToString()
+                } -ArgumentList $jobConfig, $jobLabCommon, $jobLabConfig, $jobLinuxRoleBase, $createBlock.ToString()
 
                 $linuxJobs += @{
                     Job = $job
@@ -324,6 +326,8 @@ function Build-LabFromSelection {
         # ============================================================
         Write-Host '' -ForegroundColor White
         Write-Host '  [Phase 10] Installing lab (this may take 15-45 minutes)...' -ForegroundColor Yellow
+        $installStart = Get-Date
+        Write-Host "    Started at: $(Get-Date -Format 'HH:mm:ss'). This typically takes 15-45 minutes." -ForegroundColor Gray
         Write-Host '    VMs being deployed:' -ForegroundColor White
         foreach ($rd in $roleDefs) {
             Write-Host "      $($rd.VMName.PadRight(12)) $($rd.IP.PadRight(16)) $($rd.Tag)" -ForegroundColor Gray
@@ -333,8 +337,10 @@ function Build-LabFromSelection {
         $phaseStart = Get-Date
         Install-Lab -ErrorAction Stop
         $timings['InstallLab'] = (Get-Date) - $phaseStart
+        $installElapsed = (Get-Date) - $installStart
 
         Write-Host '    [OK] Lab installation complete.' -ForegroundColor Green
+        Write-Host ("    Install-Lab completed in {0:D2}m {1:D2}s" -f [int]$installElapsed.TotalMinutes, $installElapsed.Seconds) -ForegroundColor Green
 
         # ============================================================
         # Phase 10.5: Wait for Linux VM Creation Jobs

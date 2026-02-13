@@ -65,7 +65,27 @@ PowerShellVersion = '5.1'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('Connect-LabVM', 'Get-LabCheckpoint', 'Get-LabStatus', 'Initialize-LabDNS', 'Initialize-LabDomain', 'Initialize-LabNetwork', 'Initialize-LabVMs', 'Join-LabDomain', 'New-LabSwitch', 'New-LabVM', 'New-LabNAT', 'Remove-LabSwitch', 'Remove-LabVM', 'Remove-LabVMs', 'Reset-Lab', 'Restart-LabVM', 'Restart-LabVMs', 'Restore-LabCheckpoint', 'Resume-LabVM', 'Save-LabCheckpoint', 'Save-LabReadyCheckpoint', 'Show-LabStatus', 'Start-LabVMs', 'Stop-LabVMs', 'Suspend-LabVM', 'Suspend-LabVMs', 'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth', 'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs', 'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey')
+FunctionsToExport = @(
+    # VM management
+    'Connect-LabVM', 'Get-LabCheckpoint', 'Get-LabStatus',
+    'Initialize-LabDNS', 'Initialize-LabDomain', 'Initialize-LabNetwork', 'Initialize-LabVMs',
+    'Join-LabDomain', 'New-LabSwitch', 'New-LabVM', 'New-LabNAT',
+    'Remove-LabSwitch', 'Remove-LabVM', 'Remove-LabVMs', 'Reset-Lab',
+    'Restart-LabVM', 'Restart-LabVMs', 'Restore-LabCheckpoint', 'Resume-LabVM',
+    'Save-LabCheckpoint', 'Save-LabReadyCheckpoint', 'Show-LabStatus',
+    'Start-LabVMs', 'Stop-LabVMs', 'Suspend-LabVM', 'Suspend-LabVMs',
+    'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
+    'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs',
+    'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey',
+    # Linux VM helpers (Lab-Common.ps1)
+    'Invoke-BashOnLinuxVM', 'New-LinuxVM', 'New-CidataVhdx',
+    'Get-Sha512PasswordHash', 'Get-LinuxVMIPv4', 'Finalize-LinuxInstallMedia',
+    'Wait-LinuxVMReady', 'Get-LinuxSSHConnectionInfo',
+    'Add-LinuxDhcpReservation', 'Join-LinuxToDomain',
+    'New-LinuxGoldenVhdx', 'Remove-HyperVVMStale',
+    # UX helpers
+    'Write-LabStatus'
+)
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()

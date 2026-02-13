@@ -30,6 +30,7 @@ function Suspend-LabVMs {
         [switch]$Wait,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSeconds = 60
     )
 

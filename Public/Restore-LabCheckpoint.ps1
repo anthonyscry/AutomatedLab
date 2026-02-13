@@ -24,6 +24,7 @@ function Restore-LabCheckpoint {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$CheckpointName,
 
         [Parameter()]

@@ -54,59 +54,7 @@ if (-not (Get-Variable -Name WSUS_MinMemory -ErrorAction SilentlyContinue)) { $W
 if (-not (Get-Variable -Name WSUS_MaxMemory -ErrorAction SilentlyContinue)) { $WSUS_MaxMemory = $Server_MaxMemory }
 if (-not (Get-Variable -Name WSUS_Processors -ErrorAction SilentlyContinue)) { $WSUS_Processors = $Server_Processors }
 
-function Remove-HyperVVMStale {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$VMName,
-        [Parameter()][string]$Context = 'cleanup',
-        [Parameter()][int]$MaxAttempts = 3
-    )
-
-    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $vm) { return $true }
-
-        Write-Host "    [WARN] Found VM '$VMName' during $Context (attempt $attempt/$MaxAttempts). Removing..." -ForegroundColor Yellow
-
-        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
-
-        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
-
-        if ($vm.State -like 'Saved*') {
-            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 1
-            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        }
-
-        if ($vm -and $vm.State -ne 'Off') {
-            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 2
-        }
-
-        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-
-        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $stillThere) {
-            Write-Host "    [OK] Removed VM '$VMName'" -ForegroundColor Green
-            return $true
-        }
-
-        # Last-resort: kill worker process tied to this VM ID if still stuck.
-        $vmId = $stillThere.VMId.Guid
-        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -like "*$vmId*" } |
-            Select-Object -First 1
-        if ($vmwp) {
-            Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 2
-        }
-    }
-
-    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
-}
+# Remove-HyperVVMStale is provided by Lab-Common.ps1 (dot-sourced at line 19)
 
 function Invoke-WindowsSshKeygen {
     [CmdletBinding()]
@@ -147,6 +95,7 @@ $logFile = "$logDir\Deploy-SimpleLab_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').log
 Start-Transcript -Path $logFile -Append
 
 try {
+    $deployStartTime = Get-Date
     Write-Host "`n[PRE-FLIGHT] Checking ISOs..." -ForegroundColor Cyan
     $missing = @()
     foreach ($iso in $RequiredISOs) {
@@ -155,7 +104,7 @@ try {
         else { Write-Host "  [MISSING] $iso" -ForegroundColor Red; $missing += $iso }
     }
     if ($missing.Count -gt 0) {
-        throw "Missing ISOs in ${IsoPath}: $($missing -join ', ')"
+        throw "Missing ISOs in ${IsoPath}: $($missing -join ', ')`nDownload from: https://www.microsoft.com/en-us/evalcenter/`nPlace files in: $IsoPath"
     }
 
     # Remove existing lab if present
@@ -165,8 +114,8 @@ try {
         if ($ForceRebuild -or $NonInteractive) {
             $allowRebuild = $true
         } else {
-            $response = Read-Host "  Remove and rebuild? (y/n)"
-            if ($response -eq 'y') { $allowRebuild = $true }
+            $response = Read-Host "  Remove lab '$LabName' and rebuild? Type 'yes' to confirm"
+            if ($response -eq 'yes') { $allowRebuild = $true }
         }
 
         if ($allowRebuild) {
@@ -200,7 +149,7 @@ try {
     # ============================================================
     # LAB DEFINITION
     # ============================================================
-    Write-Host "`n[LAB] Defining lab '$LabName'..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining lab '$LabName' (creating VM specifications)..." -ForegroundColor Cyan
 
     # Increase AutomatedLab timeouts for resource-constrained hosts
     # Values MUST be TimeSpan objects -- passing plain integers is interpreted as
@@ -273,8 +222,7 @@ try {
         Write-Host "`n[LAB] Defining all machines (DC1 + Server1 + Win11 + LIN1)..." -ForegroundColor Cyan
     } else {
         Write-Host "`n[LAB] Defining Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
-        Write-Host "  [INFO] Linux nodes are disabled for this run." -ForegroundColor Gray
-        Write-Host "  [INFO] Use -IncludeLIN1 only if you explicitly need Ubuntu." -ForegroundColor Gray
+        Write-Host "  [INFO] Linux VM nodes are disabled for this run. Use -IncludeLIN1 to include Ubuntu." -ForegroundColor Gray
     }
 
     Add-LabMachineDefinition -Name 'DC1' `
@@ -311,6 +259,8 @@ try {
     # LIN1 will be created manually after this step if -IncludeLIN1 is set
     # ============================================================
     Write-Host "`n[INSTALL] Installing Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
+    $installStart = Get-Date
+    Write-Host "  Started at: $(Get-Date -Format 'HH:mm:ss'). This typically takes 15-45 minutes." -ForegroundColor Gray
 
 
     # Final guard: stale VMs can occasionally survive prior cleanup and cause
@@ -331,11 +281,13 @@ try {
         Write-Host "  [WARN] Exception type: $($_.Exception.GetType().FullName)" -ForegroundColor DarkYellow
         Write-Host "  Will attempt to validate and recover DC1 AD DS installation..." -ForegroundColor Yellow
     }
+    $installElapsed = (Get-Date) - $installStart
+    Write-Host ("  Install-Lab completed in {0:D2}m {1:D2}s" -f [int]$installElapsed.TotalMinutes, $installElapsed.Seconds) -ForegroundColor Green
 
     # ============================================================
     # STAGE 1 AD DS VALIDATION: Verify DC promotion succeeded
     # ============================================================
-    Write-Host "`n[VALIDATE] Verifying AD DS promotion on DC1..." -ForegroundColor Cyan
+    Write-Host "`n[VALIDATE] Verifying Active Directory Domain Services (AD DS) promotion on DC1..." -ForegroundColor Cyan
 
     # Ensure DC1 VM is running
     $dc1Vm = Hyper-V\Get-VM -Name 'DC1' -ErrorAction SilentlyContinue
@@ -350,11 +302,16 @@ try {
     if ($dc1Vm -and $dc1Vm.State -ne 'Running') {
         Write-Host "  DC1 VM is $($dc1Vm.State). Starting..." -ForegroundColor Yellow
         Start-VM -Name 'DC1'
-        Start-Sleep -Seconds 30
+        $pollDeadline = [datetime]::Now.AddSeconds(60)
+        while ([datetime]::Now -lt $pollDeadline) {
+            $dc1State = (Hyper-V\Get-VM -Name 'DC1' -ErrorAction SilentlyContinue).State
+            if ($dc1State -eq 'Running') { break }
+            Start-Sleep -Seconds 5
+        }
     }
 
     # Wait for WinRM to become reachable
-    Write-Host "  Waiting for WinRM on DC1..." -ForegroundColor Gray
+    Write-Host "  Waiting for WinRM (Windows Remote Management, port 5985) on DC1..." -ForegroundColor Gray
     $winrmReady = $false
     for ($w = 1; $w -le 12; $w++) {
         $wrmCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
@@ -363,7 +320,7 @@ try {
         Start-Sleep -Seconds 15
     }
     if (-not $winrmReady) {
-        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation."
+        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation.`nTroubleshooting:`n  1. Check DC1 VM is running in Hyper-V Manager`n  2. Verify DC1 IP ($DC1_Ip) is pingable: Test-Connection $DC1_Ip`n  3. Check Windows Firewall on DC1 allows WinRM (port 5985)"
     }
 
     # Check AD DS status on DC1
@@ -428,7 +385,13 @@ try {
         Write-Host "    [OK] Install-ADDSForest initiated. Waiting for DC1 to restart..." -ForegroundColor Green
 
         # Step 3: Wait for DC1 to go offline and come back
-        Start-Sleep -Seconds 60
+        # Wait for DC1 to go offline (restart initiated)
+        $offlineDeadline = [datetime]::Now.AddSeconds(90)
+        while ([datetime]::Now -lt $offlineDeadline) {
+            $dc1Check = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if (-not $dc1Check.TcpTestSucceeded) { break }
+            Start-Sleep -Seconds 5
+        }
 
         $dc1Back = $false
         $restartDeadline = [datetime]::Now.AddMinutes(15)
@@ -439,12 +402,19 @@ try {
             Start-Sleep -Seconds 15
         }
         if (-not $dc1Back) {
-            throw "DC1 did not come back online after AD DS recovery promotion. Check the VM manually."
+            throw "DC1 did not come back online after AD DS recovery promotion.`nTroubleshooting:`n  1. Connect to DC1 console via Hyper-V Manager`n  2. Check Event Viewer > Directory Services for errors`n  3. Try: Restart-VM -Name DC1 -Force"
         }
 
         # Step 4: Wait for ADWS and NTDS to start
         Write-Host "    Waiting for AD services to initialize..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 60
+        # Wait for WinRM to become reachable before checking services
+        $warmupDeadline = [datetime]::Now.AddSeconds(90)
+        while ([datetime]::Now -lt $warmupDeadline) {
+            $warmupCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if ($warmupCheck.TcpTestSucceeded) { break }
+            Write-Host "    Waiting for WinRM after AD promotion..." -ForegroundColor Gray
+            Start-Sleep -Seconds 10
+        }
 
         $adwsReady = $false
         $adwsDeadline = [datetime]::Now.AddMinutes(10)
@@ -466,7 +436,7 @@ try {
             Start-Sleep -Seconds 20
         }
         if (-not $adwsReady) {
-            throw "AD Web Services did not start on DC1 after recovery. Check DC1 event logs (Event Viewer > Directory Services)."
+            throw "AD Web Services did not start on DC1 after recovery.`nTroubleshooting:`n  1. Connect to DC1 console via Hyper-V Manager`n  2. Run: Get-Service ADWS,NTDS | Format-Table Status,Name`n  3. Check Event Viewer > Directory Services`n  4. Try: Restart-Service ADWS -Force"
         }
 
         # Step 5: Final validation
@@ -544,7 +514,8 @@ try {
     # ============================================================
     # DC1: DHCP ROLE + SCOPE
     # ============================================================
-    Write-Host "`n[DC1] Enabling DHCP for Linux installs (prevents Ubuntu DHCP/autoconfig failure)..." -ForegroundColor Cyan
+    $dhcpSectionStart = Get-Date
+    Write-Host "`n[DC1] Enabling DHCP (Dynamic Host Configuration Protocol) for Linux installs..." -ForegroundColor Cyan
 
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Install-DHCP-Role' -ScriptBlock {
         param($ScopeId, $StartRange, $EndRange, $Mask, $Router, $Dns, $DnsDomain)
@@ -606,6 +577,8 @@ try {
     } catch {
         Write-Host "  [WARN] DNS forwarder configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }
+    $sectionElapsed = (Get-Date) - $dhcpSectionStart
+    Write-Host "  Section completed in $([int]$sectionElapsed.TotalMinutes)m $($sectionElapsed.Seconds)s" -ForegroundColor DarkGray
 
     $lin1Ready = $false
 
@@ -619,6 +592,7 @@ try {
         if (-not (Test-Path $ubuntuIso)) {
             Write-Host "  [WARN] Ubuntu ISO not found: $ubuntuIso. Skipping LIN1." -ForegroundColor Yellow
         } else {
+            $lin1CreateSucceeded = $false
             try {
                 # Remove stale LIN1 VM from previous runs
                 Remove-HyperVVMStale -VMName 'LIN1' -Context 'LIN1 pre-create cleanup' | Out-Null
@@ -649,17 +623,20 @@ try {
                 # Start VM -- Ubuntu autoinstall should proceed unattended
                 Start-VM -Name 'LIN1'
                 Write-Host "  [OK] LIN1 VM started. Ubuntu autoinstall in progress..." -ForegroundColor Green
+                $lin1CreateSucceeded = $true
             }
             catch {
                 Write-Host "  [WARN] LIN1 VM creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
-                
-                # Rollback: Clean up partial artifacts
-                Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
-                Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
-                Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
-                Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
-                
-                Write-Host "  [WARN] Continuing without LIN1. Create it manually later with Configure-LIN1.ps1" -ForegroundColor Yellow
+            }
+            finally {
+                if (-not $lin1CreateSucceeded) {
+                    Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
+                    Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
+                    Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
+                    Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
+
+                    Write-Host "  [WARN] Continuing without LIN1. Create it manually later with Configure-LIN1.ps1" -ForegroundColor Yellow
+                }
             }
         }
     }
@@ -667,6 +644,7 @@ try {
     # ============================================================
     # WAIT FOR LIN1 to become reachable over SSH
     # ============================================================
+    $lin1WaitSectionStart = Get-Date
     if ($IncludeLIN1) {
         $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
         if ($lin1Vm) {
@@ -691,10 +669,13 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     } else {
         Write-Host "`n[LIN1] Skipping LIN1 deployment/config in this run (deferred)." -ForegroundColor Yellow
     }
+    $sectionElapsed = (Get-Date) - $lin1WaitSectionStart
+    Write-Host "  Section completed in $([int]$sectionElapsed.TotalMinutes)m $($sectionElapsed.Seconds)s" -ForegroundColor DarkGray
 
     # ============================================================
     # POST-INSTALL: DC1 share + Git
     # ============================================================
+    $postInstallSectionStart = Get-Date
     Write-Host "`n[POST] Configuring DC1 share + Git..." -ForegroundColor Cyan
 
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Create-LabShare' -ScriptBlock {
@@ -1132,100 +1113,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     $escapedPassword = $AdminPassword -replace "'", "'\\''"
 
-    # Use non-interpolating here-string to avoid PowerShell eating bash variables
-    $lin1ScriptContent = @'
-#!/bin/bash
-set -e
-export DEBIAN_FRONTEND=noninteractive
-
-SUDO=""
-if [ "$(id -u)" -ne 0 ]; then SUDO="sudo -n"; fi
-
-# Pick the first non-lo interface (installer often shows eth0, but this is safer)
-IFACE=$(ip -o link show | awk -F': ' '$2!="lo"{print $2; exit}')
-if [ -z "$IFACE" ]; then IFACE="eth0"; fi
-
-LIN_USER="__LIN_USER__"
-LIN_HOME="__LIN_HOME__"
-DOMAIN="__DOMAIN__"
-NETBIOS="__NETBIOS__"
-SHARE="__SHARE__"
-PASS='__PASS__'
-GATEWAY="__GATEWAY__"
-DNS="__DNS__"
-STATIC_IP="__STATIC_IP__"
-HOST_PUBKEY_FILE="__HOST_PUBKEY__"
-
-echo "[LIN1] Updating packages..."
-$SUDO apt-get update -qq
-
-echo "[LIN1] Installing base tools + OpenSSH..."
-$SUDO apt-get install -y -qq \
-  openssh-server git curl wget jq cifs-utils net-tools build-essential python3 python3-pip \
-  nodejs npm 2>/dev/null || true
-
-$SUDO systemctl enable --now ssh || true
-
-# Ensure SSH allows password auth (optional; helps if you ever need it)
-$SUDO tee /etc/ssh/sshd_config.d/99-opencodelab.conf >/dev/null <<'SSHEOF'
-PasswordAuthentication yes
-PubkeyAuthentication yes
-SSHEOF
-$SUDO systemctl restart ssh || true
-
-echo "[LIN1] Setting up SSH authorized_keys for ${LIN_USER}..."
-mkdir -p "$LIN_HOME/.ssh"
-chmod 700 "$LIN_HOME/.ssh"
-touch "$LIN_HOME/.ssh/authorized_keys"
-chmod 600 "$LIN_HOME/.ssh/authorized_keys"
-
-if [ -f "/tmp/$HOST_PUBKEY_FILE" ]; then
-  cat "/tmp/$HOST_PUBKEY_FILE" >> "$LIN_HOME/.ssh/authorized_keys" || true
-fi
-
-chown -R "${LIN_USER}:${LIN_USER}" "$LIN_HOME/.ssh"
-
-echo "[LIN1] Generating local SSH keypair (LIN1->DC1)..."
-sudo -u "$LIN_USER" bash -lc 'test -f ~/.ssh/id_ed25519 || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "LIN1-to-DC1"'
-
-echo "[LIN1] Configuring SMB mount..."
-$SUDO mkdir -p /mnt/labshare
-CREDS_FILE="/etc/opencodelab-labshare.cred"
-if [ ! -f "$CREDS_FILE" ]; then
-  $SUDO tee "$CREDS_FILE" >/dev/null <<CREDEOF
-username=$LIN_USER
-password=$PASS
-domain=$NETBIOS
-CREDEOF
-  $SUDO chmod 600 "$CREDS_FILE"
-fi
-FSTAB_ENTRY="//DC1.$DOMAIN/$SHARE /mnt/labshare cifs credentials=$CREDS_FILE,iocharset=utf8,_netdev 0 0"
-if ! grep -qF "DC1.$DOMAIN/$SHARE" /etc/fstab 2>/dev/null; then
-  echo "$FSTAB_ENTRY" | $SUDO tee -a /etc/fstab >/dev/null
-fi
-$SUDO mount -a 2>/dev/null || true
-
-echo "[LIN1] Pinning static IP ($STATIC_IP) for stable SSH..."
-$SUDO tee /etc/netplan/99-opencodelab-static.yaml >/dev/null <<NETEOF
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    ${IFACE}:
-      dhcp4: false
-      addresses: [$STATIC_IP/24]
-      routes:
-        - to: default
-          via: $GATEWAY
-      nameservers:
-        addresses: [$DNS, 1.1.1.1]
-NETEOF
-
-# Apply netplan in the background so we don't hang the remote session mid-flight
-(sleep 2; $SUDO netplan apply) >/dev/null 2>&1 &
-
-echo "[LIN1] Done."
-'@
+    $lin1ScriptContent = Get-Content (Join-Path $ScriptDir 'Scripts\Configure-LIN1.sh') -Raw
     Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
     $lin1Vars = @{
@@ -1250,6 +1138,8 @@ echo "[LIN1] Done."
         Write-Host "`n[LIN1] Finalizing boot media (detach installer + seed disk)..." -ForegroundColor Cyan
         Finalize-LinuxInstallMedia -VMName 'LIN1' | Out-Null
     }
+    $sectionElapsed = (Get-Date) - $postInstallSectionStart
+    Write-Host "  Section completed in $([int]$sectionElapsed.TotalMinutes)m $($sectionElapsed.Seconds)s" -ForegroundColor DarkGray
 
     # ============================================================
     # SNAPSHOT
@@ -1257,6 +1147,9 @@ echo "[LIN1] Done."
     Write-Host "`n[SNAPSHOT] Creating 'LabReady' checkpoint..." -ForegroundColor Cyan
     Checkpoint-LabVM -All -SnapshotName 'LabReady' | Out-Null
     Write-Host "  Checkpoint created." -ForegroundColor Green
+
+    $deployElapsed = (Get-Date) - $deployStartTime
+    Write-Host "  Total deployment time: $([int]$deployElapsed.TotalMinutes)m $($deployElapsed.Seconds)s" -ForegroundColor Cyan
 
     # ============================================================
     # SUMMARY
