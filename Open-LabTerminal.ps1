@@ -19,8 +19,8 @@ $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
-function Get-LIN1IPForTerminal {
-    $ip = Get-LIN1IPv4
+function Get-LinuxIPForTerminal {
+    $ip = Get-LinuxVMIPv4 -VMName 'LIN1'
     if (-not $ip) {
         Write-Host "  [FAIL] Cannot find LIN1 IP. Is it running?" -ForegroundColor Red
         Write-Host "  Try: Get-VMNetworkAdapter -VMName LIN1 | Select IPAddresses" -ForegroundColor Yellow
@@ -58,7 +58,7 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
         '2' { $Target = 'DC1' }
         '3' { $Target = 'WS1' }
         '4' {
-            $ip = Get-LIN1IPForTerminal
+            $ip = Get-LinuxIPForTerminal
             if (-not $ip) { return }
             Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
             Open-NewTerminal -Title "LIN1 (1)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
@@ -68,7 +68,7 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
             return
         }
         '5' {
-            $ip = Get-LIN1IPForTerminal
+            $ip = Get-LinuxIPForTerminal
             if (-not $ip) { return }
             Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
             Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
@@ -88,7 +88,7 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
 
 switch ($Target) {
     'LIN1' {
-        $ip = Get-LIN1IPForTerminal
+        $ip = Get-LinuxIPForTerminal
         if (-not $ip) { return }
         Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
         Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"

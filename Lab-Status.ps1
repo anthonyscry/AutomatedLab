@@ -12,6 +12,10 @@ if (Test-Path $CommonPath) { . $CommonPath }
 
 if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1','WSUS1','WS1') }
 
+# Include Linux VMs if present
+$lin1Exists = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+$allLabVMs = if ($lin1Exists) { @($LabVMs) + @('LIN1') | Select-Object -Unique } else { @($LabVMs) }
+
 
 
 Write-Host "`n=== OPENCODE LAB STATUS ===" -ForegroundColor Cyan
@@ -19,29 +23,31 @@ Write-Host "  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
 
 # -- VM States + Resources --
 Write-Host "`n  VM STATUS:" -ForegroundColor Yellow
-$labVMs = Get-VM | Where-Object { $_.Name -in $LabVMs }
-foreach ($vm in $labVMs) {
+$labVMObjects = Get-VM | Where-Object { $_.Name -in $allLabVMs }
+foreach ($vm in $labVMObjects) {
+    $osTag = if ($vm.Name -eq 'LIN1') { '[LIN]' } else { '[WIN]' }
     $color = if ($vm.State -eq 'Running') { 'Green' } else { 'Red' }
     $mem = if ($vm.MemoryAssigned -gt 0) { "$([math]::Round($vm.MemoryAssigned / 1GB, 1)) GB" } else { '--' }
     $cpu = "$($vm.ProcessorCount) vCPU"
     $uptime = if ($vm.Uptime.TotalMinutes -gt 0) { "$([math]::Round($vm.Uptime.TotalHours, 1))h" } else { '--' }
-    Write-Host "    $($vm.Name.PadRight(6)) $($vm.State.ToString().PadRight(10)) RAM: $($mem.PadRight(8)) $cpu   Up: $uptime" -ForegroundColor $color
+    Write-Host "    $osTag $($vm.Name.PadRight(6)) $($vm.State.ToString().PadRight(10)) RAM: $($mem.PadRight(8)) $cpu   Up: $uptime" -ForegroundColor $color
 }
 
 # -- Network --
 Write-Host "`n  NETWORK:" -ForegroundColor Yellow
-foreach ($vm in $labVMs) {
+foreach ($vm in $labVMObjects) {
+    $osTag = if ($vm.Name -eq 'LIN1') { '[LIN]' } else { '[WIN]' }
     $adapters = Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction SilentlyContinue
     foreach ($a in $adapters) {
         $ips = $a.IPAddresses -join ', '
         if (-not $ips) { $ips = '(no IP yet)' }
-        Write-Host "    $($vm.Name.PadRight(6)) $($a.SwitchName.PadRight(16)) $ips" -ForegroundColor Gray
+        Write-Host "    $osTag $($vm.Name.PadRight(6)) $($a.SwitchName.PadRight(16)) $ips" -ForegroundColor Gray
     }
 }
 
 # -- Snapshots --
 Write-Host "`n  SNAPSHOTS:" -ForegroundColor Yellow
-$snaps = Get-VM | Where-Object { $_.Name -in $LabVMs } | Get-VMSnapshot -ErrorAction SilentlyContinue
+$snaps = Get-VM | Where-Object { $_.Name -in $allLabVMs } | Get-VMSnapshot -ErrorAction SilentlyContinue
 if ($snaps) {
     $snaps | Sort-Object CreationTime -Descending | Select-Object -First 5 | ForEach-Object {
         Write-Host "    $($_.VMName.PadRight(6)) $($_.Name.PadRight(25)) $(($_.CreationTime).ToString('MM/dd HH:mm'))" -ForegroundColor Gray
@@ -68,7 +74,7 @@ if (Test-Path $labPath) {
 $labImported = Import-OpenCodeLab -Name $LabName
 
 # -- Live checks (only if VMs are running) --
-$running = $labVMs | Where-Object { $_.State -eq 'Running' }
+$running = $labVMObjects | Where-Object { $_.State -eq 'Running' }
 if ($labImported -and ($running.Name -contains 'DC1')) {
     try {
         Import-Lab -Name $LabName -ErrorAction Stop 2>$null
@@ -145,6 +151,14 @@ if ($labImported -and ($running.Name -contains 'LIN1')) {
         $mountCheck | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
     } catch {
         Write-Verbose "LIN1 live status check failed: $($_.Exception.Message)"
+    }
+}
+
+if ($lin1Exists -and ($running.Name -contains 'LIN1')) {
+    $sshInfo = Get-LinuxSSHConnectionInfo -VMName 'LIN1'
+    if ($sshInfo) {
+        Write-Host "`n  SSH CONNECTION (LIN1):" -ForegroundColor Yellow
+        Write-Host "    $($sshInfo.Command)" -ForegroundColor Gray
     }
 }
 

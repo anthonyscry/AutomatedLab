@@ -110,7 +110,7 @@ try {
                 }
 
                 # Validate all role tags
-                $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'FileServer', 'Jumpbox', 'Client')
+                $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'FileServer', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
                 $invalid = @($Roles | Where-Object { $_ -notin $validTags })
                 if ($invalid.Count -gt 0) {
                     Write-Host "  Invalid role(s): $($invalid -join ', ')" -ForegroundColor Red
@@ -139,6 +139,11 @@ try {
             Write-Host '    FileServer  File Server with SMB share (\\FILE1\LabShare)' -ForegroundColor Gray
             Write-Host '    Jumpbox     Admin workstation (Win11 + RSAT)' -ForegroundColor Gray
             Write-Host '    Client      Client VM (Win11 + RDP)' -ForegroundColor Gray
+            Write-Host '    Ubuntu      Ubuntu Server 24.04 (LIN1 + cloud-init + SSH)' -ForegroundColor Gray
+            Write-Host '    WebServerUbuntu Ubuntu Web Server (LINWEB1 + nginx)' -ForegroundColor Gray
+            Write-Host '    DatabaseUbuntu  Ubuntu Database (LINDB1 + PostgreSQL)' -ForegroundColor Gray
+            Write-Host '    DockerUbuntu    Ubuntu Docker Host (LINDOCK1 + Docker CE)' -ForegroundColor Gray
+            Write-Host '    K8sUbuntu       Ubuntu Kubernetes (LINK8S1 + k3s)' -ForegroundColor Gray
             Write-Host ''
             Write-Host '  Configuration:' -ForegroundColor White
             Write-Host '    Edit Config\LabDefaults.psd1 to customize:' -ForegroundColor Gray

@@ -13,6 +13,8 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
+$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+if (Test-Path $CommonPath) { . $CommonPath }
 
 # Defaults (overridden by Lab-Config.ps1 if present)
 if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
@@ -217,6 +219,44 @@ if (-not $issues.Count) {
             if ($linChecks.DnsOk) { Add-Ok 'LIN1 DNS resolution works for DC1' } else { Add-Issue 'LIN1 DNS resolution for DC1 failed' }
         } catch {
             Add-Issue "LIN1 health checks failed: $($_.Exception.Message)"
+        }
+
+        # SSH-based health checks (work even without AutomatedLab registration)
+        try {
+            $sshInfo = Get-LinuxSSHConnectionInfo -VMName 'LIN1'
+            if ($sshInfo) {
+                $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
+                $sshBase = @('-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=NUL','-o',"ConnectTimeout=$SSH_ConnectTimeout",'-i',$SSHKeyPath,"$LinuxUser@$($sshInfo.IP)")
+
+                # Check SSH service
+                $sshdOut = & $sshExe @sshBase 'systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null' 2>&1
+                if ($LASTEXITCODE -eq 0 -and ($sshdOut | Out-String).Trim() -eq 'active') {
+                    Add-Ok 'LIN1 SSH service active'
+                } else {
+                    Add-Issue 'LIN1 SSH service not active'
+                }
+
+                # Check disk space (warn if root > 90%)
+                $diskOut = & $sshExe @sshBase "df / --output=pcent | tail -1 | tr -d ' %'" 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $usedPct = [int]($diskOut | Out-String).Trim()
+                    if ($usedPct -ge 90) {
+                        Add-Issue "LIN1 root disk usage at ${usedPct}% (>= 90%)"
+                    } else {
+                        Add-Ok "LIN1 root disk usage at ${usedPct}%"
+                    }
+                }
+
+                # Check package manager
+                $aptOut = & $sshExe @sshBase 'apt-get check 2>&1 && echo APT_OK' 2>&1
+                if (($aptOut | Out-String) -match 'APT_OK') {
+                    Add-Ok 'LIN1 apt package manager healthy'
+                } else {
+                    Add-Issue 'LIN1 apt package manager has issues'
+                }
+            }
+        } catch {
+            Write-Verbose "LIN1 SSH-based checks failed: $($_.Exception.Message)"
         }
 
         try {

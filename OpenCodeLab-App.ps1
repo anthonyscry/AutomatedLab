@@ -17,6 +17,7 @@ param(
         'deploy',
         'add-lin1',
         'lin1-config',
+        'ansible',
         'health',
         'lint',
         'start',
@@ -46,6 +47,12 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
+
+$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+if (Test-Path $CommonPath) { . $CommonPath }
+
+# Alias for backward compatibility with existing code
+Set-Alias -Name Remove-VMHardSafe -Value Remove-HyperVVMStale -Scope Script
 
 if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
 if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WSUS1', 'WS1') }
@@ -291,46 +298,6 @@ function Stop-LabVMsSafe {
     }
 }
 
-
-function Remove-VMHardSafe {
-    param([Parameter(Mandatory)][string]$VMName)
-
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
-        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $vm) { return $true }
-
-        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
-        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
-
-        if ($vm.State -like 'Saved*') {
-            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 1
-            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        }
-
-        if ($vm -and $vm.State -ne 'Off') {
-            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 2
-        }
-
-        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-
-        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $stillThere) { return $true }
-
-        $vmId = $stillThere.VMId.Guid
-        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -like "*$vmId*" } |
-            Select-Object -First 1
-        if ($vmwp) { Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue }
-    }
-
-    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
-}
-
 function Invoke-BlowAway {
     param(
         [switch]$BypassPrompt,
@@ -380,7 +347,8 @@ function Invoke-BlowAway {
     }
 
     Write-Host "  [3/5] Removing Hyper-V VMs/checkpoints if present..." -ForegroundColor Cyan
-    foreach ($vmName in $LabVMs) {
+    $allLabVMs = @($LabVMs) + @('LIN1')
+    foreach ($vmName in $allLabVMs) {
         if (Remove-VMHardSafe -VMName $vmName) {
             Write-Host "    removed VM $vmName" -ForegroundColor Gray
         } elseif (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
@@ -388,7 +356,7 @@ function Invoke-BlowAway {
         }
     }
 
-    $remainingLabVms = foreach ($vmName in $LabVMs) {
+    $remainingLabVms = foreach ($vmName in $allLabVMs) {
         Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
     }
     if (-not $remainingLabVms) {
@@ -572,6 +540,11 @@ function Show-Menu {
     Write-Host "   [8] Stop Lab" -ForegroundColor White
     Write-Host "   [9] Rollback to LabReady" -ForegroundColor Yellow
     Write-Host ""
+    Write-Host "  LINUX" -ForegroundColor DarkCyan
+    Write-Host "   [L] Add LIN1 (Ubuntu VM)" -ForegroundColor White
+    Write-Host "   [C] Configure LIN1 (SSH bootstrap)" -ForegroundColor White
+    Write-Host "   [N] Install Ansible" -ForegroundColor White
+    Write-Host "" 
     Write-Host "  DESTRUCTIVE" -ForegroundColor DarkRed
     Write-Host "   [K] One-Button Reset + Rebuild" -ForegroundColor Red
     Write-Host "   [X] Blow Away Lab" -ForegroundColor Red
@@ -616,6 +589,9 @@ function Invoke-InteractiveMenu {
                     Write-Host "  [OK] Restored to LabReady" -ForegroundColor Green
                 }
             }
+            'L' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-RepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') } }
+            'C' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-RepoScript -BaseName 'Configure-LIN1' } }
+            'N' { Invoke-MenuCommand -Name 'ansible' -Command { Invoke-RepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') } }
             'X' {
                 Invoke-MenuCommand -Name 'blow-away' -Command {
                     $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").Trim().ToLowerInvariant() -eq 'y'
@@ -678,6 +654,9 @@ try {
             $linArgs = @()
             if ($NonInteractive) { $linArgs += '-NonInteractive' }
             Invoke-RepoScript -BaseName 'Configure-LIN1' -Arguments $linArgs
+        }
+        'ansible' {
+            Invoke-RepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive')
         }
         'health' {
             $healthArgs = Get-HealthArgs

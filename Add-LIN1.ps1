@@ -122,7 +122,7 @@ try {
 
     # Create the LIN1 VM (Gen2, SecureBoot off, Ubuntu ISO + CIDATA VHDX)
     Write-Host "  Creating Hyper-V Gen2 VM..." -ForegroundColor Gray
-    New-LIN1VM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath | Out-Null
+    New-LinuxVM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath -VMName 'LIN1' | Out-Null
 
     # Start VM -- Ubuntu autoinstall should proceed unattended
     Start-VM -Name 'LIN1'
@@ -146,55 +146,16 @@ Write-Host "[LIN1] Waiting for SSH reachability (up to 30 min)..." -ForegroundCo
 Write-Host "  Ubuntu autoinstall typically takes 10-15 minutes" -ForegroundColor Gray
 Write-Host ""
 
-$lin1Ready = $false
-$lin1Deadline = [datetime]::Now.AddMinutes(30)
-$startTime = [datetime]::Now
-$lastKnownIp = ''
-$lastLeaseIp = ''
-
-while ([datetime]::Now -lt $lin1Deadline) {
-    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
-    $lin1Ips = @()
-    if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
-        $lin1Ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
-    }
-    
-    if ($lin1Ips) {
-        $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-        $lastKnownIp = $lin1DhcpIp
-        $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-        if ($sshCheck.TcpTestSucceeded) {
-            $lin1Ready = $true
-            Write-Host "  [OK] LIN1 is SSH-reachable at $lin1DhcpIp" -ForegroundColor Green
-            break
-        }
-    }
-
-    if (-not $lastKnownIp -and (Get-Command Get-LIN1DhcpLeaseIPv4 -ErrorAction SilentlyContinue)) {
-        $leaseIp = Get-LIN1DhcpLeaseIPv4 -DhcpServer 'DC1' -ScopeId $DhcpScopeId
-        if ($leaseIp) {
-            $lastLeaseIp = $leaseIp
-        }
-    }
-    
-    $elapsed = [datetime]::Now - $startTime
-    $remaining = $lin1Deadline - [datetime]::Now
-    if ($lastKnownIp) {
-        Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
-    } elseif ($lastLeaseIp) {
-        Write-Host "    DHCP lease seen for LIN1 ($lastLeaseIp), waiting for Hyper-V guest IP + SSH... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
-    } else {
-        Write-Host "    Still waiting for LIN1 DHCP lease... (elapsed: $($elapsed.TotalMinutes.ToString('F1'))m, remaining: $($remaining.TotalMinutes.ToString('F1'))m)" -ForegroundColor Gray
-    }
-    Start-Sleep -Seconds 30
-}
+$lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $LIN1_WaitMinutes -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+$lin1Ready = $lin1WaitResult.Ready
+$lin1DhcpIp = if ($lin1WaitResult.IP) { $lin1WaitResult.IP } else { $lin1WaitResult.LeaseIP }
 
 if (-not $lin1Ready) {
     Write-Host ""
     Write-Host "  [WARN] LIN1 did not become SSH-reachable within 30 minutes" -ForegroundColor Yellow
     Write-Host "  This is normal if autoinstall is still in progress." -ForegroundColor Yellow
-    if ($lastLeaseIp) {
-        Write-Host "  [INFO] LIN1 DHCP lease observed at: $lastLeaseIp" -ForegroundColor DarkGray
+    if ($lin1WaitResult.LeaseIP) {
+        Write-Host "  [INFO] LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)" -ForegroundColor DarkGray
     }
     Write-Host ""
     Write-Host "  Next steps:" -ForegroundColor Cyan
@@ -251,7 +212,7 @@ $vars = @{
 }
 
 try {
-    Invoke-BashOnLIN1 -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars | Out-Null
+    Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars | Out-Null
     Write-Host "  [OK] Post-install configuration complete" -ForegroundColor Green
 }
 catch {
@@ -261,7 +222,7 @@ catch {
 
 # Finalize boot media so LIN1 does not return to installer on reboot
 Write-Host "  Finalizing LIN1 boot media (detach installer + seed disk)..." -ForegroundColor Gray
-Finalize-LIN1InstallMedia -VMName 'LIN1' | Out-Null
+Finalize-LinuxInstallMedia -VMName 'LIN1' | Out-Null
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green

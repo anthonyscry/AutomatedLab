@@ -2,6 +2,8 @@
 
 Set-StrictMode -Version Latest
 
+#region AutomatedLab Import
+
 function Import-OpenCodeLab {
     param([string]$Name)
 
@@ -18,6 +20,10 @@ function Import-OpenCodeLab {
         return $false
     }
 }
+
+#endregion AutomatedLab Import
+
+#region VM Lifecycle
 
 function Ensure-VMRunning {
     param(
@@ -115,8 +121,16 @@ function Ensure-VMsReady {
     }
 }
 
-function Get-LIN1IPv4 {
-    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+#endregion VM Lifecycle
+
+#region Linux VM Networking & SSH
+
+function Get-LinuxVMIPv4 {
+    param(
+        [string]$VMName = 'LIN1'
+    )
+
+    $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $adapter) { return $null }
 
     $ipList = @()
@@ -130,13 +144,14 @@ function Get-LIN1IPv4 {
     return $ip
 }
 
-function Get-LIN1DhcpLeaseIPv4 {
+function Get-LinuxVMDhcpLeaseIPv4 {
     param(
+        [string]$VMName = 'LIN1',
         [string]$DhcpServer = 'DC1',
         [string]$ScopeId = '192.168.11.0'
     )
 
-    $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $adapter -or [string]::IsNullOrWhiteSpace($adapter.MacAddress)) {
         return $null
     }
@@ -147,7 +162,7 @@ function Get-LIN1DhcpLeaseIPv4 {
 
     try {
         $leaseResult = Invoke-LabCommand -ComputerName $DhcpServer -PassThru -ErrorAction SilentlyContinue -ScriptBlock {
-            param($LeaseScope, $MacCompactArg, $MacHyphenArg)
+            param($LeaseScope, $MacCompactArg, $MacHyphenArg, $VmNameArg)
 
             $leases = Get-DhcpServerv4Lease -ScopeId $LeaseScope -ErrorAction SilentlyContinue
             if (-not $leases) { return $null }
@@ -160,7 +175,7 @@ function Get-LIN1DhcpLeaseIPv4 {
             if (-not $match) {
                 $match = $leases | Where-Object {
                     (($_.ClientId | Out-String).Trim().ToUpperInvariant() -eq $MacHyphenArg) -or
-                    ($_.HostName -eq 'LIN1')
+                    ($_.HostName -eq $VmNameArg)
                 } | Select-Object -First 1
             }
 
@@ -169,7 +184,7 @@ function Get-LIN1DhcpLeaseIPv4 {
             }
 
             return $null
-        } -ArgumentList $ScopeId, $macCompact, $macHyphen
+        } -ArgumentList $ScopeId, $macCompact, $macHyphen, $VMName
 
         if ($leaseResult) {
             return ($leaseResult | Select-Object -First 1)
@@ -180,6 +195,168 @@ function Get-LIN1DhcpLeaseIPv4 {
 
     return $null
 }
+
+function Wait-LinuxVMReady {
+    [CmdletBinding()]
+    param(
+        [string]$VMName = 'LIN1',
+        [int]$WaitMinutes = 30,
+        [string]$DhcpServer = 'DC1',
+        [string]$ScopeId = '192.168.11.0',
+        [int]$PollInitialSec = 15,
+        [int]$PollMaxSec = 45
+    )
+
+    $deadline = [datetime]::Now.AddMinutes($WaitMinutes)
+    $lastKnownIp = ''
+    $lastLeaseIp = ''
+    $waitTick = 0
+
+    $pollInterval = [math]::Max(1, $PollInitialSec)
+    $pollCap = [math]::Max(1, $PollMaxSec)
+    if ($pollInterval -gt $pollCap) {
+        $pollInterval = $pollCap
+    }
+
+    while ([datetime]::Now -lt $deadline) {
+        $waitTick++
+
+        $vmIp = Get-LinuxVMIPv4 -VMName $VMName
+        if ($vmIp) {
+            $lastKnownIp = $vmIp
+            $sshCheck = Test-NetConnection -ComputerName $vmIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if ($sshCheck.TcpTestSucceeded) {
+                Write-Host "  [OK] $VMName SSH is reachable at $vmIp" -ForegroundColor Green
+                return @{ Ready = $true; IP = $vmIp; LeaseIP = $lastLeaseIp }
+            }
+        }
+
+        if (-not $lastKnownIp) {
+            $leaseIp = Get-LinuxVMDhcpLeaseIPv4 -VMName $VMName -DhcpServer $DhcpServer -ScopeId $ScopeId
+            if ($leaseIp) {
+                $lastLeaseIp = $leaseIp
+            }
+        }
+
+        if ($lastKnownIp) {
+            Write-Host "    $VMName has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
+        }
+        elseif ($lastLeaseIp) {
+            Write-Host "    DHCP lease seen for $VMName ($lastLeaseIp), waiting for Hyper-V guest IP + SSH..." -ForegroundColor Gray
+        }
+        else {
+            Write-Host "    Still waiting for $VMName DHCP lease..." -ForegroundColor Gray
+        }
+
+        if (($waitTick % 6) -eq 0) {
+            $vmState = (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue).State
+            Write-Host "    $VMName VM state: $vmState" -ForegroundColor DarkGray
+        }
+
+        Start-Sleep -Seconds $pollInterval
+        $pollInterval = [math]::Min([int][math]::Ceiling($pollInterval * 1.5), $pollCap)
+    }
+
+    Write-Host "  [WARN] $VMName did not become SSH-reachable after $WaitMinutes min." -ForegroundColor Yellow
+    if ($lastLeaseIp) {
+        Write-Host "  [INFO] $VMName DHCP lease observed at: $lastLeaseIp" -ForegroundColor DarkGray
+    }
+
+    return @{ Ready = $false; IP = $lastKnownIp; LeaseIP = $lastLeaseIp }
+}
+
+function Get-LinuxSSHConnectionInfo {
+    <#
+    .SYNOPSIS
+    Returns SSH connection details for a Linux VM.
+    .DESCRIPTION
+    Resolves the VM's IP address and constructs an SSH command string.
+    Returns $null if the VM is not reachable.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$VMName = 'LIN1',
+        [string]$User = $LinuxUser,
+        [string]$KeyPath = $SSHPrivateKey
+    )
+
+    $ip = Get-LinuxVMIPv4 -VMName $VMName
+    if (-not $ip) { return $null }
+
+    $sshCmd = "ssh -o StrictHostKeyChecking=no -i `"$KeyPath`" $User@$ip"
+
+    return @{
+        VMName  = $VMName
+        IP      = $ip
+        User    = $User
+        KeyPath = $KeyPath
+        Command = $sshCmd
+    }
+}
+
+function Add-LinuxDhcpReservation {
+    <#
+    .SYNOPSIS
+    Creates a DHCP reservation on DC1 for a Linux VM's MAC address.
+    .DESCRIPTION
+    Reads the VM's MAC from Hyper-V and creates a DHCP reservation via
+    Invoke-LabCommand on the DHCP server (DC1). This ensures the Linux VM
+    always gets the same IP after reboot.
+    NOTE: Requires AutomatedLab to be imported (Invoke-LabCommand prerequisite).
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$VMName = 'LIN1',
+        [string]$ReservedIP = $LIN1_Ip,
+        [string]$DhcpServer = 'DC1',
+        [string]$ScopeId = $DhcpScopeId
+    )
+
+    $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $adapter -or [string]::IsNullOrWhiteSpace($adapter.MacAddress)) {
+        Write-Warning "Cannot read MAC address for VM '$VMName'. Is it created?"
+        return $false
+    }
+
+    $macRaw = ($adapter.MacAddress -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+    if ($macRaw.Length -ne 12) {
+        Write-Warning "Invalid MAC address for '$VMName': $($adapter.MacAddress)"
+        return $false
+    }
+
+    # Format as AA-BB-CC-DD-EE-FF for DHCP server
+    $macFormatted = ($macRaw -replace '(.{2})(?=.)', '$1-')
+
+    try {
+        Invoke-LabCommand -ComputerName $DhcpServer -ScriptBlock {
+            param($ScopeArg, $IpArg, $MacArg, $NameArg)
+
+            # Remove existing reservation for this MAC or IP if present
+            Get-DhcpServerv4Reservation -ScopeId $ScopeArg -ErrorAction SilentlyContinue |
+                Where-Object { $_.ClientId -eq $MacArg -or $_.IPAddress.IPAddressToString -eq $IpArg } |
+                Remove-DhcpServerv4Reservation -ErrorAction SilentlyContinue
+
+            Add-DhcpServerv4Reservation -ScopeId $ScopeArg `
+                -IPAddress $IpArg `
+                -ClientId $MacArg `
+                -Name $NameArg `
+                -Description "Linux VM $NameArg - auto-reserved" `
+                -ErrorAction Stop
+
+        } -ArgumentList $ScopeId, $ReservedIP, $macFormatted, $VMName
+
+        Write-Host "    [OK] DHCP reservation: $VMName -> $ReservedIP (MAC: $macFormatted)" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Warning "DHCP reservation failed for '$VMName': $($_.Exception.Message)"
+        return $false
+    }
+}
+
+#endregion Linux VM Networking & SSH
+
+#region SSH & Git Identity
 
 function Ensure-SSHKey {
     param([string]$KeyPath)
@@ -204,8 +381,14 @@ function Get-GitIdentity {
     return @{ Name = $name; Email = $email }
 }
 
-function Invoke-BashOnLIN1 {
+#endregion SSH & Git Identity
+
+#region Linux VM Remote Execution
+
+function Invoke-BashOnLinuxVM {
     param(
+        # Uses AutomatedLab Copy-LabFileItem / Invoke-LabCommand and requires the VM to be registered in AutomatedLab.
+        [Parameter(Mandatory)][string]$VMName = 'LIN1',
         [Parameter(Mandatory)][string]$BashScript,
         [Parameter(Mandatory)][string]$ActivityName,
         [hashtable]$Variables = @{},
@@ -222,10 +405,10 @@ function Invoke-BashOnLIN1 {
     $content | Set-Content -Path $tempPath -Encoding ASCII -Force
 
     try {
-        Copy-LabFileItem -Path $tempPath -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
+        Copy-LabFileItem -Path $tempPath -ComputerName $VMName -DestinationFolderPath '/tmp'
 
         $invokeParams = @{
-            ComputerName = 'LIN1'
+            ComputerName = $VMName
             ActivityName = $ActivityName
             ScriptBlock = {
                 param($ScriptFile)
@@ -241,6 +424,122 @@ function Invoke-BashOnLIN1 {
         Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
     }
 }
+
+function Join-LinuxToDomain {
+    <#
+    .SYNOPSIS
+    Joins a Linux VM to the Active Directory domain via SSSD.
+    .DESCRIPTION
+    Connects via SSH and installs/configures realmd + SSSD for AD integration.
+    Requires the domain controller to be reachable from the Linux VM.
+    NOTE: Uses direct SSH — does not require AutomatedLab lab import.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$VMName = 'LIN1',
+        [string]$DomainName = $DomainName,
+        [string]$DomainAdmin = $LabInstallUser,
+        [string]$DomainPassword = $AdminPassword,
+        [string]$User = $LinuxUser,
+        [string]$KeyPath = $SSHPrivateKey,
+        [int]$SSHTimeout = $SSH_ConnectTimeout
+    )
+
+    $ip = Get-LinuxVMIPv4 -VMName $VMName
+    if (-not $ip) {
+        Write-Warning "Cannot determine IP for '$VMName'. Is it running?"
+        return $false
+    }
+
+    $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
+    if (-not (Test-Path $sshExe)) {
+        Write-Warning 'OpenSSH client not found.'
+        return $false
+    }
+
+    $sshArgs = @(
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=NUL',
+        '-o', "ConnectTimeout=$SSHTimeout",
+        '-i', $KeyPath,
+        "$User@$ip"
+    )
+
+    # The domain join script
+    $joinScript = @"
+#!/bin/bash
+set -e
+export DEBIAN_FRONTEND=noninteractive
+SUDO=""
+if [ "`$(id -u)" -ne 0 ]; then SUDO="sudo -n"; fi
+
+echo "[SSSD] Installing required packages..."
+`$SUDO apt-get update -qq
+`$SUDO apt-get install -y -qq realmd sssd sssd-tools adcli packagekit samba-common-bin krb5-user
+
+echo "[SSSD] Discovering domain $DomainName..."
+`$SUDO realm discover $DomainName
+
+echo "[SSSD] Joining domain $DomainName..."
+echo '$DomainPassword' | `$SUDO realm join -U $DomainAdmin $DomainName --install=/
+
+echo "[SSSD] Configuring SSSD..."
+`$SUDO bash -c 'cat > /etc/sssd/sssd.conf << SSSDEOF
+[sssd]
+domains = $DomainName
+config_file_version = 2
+services = nss, pam
+
+[$('domain/' + $DomainName)]
+default_shell = /bin/bash
+krb5_store_password_if_offline = True
+cache_credentials = True
+krb5_realm = $($DomainName.ToUpperInvariant())
+realmd_tags = manages-system joined-with-adcli
+id_provider = ad
+fallback_homedir = /home/%u@%d
+ad_domain = $DomainName
+use_fully_qualified_names = True
+ldap_id_mapping = True
+access_provider = ad
+SSSDEOF'
+
+`$SUDO chmod 600 /etc/sssd/sssd.conf
+`$SUDO systemctl restart sssd
+
+echo "[SSSD] Enabling home directory auto-creation..."
+`$SUDO pam-auth-update --enable mkhomedir 2>/dev/null || true
+
+echo "[SSSD] Domain join complete."
+"@
+
+    $tempScript = Join-Path $env:TEMP "domainjoin-$VMName.sh"
+    $joinScript | Set-Content -Path $tempScript -Encoding ASCII -Force
+
+    try {
+        $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
+        & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $KeyPath $tempScript "${User}@${ip}:/tmp/domainjoin.sh" 2>&1 | Out-Null
+
+        Write-Host "    Joining $VMName to domain $DomainName via SSSD..." -ForegroundColor Cyan
+        & $sshExe @sshArgs "chmod +x /tmp/domainjoin.sh && bash /tmp/domainjoin.sh && rm -f /tmp/domainjoin.sh" 2>&1 | ForEach-Object {
+            Write-Host "      $_" -ForegroundColor Gray
+        }
+
+        Write-Host "    [OK] $VMName joined to $DomainName" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Warning "Domain join failed for '$VMName': $($_.Exception.Message)"
+        return $false
+    }
+    finally {
+        Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+    }
+}
+
+#endregion Linux VM Remote Execution
+
+#region Linux VM Provisioning
 
 function Get-Sha512PasswordHash {
     <#
@@ -308,7 +607,7 @@ function Get-Sha512PasswordHash {
 function New-CidataVhdx {
     <#
     .SYNOPSIS
-    Create a CIDATA VHDX seed disk for Ubuntu 24.04 autoinstall.
+    Create a CIDATA VHDX seed disk for Linux cloud-init.
 
     Uses a small FAT32-formatted VHDX with volume label "CIDATA" containing
     user-data and meta-data files. Cloud-init NoCloud datasource detects any
@@ -338,20 +637,40 @@ function New-CidataVhdx {
         [Parameter(Mandatory)][string]$Hostname,
         [Parameter(Mandatory)][string]$Username,
         [Parameter(Mandatory)][string]$PasswordHash,
-        [string]$SSHPublicKey = ''
+        [string]$SSHPublicKey = '',
+        [ValidateSet('Ubuntu2404','Ubuntu2204','Rocky9')]
+        [string]$Distro = 'Ubuntu2404'
     )
 
-    # Build autoinstall user-data for Ubuntu 24.04 Subiquity
-    $sshBlock = ''
+    # Cache: If CIDATA already exists, skip recreation (caller can delete to force rebuild)
+    if (Test-Path $OutputPath) {
+        Write-Host "    [CACHE] CIDATA VHDX exists, skipping: $OutputPath" -ForegroundColor DarkGray
+        return $OutputPath
+    }
+
+    # Build distro-specific cloud-init user-data
+    $ubuntuSshBlock = ''
     if ($SSHPublicKey) {
-        $sshBlock = @"
+        $ubuntuSshBlock = @"
 
     authorized-keys:
       - $SSHPublicKey
 "@
     }
 
-$userData = @"
+    $rockySshBlock = @"
+    ssh_authorized_keys: []
+"@
+    if ($SSHPublicKey) {
+        $rockySshBlock = @"
+    ssh_authorized_keys:
+      - $SSHPublicKey
+"@
+    }
+
+    switch ($Distro) {
+        'Ubuntu2404' {
+            $userData = @"
 #cloud-config
 autoinstall:
   version: 1
@@ -375,7 +694,7 @@ autoinstall:
       name: lvm
   ssh:
     install-server: true
-    allow-pw: true$sshBlock
+    allow-pw: true$ubuntuSshBlock
   late-commands:
     - curtin in-target --target=/target -- systemctl enable ssh
     - curtin in-target --target=/target -- sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
@@ -386,6 +705,67 @@ autoinstall:
     - git
     - net-tools
 "@
+        }
+        'Ubuntu2204' {
+            $userData = @"
+#cloud-config
+# Ubuntu 22.04 compatible autoinstall format
+autoinstall:
+  version: 1
+  interactive-sections: []
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  network:
+    version: 2
+    ethernets:
+      primary:
+        match:
+          name: "e*"
+        dhcp4: true
+  identity:
+    hostname: $Hostname
+    username: $Username
+    password: '$PasswordHash'
+  storage:
+    layout:
+      name: lvm
+  ssh:
+    install-server: true
+    allow-pw: true$ubuntuSshBlock
+  late-commands:
+    - curtin in-target --target=/target -- systemctl enable ssh
+    - curtin in-target --target=/target -- sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  packages:
+    - openssh-server
+    - curl
+    - wget
+    - git
+    - net-tools
+"@
+        }
+        'Rocky9' {
+            $userData = @"
+#cloud-config
+hostname: $Hostname
+users:
+  - name: $Username
+    lock_passwd: false
+    passwd: '$PasswordHash'
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+$rockySshBlock
+packages:
+  - openssh-server
+  - curl
+  - wget
+  - git
+  - net-tools
+runcmd:
+  - systemctl enable --now sshd
+"@
+        }
+    }
 
     $metaData = @"
 instance-id: iid-$Hostname-$(Get-Date -Format 'yyyyMMddHHmmss')
@@ -440,10 +820,195 @@ local-hostname: $Hostname
     }
 }
 
-function New-LIN1VM {
+function New-LinuxGoldenVhdx {
     <#
     .SYNOPSIS
-    Create Hyper-V Gen2 VM for LIN1 Ubuntu 24.04.
+    Creates a pre-installed golden VHDX template for Linux VMs.
+    .DESCRIPTION
+    If a golden template VHDX exists, New-LinuxVM can clone it instead of
+    installing from ISO each time. This function creates the template by:
+    1. Creating a temporary VM with the ISO + CIDATA
+    2. Waiting for installation to complete
+    3. Shutting down and saving the OS VHDX as the golden template
+
+    Subsequent VMs can use Copy-Item on the golden VHDX instead of
+    reinstalling from ISO (saves 15-25 minutes per VM).
+    .PARAMETER TemplatePath
+    Path where the golden VHDX template will be saved.
+    .PARAMETER UbuntuIsoPath
+    Path to the Ubuntu installation ISO.
+    .PARAMETER Hostname
+    Temporary hostname for the template VM.
+    .PARAMETER Username
+    Username for the template VM.
+    .PARAMETER Password
+    Password for the template VM.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TemplatePath,
+        [Parameter(Mandatory)][string]$UbuntuIsoPath,
+        [string]$Hostname = 'golden-template',
+        [string]$Username = 'labadmin',
+        [string]$Password = 'Server123!',
+        [string]$SwitchName = $LabSwitch,
+        [int]$WaitMinutes = 45,
+        [long]$DiskSize = 60GB
+    )
+
+    if (Test-Path $TemplatePath) {
+        Write-Host "    [OK] Golden VHDX template already exists: $TemplatePath" -ForegroundColor Green
+        return $TemplatePath
+    }
+
+    $templateDir = Split-Path $TemplatePath -Parent
+    if ($templateDir) { New-Item -ItemType Directory -Path $templateDir -Force | Out-Null }
+
+    $tempVMName = "GoldenTemplate-$(Get-Date -Format 'yyyyMMddHHmmss')"
+
+    Write-Host "    Creating golden template VM '$tempVMName'..." -ForegroundColor Cyan
+
+    $cidataPath = $null
+    $tempVhdxPath = Join-Path $env:TEMP "$tempVMName.vhdx"
+
+    try {
+        # Generate password hash
+        $pwHash = Get-Sha512PasswordHash -Password $Password
+
+        # Create CIDATA for template
+        $cidataPath = Join-Path $env:TEMP "$tempVMName-cidata.vhdx"
+        New-CidataVhdx -OutputPath $cidataPath -Hostname $Hostname -Username $Username -PasswordHash $pwHash
+
+        # Create temp VM
+        New-LinuxVM -UbuntuIsoPath $UbuntuIsoPath -CidataVhdxPath $cidataPath `
+            -VMName $tempVMName -VhdxPath $tempVhdxPath `
+            -SwitchName $SwitchName -DiskSize $DiskSize
+
+        Start-VM -Name $tempVMName
+        Write-Host "    Template VM started. Waiting for install ($WaitMinutes min max)..." -ForegroundColor Gray
+
+        # Wait for SSH or timeout
+        $waitResult = Wait-LinuxVMReady -VMName $tempVMName -WaitMinutes $WaitMinutes
+
+        if ($waitResult.Ready) {
+            Write-Host "    Template installation complete. Shutting down..." -ForegroundColor Green
+            Stop-VM -Name $tempVMName -Force
+            Start-Sleep -Seconds 5
+
+            # Finalize media
+            Finalize-LinuxInstallMedia -VMName $tempVMName
+
+            # Copy the OS VHDX as the golden template
+            Copy-Item $tempVhdxPath $TemplatePath -Force
+            Write-Host "    [OK] Golden VHDX template saved: $TemplatePath" -ForegroundColor Green
+        } else {
+            Write-Warning "Template VM did not become ready within $WaitMinutes minutes."
+            Write-Warning "Golden template not created."
+        }
+    }
+    finally {
+        # Cleanup temp VM
+        Remove-HyperVVMStale -VMName $tempVMName -Context 'golden-template-cleanup' | Out-Null
+        if ($cidataPath) {
+            Remove-Item $cidataPath -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Item (Join-Path $env:TEMP "$tempVMName.vhdx") -Force -ErrorAction SilentlyContinue
+    }
+
+    if (Test-Path $TemplatePath) {
+        return $TemplatePath
+    }
+    return $null
+}
+
+function Show-LinuxInstallProgress {
+    <#
+    .SYNOPSIS
+    Monitors and displays Ubuntu autoinstall progress for a Linux VM.
+    .DESCRIPTION
+    Polls the VM's console output and network state to estimate installation
+    progress. Shows a simple progress bar with elapsed/remaining time.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [int]$WaitMinutes = 30,
+        [int]$PollSeconds = 15
+    )
+
+    $startTime = [datetime]::Now
+    $deadline = $startTime.AddMinutes($WaitMinutes)
+    $phases = @(
+        @{ Name = 'VM Boot'; Pct = 5; Signal = 'booting' }
+        @{ Name = 'DHCP Lease'; Pct = 15; Signal = 'dhcp' }
+        @{ Name = 'Installer'; Pct = 30; Signal = 'installing' }
+        @{ Name = 'Disk Setup'; Pct = 50; Signal = 'partitioning' }
+        @{ Name = 'Packages'; Pct = 70; Signal = 'packages' }
+        @{ Name = 'SSH Ready'; Pct = 95; Signal = 'ssh' }
+        @{ Name = 'Complete'; Pct = 100; Signal = 'done' }
+    )
+
+    $currentPhase = 0
+    $barWidth = 30
+
+    while ([datetime]::Now -lt $deadline) {
+        $elapsed = ([datetime]::Now - $startTime)
+        $remaining = ($deadline - [datetime]::Now)
+        $elapsedStr = '{0:D2}:{1:D2}' -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
+        $remainStr = '{0:D2}:{1:D2}' -f [int]$remaining.TotalMinutes, $remaining.Seconds
+
+        # Detect phase based on VM state
+        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        if (-not $vm) { break }
+
+        $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1
+        $hasIp = $false
+        $sshReady = $false
+        $ip = $null
+
+        if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
+            $ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
+            if ($ips) {
+                $hasIp = $true
+                $ip = $ips | Select-Object -First 1
+                $sshCheck = Test-NetConnection -ComputerName $ip -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+                $sshReady = $sshCheck.TcpTestSucceeded
+            }
+        }
+
+        # Update phase estimate
+        if ($sshReady) { $currentPhase = 6 }
+        elseif ($hasIp -and $elapsed.TotalMinutes -gt 15) { $currentPhase = [math]::Max($currentPhase, 4) }
+        elseif ($hasIp) { $currentPhase = [math]::Max($currentPhase, 3) }
+        elseif ($vm.State -eq 'Running' -and $elapsed.TotalMinutes -gt 2) { $currentPhase = [math]::Max($currentPhase, 1) }
+        elseif ($vm.State -eq 'Running') { $currentPhase = [math]::Max($currentPhase, 0) }
+
+        $pct = $phases[$currentPhase].Pct
+        $phaseName = $phases[$currentPhase].Name
+        $filled = [math]::Floor($barWidth * $pct / 100)
+        $empty = $barWidth - $filled
+        $bar = ('[' + ('#' * $filled) + ('-' * $empty) + ']')
+
+        Write-Host "`r    $bar $pct% $phaseName  [$elapsedStr elapsed, $remainStr remaining]  " -NoNewline -ForegroundColor Cyan
+
+        if ($sshReady) {
+            Write-Host ""
+            Write-Host "    [OK] $VMName installation complete!" -ForegroundColor Green
+            return @{ Complete = $true; IP = $ip; ElapsedMinutes = [math]::Round($elapsed.TotalMinutes, 1) }
+        }
+
+        Start-Sleep -Seconds $PollSeconds
+    }
+
+    Write-Host ""
+    Write-Host "    [WARN] $VMName install did not complete within $WaitMinutes minutes." -ForegroundColor Yellow
+    return @{ Complete = $false; ElapsedMinutes = $WaitMinutes }
+}
+
+function New-LinuxVM {
+    <#
+    .SYNOPSIS
+    Create Hyper-V Gen2 VM for a Linux Ubuntu 24.04 guest.
 
     Creates the VM, attaches the Ubuntu ISO as DVD for boot, and attaches
     the CIDATA VHDX as a second SCSI disk for cloud-init NoCloud discovery.
@@ -533,10 +1098,10 @@ function New-LIN1VM {
     return Hyper-V\Get-VM -Name $VMName
 }
 
-function Finalize-LIN1InstallMedia {
+function Finalize-LinuxInstallMedia {
     <#
     .SYNOPSIS
-    Finalize LIN1 boot media after Ubuntu install completes.
+    Finalize Linux VM boot media after Ubuntu install completes.
 
     Removes installer DVD/CIDATA devices and sets firmware to boot from OS disk
     so the VM does not return to the Ubuntu installer wizard on subsequent boots.
@@ -593,3 +1158,146 @@ function Finalize-LIN1InstallMedia {
 
     return $true
 }
+
+#endregion Linux VM Provisioning
+
+#region Reporting
+
+function New-LabDeploymentReport {
+    <#
+    .SYNOPSIS
+    Generates a deployment recap report in HTML and console format.
+    .DESCRIPTION
+    Creates a summary of all deployed VMs, their roles, IPs, and status.
+    Outputs both an HTML file and console-formatted text.
+    .PARAMETER Machines
+    Array of hashtables with machine info (VMName, IP, OS tag, Roles, Status).
+    .PARAMETER LabName
+    Name of the lab deployment.
+    .PARAMETER OutputPath
+    Directory to save the HTML report.
+    .PARAMETER StartTime
+    When the deployment started.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][array]$Machines,
+        [string]$LabName = 'AutomatedLab',
+        [string]$OutputPath = $LabPath,
+        [datetime]$StartTime = [datetime]::Now
+    )
+
+    $endTime = [datetime]::Now
+    $duration = $endTime - $StartTime
+    $durationStr = '{0:D2}h {1:D2}m {2:D2}s' -f [int]$duration.TotalHours, $duration.Minutes, $duration.Seconds
+    $timestamp = $endTime.ToString('yyyy-MM-dd HH:mm:ss')
+    $dateStamp = $endTime.ToString('yyyyMMdd-HHmmss')
+
+    Write-Host ""
+    Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
+    Write-Host '  |           DEPLOYMENT RECAP REPORT            |' -ForegroundColor Cyan
+    Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
+    Write-Host ('  Lab:       {0}' -f $LabName) -ForegroundColor White
+    Write-Host ('  Completed: {0}' -f $timestamp) -ForegroundColor White
+    Write-Host ('  Duration:  {0}' -f $durationStr) -ForegroundColor White
+    Write-Host ('  Machines:  {0}' -f $Machines.Count) -ForegroundColor White
+    Write-Host ''
+
+    Write-Host '  VM Name      OS      IP                Role(s)               Status' -ForegroundColor Gray
+    Write-Host '  -------      --      --                -------               ------' -ForegroundColor Gray
+    foreach ($m in $Machines) {
+        $rolesText = @($m.Roles) -join ', '
+        if ($rolesText.Length -gt 20) { $rolesText = $rolesText.Substring(0, 17) + '...' }
+        $status = [string]$m.Status
+        $statusColor = if ($status -eq 'OK') { 'Green' } elseif ($status -eq 'WARN') { 'Yellow' } else { 'Red' }
+
+        Write-Host ('  {0,-12} {1,-7} {2,-17} {3,-20} ' -f $m.VMName, $m.OSTag, $m.IP, $rolesText) -NoNewline -ForegroundColor Gray
+        Write-Host $status -ForegroundColor $statusColor
+    }
+
+    Write-Host ''
+    Write-Host '  CONNECTION INFO:' -ForegroundColor Yellow
+    foreach ($m in $Machines) {
+        if ($m.OSTag -eq '[LIN]') {
+            Write-Host ('    {0}: ssh -i $SSHPrivateKey {1}@{2}' -f $m.VMName, $LinuxUser, $m.IP) -ForegroundColor Gray
+        }
+        else {
+            $rdpUser = '{0}\{1}' -f $DomainName, $LabInstallUser
+            Write-Host ('    {0}: RDP to {1} ({2})' -f $m.VMName, $m.IP, $rdpUser) -ForegroundColor Gray
+        }
+    }
+    Write-Host ''
+
+    if ($OutputPath) {
+        $htmlDir = $OutputPath
+        New-Item -ItemType Directory -Path $htmlDir -Force | Out-Null
+        $htmlPath = Join-Path $htmlDir ("DeployReport-{0}.html" -f $dateStamp)
+
+        $machineRows = ($Machines | ForEach-Object {
+            $statusClass = switch ($_.Status) { 'OK' { 'ok' } 'WARN' { 'warn' } default { 'fail' } }
+            ('        <tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td></tr>' -f $statusClass, $_.VMName, $_.OSTag, $_.IP, (($_.Roles) -join ', '), $_.Status)
+        }) -join "`n"
+
+        $html = @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lab Deployment Report - $LabName</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 40px; background: #1e1e2e; color: #cdd6f4; }
+  h1 { color: #89b4fa; border-bottom: 2px solid #45475a; padding-bottom: 10px; }
+  .meta { color: #a6adc8; margin-bottom: 20px; }
+  .meta span { display: inline-block; margin-right: 30px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+  th { background: #313244; color: #cba6f7; padding: 10px 15px; text-align: left; }
+  td { padding: 8px 15px; border-bottom: 1px solid #45475a; }
+  tr.ok td:last-child { color: #a6e3a1; font-weight: bold; }
+  tr.warn td:last-child { color: #f9e2af; font-weight: bold; }
+  tr.fail td:last-child { color: #f38ba8; font-weight: bold; }
+  .footer { margin-top: 30px; color: #6c7086; font-size: 0.85em; }
+</style>
+</head>
+<body>
+  <h1>Lab Deployment Report</h1>
+  <div class="meta">
+    <span>Lab: <strong>$LabName</strong></span>
+    <span>Date: <strong>$timestamp</strong></span>
+    <span>Duration: <strong>$durationStr</strong></span>
+    <span>Machines: <strong>$($Machines.Count)</strong></span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>VM Name</th><th>OS</th><th>IP</th><th>Role(s)</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+$machineRows
+    </tbody>
+  </table>
+  <div class="footer">Generated by LabBuilder on $timestamp</div>
+</body>
+</html>
+"@
+
+        [IO.File]::WriteAllText($htmlPath, $html, [System.Text.UTF8Encoding]::new($false))
+        Write-Host ("  Report saved: {0}" -f $htmlPath) -ForegroundColor Green
+        return $htmlPath
+    }
+
+    return $null
+}
+
+#endregion Reporting
+
+#region Backward-Compatible Aliases
+
+Set-Alias -Name Remove-VMHardSafe -Value Remove-HyperVVMStale
+
+# Backward-compatible aliases (permanent -- never remove)
+Set-Alias -Name Get-LIN1IPv4               -Value Get-LinuxVMIPv4
+Set-Alias -Name Get-LIN1DhcpLeaseIPv4      -Value Get-LinuxVMDhcpLeaseIPv4
+Set-Alias -Name Invoke-BashOnLIN1          -Value Invoke-BashOnLinuxVM
+Set-Alias -Name New-LIN1VM                 -Value New-LinuxVM
+Set-Alias -Name Finalize-LIN1InstallMedia  -Value Finalize-LinuxInstallMedia
+
+#endregion Backward-Compatible Aliases

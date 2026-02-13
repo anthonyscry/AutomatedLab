@@ -644,7 +644,7 @@ try {
 
                 # Create the LIN1 VM (Gen2, SecureBoot off, Ubuntu ISO + CIDATA VHDX)
                 Write-Host "  Creating Hyper-V Gen2 VM..." -ForegroundColor Gray
-                $lin1Vm = New-LIN1VM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath
+                $lin1Vm = New-LinuxVM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath -VMName 'LIN1'
 
                 # Start VM -- Ubuntu autoinstall should proceed unattended
                 Start-VM -Name 'LIN1'
@@ -675,58 +675,14 @@ try {
                 Start-VM -Name 'LIN1'
             }
 
-            $lin1WaitMinutes = 30
+$lin1WaitMinutes = $LIN1_WaitMinutes
             Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
-            $lin1Deadline = [datetime]::Now.AddMinutes($lin1WaitMinutes)
-            $lastKnownIp = ''
-            $lastLeaseIp = ''
-            $waitTick = 0
-            while ([datetime]::Now -lt $lin1Deadline) {
-                $waitTick++
-
-                $adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
-                $lin1Ips = @()
-                if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
-                    $lin1Ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
-                }
-
-                if ($lin1Ips) {
-                    $lin1DhcpIp = $lin1Ips | Select-Object -First 1
-                    $lastKnownIp = $lin1DhcpIp
-                    $sshCheck = Test-NetConnection -ComputerName $lin1DhcpIp -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-                    if ($sshCheck.TcpTestSucceeded) {
-                        $lin1Ready = $true
-                        Write-Host "  [OK] LIN1 SSH is reachable at $lin1DhcpIp" -ForegroundColor Green
-                        break
-                    }
-                }
-
-                if (-not $lastKnownIp -and (Get-Command Get-LIN1DhcpLeaseIPv4 -ErrorAction SilentlyContinue)) {
-                    $leaseIp = Get-LIN1DhcpLeaseIPv4 -DhcpServer 'DC1' -ScopeId $DhcpScopeId
-                    if ($leaseIp) {
-                        $lastLeaseIp = $leaseIp
-                    }
-                }
-
-                Start-Sleep -Seconds 30
-                if ($lastKnownIp) {
-                    Write-Host "    LIN1 has IP ($lastKnownIp), waiting for SSH..." -ForegroundColor Gray
-                } elseif ($lastLeaseIp) {
-                    Write-Host "    DHCP lease seen for LIN1 ($lastLeaseIp), waiting for Hyper-V guest IP + SSH..." -ForegroundColor Gray
-                } else {
-                    Write-Host "    Still waiting for LIN1 DHCP lease..." -ForegroundColor Gray
-                }
-
-                if (($waitTick % 6) -eq 0) {
-                    $vmState = (Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue).State
-                    Write-Host "    LIN1 VM state: $vmState" -ForegroundColor DarkGray
-                }
-            }
+            $lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $lin1WaitMinutes -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+            $lin1Ready = $lin1WaitResult.Ready
             if (-not $lin1Ready) {
-                Write-Host "  [WARN] LIN1 did not become SSH-reachable after $lin1WaitMinutes min." -ForegroundColor Yellow
                 Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
-                if ($lastLeaseIp) {
-                    Write-Host "  [INFO] LIN1 DHCP lease observed at: $lastLeaseIp" -ForegroundColor DarkGray
+                if ($lin1WaitResult.LeaseIP) {
+                    Write-Host "  [INFO] LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)" -ForegroundColor DarkGray
                 }
             }
         } else {
@@ -1285,14 +1241,14 @@ echo "[LIN1] Done."
         HOST_PUBKEY = $HostPublicKeyFileName
     }
 
-    Invoke-BashOnLIN1 -BashScript $lin1ScriptContent -ActivityName 'Configure-LIN1' -Variables $lin1Vars | Out-Null
+    Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $lin1ScriptContent -ActivityName 'Configure-LIN1' -Variables $lin1Vars | Out-Null
     } else {
         Write-Host "  [WARN] Skipping LIN1 post-config (not included or not reachable)." -ForegroundColor Yellow
     }
 
     if ($IncludeLIN1 -and $lin1Ready) {
         Write-Host "`n[LIN1] Finalizing boot media (detach installer + seed disk)..." -ForegroundColor Cyan
-        Finalize-LIN1InstallMedia -VMName 'LIN1' | Out-Null
+        Finalize-LinuxInstallMedia -VMName 'LIN1' | Out-Null
     }
 
     # ============================================================
