@@ -52,11 +52,11 @@ if (Test-Path $CommonPath) { . $CommonPath }
 # Alias for backward compatibility with existing code
 Set-Alias -Name Remove-VMHardSafe -Value Remove-HyperVVMStale -Scope Script
 
-if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WSUS1', 'WS1') }
+if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'AutomatedLab' }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('dc1', 'svr1', 'dsc', 'ws1') }
 if (-not (Get-Variable -Name LabPath -ErrorAction SilentlyContinue)) { $LabPath = "C:\AutomatedLab\$LabName" }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue)) { $LabSwitch = 'OpenCodeLabSwitch' }
-if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue)) { $NatName = 'OpenCodeLabSwitchNAT' }
+if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue)) { $LabSwitch = 'AutomatedLab' }
+if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue)) { $NatName = 'AutomatedLabNAT' }
 
 $SwitchName = $LabSwitch
 $RunStart = Get-Date
@@ -426,7 +426,7 @@ function Invoke-BlowAway {
 
 function Invoke-OneButtonSetup {
     Write-Host "`n=== ONE-BUTTON SETUP ===" -ForegroundColor Cyan
-    Write-Host "  Mode: WINDOWS CORE (DC1 + WSUS1 + WS1)" -ForegroundColor Green
+    Write-Host "  Mode: WINDOWS CORE (DC1 + SVR1 + WS1)" -ForegroundColor Green
     Write-Host "  Bootstrapping prerequisites + deploying lab + start + status" -ForegroundColor Gray
 
     $preflightArgs = Get-PreflightArgs
@@ -533,7 +533,7 @@ function Show-Menu {
     Write-Host "  =============================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  SETUP" -ForegroundColor DarkCyan
-    Write-Host "   [A] One-Button Setup (DC1 + WSUS1 + WS1)" -ForegroundColor Green
+    Write-Host "   [A] One-Button Setup (DC1 + SVR1 + WS1)" -ForegroundColor Green
     Write-Host "       Automated: Bootstrap -> Deploy -> Start -> Health check" -ForegroundColor DarkGray
     Write-Host "       Duration: 45-90 min | Requires: ISOs in C:\LabSources\ISOs" -ForegroundColor DarkGray
     Write-Host "   [B] Bootstrap + Deploy (Windows topology)" -ForegroundColor White

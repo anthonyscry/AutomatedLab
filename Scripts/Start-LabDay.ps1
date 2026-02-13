@@ -76,7 +76,7 @@ if ($lin1Vm) {
 
 Write-Host "`n=== LAB READY ===" -ForegroundColor Green
 Write-Host "  DC1:   Enter-PSSession -VMName DC1" -ForegroundColor Gray
-Write-Host "  WSUS1: Enter-PSSession -VMName WSUS1" -ForegroundColor Gray
+Write-Host "  SVR1:  Enter-PSSession -VMName SVR1" -ForegroundColor Gray
 Write-Host "  WS1:   Enter-PSSession -VMName WS1" -ForegroundColor Gray
 if ($lin1IP) {
     Write-Host "  LIN1:  ssh -i $SSHKey $LinuxUser@$lin1IP" -ForegroundColor Gray
