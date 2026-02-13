@@ -27,7 +27,19 @@ function Ensure-VMRunning {
     if ($missing.Count -gt 0) {
         throw "Missing Hyper-V VM(s): $($missing -join ', ')"
     }
-    # If we autostarted, wait a moment for adapters to populate
-    Start-Sleep -Seconds 2
+    # If we autostarted, poll for network adapters instead of fixed sleep
+    $deadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $deadline) {
+        $allReady = $true
+        foreach ($n in $VMNames) {
+            $adapters = Get-VMNetworkAdapter -VMName $n -ErrorAction SilentlyContinue
+            if (-not $adapters -or ($adapters.IPAddresses.Count -eq 0)) {
+                $allReady = $false
+                break
+            }
+        }
+        if ($allReady) { break }
+        Start-Sleep -Milliseconds 500
+    }
     return $true
 }

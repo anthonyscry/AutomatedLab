@@ -10,7 +10,7 @@ function Invoke-LinuxSSH {
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Command,
         [string]$User = $LinuxUser,
         [string]$KeyPath = $SSHPrivateKey,
-        [int]$ConnectTimeout = $SSH_ConnectTimeout,
+        [int]$ConnectTimeout = $(if ($SSH_ConnectTimeout) { $SSH_ConnectTimeout } else { 10 }),
         [switch]$PassThru
     )
 
@@ -33,5 +33,8 @@ function Invoke-LinuxSSH {
     }
     else {
         & $sshExe @sshArgs 2>&1 | ForEach-Object { Write-Host "      $_" -ForegroundColor Gray }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "SSH command exited with code $LASTEXITCODE"
+        }
     }
 }

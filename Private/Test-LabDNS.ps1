@@ -83,6 +83,8 @@ function Test-LabDNS {
 
         # Run DNS checks inside the VM via PowerShell Direct
         try {
+            Write-Verbose "Running DNS health checks on VM '$VMName'..."
+            Write-Progress -Activity "DNS Health Check" -Status "Connecting to $VMName via PowerShell Direct..." -PercentComplete 20
             $dnsChecks = Invoke-Command -VMName $VMName -ScriptBlock {
                 param($testInternet)
 
@@ -224,6 +226,8 @@ function Test-LabDNS {
                     Checks = $checks
                 }
             } -ArgumentList $TestInternetResolution -ErrorAction Stop
+
+            Write-Progress -Activity "DNS Health Check" -Completed
 
             # Map results from VM
             $result.DNSRunning = $dnsChecks.DNSRunning

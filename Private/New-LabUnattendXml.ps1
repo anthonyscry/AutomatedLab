@@ -42,7 +42,7 @@ function New-LabUnattendXml {
         [string]$OSType,
 
         [Parameter()]
-        [string]$TimeZone = "Pacific Standard Time"
+        [string]$TimeZone = $(if ($LabTimeZone) { $LabTimeZone } else { 'Pacific Standard Time' })
     )
 
     # Build unattend.xml as string - using proper escaping

@@ -70,36 +70,64 @@ function Save-LabCheckpoint {
             return $result
         }
 
-        # Checkpoint order: DC first, then servers, then clients
-        $checkpointOrder = @("dc1", "svr1", "ws1")
+        # Checkpoint order: DC first, then servers, then clients (dynamic from config + auto-detect LIN1)
+        $checkpointOrder = @(if ($LabVMs) { $LabVMs } else { @('dc1','svr1','dsc','ws1') })
+        $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if ($lin1VM -and ('LIN1' -notin $checkpointOrder)) { $checkpointOrder += 'LIN1' }
 
+        # Pre-filter: skip missing/invalid VMs, collect eligible ones
+        $eligibleVMs = @()
         foreach ($vmName in $checkpointOrder) {
-            # Check if VM exists
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($null -eq $vm) {
                 Write-Verbose "VM '$vmName' does not exist, skipping"
                 $result.SkippedVMs += $vmName
                 continue
             }
-
-            # Check if VM is in a valid state for checkpoint
             if ($vm.State -notin @("Running", "Off", "Saved")) {
                 Write-Warning "VM '$vmName' is in state '$($vm.State)' - cannot create checkpoint"
                 $result.SkippedVMs += $vmName
                 continue
             }
+            $eligibleVMs += $vmName
+        }
 
-            # Create checkpoint
-            try {
-                Write-Verbose "Creating checkpoint '$CheckpointName' for VM '$vmName'..."
-                Checkpoint-VM -Name $vmName -SnapshotName $CheckpointName -ErrorAction Stop
-                $result.VMsCheckpointed += $vmName
-                Write-Verbose "Checkpoint created for VM '$vmName'"
+        # Parallel checkpoint creation via Start-Job
+        $cpName = $CheckpointName
+        $jobs = @()
+        foreach ($vmName in $eligibleVMs) {
+            Write-Verbose "Launching checkpoint job for VM '$vmName'..."
+            $jobs += Start-Job -Name "cp-$vmName" -ScriptBlock {
+                param($vm, $cp)
+                Checkpoint-VM -Name $vm -SnapshotName $cp -ErrorAction Stop
+            } -ArgumentList $vmName, $cpName
+        }
+
+        # Wait for all jobs with timeout (120s)
+        if ($jobs.Count -gt 0) {
+            $null = $jobs | Wait-Job -Timeout 120
+        }
+
+        # Collect results
+        foreach ($job in $jobs) {
+            $vmName = $job.Name -replace '^cp-', ''
+            if ($job.State -eq 'Completed') {
+                try {
+                    Receive-Job -Job $job -ErrorAction Stop | Out-Null
+                    $result.VMsCheckpointed += $vmName
+                    Write-Verbose "Checkpoint created for VM '$vmName'"
+                }
+                catch {
+                    Write-Error "Failed to create checkpoint for VM '$vmName': $($_.Exception.Message)"
+                    $result.FailedVMs += $vmName
+                }
             }
-            catch {
-                Write-Error "Failed to create checkpoint for VM '$vmName': $($_.Exception.Message)"
+            else {
+                Write-Error "Checkpoint job for VM '$vmName' did not complete (state: $($job.State))"
                 $result.FailedVMs += $vmName
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
             }
+            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
         }
 
         # Determine overall status

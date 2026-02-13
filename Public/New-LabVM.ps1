@@ -50,7 +50,19 @@ function New-LabVM {
             return $result
         }
 
-        # Step 2: Check if VM already exists
+        # Step 2: Validate disk space (65 GB needed for VHD + overhead)
+        $vhdDir = Split-Path -Parent $VHDPath
+        if ($vhdDir -and (Test-Path $vhdDir)) {
+            $drive = (Get-Item $vhdDir).PSDrive
+            $freeGB = [math]::Round((Get-PSDrive $drive.Name).Free / 1GB, 1)
+            if ($freeGB -lt 65) {
+                $result.Status = "Failed"
+                $result.Message = "Insufficient disk space: ${freeGB} GB free, 65 GB required"
+                return $result
+            }
+        }
+
+        # Step 3: Check if VM already exists
         $vmTest = Test-LabVM -VMName $VMName
         $vmExists = $vmTest.Exists
 

@@ -103,3 +103,6 @@ $LIN1_WaitMinutes   = 30    # Max wait for Ubuntu SSH reachability
 $SSH_ConnectTimeout  = 8     # SSH connect timeout in seconds
 $SSH_PollInitialSec  = 10    # Initial polling interval for SSH wait
 $SSH_PollMaxSec      = 30    # Max polling interval (backoff ceiling)
+
+# ── Timezone ──
+$LabTimeZone = try { [System.TimeZoneInfo]::Local.Id } catch { 'Pacific Standard Time' }

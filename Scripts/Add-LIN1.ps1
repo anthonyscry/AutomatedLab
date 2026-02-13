@@ -230,7 +230,7 @@ Write-Host ""
 Write-Host "  VM Name: LIN1" -ForegroundColor White
 Write-Host "  IP Address: $lin1DhcpIp" -ForegroundColor White
 Write-Host "  Username: $linUser" -ForegroundColor White
-Write-Host "  Password: $AdminPassword" -ForegroundColor White
+Write-Host "  Password: ********** (see Lab-Config.ps1)" -ForegroundColor White
 Write-Host ""
 Write-Host "  Test SSH: ssh $linUser@$lin1DhcpIp" -ForegroundColor Cyan
 Write-Host ""

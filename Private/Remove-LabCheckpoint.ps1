@@ -39,8 +39,10 @@ function Remove-LabCheckpoint {
             return $result
         }
 
-        # Step 2: Get lab VMs
-        $labVMs = @("dc1", "svr1", "ws1")
+        # Step 2: Get lab VMs (dynamic from config + auto-detect LIN1)
+        $labVMs = @(if ($LabVMs) { $LabVMs } else { @('dc1','svr1','dsc','ws1') })
+        $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+        if ($lin1VM -and ('LIN1' -notin $labVMs)) { $labVMs += 'LIN1' }
 
         foreach ($vmName in $labVMs) {
             # Check if VM exists

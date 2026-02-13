@@ -89,14 +89,14 @@ $switch = Get-VMSwitch -Name $LabSwitch -ErrorAction SilentlyContinue
 if ($switch) {
     Add-Ok "Switch exists: $LabSwitch"
 } else {
-    Write-Host "  [WARN] Switch not found yet: $LabSwitch (bootstrap can create it)" -ForegroundColor Yellow
+    Write-Warning "Switch not found yet: $LabSwitch (bootstrap can create it)"
 }
 
 $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
 if ($nat) {
     Add-Ok "NAT exists: $NatName"
 } else {
-    Write-Host "  [WARN] NAT not found yet: $NatName (bootstrap can create it)" -ForegroundColor Yellow
+    Write-Warning "NAT not found yet: $NatName (bootstrap can create it)"
 }
 
 $sshKey = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'

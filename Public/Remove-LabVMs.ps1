@@ -131,7 +131,7 @@ function Remove-LabVMs {
                 }
 
                 if ($RemoveVHD) {
-                    $removeParams.RemoveVHD = $true
+                    $removeParams.DeleteVHD = $true
                 }
 
                 # Remove the VM
@@ -139,8 +139,8 @@ function Remove-LabVMs {
 
                 if ($removeResult.OverallStatus -eq "OK") {
                     $result.VMsRemoved += $vmName
-                    if ($RemoveVHD -and $removeResult.VHDRemoved) {
-                        $result.VHDsRemoved += $removeResult.VHDRemoved
+                    if ($RemoveVHD -and $removeResult.VHDDeleted) {
+                        $result.VHDsRemoved += $removeResult.VHDDeleted
                     }
                     Write-Verbose "VM '$vmName' removed successfully"
                 }
