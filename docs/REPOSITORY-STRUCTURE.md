@@ -3,7 +3,9 @@
 ## Top-level directories
 
 - `Public/`: exported module cmdlets used by users and orchestration scripts.
+- `Public/Linux/`: Linux-focused exported helpers grouped under the main public API tree.
 - `Private/`: internal helpers not exported from the module.
+- `Private/Linux/`: Linux-focused internal helpers.
 - `Scripts/`: operator-facing utility scripts (status, start day, push/test flows, LIN1 tasks).
 - `LabBuilder/`: role selection and role template definitions.
 - `Ansible/`: inventory template and playbooks for optional Linux-side automation.
@@ -26,3 +28,4 @@
 - Keep generated test outputs and coverage artifacts out of git (`*.xml`, `coverage.xml`, `testResults.xml`).
 - Add new reusable behavior to `Public/` or `Private/` first, then call it from orchestration scripts.
 - Keep new docs under `docs/` unless they are day-to-day operator runbooks at root.
+- Keep script loading logic centralized via `Private/Import-LabScriptTree.ps1` instead of duplicating import loops.

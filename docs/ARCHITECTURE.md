@@ -15,8 +15,8 @@ The repository has two layers:
 
 ## Loading conventions
 
-- `SimpleLab.psm1` loads `Private/*.ps1` then `Public/*.ps1` in deterministic sorted order.
-- `Lab-Common.ps1` provides the same deterministic loading behavior for standalone script execution.
+- `SimpleLab.psm1` and `Lab-Common.ps1` both use `Get-LabScriptFiles` (from `Private/Import-LabScriptTree.ps1`) to discover `Private/` then `Public/` scripts recursively in deterministic sorted order.
+- Both entry points then dot-source those discovered files in caller scope so loaded functions are available to module consumers and standalone workflows.
 
 ## Design principles
 
