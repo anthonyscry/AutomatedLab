@@ -61,8 +61,8 @@ foreach ($vm in $vms) {
 $lin1IP = $null
 $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
 if ($lin1Vm) {
-    if (Get-Command Get-LIN1IPv4 -ErrorAction SilentlyContinue) {
-        $lin1IP = Get-LIN1IPv4
+    if (Get-Command Get-LinuxVMIPv4 -ErrorAction SilentlyContinue) {
+        $lin1IP = Get-LinuxVMIPv4 -VMName 'LIN1'
     } else {
         $lin1Adapter = Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($lin1Adapter -and ($lin1Adapter.PSObject.Properties.Name -contains 'IPAddresses')) {

@@ -66,6 +66,13 @@ $Processors = 4
 $RequiredISOs = @('server2019.iso', 'windows11.iso')
 
 # ============================================================
+# LOAD COMMON FUNCTIONS
+# ============================================================
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+if (Test-Path $CommonPath) { . $CommonPath }
+
+# ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 
@@ -81,59 +88,6 @@ function Import-AutomatedLabModule {
         Write-Error "Failed to import AutomatedLab module: $($_.Exception.Message)"
         return $false
     }
-}
-
-function Remove-HyperVVMStale {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$VMName,
-        [Parameter()][string]$Context = 'cleanup',
-        [Parameter()][int]$MaxAttempts = 3
-    )
-
-    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $vm) { return $true }
-
-        Write-Host "    [WARN] Found VM '$VMName' during $Context (attempt $attempt/$MaxAttempts). Removing..." -ForegroundColor Yellow
-
-        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
-
-        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
-
-        if ($vm.State -like 'Saved*') {
-            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 1
-            $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        }
-
-        if ($vm -and $vm.State -ne 'Off') {
-            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
-            Start-Sleep -Seconds 2
-        }
-
-        Hyper-V\Remove-VM -Name $VMName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-
-        $stillThere = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $stillThere) {
-            Write-Host "    [OK] Removed VM '$VMName'" -ForegroundColor Green
-            return $true
-        }
-
-        $vmId = $stillThere.VMId.Guid
-        $vmwp = Get-CimInstance Win32_Process -Filter "Name='vmwp.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -like "*$vmId*" } |
-            Select-Object -First 1
-        if ($vmwp) {
-            Stop-Process -Id $vmwp.ProcessId -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 2
-        }
-    }
-
-    return -not (Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue)
 }
 
 function Show-Banner {

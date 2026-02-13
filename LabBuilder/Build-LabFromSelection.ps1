@@ -21,6 +21,8 @@ function Build-LabFromSelection {
         [string]$ConfigPath
     )
 
+    $buildStartTime = [datetime]::Now
+
     # ================================================================
     # Phase 1: Load Configuration
     # ================================================================
@@ -170,6 +172,7 @@ function Build-LabFromSelection {
             FileServer = @{ File = 'FileServer.ps1';     Function = 'Get-LabRole_FileServer' }
             Jumpbox    = @{ File = 'Jumpbox.ps1';        Function = 'Get-LabRole_Jumpbox' }
             Client     = @{ File = 'Client.ps1';         Function = 'Get-LabRole_Client' }
+            Ubuntu     = @{ File = 'Ubuntu.ps1';         Function = 'Get-LabRole_Ubuntu' }
         }
 
         $roleDefs = @()
@@ -250,6 +253,11 @@ function Build-LabFromSelection {
         $phaseStart = Get-Date
 
         foreach ($rd in $roleDefs) {
+            if ($rd.SkipInstallLab) {
+                Write-Host "    Skipping (Linux): $($rd.VMName.PadRight(12)) $($rd.IP.PadRight(16)) [$($rd.Tag)]" -ForegroundColor DarkCyan
+                continue
+            }
+
             $machineParams = @{
                 Name            = $rd.VMName
                 DomainName      = $rd.DomainName
@@ -276,6 +284,42 @@ function Build-LabFromSelection {
         $timings['MachineDefinitions'] = (Get-Date) - $phaseStart
 
         # ============================================================
+        # Phase 10-pre: Launch Linux VM Creation in Background
+        # ============================================================
+        $linuxJobs = @()
+        $linuxRoles = @($roleDefs | Where-Object { $_.IsLinux -eq $true })
+        if ($linuxRoles.Count -gt 0) {
+            Write-Host '' -ForegroundColor White
+            Write-Host '  [Phase 10-pre] Launching Linux VM creation in background...' -ForegroundColor Yellow
+
+            foreach ($rd in $linuxRoles) {
+                $createBlock = $rd.CreateVM
+                if (-not $createBlock) { continue }
+
+                Write-Host "    Starting background job for $($rd.VMName)..." -ForegroundColor Gray
+                $jobConfig = $Config
+                $jobLabCommon = Join-Path $PSScriptRoot '..\Lab-Common.ps1'
+                $jobLabConfig = Join-Path $PSScriptRoot '..\Lab-Config.ps1'
+
+                $job = Start-Job -ScriptBlock {
+                    param($ConfigData, $CommonPath, $ConfigPath, $CreateScript)
+
+                    if (Test-Path $ConfigPath) { . $ConfigPath }
+                    if (Test-Path $CommonPath) { . $CommonPath }
+
+                    $block = [scriptblock]::Create($CreateScript)
+                    & $block $ConfigData
+                } -ArgumentList $jobConfig, $jobLabCommon, $jobLabConfig, $createBlock.ToString()
+
+                $linuxJobs += @{
+                    Job = $job
+                    VMName = $rd.VMName
+                    Tag = $rd.Tag
+                }
+            }
+        }
+
+        # ============================================================
         # Phase 10: Install Lab
         # ============================================================
         Write-Host '' -ForegroundColor White
@@ -291,6 +335,31 @@ function Build-LabFromSelection {
         $timings['InstallLab'] = (Get-Date) - $phaseStart
 
         Write-Host '    [OK] Lab installation complete.' -ForegroundColor Green
+
+        # ============================================================
+        # Phase 10.5: Wait for Linux VM Creation Jobs
+        # ============================================================
+        if ($linuxJobs.Count -gt 0) {
+            Write-Host '' -ForegroundColor White
+            Write-Host '  [Phase 10.5] Waiting for Linux VM creation to complete...' -ForegroundColor Yellow
+            $phaseStart = Get-Date
+
+            foreach ($lj in $linuxJobs) {
+                Write-Host "    Waiting for $($lj.VMName)..." -ForegroundColor Gray
+                $result = Receive-Job -Job $lj.Job -Wait -ErrorAction SilentlyContinue 2>&1
+                if ($lj.Job.State -eq 'Failed') {
+                    Write-Host "    [WARN] $($lj.VMName) creation failed:" -ForegroundColor Yellow
+                    $result | ForEach-Object { Write-Host "      $_" -ForegroundColor Red }
+                    Write-Host '    You can create it manually later with Add-LIN1.ps1' -ForegroundColor Yellow
+                }
+                else {
+                    Write-Host "    [OK] $($lj.VMName) background creation completed" -ForegroundColor Green
+                }
+                Remove-Job -Job $lj.Job -Force -ErrorAction SilentlyContinue
+            }
+
+            $timings['LinuxVMs'] = (Get-Date) - $phaseStart
+        }
 
         # ============================================================
         # Phase 11: Run Post-Install Scripts (DC first, then others)
@@ -309,8 +378,24 @@ function Build-LabFromSelection {
         # Then all other roles (not DC)
         foreach ($rd in $roleDefs) {
             if ($rd.Tag -eq 'DC') { continue }
+            if ($rd.IsLinux) { continue }
             if ($rd.PostInstall) {
                 Write-Host "    Running post-install: $($rd.VMName)..." -ForegroundColor Yellow
+                try {
+                    & $rd.PostInstall $Config
+                }
+                catch {
+                    Write-Warning "Post-install for $($rd.VMName) failed: $($_.Exception.Message)"
+                    Write-Host '    Continuing with remaining post-installs...' -ForegroundColor Yellow
+                }
+            }
+        }
+
+        # Linux post-installs run after all Windows post-installs
+        foreach ($rd in $roleDefs) {
+            if (-not $rd.IsLinux) { continue }
+            if ($rd.PostInstall) {
+                Write-Host "    Running post-install: $($rd.VMName) [Linux]..." -ForegroundColor Yellow
                 try {
                     & $rd.PostInstall $Config
                 }
@@ -335,6 +420,17 @@ function Build-LabFromSelection {
             Checkpoint-LabVM -VMName $vm.Name -SnapshotName 'LabReady' -ErrorAction SilentlyContinue
         }
 
+        # Checkpoint Linux VMs (not managed by AutomatedLab)
+        foreach ($rd in $linuxRoles) {
+            try {
+                Hyper-V\Checkpoint-VM -Name $rd.VMName -SnapshotName 'LabReady' -ErrorAction SilentlyContinue
+                Write-Host "    [OK] LabReady checkpoint: $($rd.VMName)" -ForegroundColor Green
+            }
+            catch {
+                Write-Warning "Checkpoint for $($rd.VMName) failed: $($_.Exception.Message)"
+            }
+        }
+
         Write-Host '    [OK] LabReady checkpoint created.' -ForegroundColor Green
         $timings['Checkpoint'] = (Get-Date) - $phaseStart
 
@@ -348,10 +444,12 @@ function Build-LabFromSelection {
         $machinePlan = @()
         foreach ($rd in $roleDefs) {
             $machinePlan += @{
-                VMName = $rd.VMName
-                IP     = $rd.IP
-                Role   = $rd.Tag
-                OS     = $rd.OS
+                VMName  = $rd.VMName
+                IP      = $rd.IP
+                Tag     = $rd.Tag
+                Role    = $rd.Tag
+                OS      = $rd.OS
+                IsLinux = [bool]$rd.IsLinux
             }
         }
 
@@ -393,12 +491,48 @@ function Build-LabFromSelection {
         Write-Host '  VM Name       IP Address       Role' -ForegroundColor White
         Write-Host '  -------       ----------       ----' -ForegroundColor Gray
         foreach ($m in $machinePlan) {
-            Write-Host "  $($m.VMName.PadRight(14)) $($m.IP.PadRight(17)) $($m.Role)" -ForegroundColor White
+            $osTag = if ($m.IsLinux) { '[LIN]' } else { '[WIN]' }
+            $osColor = if ($m.IsLinux) { 'DarkCyan' } else { 'White' }
+            Write-Host '  ' -NoNewline
+            Write-Host "$osTag " -NoNewline -ForegroundColor $osColor
+            Write-Host "$($m.VMName.PadRight(12)) $($m.IP.PadRight(17)) $($m.Role)" -ForegroundColor White
         }
         Write-Host ''
         Write-Host "  Transcript: $transcriptPath" -ForegroundColor Gray
         Write-Host "  Summary:    $summaryPath" -ForegroundColor Gray
         Write-Host ''
+
+        # -- Phase 14: Deployment Report --
+        Write-Host "`n  [Phase 14] Generating deployment report..." -ForegroundColor Yellow
+        try {
+            $reportMachines = @()
+            foreach ($m in $machinePlan) {
+                $vmObj = Hyper-V\Get-VM -Name $m.VMName -ErrorAction SilentlyContinue
+                $vmStatus = if ($vmObj -and $vmObj.State -eq 'Running') { 'OK' } elseif ($vmObj) { 'WARN' } else { 'FAIL' }
+
+                $vmIp = $m.IP
+                if ($m.IsLinux -and $vmObj) {
+                    $adapter = Get-VMNetworkAdapter -VMName $m.VMName -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
+                        $liveIp = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' } | Select-Object -First 1
+                        if ($liveIp) { $vmIp = $liveIp }
+                    }
+                }
+
+                $reportMachines += @{
+                    VMName = $m.VMName
+                    OSTag  = if ($m.IsLinux) { '[LIN]' } else { '[WIN]' }
+                    IP     = $vmIp
+                    Roles  = @($m.Tag)
+                    Status = $vmStatus
+                }
+            }
+
+            $reportPath = New-LabDeploymentReport -Machines $reportMachines -LabName $config.LabName -OutputPath $config.LabPath -StartTime $buildStartTime
+        }
+        catch {
+            Write-Host "    [WARN] Report generation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
     }
     catch {
         $buildEnd = Get-Date
@@ -448,7 +582,7 @@ function Build-LabFromSelection {
     }
 
     # ================================================================
-    # Phase 14: Stop Logging
+    # Final: Stop Logging
     # ================================================================
     Stop-Transcript -ErrorAction SilentlyContinue
 }

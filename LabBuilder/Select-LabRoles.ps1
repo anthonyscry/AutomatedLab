@@ -28,6 +28,13 @@ function Select-LabRoles {
     $roleMenu = $Config.RoleMenu
     $count = $roleMenu.Count
     $selected = New-Object bool[] $count
+    $displayMap = @()
+
+    for ($i = 0; $i -lt $count; $i++) {
+        if (-not $roleMenu[$i].Separator) {
+            $displayMap += $i
+        }
+    }
 
     # Locked items (DC) start as selected and cannot be toggled
     for ($i = 0; $i -lt $count; $i++) {
@@ -48,9 +55,19 @@ function Select-LabRoles {
         Write-Host ''
 
         # Render each role line
+        $displayNum = 0
         for ($i = 0; $i -lt $count; $i++) {
             $entry = $roleMenu[$i]
-            $num = ($i + 1).ToString().PadLeft(2)
+
+            # Handle separator lines
+            if ($entry.Separator) {
+                Write-Host ''
+                Write-Host "    $($entry.Label)" -ForegroundColor DarkYellow
+                continue
+            }
+
+            $displayNum++
+            $num = $displayNum.ToString().PadLeft(2)
 
             if ($selected[$i]) {
                 $marker = '[X]'
@@ -90,12 +107,14 @@ function Select-LabRoles {
         $isNumber = [int]::TryParse($cmd, [ref]$num)
 
         if ($isNumber) {
-            $index = $num - 1
-            if ($index -lt 0 -or $index -ge $count) {
-                Write-Host "  Invalid number. Enter 1-$count." -ForegroundColor Red
+            $displayIndex = $num - 1
+            if ($displayIndex -lt 0 -or $displayIndex -ge $displayMap.Count) {
+                Write-Host "  Invalid number. Enter 1-$($displayMap.Count)." -ForegroundColor Red
                 Start-Sleep -Milliseconds 800
                 continue
             }
+
+            $index = $displayMap[$displayIndex]
             if ($roleMenu[$index].Locked) {
                 Write-Host '  DC is required and cannot be deselected.' -ForegroundColor Yellow
                 Start-Sleep -Milliseconds 800
@@ -105,11 +124,13 @@ function Select-LabRoles {
         }
         elseif ($cmd -eq 'a') {
             for ($i = 0; $i -lt $count; $i++) {
+                if ($roleMenu[$i].Separator) { continue }
                 $selected[$i] = $true
             }
         }
         elseif ($cmd -eq 'n') {
             for ($i = 0; $i -lt $count; $i++) {
+                if ($roleMenu[$i].Separator) { continue }
                 if (-not $roleMenu[$i].Locked) {
                     $selected[$i] = $false
                 }
@@ -130,7 +151,7 @@ function Select-LabRoles {
             Write-Host '  LabBuilder - Help' -ForegroundColor Cyan
             Write-Host '  =================' -ForegroundColor Cyan
             Write-Host ''
-            Write-Host '  Enter a number (1-8) to toggle a role on or off.' -ForegroundColor White
+            Write-Host "  Enter a number (1-$($displayMap.Count)) to toggle a role on or off." -ForegroundColor White
             Write-Host '  Enter a command letter to perform an action:' -ForegroundColor White
             Write-Host ''
             Write-Host '    a   Enable ALL roles' -ForegroundColor Gray
@@ -148,6 +169,11 @@ function Select-LabRoles {
             Write-Host '    FileServer File Server with SMB share (\\FILE1\LabShare)' -ForegroundColor Gray
             Write-Host '    Jumpbox    Admin workstation (Win11 + RSAT tools)' -ForegroundColor Gray
             Write-Host '    Client     Client VM (Win11 + RDP enabled)' -ForegroundColor Gray
+            Write-Host '    Ubuntu     Ubuntu Server 24.04 (LIN1 + SSH post-install)' -ForegroundColor Gray
+            Write-Host '    WebServerUbuntu Ubuntu web server (LINWEB1 + nginx)' -ForegroundColor Gray
+            Write-Host '    DatabaseUbuntu  Ubuntu database (LINDB1 + PostgreSQL)' -ForegroundColor Gray
+            Write-Host '    DockerUbuntu    Ubuntu Docker host (LINDOCK1 + Docker CE)' -ForegroundColor Gray
+            Write-Host '    K8sUbuntu       Ubuntu Kubernetes (LINK8S1 + k3s)' -ForegroundColor Gray
             Write-Host ''
             Read-Host '  Press Enter to continue'
         }
@@ -160,6 +186,7 @@ function Select-LabRoles {
     # Build list of selected role tags
     $selectedTags = @()
     for ($i = 0; $i -lt $count; $i++) {
+        if ($roleMenu[$i].Separator) { continue }
         if ($selected[$i]) {
             $selectedTags += $roleMenu[$i].Tag
         }
@@ -172,19 +199,25 @@ function Select-LabRoles {
     Write-Host '  Build Plan Summary' -ForegroundColor Cyan
     Write-Host ('  ' + ('=' * 50)) -ForegroundColor Cyan
     Write-Host ''
-    Write-Host '  VM Name       IP Address       Role' -ForegroundColor White
-    Write-Host '  -------       ----------       ----' -ForegroundColor Gray
+    Write-Host '  VM Name       IP Address       OS    Role' -ForegroundColor White
+    Write-Host '  -------       ----------       --    ----' -ForegroundColor Gray
 
     for ($i = 0; $i -lt $count; $i++) {
+        if ($roleMenu[$i].Separator) { continue }
         if ($selected[$i]) {
             $tag = $roleMenu[$i].Tag
             $vmName = $Config.VMNames[$tag]
             $ip = $Config.IPPlan[$tag]
             $label = $roleMenu[$i].Label
+            $isLinux = ($tag -like '*Ubuntu')
+            $osMarker = if ($isLinux) { '[LIN]' } else { '[WIN]' }
+            $osColor = if ($isLinux) { 'DarkCyan' } else { 'Gray' }
 
             $vmCol = $vmName.PadRight(14)
             $ipCol = $ip.PadRight(17)
-            Write-Host "  $vmCol $ipCol $label" -ForegroundColor White
+            Write-Host "  $vmCol $ipCol " -NoNewline -ForegroundColor White
+            Write-Host "$osMarker " -NoNewline -ForegroundColor $osColor
+            Write-Host "$label" -ForegroundColor White
         }
     }
 

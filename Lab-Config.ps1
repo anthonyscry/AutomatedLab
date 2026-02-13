@@ -63,3 +63,40 @@ $AL_Timeout_DcRestart   = 90    # default 60
 $AL_Timeout_AdwsReady   = 120   # default 20
 $AL_Timeout_StartVM     = 90    # default 60
 $AL_Timeout_WaitVM      = 90    # default 60
+
+# ── Linux VM Static IPs ──
+$lin1_Ip  = '10.0.10.110'   # Ubuntu Linux 1
+$LIN1_Ip  = $lin1_Ip         # Legacy alias
+
+# ── Ubuntu VM Sizing ──
+$UBU_Memory     = 2GB
+$UBU_MinMemory  = 1GB
+$UBU_MaxMemory  = 4GB
+$UBU_Processors = 2
+
+# ── DHCP Scope (used by DC1 for Linux DHCP leases) ──
+$DhcpScopeId = '10.0.10.0'
+$DhcpStart   = '10.0.10.100'
+$DhcpEnd     = '10.0.10.200'
+$DhcpMask    = '255.255.255.0'
+
+# ── SSH / Linux Identity ──
+$SSHKeyDir     = Join-Path $LabSourcesRoot 'SSHKeys'
+$SSHPublicKey  = Join-Path $SSHKeyDir 'id_ed25519.pub'
+$SSHPrivateKey = Join-Path $SSHKeyDir 'id_ed25519'
+$LinuxUser     = 'labadmin'
+
+# ── Share paths (DC1) ──
+$ShareName = 'LabShare'
+$SharePath = 'C:\LabShare'
+$GitRepoPath = 'C:\LabShare\GitRepo'
+
+# ── Linux Mount/Project paths ──
+$LinuxLabShareMount = '/mnt/labshare'
+$LinuxProjectsRoot  = '/home/labadmin/projects'
+
+# ── Linux-specific timeouts ──
+$LIN1_WaitMinutes   = 30    # Max wait for Ubuntu SSH reachability
+$SSH_ConnectTimeout  = 8     # SSH connect timeout in seconds
+$SSH_PollInitialSec  = 10    # Initial polling interval for SSH wait
+$SSH_PollMaxSec      = 30    # Max polling interval (backoff ceiling)

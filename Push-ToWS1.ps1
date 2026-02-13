@@ -97,7 +97,7 @@ $pushVars = @{
     MOUNT_PATH = $LinuxLabShareMount
 }
 
-Invoke-BashOnLIN1 -BashScript $pushScript -ActivityName "Push-$ProjectName" -Variables $pushVars | Out-Null
+Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $pushScript -ActivityName "Push-$ProjectName" -Variables $pushVars | Out-Null
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green
 Write-Host "  On WS1:  cd L:\Transfer\$ProjectName" -ForegroundColor Gray

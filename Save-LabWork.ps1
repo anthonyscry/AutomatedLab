@@ -121,7 +121,7 @@ fi
         COMMIT_MSG = $CommitMsg
     }
 
-    Invoke-BashOnLIN1 -BashScript $saveScript -ActivityName "Save-$proj" -Variables $saveVars | Out-Null
+    Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $saveScript -ActivityName "Save-$proj" -Variables $saveVars | Out-Null
 }
 
 # Snapshot?
@@ -152,4 +152,3 @@ if ($doStop -eq 'y') {
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green
 Write-Host ""
-
