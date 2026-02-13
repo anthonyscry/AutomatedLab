@@ -8,14 +8,15 @@ function Get-LabNetworkConfig {
 
     # Initialize default network configuration
     $defaultConfig = [PSCustomObject]@{
-        Subnet = "10.0.0.0/24"
+        Subnet = "10.0.10.0/24"
         PrefixLength = 24
-        Gateway = ""
-        DNSServers = @()
+        Gateway = "10.0.10.1"
+        DNSServers = @("10.0.10.10")
         VMIPs = @{
-            "dc1" = "10.0.0.1"
-            "svr1" = "10.0.0.2"
-            "ws1" = "10.0.0.3"
+            "dc1"  = "10.0.10.10"
+            "svr1" = "10.0.10.20"
+            "ws1"  = "10.0.10.30"
+            "dsc"  = "10.0.10.40"
         }
     }
 

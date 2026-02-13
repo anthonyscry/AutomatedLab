@@ -4,7 +4,7 @@ function Get-LinuxVMDhcpLeaseIPv4 {
         [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
         [string]$DhcpServer = 'DC1',
-        [string]$ScopeId = '192.168.11.0'
+        [string]$ScopeId = '10.0.10.0'
     )
 
     $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1

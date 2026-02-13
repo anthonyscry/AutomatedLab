@@ -9,7 +9,7 @@ param(
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
     [switch]$IncludeLIN1,
-    [string]$AdminPassword = 'Server123!'
+    [string]$AdminPassword
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -28,21 +28,15 @@ $ProgressPreference = 'SilentlyContinue'
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
 $LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
-if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    if ($env:OPENCODELAB_ADMIN_PASSWORD) {
-        $AdminPassword = $env:OPENCODELAB_ADMIN_PASSWORD
-    }
-}
-if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    $AdminPassword = 'Server123!'
-    Write-LabStatus -Status WARN -Message "AdminPassword was empty. Falling back to default password."
-}
+# Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
+# Lab-Config.ps1 (dot-sourced above) sets $AdminPassword if our param was empty.
+$AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
 $IsoPath        = "$LabSourcesRoot\ISOs"
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
 
 # Backward-compatible defaults for Server1 topology if Lab-Config.ps1 is older.
-if (-not (Get-Variable -Name Server1_Ip -ErrorAction SilentlyContinue)) { $Server1_Ip = '192.168.11.4' }
+if (-not (Get-Variable -Name Server1_Ip -ErrorAction SilentlyContinue)) { $Server1_Ip = '10.0.10.20' }
 if (-not (Get-Variable -Name Server_Memory -ErrorAction SilentlyContinue)) { $Server_Memory = $DC_Memory }
 if (-not (Get-Variable -Name Server_MinMemory -ErrorAction SilentlyContinue)) { $Server_MinMemory = $DC_MinMemory }
 if (-not (Get-Variable -Name Server_MaxMemory -ErrorAction SilentlyContinue)) { $Server_MaxMemory = $DC_MaxMemory }

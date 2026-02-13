@@ -29,7 +29,7 @@ function New-LinuxGoldenVhdx {
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$UbuntuIsoPath,
         [string]$Hostname = 'golden-template',
         [string]$Username = 'labadmin',
-        [string]$Password = 'Server123!',
+        [string]$Password = $(if ($AdminPassword) { $AdminPassword } else { 'SimpleLab123!' }),
         [string]$SwitchName = $LabSwitch,
         [int]$WaitMinutes = 45,
         [long]$DiskSize = 60GB

@@ -10,12 +10,17 @@ function Initialize-LabConfig {
     )
 
     try {
-        # Resolve path relative to module root ($PSScriptRoot is SimpleLab/ directory)
-        $resolvedPath = Join-Path $PSScriptRoot "..\$ConfigPath"
-        $resolvedPath = Resolve-Path $resolvedPath -ErrorAction SilentlyContinue
+        # Resolve target path (absolute path honored, otherwise relative to repo root)
+        $repoRoot = Split-Path -Parent $PSScriptRoot
+        $targetPath = if ([System.IO.Path]::IsPathRooted($ConfigPath)) {
+            $ConfigPath
+        } else {
+            Join-Path $repoRoot $ConfigPath
+        }
+        $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($targetPath)
 
         # Check if config already exists
-        if ($resolvedPath -and (Test-Path -Path $resolvedPath -PathType Leaf)) {
+        if (Test-Path -Path $resolvedPath -PathType Leaf) {
             if (-not $Force) {
                 # Load and return existing config
                 $jsonContent = Get-Content -Path $resolvedPath -Raw -ErrorAction Stop
@@ -24,16 +29,10 @@ function Initialize-LabConfig {
             }
         }
 
-        # Ensure .planning directory exists
-        $planningDir = Join-Path $PSScriptRoot "..\.planning"
-        if (-not (Test-Path -Path $planningDir -PathType Container)) {
-            New-Item -Path $planningDir -ItemType Directory -Force | Out-Null
-        }
-
-        # Determine final config file path
-        if (-not $resolvedPath) {
-            $resolvedPath = Join-Path $PSScriptRoot "..\$ConfigPath"
-            $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($resolvedPath)
+        # Ensure destination directory exists
+        $targetDir = Split-Path -Parent $resolvedPath
+        if (-not (Test-Path -Path $targetDir -PathType Container)) {
+            New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
         }
 
         # Create default config object

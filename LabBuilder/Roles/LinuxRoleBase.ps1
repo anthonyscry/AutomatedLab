@@ -20,7 +20,7 @@ function Invoke-LinuxRoleCreateVM {
 
     # Resolve password
     $envPassword = [System.Environment]::GetEnvironmentVariable($LabConfig.CredentialEnvVar)
-    if ([string]::IsNullOrWhiteSpace($envPassword)) { $envPassword = 'Server123!' }
+    if ([string]::IsNullOrWhiteSpace($envPassword)) { $envPassword = 'SimpleLab123!' }
     $pwHash = Get-Sha512PasswordHash -Password $envPassword
 
     # SSH public key

@@ -6,7 +6,7 @@ function Wait-LinuxVMReady {
         [string]$VMName = 'LIN1',
         [int]$WaitMinutes = 30,
         [string]$DhcpServer = 'DC1',
-        [string]$ScopeId = '192.168.11.0',
+        [string]$ScopeId = '10.0.10.0',
         [int]$PollInitialSec = 15,
         [int]$PollMaxSec = 45
     )

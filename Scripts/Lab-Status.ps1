@@ -11,7 +11,7 @@ $CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1','WSUS1','WS1') }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('dc1','svr1','dsc','ws1') }
 
 # Include Linux VMs if present
 $lin1Exists = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue

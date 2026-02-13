@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
-    [string]$AdminPassword = 'Server123!'
+    [string]$AdminPassword
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -18,13 +18,8 @@ if (Test-Path $CommonPath) { . $CommonPath }
 
 $ErrorActionPreference = 'Stop'
 
-if ([string]::IsNullOrWhiteSpace($AdminPassword) -and $env:OPENCODELAB_ADMIN_PASSWORD) {
-    $AdminPassword = $env:OPENCODELAB_ADMIN_PASSWORD
-}
-if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    $AdminPassword = 'Server123!'
-    Write-LabStatus -Status WARN -Message "AdminPassword was empty. Falling back to default password."
-}
+# Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
+$AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
 if (-not (Import-OpenCodeLab -Name $LabName)) {
     throw "Lab '$LabName' is not imported. Run deploy first."

@@ -18,14 +18,14 @@ $CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $CommonPath) { . $CommonPath }
 
 # Defaults (overridden by Lab-Config.ps1 if present)
-if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'OpenCodeLab' }
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('DC1', 'WSUS1', 'WS1') }
+if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'AutomatedLab' }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('dc1', 'svr1', 'dsc', 'ws1') }
 if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $LinuxUser = 'anthonyscry' }
 if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
 
 $ExpectedVMs = if ($IncludeLIN1) { @($LabVMs + 'LIN1' | Select-Object -Unique) } else { @($LabVMs | Where-Object { $_ -ne 'LIN1' }) }
-if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $DomainName = 'opencode.lab' }
-if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '192.168.11.6' }
+if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $DomainName = 'simplelab.local' }
+if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '10.0.10.110' }
 $SSHKeyPath = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
 $issues = New-Object System.Collections.Generic.List[string]
 . (Join-Path $ScriptDir 'Helpers-TestReport.ps1')

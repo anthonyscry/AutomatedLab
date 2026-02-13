@@ -17,8 +17,8 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 
 # Defaults in case Lab-Config.ps1 is absent
 if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'OpenCodeLabSwitch' }
-if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = 'OpenCodeLabSwitchNAT' }
+if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'AutomatedLab' }
+if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = 'AutomatedLabNAT' }
 if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso') }
 
 $IsoPath = Join-Path $LabSourcesRoot 'ISOs'
@@ -38,7 +38,7 @@ Write-Host "`n=== OPENCODELAB PREFLIGHT ===" -ForegroundColor Cyan
 if ($IncludeLIN1) {
     Write-Host "  Mode: FULL (Windows core + optional Ubuntu LIN1)" -ForegroundColor Green
 } else {
-    Write-Host "  Mode: WINDOWS CORE (DC1 + WSUS1 + WS1)" -ForegroundColor Yellow
+    Write-Host "  Mode: WINDOWS CORE (dc1 + svr1 + dsc + ws1)" -ForegroundColor Yellow
 }
 
 try {
