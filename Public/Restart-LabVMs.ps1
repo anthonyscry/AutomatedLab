@@ -39,9 +39,11 @@ function Restart-LabVMs {
         [switch]$Wait,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSeconds = 600,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$StabilizationSeconds = 30
     )
 

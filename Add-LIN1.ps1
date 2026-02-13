@@ -99,6 +99,7 @@ Write-Host "[OK] Ubuntu ISO found: $ubuntuIso" -ForegroundColor Green
 Write-Host ""
 Write-Host "[LIN1] Creating VM..." -ForegroundColor Cyan
 
+$lin1CreateSucceeded = $false
 try {
     # Generate password hash for autoinstall identity
     Write-Host "  Generating password hash..." -ForegroundColor Gray
@@ -127,17 +128,19 @@ try {
     # Start VM -- Ubuntu autoinstall should proceed unattended
     Start-VM -Name 'LIN1'
     Write-Host "  [OK] LIN1 VM started. Ubuntu autoinstall in progress..." -ForegroundColor Green
+    $lin1CreateSucceeded = $true
 }
 catch {
     Write-Host "  [ERROR] LIN1 VM creation failed: $($_.Exception.Message)" -ForegroundColor Red
-    
-    # Rollback: Clean up partial artifacts
-    Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
-    Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
-    Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
-    Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
-    
     throw
+}
+finally {
+    if (-not $lin1CreateSucceeded) {
+        Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
+        Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # Wait for LIN1 to become SSH-reachable

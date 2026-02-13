@@ -30,12 +30,14 @@ function Suspend-LabVM {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory=$true, Position=0)]
+        [ValidateNotNullOrEmpty()]
         [string]$VMName,
 
         [Parameter()]
         [switch]$Wait,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSeconds = 60
     )
 

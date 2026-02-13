@@ -3,12 +3,14 @@ function New-LabVM {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateNotNullOrEmpty()]
         [string]$VMName,
 
         [Parameter(Mandatory = $true)]
         [int]$MemoryGB,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$VHDPath,
 
         [Parameter()]
@@ -18,6 +20,7 @@ function New-LabVM {
         [string]$IsoPath,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$ProcessorCount = 2,
 
         [Parameter()]

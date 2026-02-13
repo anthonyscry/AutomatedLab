@@ -39,6 +39,7 @@ function Restart-LabVM {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory=$true, Position=0)]
+        [ValidateNotNullOrEmpty()]
         [string]$VMName,
 
         [Parameter()]
@@ -48,9 +49,11 @@ function Restart-LabVM {
         [switch]$Wait,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSeconds = 300,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$StabilizationSeconds = 30
     )
 
@@ -91,6 +94,7 @@ function Restart-LabVM {
         # Record previous state
         $result.PreviousState = $vm.State
         $wasRunning = $vm.State -eq "Running"
+        $vmId = $vm.VMId
 
         # Step 3: Stop the VM if it's running or in other active states
         $stopStart = Get-Date
@@ -116,7 +120,7 @@ function Restart-LabVM {
                 $offStateReached = $false
 
                 while ((New-TimeSpan -Start $stopWaitStart -End (Get-Date)).TotalSeconds -lt $stopTimeout) {
-                    $vmCheck = Get-VM -Name $VMName -ErrorAction SilentlyContinue
+                    $vmCheck = Get-VM -Id $vmId -ErrorAction SilentlyContinue
                     if ($vmCheck -and $vmCheck.State -eq "Off") {
                         $offStateReached = $true
                         Write-Verbose "VM '$VMName' is now Off"
@@ -179,7 +183,7 @@ function Restart-LabVM {
             $ready = $false
 
             while ((New-TimeSpan -Start $waitStart -End (Get-Date)).TotalSeconds -lt $TimeoutSeconds) {
-                $vmCheck = Get-VM -Name $VMName -ErrorAction SilentlyContinue
+                $vmCheck = Get-VM -Id $vmId -ErrorAction SilentlyContinue
 
                 if ($vmCheck -and $vmCheck.State -eq "Running" -and $vmCheck.Heartbeat -eq "Ok") {
                     Write-Verbose "VM '$VMName' is Running and Heartbeat OK"
@@ -212,7 +216,7 @@ function Restart-LabVM {
         }
 
         # Get final state
-        $vmFinal = Get-VM -Name $VMName -ErrorAction SilentlyContinue
+        $vmFinal = Get-VM -Id $vmId -ErrorAction SilentlyContinue
         if ($vmFinal) {
             $result.CurrentState = $vmFinal.State
         }

@@ -35,6 +35,7 @@ function Start-LabVMs {
         [switch]$Wait,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSeconds = 300
     )
 
@@ -73,31 +74,88 @@ function Start-LabVMs {
         # Step 3: Start order: DC first, then other servers, then clients
         $startOrder = @("dc1", "svr1", "ws1")
 
-        foreach ($vmName in $startOrder) {
-            # Check if VM exists
+        # Start DC first (synchronous)
+        $dcName = $startOrder | Where-Object { $_ -eq 'dc1' } | Select-Object -First 1
+        if ($dcName) {
+            $vm = Get-VM -Name $dcName -ErrorAction SilentlyContinue
+            if ($null -eq $vm) {
+                Write-Verbose "VM '$dcName' does not exist, skipping"
+            }
+            elseif ($vm.State -eq "Running") {
+                Write-Verbose "VM '$dcName' is already running"
+                $result.AlreadyRunning += $dcName
+            }
+            else {
+                try {
+                    Write-Verbose "Starting VM '$dcName'..."
+                    Start-VM -Name $dcName -ErrorAction Stop
+                    $result.VMsStarted += $dcName
+                    Write-Verbose "VM '$dcName' start command sent"
+                }
+                catch {
+                    Write-Error "Failed to start VM '$dcName': $($_.Exception.Message)"
+                    $result.FailedVMs += $dcName
+                }
+            }
+        }
+
+        # Start remaining VMs in parallel
+        $otherVMs = $startOrder | Where-Object { $_ -ne 'dc1' }
+        $jobs = @()
+
+        foreach ($vmName in $otherVMs) {
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($null -eq $vm) {
                 Write-Verbose "VM '$vmName' does not exist, skipping"
                 continue
             }
 
-            # Check current state
             if ($vm.State -eq "Running") {
                 Write-Verbose "VM '$vmName' is already running"
                 $result.AlreadyRunning += $vmName
                 continue
             }
 
-            # Start the VM
-            try {
-                Write-Verbose "Starting VM '$vmName'..."
-                Start-VM -Name $vmName -ErrorAction Stop
-                $result.VMsStarted += $vmName
-                Write-Verbose "VM '$vmName' start command sent"
-            }
-            catch {
-                Write-Error "Failed to start VM '$vmName': $($_.Exception.Message)"
-                $result.FailedVMs += $vmName
+            $jobs += Start-Job -ScriptBlock {
+                param($Name)
+                try {
+                    Import-Module Hyper-V -ErrorAction Stop
+                    Start-VM -Name $Name -ErrorAction Stop | Out-Null
+                    [pscustomobject]@{ VMName = $Name; Success = $true; ErrorMessage = '' }
+                }
+                catch {
+                    [pscustomobject]@{ VMName = $Name; Success = $false; ErrorMessage = $_.Exception.Message }
+                }
+            } -ArgumentList $vmName
+        }
+
+        if ($jobs.Count -gt 0) {
+            $jobs | Wait-Job -Timeout $TimeoutSeconds | Out-Null
+
+            foreach ($job in $jobs) {
+                $jobOutput = @()
+                if ($job.State -eq 'Completed') {
+                    $jobOutput = @(Receive-Job -Job $job -ErrorAction SilentlyContinue)
+                }
+
+                if ($job.State -eq 'Completed' -and $jobOutput.Count -gt 0 -and $jobOutput[0].Success) {
+                    $result.VMsStarted += $jobOutput[0].VMName
+                    Write-Verbose "VM '$($jobOutput[0].VMName)' start command sent"
+                }
+                elseif ($job.State -eq 'Completed' -and $jobOutput.Count -gt 0) {
+                    Write-Error "Failed to start VM '$($jobOutput[0].VMName)': $($jobOutput[0].ErrorMessage)"
+                    $result.FailedVMs += $jobOutput[0].VMName
+                }
+                else {
+                    if ($job.State -eq 'Running') {
+                        Stop-Job -Job $job -ErrorAction SilentlyContinue
+                    }
+                    $failedName = if ($jobOutput.Count -gt 0 -and $jobOutput[0].VMName) { $jobOutput[0].VMName } else { "Job-$($job.Id)" }
+                    Write-Error "Failed to start VM '$failedName': Job did not complete successfully"
+                    $result.FailedVMs += $failedName
+                }
+
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
             }
         }
 

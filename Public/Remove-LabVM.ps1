@@ -26,6 +26,7 @@ function Remove-LabVM {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateNotNullOrEmpty()]
         [string]$VMName,
 
         [Parameter()]

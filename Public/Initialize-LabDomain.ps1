@@ -49,6 +49,7 @@ function Initialize-LabDomain {
         [switch]$Force,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$WaitTimeoutMinutes = 15
     )
 

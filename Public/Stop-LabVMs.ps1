@@ -41,6 +41,7 @@ function Stop-LabVMs {
         [switch]$Wait,
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSeconds = 60
     )
 
@@ -79,37 +80,105 @@ function Stop-LabVMs {
         # Step 3: Stop order: reverse of start (clients first, then DC)
         $stopOrder = @("ws1", "svr1", "dc1")
 
-        foreach ($vmName in $stopOrder) {
-            # Check if VM exists
+        # Stop clients + member servers in parallel first
+        $nonDcVMs = $stopOrder | Where-Object { $_ -ne 'dc1' }
+        $jobs = @()
+
+        foreach ($vmName in $nonDcVMs) {
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($null -eq $vm) {
                 Write-Verbose "VM '$vmName' does not exist, skipping"
                 continue
             }
 
-            # Check current state
             if ($vm.State -eq "Off") {
                 Write-Verbose "VM '$vmName' is already stopped"
                 $result.AlreadyStopped += $vmName
                 continue
             }
 
-            # Stop the VM
-            try {
-                if ($Force) {
-                    Write-Verbose "Turning off VM '$vmName'..."
-                    Stop-VM -Name $vmName -TurnOff -Force -ErrorAction Stop
+            $jobs += Start-Job -ScriptBlock {
+                param($Name, $UseForce)
+                try {
+                    Import-Module Hyper-V -ErrorAction Stop
+                    if ($UseForce) {
+                        Stop-VM -Name $Name -TurnOff -Force -ErrorAction Stop | Out-Null
+                    }
+                    else {
+                        Stop-VM -Name $Name -Force -ErrorAction Stop | Out-Null
+                    }
+                    [pscustomobject]@{ VMName = $Name; Success = $true; ErrorMessage = '' }
+                }
+                catch {
+                    [pscustomobject]@{ VMName = $Name; Success = $false; ErrorMessage = $_.Exception.Message }
+                }
+            } -ArgumentList $vmName, [bool]$Force
+        }
+
+        if ($jobs.Count -gt 0) {
+            $jobs | Wait-Job -Timeout $TimeoutSeconds | Out-Null
+
+            foreach ($job in $jobs) {
+                $jobOutput = @()
+                if ($job.State -eq 'Completed') {
+                    $jobOutput = @(Receive-Job -Job $job -ErrorAction SilentlyContinue)
+                }
+
+                if ($job.State -eq 'Completed' -and $jobOutput.Count -gt 0 -and $jobOutput[0].Success) {
+                    if ($Force) {
+                        Write-Verbose "Turning off VM '$($jobOutput[0].VMName)'..."
+                    }
+                    else {
+                        Write-Verbose "Shutting down VM '$($jobOutput[0].VMName)'..."
+                    }
+                    $result.VMsStopped += $jobOutput[0].VMName
+                    Write-Verbose "VM '$($jobOutput[0].VMName)' stop command sent"
+                }
+                elseif ($job.State -eq 'Completed' -and $jobOutput.Count -gt 0) {
+                    Write-Error "Failed to stop VM '$($jobOutput[0].VMName)': $($jobOutput[0].ErrorMessage)"
+                    $result.FailedVMs += $jobOutput[0].VMName
                 }
                 else {
-                    Write-Verbose "Shutting down VM '$vmName'..."
-                    Stop-VM -Name $vmName -Force -ErrorAction Stop
+                    if ($job.State -eq 'Running') {
+                        Stop-Job -Job $job -ErrorAction SilentlyContinue
+                    }
+                    $failedName = if ($jobOutput.Count -gt 0 -and $jobOutput[0].VMName) { $jobOutput[0].VMName } else { "Job-$($job.Id)" }
+                    Write-Error "Failed to stop VM '$failedName': Job did not complete successfully"
+                    $result.FailedVMs += $failedName
                 }
-                $result.VMsStopped += $vmName
-                Write-Verbose "VM '$vmName' stop command sent"
+
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
             }
-            catch {
-                Write-Error "Failed to stop VM '$vmName': $($_.Exception.Message)"
-                $result.FailedVMs += $vmName
+        }
+
+        # Stop DC last
+        $dcVmName = $stopOrder | Where-Object { $_ -eq 'dc1' } | Select-Object -First 1
+        if ($dcVmName) {
+            $vm = Get-VM -Name $dcVmName -ErrorAction SilentlyContinue
+            if ($null -eq $vm) {
+                Write-Verbose "VM '$dcVmName' does not exist, skipping"
+            }
+            elseif ($vm.State -eq "Off") {
+                Write-Verbose "VM '$dcVmName' is already stopped"
+                $result.AlreadyStopped += $dcVmName
+            }
+            else {
+                try {
+                    if ($Force) {
+                        Write-Verbose "Turning off VM '$dcVmName'..."
+                        Stop-VM -Name $dcVmName -TurnOff -Force -ErrorAction Stop
+                    }
+                    else {
+                        Write-Verbose "Shutting down VM '$dcVmName'..."
+                        Stop-VM -Name $dcVmName -Force -ErrorAction Stop
+                    }
+                    $result.VMsStopped += $dcVmName
+                    Write-Verbose "VM '$dcVmName' stop command sent"
+                }
+                catch {
+                    Write-Error "Failed to stop VM '$dcVmName': $($_.Exception.Message)"
+                    $result.FailedVMs += $dcVmName
+                }
             }
         }
 

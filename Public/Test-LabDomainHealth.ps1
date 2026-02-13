@@ -74,6 +74,7 @@ function Test-LabDomainHealth {
 
         Write-Verbose "Starting domain health validation for '$targetDomain'..."
 
+        #region DC Connectivity Checks
         # === Check 1: Domain Controller Health ===
         Write-Verbose "Checking domain controller health..."
 
@@ -130,6 +131,7 @@ function Test-LabDomainHealth {
                         Message = "Domain controller is accessible via PowerShell Direct"
                     }
 
+                    #region AD DS Service Validation
                     # Check AD DS service
                     try {
                         $addsdService = Invoke-Command -VMName "dc1" -ScriptBlock {
@@ -232,7 +234,10 @@ function Test-LabDomainHealth {
             Status = $dcHealth.Status
             Message = $dcHealth.Message
         }
+        #endregion AD DS Service Validation
+        #endregion DC Connectivity Checks
 
+        #region DNS Validation
         # === Check 2: DNS Health ===
         Write-Verbose "Checking DNS health..."
 
@@ -404,7 +409,9 @@ function Test-LabDomainHealth {
             Status = $dnsHealth.Status
             Message = $dnsHealth.Message
         }
+        #endregion DNS Validation
 
+        #region Domain Trust Verification
         # === Check 3: Member Server Health ===
         if ($IncludeMemberServers) {
             Write-Verbose "Checking member server health..."
@@ -557,7 +564,9 @@ function Test-LabDomainHealth {
                 }
             }
         }
+        #endregion Domain Trust Verification
 
+        #region Result Compilation
         # === Overall Assessment ===
         Write-Verbose "Determining overall domain health status..."
 
@@ -588,6 +597,7 @@ function Test-LabDomainHealth {
         Write-Verbose "Domain health validation completed: $($result.OverallStatus)"
 
         return $result
+        #endregion Result Compilation
     }
     catch {
         $result.OverallStatus = "Error"

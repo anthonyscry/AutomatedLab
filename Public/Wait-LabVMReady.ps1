@@ -32,9 +32,11 @@ function Wait-LabVMReady {
         [string[]]$VMNames = @("dc1", "svr1", "ws1"),
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutMinutes = 75,  # 75 min is sufficient for SSD, fast CPU
 
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$SleepIntervalSeconds = 30
     )
 

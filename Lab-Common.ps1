@@ -1,6 +1,56 @@
 # Lab-Common.ps1 -- Shared helpers for OpenCode Dev Lab workflow scripts
+#
+# REGIONS:
+#   - AutomatedLab Import: Module loading
+#   - VM Lifecycle: Ensure-VMRunning, Remove-HyperVVMStale, Ensure-VMsReady
+#   - Linux VM Networking & SSH: IP detection, DHCP, SSH connection
+#   - SSH & Git Identity: Key management, identity helpers
+#   - Linux VM Remote Execution: Invoke-BashOnLinuxVM, Join-LinuxToDomain
+#   - Linux VM Provisioning: CIDATA, golden VHDX, VM creation
+#   - Reporting: Deployment report generation
+#   - Backward-Compatible Aliases
+#
+# FUTURE: Split into focused modules (VM-Lifecycle.ps1, Linux-SSH.ps1,
+#         Linux-Provisioning.ps1, Reporting.ps1) when consumer scripts
+#         are updated to use module imports instead of dot-sourcing.
 
 Set-StrictMode -Version Latest
+
+function Write-LabStatus {
+    <#
+    .SYNOPSIS
+    Unified status output with consistent prefixes and colors.
+    .PARAMETER Status
+    One of: OK, WARN, FAIL, INFO, SKIP, CACHE, NOTE
+    .PARAMETER Message
+    The message text.
+    .PARAMETER Indent
+    Number of 2-space indentation levels (default: 1).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('OK','WARN','FAIL','INFO','SKIP','CACHE','NOTE')]
+        [string]$Status,
+        [Parameter(Mandatory)]
+        [string]$Message,
+        [int]$Indent = 1
+    )
+
+    $pad = '  ' * $Indent
+    $colorMap = @{
+        OK    = 'Green'
+        WARN  = 'Yellow'
+        FAIL  = 'Red'
+        INFO  = 'Gray'
+        SKIP  = 'DarkGray'
+        CACHE = 'DarkGray'
+        NOTE  = 'Cyan'
+    }
+
+    $color = $colorMap[$Status]
+    Write-Host "${pad}[$Status] $Message" -ForegroundColor $color
+}
 
 #region AutomatedLab Import
 
@@ -27,7 +77,7 @@ function Import-OpenCodeLab {
 
 function Ensure-VMRunning {
     param(
-        [Parameter(Mandatory)] [string[]] $VMNames,
+        [Parameter(Mandatory)] [ValidateNotNullOrEmpty()] [string[]] $VMNames,
         [switch] $AutoStart
     )
     $missing = @()
@@ -36,7 +86,15 @@ function Ensure-VMRunning {
         if (-not $vm) { $missing += $n; continue }
         if ($vm.State -ne 'Running') {
             if ($AutoStart) {
-                Start-VM -Name $n -ErrorAction SilentlyContinue | Out-Null
+                try {
+                    Start-VM -Name $n -ErrorAction Stop | Out-Null
+                } catch {
+                    # VM may have started between our check and this call
+                    $refreshedVm = Get-VM -Name $n -ErrorAction SilentlyContinue
+                    if (-not $refreshedVm -or $refreshedVm.State -ne 'Running') {
+                        throw "Failed to start VM '$n': $($_.Exception.Message)"
+                    }
+                }
             } else {
                 return $false
             }
@@ -53,7 +111,7 @@ function Ensure-VMRunning {
 function Remove-HyperVVMStale {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$VMName,
         [Parameter()][string]$Context = 'cleanup',
         [Parameter()][int]$MaxAttempts = 3
     )
@@ -105,7 +163,7 @@ function Remove-HyperVVMStale {
 
 function Ensure-VMsReady {
     param(
-        [Parameter(Mandatory)][string[]]$VMNames,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string[]]$VMNames,
         [switch]$NonInteractive,
         [switch]$AutoStart
     )
@@ -127,6 +185,7 @@ function Ensure-VMsReady {
 
 function Get-LinuxVMIPv4 {
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1'
     )
 
@@ -146,6 +205,7 @@ function Get-LinuxVMIPv4 {
 
 function Get-LinuxVMDhcpLeaseIPv4 {
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
         [string]$DhcpServer = 'DC1',
         [string]$ScopeId = '192.168.11.0'
@@ -199,6 +259,7 @@ function Get-LinuxVMDhcpLeaseIPv4 {
 function Wait-LinuxVMReady {
     [CmdletBinding()]
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
         [int]$WaitMinutes = 30,
         [string]$DhcpServer = 'DC1',
@@ -275,9 +336,10 @@ function Get-LinuxSSHConnectionInfo {
     #>
     [CmdletBinding()]
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
-        [string]$User = $LinuxUser,
-        [string]$KeyPath = $SSHPrivateKey
+        [string]$User = $(if ($LinuxUser) { $LinuxUser } else { 'labadmin' }),
+        [string]$KeyPath = $(if ($SSHPrivateKey) { $SSHPrivateKey } else { 'C:\LabSources\SSHKeys\id_ed25519' })
     )
 
     $ip = Get-LinuxVMIPv4 -VMName $VMName
@@ -306,10 +368,11 @@ function Add-LinuxDhcpReservation {
     #>
     [CmdletBinding()]
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
-        [string]$ReservedIP = $LIN1_Ip,
+        [string]$ReservedIP = $(if ($LIN1_Ip) { $LIN1_Ip } else { '10.0.10.110' }),
         [string]$DhcpServer = 'DC1',
-        [string]$ScopeId = $DhcpScopeId
+        [string]$ScopeId = $(if ($DhcpScopeId) { $DhcpScopeId } else { '10.0.10.0' })
     )
 
     $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -365,6 +428,65 @@ function Ensure-SSHKey {
     }
 }
 
+function Invoke-LinuxSSH {
+    <#
+    .SYNOPSIS
+    Execute a command on a Linux VM via SSH.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$IP,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Command,
+        [string]$User = $LinuxUser,
+        [string]$KeyPath = $SSHPrivateKey,
+        [int]$ConnectTimeout = $SSH_ConnectTimeout,
+        [switch]$PassThru
+    )
+
+    $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
+    if (-not (Test-Path $sshExe)) {
+        throw "OpenSSH client not found at $sshExe. Install Windows optional feature: OpenSSH Client."
+    }
+
+    $sshArgs = @(
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=NUL',
+        '-o', "ConnectTimeout=$ConnectTimeout",
+        '-i', $KeyPath,
+        "$User@$IP",
+        $Command
+    )
+
+    if ($PassThru) {
+        return (& $sshExe @sshArgs 2>&1)
+    }
+    else {
+        & $sshExe @sshArgs 2>&1 | ForEach-Object { Write-Host "      $_" -ForegroundColor Gray }
+    }
+}
+
+function Copy-LinuxFile {
+    <#
+    .SYNOPSIS
+    Copy a file to a Linux VM via SCP.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$IP,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$LocalPath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$RemotePath,
+        [string]$User = $LinuxUser,
+        [string]$KeyPath = $SSHPrivateKey
+    )
+
+    $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
+    if (-not (Test-Path $scpExe)) {
+        throw "OpenSSH scp not found at $scpExe."
+    }
+
+    & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $KeyPath $LocalPath "${User}@${IP}:${RemotePath}" 2>&1 | Out-Null
+}
+
 function Get-GitIdentity {
     param([string]$DefaultName, [string]$DefaultEmail)
 
@@ -388,7 +510,7 @@ function Get-GitIdentity {
 function Invoke-BashOnLinuxVM {
     param(
         # Uses AutomatedLab Copy-LabFileItem / Invoke-LabCommand and requires the VM to be registered in AutomatedLab.
-        [Parameter(Mandatory)][string]$VMName = 'LIN1',
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$VMName = 'LIN1',
         [Parameter(Mandatory)][string]$BashScript,
         [Parameter(Mandatory)][string]$ActivityName,
         [hashtable]$Variables = @{},
@@ -436,13 +558,14 @@ function Join-LinuxToDomain {
     #>
     [CmdletBinding()]
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
-        [string]$DomainName = $DomainName,
-        [string]$DomainAdmin = $LabInstallUser,
-        [string]$DomainPassword = $AdminPassword,
-        [string]$User = $LinuxUser,
-        [string]$KeyPath = $SSHPrivateKey,
-        [int]$SSHTimeout = $SSH_ConnectTimeout
+        [string]$DomainName = $(if ($DomainName) { $DomainName } else { 'simplelab.local' }),
+        [string]$DomainAdmin = $(if ($LabInstallUser) { $LabInstallUser } else { 'Administrator' }),
+        [string]$DomainPassword = $(if ($AdminPassword) { $AdminPassword } else { 'SimpleLab123!' }),
+        [string]$User = $(if ($LinuxUser) { $LinuxUser } else { 'labadmin' }),
+        [string]$KeyPath = $(if ($SSHPrivateKey) { $SSHPrivateKey } else { 'C:\LabSources\SSHKeys\id_ed25519' }),
+        [int]$SSHTimeout = $(if ($SSH_ConnectTimeout) { $SSH_ConnectTimeout } else { 8 })
     )
 
     $ip = Get-LinuxVMIPv4 -VMName $VMName
@@ -450,20 +573,6 @@ function Join-LinuxToDomain {
         Write-Warning "Cannot determine IP for '$VMName'. Is it running?"
         return $false
     }
-
-    $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
-    if (-not (Test-Path $sshExe)) {
-        Write-Warning 'OpenSSH client not found.'
-        return $false
-    }
-
-    $sshArgs = @(
-        '-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=NUL',
-        '-o', "ConnectTimeout=$SSHTimeout",
-        '-i', $KeyPath,
-        "$User@$ip"
-    )
 
     # The domain join script
     $joinScript = @"
@@ -517,13 +626,10 @@ echo "[SSSD] Domain join complete."
     $joinScript | Set-Content -Path $tempScript -Encoding ASCII -Force
 
     try {
-        $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
-        & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $KeyPath $tempScript "${User}@${ip}:/tmp/domainjoin.sh" 2>&1 | Out-Null
+        Copy-LinuxFile -IP $ip -LocalPath $tempScript -RemotePath '/tmp/domainjoin.sh' -User $User -KeyPath $KeyPath
 
         Write-Host "    Joining $VMName to domain $DomainName via SSSD..." -ForegroundColor Cyan
-        & $sshExe @sshArgs "chmod +x /tmp/domainjoin.sh && bash /tmp/domainjoin.sh && rm -f /tmp/domainjoin.sh" 2>&1 | ForEach-Object {
-            Write-Host "      $_" -ForegroundColor Gray
-        }
+        Invoke-LinuxSSH -IP $ip -Command 'chmod +x /tmp/domainjoin.sh && bash /tmp/domainjoin.sh && rm -f /tmp/domainjoin.sh' -User $User -KeyPath $KeyPath -ConnectTimeout $SSHTimeout
 
         Write-Host "    [OK] $VMName joined to $DomainName" -ForegroundColor Green
         return $true
@@ -633,10 +739,10 @@ function New-CidataVhdx {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$OutputPath,
-        [Parameter(Mandatory)][string]$Hostname,
-        [Parameter(Mandatory)][string]$Username,
-        [Parameter(Mandatory)][string]$PasswordHash,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$OutputPath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Hostname,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$Username,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$PasswordHash,
         [string]$SSHPublicKey = '',
         [ValidateSet('Ubuntu2404','Ubuntu2204','Rocky9')]
         [string]$Distro = 'Ubuntu2404'
@@ -846,8 +952,8 @@ function New-LinuxGoldenVhdx {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$TemplatePath,
-        [Parameter(Mandatory)][string]$UbuntuIsoPath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$TemplatePath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$UbuntuIsoPath,
         [string]$Hostname = 'golden-template',
         [string]$Username = 'labadmin',
         [string]$Password = 'Server123!',
@@ -921,90 +1027,6 @@ function New-LinuxGoldenVhdx {
     return $null
 }
 
-function Show-LinuxInstallProgress {
-    <#
-    .SYNOPSIS
-    Monitors and displays Ubuntu autoinstall progress for a Linux VM.
-    .DESCRIPTION
-    Polls the VM's console output and network state to estimate installation
-    progress. Shows a simple progress bar with elapsed/remaining time.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$VMName,
-        [int]$WaitMinutes = 30,
-        [int]$PollSeconds = 15
-    )
-
-    $startTime = [datetime]::Now
-    $deadline = $startTime.AddMinutes($WaitMinutes)
-    $phases = @(
-        @{ Name = 'VM Boot'; Pct = 5; Signal = 'booting' }
-        @{ Name = 'DHCP Lease'; Pct = 15; Signal = 'dhcp' }
-        @{ Name = 'Installer'; Pct = 30; Signal = 'installing' }
-        @{ Name = 'Disk Setup'; Pct = 50; Signal = 'partitioning' }
-        @{ Name = 'Packages'; Pct = 70; Signal = 'packages' }
-        @{ Name = 'SSH Ready'; Pct = 95; Signal = 'ssh' }
-        @{ Name = 'Complete'; Pct = 100; Signal = 'done' }
-    )
-
-    $currentPhase = 0
-    $barWidth = 30
-
-    while ([datetime]::Now -lt $deadline) {
-        $elapsed = ([datetime]::Now - $startTime)
-        $remaining = ($deadline - [datetime]::Now)
-        $elapsedStr = '{0:D2}:{1:D2}' -f [int]$elapsed.TotalMinutes, $elapsed.Seconds
-        $remainStr = '{0:D2}:{1:D2}' -f [int]$remaining.TotalMinutes, $remaining.Seconds
-
-        # Detect phase based on VM state
-        $vm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
-        if (-not $vm) { break }
-
-        $adapter = Get-VMNetworkAdapter -VMName $VMName -ErrorAction SilentlyContinue | Select-Object -First 1
-        $hasIp = $false
-        $sshReady = $false
-        $ip = $null
-
-        if ($adapter -and ($adapter.PSObject.Properties.Name -contains 'IPAddresses')) {
-            $ips = @($adapter.IPAddresses) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' -and $_ -notmatch '^169\.254\.' }
-            if ($ips) {
-                $hasIp = $true
-                $ip = $ips | Select-Object -First 1
-                $sshCheck = Test-NetConnection -ComputerName $ip -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-                $sshReady = $sshCheck.TcpTestSucceeded
-            }
-        }
-
-        # Update phase estimate
-        if ($sshReady) { $currentPhase = 6 }
-        elseif ($hasIp -and $elapsed.TotalMinutes -gt 15) { $currentPhase = [math]::Max($currentPhase, 4) }
-        elseif ($hasIp) { $currentPhase = [math]::Max($currentPhase, 3) }
-        elseif ($vm.State -eq 'Running' -and $elapsed.TotalMinutes -gt 2) { $currentPhase = [math]::Max($currentPhase, 1) }
-        elseif ($vm.State -eq 'Running') { $currentPhase = [math]::Max($currentPhase, 0) }
-
-        $pct = $phases[$currentPhase].Pct
-        $phaseName = $phases[$currentPhase].Name
-        $filled = [math]::Floor($barWidth * $pct / 100)
-        $empty = $barWidth - $filled
-        $bar = ('[' + ('#' * $filled) + ('-' * $empty) + ']')
-
-        Write-Host "`r    $bar $pct% $phaseName  [$elapsedStr elapsed, $remainStr remaining]  " -NoNewline -ForegroundColor Cyan
-
-        if ($sshReady) {
-            Write-Host ""
-            Write-Host "    [OK] $VMName installation complete!" -ForegroundColor Green
-            return @{ Complete = $true; IP = $ip; ElapsedMinutes = [math]::Round($elapsed.TotalMinutes, 1) }
-        }
-
-        Start-Sleep -Seconds $PollSeconds
-    }
-
-    Write-Host ""
-    Write-Host "    [WARN] $VMName install did not complete within $WaitMinutes minutes." -ForegroundColor Yellow
-    return @{ Complete = $false; ElapsedMinutes = $WaitMinutes }
-}
-
 function New-LinuxVM {
     <#
     .SYNOPSIS
@@ -1048,15 +1070,15 @@ function New-LinuxVM {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$UbuntuIsoPath,
-        [Parameter(Mandatory)][string]$CidataVhdxPath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$UbuntuIsoPath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$CidataVhdxPath,
         [string]$VMName = 'LIN1',
         [string]$VhdxPath = '',
-        [string]$SwitchName = $LabSwitch,
-        [long]$Memory = $UBU_Memory,
-        [long]$MinMemory = $UBU_MinMemory,
-        [long]$MaxMemory = $UBU_MaxMemory,
-        [int]$Processors = $UBU_Processors,
+        [string]$SwitchName = $(if ($LabSwitch) { $LabSwitch } else { 'AutomatedLab' }),
+        [long]$Memory = $(if ($UBU_Memory) { $UBU_Memory } else { 2GB }),
+        [long]$MinMemory = $(if ($UBU_MinMemory) { $UBU_MinMemory } else { 1GB }),
+        [long]$MaxMemory = $(if ($UBU_MaxMemory) { $UBU_MaxMemory } else { 4GB }),
+        [int]$Processors = $(if ($UBU_Processors) { $UBU_Processors } else { 2 }),
         [long]$DiskSize = 60GB
     )
 
@@ -1073,26 +1095,26 @@ function New-LinuxVM {
     $vm = Hyper-V\New-VM -Name $VMName -Generation 2 `
         -MemoryStartupBytes $Memory `
         -NewVHDPath $VhdxPath -NewVHDSizeBytes $DiskSize `
-        -SwitchName $SwitchName
+        -SwitchName $SwitchName -ErrorAction Stop
 
     Hyper-V\Set-VM -VM $vm -DynamicMemory `
         -MemoryMinimumBytes $MinMemory -MemoryMaximumBytes $MaxMemory `
         -ProcessorCount $Processors `
-        -AutomaticCheckpointsEnabled $false
+        -AutomaticCheckpointsEnabled $false -ErrorAction Stop
 
     # Disable Secure Boot (required for Ubuntu on Gen2)
-    Hyper-V\Set-VMFirmware -VM $vm -EnableSecureBoot Off
+    Hyper-V\Set-VMFirmware -VM $vm -EnableSecureBoot Off -ErrorAction Stop
 
     # Attach Ubuntu ISO as DVD for installation boot
-    Hyper-V\Add-VMDvdDrive -VM $vm -Path $UbuntuIsoPath
+    Hyper-V\Add-VMDvdDrive -VM $vm -Path $UbuntuIsoPath -ErrorAction Stop
 
     # Attach CIDATA VHDX as second SCSI disk (cloud-init NoCloud seed)
-    Hyper-V\Add-VMHardDiskDrive -VM $vm -Path $CidataVhdxPath
+    Hyper-V\Add-VMHardDiskDrive -VM $vm -Path $CidataVhdxPath -ErrorAction Stop
 
     # Set boot order: DVD first (Ubuntu ISO), then hard disk (OS)
     $dvd = Hyper-V\Get-VMDvdDrive -VM $vm | Select-Object -First 1
     $hdd = Hyper-V\Get-VMHardDiskDrive -VM $vm | Where-Object { $_.Path -eq $VhdxPath } | Select-Object -First 1
-    Hyper-V\Set-VMFirmware -VM $vm -BootOrder $dvd, $hdd
+    Hyper-V\Set-VMFirmware -VM $vm -BootOrder $dvd, $hdd -ErrorAction Stop
 
     Write-Host "    [OK] VM '$VMName' created (Gen2, SecureBoot=Off, DVD+CIDATA)" -ForegroundColor Green
     return Hyper-V\Get-VM -Name $VMName
@@ -1108,6 +1130,7 @@ function Finalize-LinuxInstallMedia {
     #>
     [CmdletBinding()]
     param(
+        [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1'
     )
 
@@ -1299,5 +1322,10 @@ Set-Alias -Name Get-LIN1DhcpLeaseIPv4      -Value Get-LinuxVMDhcpLeaseIPv4
 Set-Alias -Name Invoke-BashOnLIN1          -Value Invoke-BashOnLinuxVM
 Set-Alias -Name New-LIN1VM                 -Value New-LinuxVM
 Set-Alias -Name Finalize-LIN1InstallMedia  -Value Finalize-LinuxInstallMedia
+
+# Standard-name aliases (Ensure- -> Test-Lab pattern)
+Set-Alias -Name Test-LabVMRunning        -Value Ensure-VMRunning
+Set-Alias -Name Test-LabVMsReady         -Value Ensure-VMsReady
+Set-Alias -Name Test-LabSSHKey           -Value Ensure-SSHKey
 
 #endregion Backward-Compatible Aliases

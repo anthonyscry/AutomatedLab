@@ -118,6 +118,8 @@ try {
                     $script:exitCode = $EXIT_VALIDATION
                 }
                 else {
+                    # Convention: Get-LabRole_<Tag> uses underscore separator for dynamic dispatch.
+                    # This is intentional -- the tag name maps directly to the function suffix.
                     Build-LabFromSelection -SelectedRoles $Roles -ConfigPath $ConfigPath
                 }
             }
