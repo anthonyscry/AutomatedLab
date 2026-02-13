@@ -4,26 +4,27 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Dot-source private functions
-$PrivateFunctions = Get-ChildItem -Path "$PSScriptRoot\Private\*.ps1" -ErrorAction SilentlyContinue
-foreach ($file in $PrivateFunctions) {
+$ModuleRoot = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { $PSScriptRoot }
+
+# Dot-source functions deterministically to keep import order stable.
+$privateFiles = @(Get-ChildItem -Path "$ModuleRoot\Private\*.ps1" -ErrorAction SilentlyContinue | Sort-Object Name)
+foreach ($file in $privateFiles) {
     try {
         . $file.FullName
     }
     catch {
-        Write-Error "Failed to import function $($file.BaseName): $_"
+        Write-Error "Failed to import private function '$($file.BaseName)': $_"
         throw
     }
 }
 
-# Dot-source public functions
-$PublicFunctions = Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1" -ErrorAction SilentlyContinue
-foreach ($file in $PublicFunctions) {
+$publicFiles = @(Get-ChildItem -Path "$ModuleRoot\Public\*.ps1" -ErrorAction SilentlyContinue | Sort-Object Name)
+foreach ($file in $publicFiles) {
     try {
         . $file.FullName
     }
     catch {
-        Write-Error "Failed to import function $($file.BaseName): $_"
+        Write-Error "Failed to import public function '$($file.BaseName)': $_"
         throw
     }
 }

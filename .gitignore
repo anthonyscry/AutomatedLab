@@ -1,5 +1,8 @@
 # Test results
 testResults.xml
+TestResults.xml
+coverage.xml
+Tests/*.xml
 *.trx
 
 # Logs

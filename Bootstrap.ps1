@@ -34,9 +34,9 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 
 # Defaults in case Lab-Config.ps1 is absent
 if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'OpenCodeLabSwitch' }
-if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $AddressSpace = '192.168.11.0/24' }
-if (-not (Get-Variable -Name GatewayIp -ErrorAction SilentlyContinue))      { $GatewayIp = '192.168.11.1' }
+if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'AutomatedLab' }
+if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $AddressSpace = '10.0.10.0/24' }
+if (-not (Get-Variable -Name GatewayIp -ErrorAction SilentlyContinue))      { $GatewayIp = '10.0.10.1' }
 if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = "${LabSwitch}NAT" }
 if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso') }
 
@@ -307,7 +307,7 @@ if (Test-Path $DeployScript) {
     if ($IncludeLIN1) {
         Write-Host "  Mode: FULL (Windows core + optional LIN1 Ubuntu)" -ForegroundColor Green
     } else {
-        Write-Host "  Mode: WINDOWS CORE (DC1 + WSUS1 + WS1)" -ForegroundColor Yellow
+        Write-Host "  Mode: WINDOWS CORE (DC1 + SVR1 + WS1)" -ForegroundColor Yellow
     }
     Write-Host "  This will take 30-60 minutes on first run.`n" -ForegroundColor Gray
     if ($NonInteractive) {
