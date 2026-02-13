@@ -17,7 +17,8 @@ function Wait-LabVMReady {
         Maximum minutes to wait per VM (default: 75, increase for slower systems).
 
     .PARAMETER SleepIntervalSeconds
-        Seconds between checks (default: 30).
+        Maximum seconds between checks (default: 30). The function starts with
+        shorter checks and backs off up to this value.
 
     .OUTPUTS
         PSCustomObject with ReadyVMs, NotReadyVMs, OverallStatus, Duration, Message.
@@ -58,10 +59,13 @@ function Wait-LabVMReady {
     Write-Host "This may take 30-60 minutes. Please be patient." -ForegroundColor Yellow
     Write-Host ""
 
+    $initialSleepSeconds = [Math]::Min($SleepIntervalSeconds, 5)
+
     foreach ($vmName in $VMNames) {
         $vmStartTime = Get-Date
         $isReady = $false
         $attempt = 0
+        $nextSleepSeconds = $initialSleepSeconds
 
         Write-Host "Waiting for '$vmName'..." -ForegroundColor Yellow
 
@@ -80,7 +84,18 @@ function Wait-LabVMReady {
             # Check if VM is running
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($null -eq $vm -or $vm.State -ne "Running") {
-                Start-Sleep -Seconds $SleepIntervalSeconds
+                Start-Sleep -Seconds $nextSleepSeconds
+                $nextSleepSeconds = [Math]::Min([int]([Math]::Ceiling($nextSleepSeconds * 1.5)), $SleepIntervalSeconds)
+                continue
+            }
+
+            # Skip expensive guest remoting until heartbeat indicates the guest is responsive.
+            $heartbeatReady = @('Ok', 'OperatingNormally') -contains ([string]$vm.Heartbeat)
+            if (-not $heartbeatReady) {
+                $elapsedMinutes = [math]::Round($elapsed.TotalMinutes, 1)
+                Write-Host "  [$($attempt)] VM running, guest not ready yet (${elapsedMinutes}min elapsed)`r" -NoNewline -ForegroundColor Gray
+                Start-Sleep -Seconds $nextSleepSeconds
+                $nextSleepSeconds = [Math]::Min([int]([Math]::Ceiling($nextSleepSeconds * 1.5)), $SleepIntervalSeconds)
                 continue
             }
 
@@ -106,14 +121,15 @@ function Wait-LabVMReady {
                 }
             }
             catch {
-                # VM not ready yet, continue waiting
+                Write-Verbose "PowerShell Direct check for '$vmName' not ready yet: $($_.Exception.Message)"
             }
 
             # Show progress
             $elapsedMinutes = [math]::Round($elapsed.TotalMinutes, 1)
-            Write-Host "  [$($attempt)] Waiting... (${elapsedMinutes}min elapsed)`r" -NoNewline -ForegroundColor Gray
+            Write-Host "  [$($attempt)] Waiting... (${elapsedMinutes}min elapsed, next check ${nextSleepSeconds}s)`r" -NoNewline -ForegroundColor Gray
 
-            Start-Sleep -Seconds $SleepIntervalSeconds
+            Start-Sleep -Seconds $nextSleepSeconds
+            $nextSleepSeconds = [Math]::Min([int]([Math]::Ceiling($nextSleepSeconds * 1.5)), $SleepIntervalSeconds)
         }
 
         Write-Host ""  # New line after progress
