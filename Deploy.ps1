@@ -722,97 +722,109 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         }
     } | Out-Null
 
-    # Install Git on DC1 (winget preferred, with offline/web fallback)
-    try {
-        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock {
-            $result = [pscustomobject]@{ Installed = $false; Message = '' }
+    $gitInstallerScriptBlock = {
+        param(
+            [string]$LocalInstallerPath,
+            [string]$GitDownloadUrl
+        )
 
-            function Invoke-ProcessWithTimeout {
-                param(
-                    [Parameter(Mandatory)][string]$FilePath,
-                    [Parameter(Mandatory)][string]$Arguments,
-                    [int]$TimeoutSeconds = 600
-                )
+        $result = [pscustomobject]@{ Installed = $false; Message = '' }
 
-                $proc = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru -NoNewWindow
-                $completed = $true
-                try {
-                    Wait-Process -Id $proc.Id -Timeout $TimeoutSeconds -ErrorAction Stop
-                } catch {
-                    $completed = $false
-                }
+        function Invoke-ProcessWithTimeout {
+            param(
+                [Parameter(Mandatory)][string]$FilePath,
+                [Parameter(Mandatory)][string]$Arguments,
+                [int]$TimeoutSeconds = 600
+            )
 
-                if (-not $completed) {
-                    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-                    return $null
-                }
-
-                $proc.Refresh()
-                return $proc.ExitCode
+            $proc = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru -NoNewWindow
+            $completed = $true
+            try {
+                Wait-Process -Id $proc.Id -Timeout $TimeoutSeconds -ErrorAction Stop
+            } catch {
+                $completed = $false
             }
 
-            if (Get-Command git -ErrorAction SilentlyContinue) {
+            if (-not $completed) {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                return $null
+            }
+
+            $proc.Refresh()
+            return $proc.ExitCode
+        }
+
+        if (Get-Command git -ErrorAction SilentlyContinue) {
+            $result.Installed = $true
+            $result.Message = 'Git already installed.'
+            return $result
+        }
+
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if ($winget) {
+            $wingetPath = if (-not [string]::IsNullOrWhiteSpace($winget.Source) -and (Test-Path $winget.Source)) { $winget.Source } else { 'winget' }
+            $wingetExit = $null
+            try {
+                $wingetExit = Invoke-ProcessWithTimeout -FilePath $wingetPath -Arguments 'install --id Git.Git --accept-package-agreements --accept-source-agreements --silent --disable-interactivity' -TimeoutSeconds 180
+            } catch {
+                $result.Message = "winget install invocation failed: $($_.Exception.Message). Trying fallback installers."
+            }
+            if ((Get-Command git -ErrorAction SilentlyContinue) -or $wingetExit -eq 0) {
                 $result.Installed = $true
-                $result.Message = 'Git already installed.'
+                $result.Message = 'Git installed via winget.'
                 return $result
             }
-
-            $winget = Get-Command winget -ErrorAction SilentlyContinue
-            if ($winget) {
-                $wingetExit = Invoke-ProcessWithTimeout -FilePath $winget.Source -Arguments 'install --id Git.Git --accept-package-agreements --accept-source-agreements --silent --disable-interactivity' -TimeoutSeconds 180
-                if ((Get-Command git -ErrorAction SilentlyContinue) -or $wingetExit -eq 0) {
-                    $result.Installed = $true
-                    $result.Message = 'Git installed via winget.'
-                    return $result
-                }
-                if ($null -eq $wingetExit) {
-                    $result.Message = 'winget install timed out; trying fallback installers.'
-                }
+            if ($null -eq $wingetExit -and [string]::IsNullOrWhiteSpace($result.Message)) {
+                $result.Message = 'winget install timed out; trying fallback installers.'
             }
+        }
 
-            $localInstaller = 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe'
-            if (Test-Path $localInstaller) {
-                $localExit = Invoke-ProcessWithTimeout -FilePath $localInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
-                if ((Get-Command git -ErrorAction SilentlyContinue) -or $localExit -eq 0) {
-                    $result.Installed = $true
-                    $result.Message = 'Git installed from local cached installer.'
-                    return $result
-                }
-            }
-
-            $dnsProbe = Resolve-DnsName -Name 'release-assets.githubusercontent.com' -Type A -ErrorAction SilentlyContinue
-            if (-not $dnsProbe) {
-                if ([string]::IsNullOrWhiteSpace($result.Message)) {
-                    $result.Message = 'External DNS not resolving release-assets.githubusercontent.com; skipping web installer.'
-                }
+        if (Test-Path $LocalInstallerPath) {
+            $localExit = Invoke-ProcessWithTimeout -FilePath $LocalInstallerPath -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
+            if ((Get-Command git -ErrorAction SilentlyContinue) -or $localExit -eq 0) {
+                $result.Installed = $true
+                $result.Message = 'Git installed from local cached installer.'
                 return $result
             }
+        }
 
-            $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe'
-            $gitInstaller = "$env:TEMP\GitInstall.exe"
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-            for ($attempt = 1; $attempt -le 2; $attempt++) {
-                try {
-                    Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
-                    $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
-                    if ((Get-Command git -ErrorAction SilentlyContinue) -or $webExit -eq 0) {
-                        $result.Installed = $true
-                        $result.Message = "Git installed via direct download (attempt $attempt)."
-                        break
-                    }
-                } catch {
-                    $result.Message = "Git download/install attempt $attempt failed: $($_.Exception.Message)"
-                    Start-Sleep -Seconds (5 * $attempt)
-                }
-            }
-
-            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
-            if (-not $result.Installed -and [string]::IsNullOrWhiteSpace($result.Message)) {
-                $result.Message = 'Git installer path exhausted (winget/local/web).'
+        $dnsProbe = Resolve-DnsName -Name 'release-assets.githubusercontent.com' -Type A -ErrorAction SilentlyContinue
+        if (-not $dnsProbe) {
+            if ([string]::IsNullOrWhiteSpace($result.Message)) {
+                $result.Message = 'External DNS not resolving release-assets.githubusercontent.com; skipping web installer.'
             }
             return $result
-        })
+        }
+
+        $gitInstaller = "$env:TEMP\GitInstall.exe"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        for ($attempt = 1; $attempt -le 2; $attempt++) {
+            try {
+                Invoke-WebRequest -Uri $GitDownloadUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
+                $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
+                if ((Get-Command git -ErrorAction SilentlyContinue) -or $webExit -eq 0) {
+                    $result.Installed = $true
+                    $result.Message = "Git installed via direct download (attempt $attempt)."
+                    break
+                }
+            } catch {
+                $result.Message = "Git download/install attempt $attempt failed: $($_.Exception.Message)"
+                Start-Sleep -Seconds (5 * $attempt)
+            }
+        }
+
+        Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+        if (-not $result.Installed -and [string]::IsNullOrWhiteSpace($result.Message)) {
+            $result.Message = 'Git installer path exhausted (winget/local/web).'
+        }
+
+        return $result
+    }
+
+    # Install Git on DC1 (winget preferred, with offline/web fallback)
+    try {
+        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe')
 
         $dc1GitResult = @($dc1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
@@ -986,95 +998,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     # Win11: Git (winget preferred, with offline/web fallback)
     try {
-        $win11GitResults = @(Invoke-LabCommand -ComputerName 'Win11' -PassThru -ActivityName 'Install-Git-Win11' -ScriptBlock {
-            $result = [pscustomobject]@{ Installed = $false; Message = '' }
-
-            function Invoke-ProcessWithTimeout {
-                param(
-                    [Parameter(Mandatory)][string]$FilePath,
-                    [Parameter(Mandatory)][string]$Arguments,
-                    [int]$TimeoutSeconds = 600
-                )
-
-                $proc = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru -NoNewWindow
-                $completed = $true
-                try {
-                    Wait-Process -Id $proc.Id -Timeout $TimeoutSeconds -ErrorAction Stop
-                } catch {
-                    $completed = $false
-                }
-
-                if (-not $completed) {
-                    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-                    return $null
-                }
-
-                $proc.Refresh()
-                return $proc.ExitCode
-            }
-
-            if (Get-Command git -ErrorAction SilentlyContinue) {
-                $result.Installed = $true
-                $result.Message = 'Git already installed.'
-                return $result
-            }
-
-            $winget = Get-Command winget -ErrorAction SilentlyContinue
-            if ($winget) {
-                $wingetExit = Invoke-ProcessWithTimeout -FilePath $winget.Source -Arguments 'install --id Git.Git --accept-package-agreements --accept-source-agreements --silent --disable-interactivity' -TimeoutSeconds 180
-                if ((Get-Command git -ErrorAction SilentlyContinue) -or $wingetExit -eq 0) {
-                    $result.Installed = $true
-                    $result.Message = 'Git installed via winget.'
-                    return $result
-                }
-                if ($null -eq $wingetExit) {
-                    $result.Message = 'winget install timed out; trying fallback installers.'
-                }
-            }
-
-            $localInstaller = 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe'
-            if (Test-Path $localInstaller) {
-                $localExit = Invoke-ProcessWithTimeout -FilePath $localInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
-                if ((Get-Command git -ErrorAction SilentlyContinue) -or $localExit -eq 0) {
-                    $result.Installed = $true
-                    $result.Message = 'Git installed from local cached installer.'
-                    return $result
-                }
-            }
-
-            $dnsProbe = Resolve-DnsName -Name 'release-assets.githubusercontent.com' -Type A -ErrorAction SilentlyContinue
-            if (-not $dnsProbe) {
-                if ([string]::IsNullOrWhiteSpace($result.Message)) {
-                    $result.Message = 'External DNS not resolving release-assets.githubusercontent.com; skipping web installer.'
-                }
-                return $result
-            }
-
-            $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe'
-            $gitInstaller = "$env:TEMP\GitInstall.exe"
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-            for ($attempt = 1; $attempt -le 2; $attempt++) {
-                try {
-                    Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
-                    $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
-                    if ((Get-Command git -ErrorAction SilentlyContinue) -or $webExit -eq 0) {
-                        $result.Installed = $true
-                        $result.Message = "Git installed via direct download (attempt $attempt)."
-                        break
-                    }
-                } catch {
-                    $result.Message = "Git download/install attempt $attempt failed: $($_.Exception.Message)"
-                    Start-Sleep -Seconds (5 * $attempt)
-                }
-            }
-
-            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
-            if (-not $result.Installed -and [string]::IsNullOrWhiteSpace($result.Message)) {
-                $result.Message = 'Git installer path exhausted (winget/local/web).'
-            }
-            return $result
-        })
+        $win11GitResults = @(Invoke-LabCommand -ComputerName 'Win11' -PassThru -ActivityName 'Install-Git-Win11' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe')
 
         $win11GitResult = @($win11GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
