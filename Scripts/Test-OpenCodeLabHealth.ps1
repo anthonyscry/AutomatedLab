@@ -11,9 +11,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $CommonPath) { . $CommonPath }
 
 # Defaults (overridden by Lab-Config.ps1 if present)
@@ -27,17 +28,7 @@ if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $Domai
 if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '192.168.11.6' }
 $SSHKeyPath = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
 $issues = New-Object System.Collections.Generic.List[string]
-
-function Add-Issue {
-    param([Parameter(Mandatory)][string]$Message)
-    $script:issues.Add($Message)
-    Write-Host "  [FAIL] $Message" -ForegroundColor Red
-}
-
-function Add-Ok {
-    param([Parameter(Mandatory)][string]$Message)
-    Write-Host "  [OK] $Message" -ForegroundColor Green
-}
+. (Join-Path $ScriptDir 'Helpers-TestReport.ps1')
 
 function Invoke-LabStructuredCheck {
     param(

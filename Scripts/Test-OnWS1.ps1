@@ -15,8 +15,9 @@ param(
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
@@ -116,7 +117,7 @@ if ($checkLogs -eq 'y') {
 $doGPO = if ($NonInteractive) { if ($ForceGPO) { 'y' } else { 'n' } } else { Read-Host "  Force GPO update on WS1? (y/n) [n]" }
 if ($doGPO -eq 'y') {
     Invoke-LabCommand -ComputerName 'WS1' -ScriptBlock { gpupdate /force }
-    Write-Host "  [OK] GPO updated" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "GPO updated"
 }
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green

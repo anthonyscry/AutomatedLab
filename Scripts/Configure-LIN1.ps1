@@ -10,8 +10,9 @@ param(
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
@@ -22,7 +23,7 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword) -and $env:OPENCODELAB_ADMIN_PAS
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     $AdminPassword = 'Server123!'
-    Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
+    Write-LabStatus -Status WARN -Message "AdminPassword was empty. Falling back to default password."
 }
 
 if (-not (Import-OpenCodeLab -Name $LabName)) {
@@ -42,7 +43,7 @@ $lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $LIN1_WaitMinute
 $lin1Ready = $lin1WaitResult.Ready
 if (-not $lin1Ready) {
     if ($lin1WaitResult.LeaseIP) {
-        Write-Host "  [INFO] LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)" -ForegroundColor DarkGray
+        Write-LabStatus -Status INFO -Message "LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)"
     }
     throw "LIN1 is not SSH reachable yet. Finish Ubuntu install/reboot, then run Configure-LIN1.ps1 again."
 }
@@ -92,4 +93,4 @@ Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure
 Write-Host "[LIN1] Finalizing boot media (detach installer + seed disk)..." -ForegroundColor Cyan
 Finalize-LinuxInstallMedia -VMName 'LIN1' | Out-Null
 
-Write-Host "[OK] LIN1 SSH bootstrap complete." -ForegroundColor Green
+Write-LabStatus -Status OK -Message "LIN1 SSH bootstrap complete." -Indent 0

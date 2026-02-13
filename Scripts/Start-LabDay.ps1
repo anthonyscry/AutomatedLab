@@ -4,8 +4,9 @@
 #Requires -RunAsAdministrator
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
@@ -18,9 +19,9 @@ Write-Host "  $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n" -ForegroundColor Gray
 # Import lab
 try {
     Import-Lab -Name $LabName -ErrorAction Stop
-    Write-Host "  [OK] Lab definition loaded" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "Lab definition loaded"
 } catch {
-    Write-Host "  [FAIL] Could not import lab. Has it been deployed?" -ForegroundColor Red
+    Write-LabStatus -Status FAIL -Message "Could not import lab. Has it been deployed?"
     Write-Host "  Run: .\$DeployScript" -ForegroundColor Yellow
     exit 1
 }
@@ -36,14 +37,14 @@ foreach ($vm in $definedVMs) {
 }
 
 if ($missingVMs.Count -gt 0) {
-    Write-Host "  [FAIL] Hyper-V VM(s) missing: $($missingVMs -join ', ')" -ForegroundColor Red
+    Write-LabStatus -Status FAIL -Message "Hyper-V VM(s) missing: $($missingVMs -join ', ')"
     Write-Host "  Lab definition exists but VM instances are not present on this host." -ForegroundColor Yellow
     Write-Host "  Recreate them with: .\Deploy.ps1 -NonInteractive" -ForegroundColor Yellow
     exit 1
 }
 
 Start-LabVM -All -Wait
-Write-Host "  [OK] All VMs started" -ForegroundColor Green
+Write-LabStatus -Status OK -Message "All VMs started"
 
 # Health check
 Write-Host "`n  Running health check..." -ForegroundColor Yellow
@@ -51,7 +52,7 @@ $vms = Get-LabVM
 foreach ($vm in $vms) {
     $state = (Get-VM -Name $vm.Name -ErrorAction SilentlyContinue).State
     if ($state -eq 'Running') {
-        Write-Host "  [OK] $($vm.Name) -- Running" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "$($vm.Name) -- Running"
     } else {
         Write-Host "  [!!] $($vm.Name) -- $state" -ForegroundColor Red
     }

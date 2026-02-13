@@ -35,7 +35,7 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     $AdminPassword = 'Server123!'
-    Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
+    Write-LabStatus -Status WARN -Message "AdminPassword was empty. Falling back to default password."
 }
 
 $IsoPath        = "$LabSourcesRoot\ISOs"
@@ -100,7 +100,7 @@ try {
     $missing = @()
     foreach ($iso in $RequiredISOs) {
         $p = Join-Path $IsoPath $iso
-        if (Test-Path $p) { Write-Host "  [OK] $iso" -ForegroundColor Green }
+        if (Test-Path $p) { Write-LabStatus -Status OK -Message "$iso" }
         else { Write-Host "  [MISSING] $iso" -ForegroundColor Red; $missing += $iso }
     }
     if ($missing.Count -gt 0) {
@@ -124,10 +124,10 @@ try {
             Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 
             if (Get-Lab -List | Where-Object { $_ -eq $LabName }) {
-                Write-Host "  [WARN] AutomatedLab still reports '$LabName' after removal attempt." -ForegroundColor Yellow
+                Write-LabStatus -Status WARN -Message "AutomatedLab still reports '$LabName' after removal attempt."
                 if (Test-Path $labMetaPath) {
                     Remove-Item -Path $labMetaPath -Recurse -Force -ErrorAction SilentlyContinue
-                    Write-Host "  [WARN] Removed stale lab metadata folder: $labMetaPath" -ForegroundColor Yellow
+                    Write-LabStatus -Status WARN -Message "Removed stale lab metadata folder: $labMetaPath"
                 }
             }
 
@@ -178,9 +178,9 @@ try {
 
     if (-not (Get-VMSwitch -Name $LabSwitch -ErrorAction SilentlyContinue)) {
         New-VMSwitch -Name $LabSwitch -SwitchType Internal | Out-Null
-        Write-Host "    [OK] Created VMSwitch: $LabSwitch (Internal)" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Created VMSwitch: $LabSwitch (Internal)" -Indent 2
     } else {
-        Write-Host "    [OK] VMSwitch exists: $LabSwitch" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "VMSwitch exists: $LabSwitch" -Indent 2
     }
 
     $ifAlias = "vEthernet ($LabSwitch)"
@@ -190,22 +190,22 @@ try {
         Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
         New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIp -PrefixLength 24 | Out-Null
-        Write-Host "    [OK] Set host gateway IP: $GatewayIp on $ifAlias" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Set host gateway IP: $GatewayIp on $ifAlias" -Indent 2
     } else {
-        Write-Host "    [OK] Host gateway IP already set: $GatewayIp" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Host gateway IP already set: $GatewayIp" -Indent 2
     }
 
     $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
     if (-not $nat) {
         New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-Host "    [OK] Created NAT: $NatName for $AddressSpace" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Created NAT: $NatName for $AddressSpace" -Indent 2
     } elseif ($nat.InternalIPInterfaceAddressPrefix -ne $AddressSpace) {
-        Write-Host "    [WARN] NAT '$NatName' exists with prefix '$($nat.InternalIPInterfaceAddressPrefix)'. Recreating..." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "NAT '$NatName' exists with prefix '$($nat.InternalIPInterfaceAddressPrefix)'. Recreating..." -Indent 2
         Remove-NetNat -Name $NatName -Confirm:$false | Out-Null
         New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-Host "    [OK] Recreated NAT: $NatName for $AddressSpace" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Recreated NAT: $NatName for $AddressSpace" -Indent 2
     } else {
-        Write-Host "    [OK] NAT exists: $NatName" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "NAT exists: $NatName" -Indent 2
     }
 
     # Register network with AutomatedLab
@@ -222,7 +222,7 @@ try {
         Write-Host "`n[LAB] Defining all machines (DC1 + Server1 + Win11 + LIN1)..." -ForegroundColor Cyan
     } else {
         Write-Host "`n[LAB] Defining Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
-        Write-Host "  [INFO] Linux VM nodes are disabled for this run. Use -IncludeLIN1 to include Ubuntu." -ForegroundColor Gray
+        Write-LabStatus -Status INFO -Message "Linux VM nodes are disabled for this run. Use -IncludeLIN1 to include Ubuntu."
     }
 
     Add-LabMachineDefinition -Name 'DC1' `
@@ -277,8 +277,8 @@ try {
         Install-Lab -ErrorAction Stop
     } catch {
         $installLabError = $_
-        Write-Host "  [WARN] Install-Lab encountered an error: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] Exception type: $($_.Exception.GetType().FullName)" -ForegroundColor DarkYellow
+        Write-LabStatus -Status WARN -Message "Install-Lab encountered an error: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "Exception type: $($_.Exception.GetType().FullName)"
         Write-Host "  Will attempt to validate and recover DC1 AD DS installation..." -ForegroundColor Yellow
     }
     $installElapsed = (Get-Date) - $installStart
@@ -346,9 +346,9 @@ try {
     }
 
     if ($adStatus.NTDSRunning -and $adStatus.ADWorking -and $adStatus.CurrentDomain -eq $DomainName) {
-        Write-Host "  [OK] DC1 is a domain controller for '$($adStatus.ForestName)'" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "DC1 is a domain controller for '$($adStatus.ForestName)'"
     } else {
-        Write-Host "  [WARN] AD DS is NOT operational on DC1 after Install-Lab." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "AD DS is NOT operational on DC1 after Install-Lab."
         Write-Host "    AD DS feature installed: $($adStatus.FeatureInstalled)" -ForegroundColor Yellow
         Write-Host "    NTDS service running:    $($adStatus.NTDSRunning)" -ForegroundColor Yellow
         Write-Host "    AD cmdlets working:      $($adStatus.ADWorking)" -ForegroundColor Yellow
@@ -362,7 +362,7 @@ try {
             Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Recovery-ADDS-Feature' -ScriptBlock {
                 Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
             } | Out-Null
-            Write-Host "    [OK] AD DS feature installed" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "AD DS feature installed" -Indent 2
         }
 
         # Step 2: Run Install-ADDSForest
@@ -382,7 +382,7 @@ try {
                 -WarningAction SilentlyContinue
         } -ArgumentList $DomainName, $netbiosDomain, $AdminPassword | Out-Null
 
-        Write-Host "    [OK] Install-ADDSForest initiated. Waiting for DC1 to restart..." -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Install-ADDSForest initiated. Waiting for DC1 to restart..." -Indent 2
 
         # Step 3: Wait for DC1 to go offline and come back
         # Wait for DC1 to go offline (restart initiated)
@@ -449,7 +449,7 @@ try {
             }
         }
         if ($finalAd.ADWorking -and $finalAd.Domain -eq $DomainName) {
-            Write-Host "  [OK] Recovery successful! DC1 is domain controller for '$($finalAd.ForestName)'" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "Recovery successful! DC1 is domain controller for '$($finalAd.ForestName)'"
         } else {
             throw "AD DS recovery failed. DC1 domain: '$($finalAd.Domain)', AD working: $($finalAd.ADWorking). Check DC1 event logs."
         }
@@ -465,23 +465,23 @@ try {
     $hostIp = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
               Where-Object { $_.IPAddress -eq $GatewayIp }
     if (-not $hostIp) {
-        Write-Host "  [WARN] Host gateway IP $GatewayIp missing on $ifAlias after Install-Lab. Re-applying..." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "Host gateway IP $GatewayIp missing on $ifAlias after Install-Lab. Re-applying..."
         Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
         New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIp -PrefixLength 24 | Out-Null
-        Write-Host "  [OK] Re-applied host gateway IP: $GatewayIp" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Re-applied host gateway IP: $GatewayIp"
     } else {
-        Write-Host "  [OK] Host gateway IP intact: $GatewayIp" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Host gateway IP intact: $GatewayIp"
     }
 
     # 2. Verify NAT still exists
     $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
     if (-not $nat) {
-        Write-Host "  [WARN] NAT '$NatName' missing after Install-Lab. Recreating..." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "NAT '$NatName' missing after Install-Lab. Recreating..."
         New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-Host "  [OK] Recreated NAT: $NatName" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Recreated NAT: $NatName"
     } else {
-        Write-Host "  [OK] NAT intact: $NatName" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "NAT intact: $NatName"
     }
 
     # 3. Ping DC1 to verify L3 connectivity
@@ -489,12 +489,12 @@ try {
     if (-not $pingOk) {
         throw "Cannot ping DC1 ($DC1_Ip) from host after Stage 1. Check vSwitch '$LabSwitch' and host adapter '$ifAlias'. Aborting before Stage 2."
     }
-    Write-Host "  [OK] DC1 ($DC1_Ip) responds to ping" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "DC1 ($DC1_Ip) responds to ping"
 
     # 4. Verify WinRM connectivity (this is what AutomatedLab uses internally)
     $winrmOk = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
     if (-not $winrmOk.TcpTestSucceeded) {
-        Write-Host "  [WARN] WinRM port 5985 not reachable on DC1 ($DC1_Ip). AD may still be starting." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($DC1_Ip). AD may still be starting."
         Write-Host "  Waiting 60s for WinRM to become available..." -ForegroundColor Yellow
         $retries = 6
         $winrmUp = $false
@@ -508,8 +508,8 @@ try {
             throw "WinRM (port 5985) on DC1 ($DC1_Ip) is unreachable after 60s. Cannot proceed to Stage 2."
         }
     }
-    Write-Host "  [OK] WinRM reachable on DC1 ($DC1_Ip):5985" -ForegroundColor Green
-    Write-Host "  [OK] Stage 1 validation passed - proceeding to DHCP + Stage 2" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($DC1_Ip):5985"
+    Write-LabStatus -Status OK -Message "Stage 1 validation passed - proceeding to DHCP + Stage 2"
 
     # ============================================================
     # DC1: DHCP ROLE + SCOPE
@@ -545,7 +545,7 @@ try {
         "DHCP scope ready"
     } -ArgumentList $DhcpScopeId, $DhcpStart, $DhcpEnd, $DhcpMask, $GatewayIp, $DnsIp, $DomainName | Out-Null
 
-    Write-Host "  [OK] DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)"
 
     # Configure DNS forwarders on DC1 so lab clients can resolve external hosts (GitHub, package feeds).
     try {
@@ -568,14 +568,14 @@ try {
 
         $dnsForwarderResult = @($dnsForwarderResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Ready' } | Select-Object -Last 1)
         if ($dnsForwarderResult.Count -gt 0 -and $dnsForwarderResult[0].Ready) {
-            Write-Host "  [OK] $($dnsForwarderResult[0].Message)" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "$($dnsForwarderResult[0].Message)"
         } elseif ($dnsForwarderResult.Count -gt 0) {
-            Write-Host "  [WARN] $($dnsForwarderResult[0].Message)" -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "$($dnsForwarderResult[0].Message)"
         } else {
-            Write-Host "  [WARN] DNS forwarder step returned no structured result." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "DNS forwarder step returned no structured result."
         }
     } catch {
-        Write-Host "  [WARN] DNS forwarder configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "DNS forwarder configuration failed: $($_.Exception.Message)"
     }
     $sectionElapsed = (Get-Date) - $dhcpSectionStart
     Write-Host "  Section completed in $([int]$sectionElapsed.TotalMinutes)m $($sectionElapsed.Seconds)s" -ForegroundColor DarkGray
@@ -590,7 +590,7 @@ try {
 
         $ubuntuIso = Join-Path $IsoPath 'ubuntu-24.04.3.iso'
         if (-not (Test-Path $ubuntuIso)) {
-            Write-Host "  [WARN] Ubuntu ISO not found: $ubuntuIso. Skipping LIN1." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "Ubuntu ISO not found: $ubuntuIso. Skipping LIN1."
         } else {
             $lin1CreateSucceeded = $false
             try {
@@ -622,11 +622,11 @@ try {
 
                 # Start VM -- Ubuntu autoinstall should proceed unattended
                 Start-VM -Name 'LIN1'
-                Write-Host "  [OK] LIN1 VM started. Ubuntu autoinstall in progress..." -ForegroundColor Green
+                Write-LabStatus -Status OK -Message "LIN1 VM started. Ubuntu autoinstall in progress..."
                 $lin1CreateSucceeded = $true
             }
             catch {
-                Write-Host "  [WARN] LIN1 VM creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                Write-LabStatus -Status WARN -Message "LIN1 VM creation failed: $($_.Exception.Message)"
             }
             finally {
                 if (-not $lin1CreateSucceeded) {
@@ -635,7 +635,7 @@ try {
                     Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
                     Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
 
-                    Write-Host "  [WARN] Continuing without LIN1. Create it manually later with Configure-LIN1.ps1" -ForegroundColor Yellow
+                    Write-LabStatus -Status WARN -Message "Continuing without LIN1. Create it manually later with Configure-LIN1.ps1"
                 }
             }
         }
@@ -660,11 +660,11 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
             if (-not $lin1Ready) {
                 Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
                 if ($lin1WaitResult.LeaseIP) {
-                    Write-Host "  [INFO] LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)" -ForegroundColor DarkGray
+                    Write-LabStatus -Status INFO -Message "LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)"
                 }
             }
         } else {
-            Write-Host "  [WARN] LIN1 VM not found. Skipping LIN1 wait." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "LIN1 VM not found. Skipping LIN1 wait."
         }
     } else {
         Write-Host "`n[LIN1] Skipping LIN1 deployment/config in this run (deferred)." -ForegroundColor Yellow
@@ -823,18 +823,18 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         $dc1GitResult = @($dc1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
         if ($dc1GitResult.Count -gt 0 -and $dc1GitResult[0].Installed) {
-            Write-Host "  [OK] $($dc1GitResult[0].Message)" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "$($dc1GitResult[0].Message)"
         } elseif ($dc1GitResult.Count -gt 0) {
             $msg = if ($dc1GitResult[0].Message) { $dc1GitResult[0].Message } else { 'Unknown Git install failure on DC1.' }
-            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without guaranteed Git on DC1." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "$msg"
+            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on DC1."
         } else {
-            Write-Host "  [WARN] Git installation step on DC1 returned no structured result." -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without guaranteed Git on DC1." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "Git installation step on DC1 returned no structured result."
+            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on DC1."
         }
     } catch {
-        Write-Host "  [WARN] Git installation step on DC1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] Continuing deployment without guaranteed Git on DC1." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "Git installation step on DC1 failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on DC1."
     }
 
     # ============================================================
@@ -870,15 +870,15 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
         if ($dc1SshResult -and $dc1SshResult.Ready) {
             $dc1SshReady = $true
-            Write-Host "  [OK] DC1 OpenSSH configured" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "DC1 OpenSSH configured"
         } else {
             $msg = if ($dc1SshResult -and $dc1SshResult.Message) { $dc1SshResult.Message } else { 'Unknown OpenSSH configuration failure.' }
-            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without DC1 SSH key bootstrap." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "$msg"
+            Write-LabStatus -Status WARN -Message "Continuing deployment without DC1 SSH key bootstrap."
         }
     } catch {
-        Write-Host "  [WARN] DC1 OpenSSH setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] Continuing deployment without DC1 SSH key bootstrap." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "DC1 OpenSSH setup failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "Continuing deployment without DC1 SSH key bootstrap."
     }
 
     if ($dc1SshReady) {
@@ -915,8 +915,8 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     # Server1: keep as fresh Windows Server 2019 member server
     # ============================================================
     Write-Host "`n[POST] Server1 baseline..." -ForegroundColor Cyan
-    Write-Host "  [OK] Server1 left as a clean Windows Server 2019 VM (no WSUS role installed)." -ForegroundColor Green
-    Write-Host "  [INFO] Install additional roles/features on Server1 manually when ready." -ForegroundColor Gray
+    Write-LabStatus -Status OK -Message "Server1 left as a clean Windows Server 2019 VM (no WSUS role installed)."
+    Write-LabStatus -Status INFO -Message "Install additional roles/features on Server1 manually when ready."
 
     # ============================================================
     # Win11: client basics (RSAT + drive map)
@@ -964,11 +964,11 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
                 }
             }
         } | Out-Null
-        Write-Host "  [OK] RSAT capabilities installed on Win11" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "RSAT capabilities installed on Win11"
     }
     catch {
-        Write-Host "  [WARN] RSAT installation failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] Win11 will work without RSAT. Install manually later if needed." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "RSAT installation failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "Win11 will work without RSAT. Install manually later if needed."
     }
 
     Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Map-LabShare' -ScriptBlock {
@@ -1085,18 +1085,18 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         $win11GitResult = @($win11GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
         if ($win11GitResult.Count -gt 0 -and $win11GitResult[0].Installed) {
-            Write-Host "  [OK] $($win11GitResult[0].Message)" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "$($win11GitResult[0].Message)"
         } elseif ($win11GitResult.Count -gt 0) {
             $msg = if ($win11GitResult[0].Message) { $win11GitResult[0].Message } else { 'Unknown Git install failure on Win11.' }
-            Write-Host "  [WARN] $msg" -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without guaranteed Git on Win11." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "$msg"
+            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on Win11."
         } else {
-            Write-Host "  [WARN] Git installation step on Win11 returned no structured result." -ForegroundColor Yellow
-            Write-Host "  [WARN] Continuing deployment without guaranteed Git on Win11." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "Git installation step on Win11 returned no structured result."
+            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on Win11."
         }
     } catch {
-        Write-Host "  [WARN] Git installation step on Win11 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "  [WARN] Continuing deployment without guaranteed Git on Win11." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "Git installation step on Win11 failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on Win11."
     }
 
 
@@ -1131,7 +1131,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $lin1ScriptContent -ActivityName 'Configure-LIN1' -Variables $lin1Vars | Out-Null
     } else {
-        Write-Host "  [WARN] Skipping LIN1 post-config (not included or not reachable)." -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "Skipping LIN1 post-config (not included or not reachable)."
     }
 
     if ($IncludeLIN1 -and $lin1Ready) {

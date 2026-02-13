@@ -26,6 +26,13 @@ function Build-LabFromSelection {
     # ================================================================
     # Phase 1: Load Configuration
     # ================================================================
+    # Load shared config first (Lab-Config.ps1 defines variables like $LabSwitch, $DomainName)
+    $sharedConfigPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lab-Config.ps1'
+    if (Test-Path $sharedConfigPath) { . $sharedConfigPath }
+    $sharedCommonPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lab-Common.ps1'
+    if (Test-Path $sharedCommonPath) { . $sharedCommonPath }
+
+    # Load LabBuilder-specific config (RoleMenu, VMNames, etc.)
     if (-not $ConfigPath) {
         $ConfigPath = Join-Path $PSScriptRoot 'Config\LabDefaults.psd1'
     }

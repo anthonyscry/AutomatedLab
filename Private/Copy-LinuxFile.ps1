@@ -1,0 +1,22 @@
+# Copy-LinuxFile.ps1 -- Copy local file to Linux VM over SCP
+function Copy-LinuxFile {
+    <#
+    .SYNOPSIS
+    Copy a file to a Linux VM via SCP.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$IP,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$LocalPath,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$RemotePath,
+        [string]$User = $LinuxUser,
+        [string]$KeyPath = $SSHPrivateKey
+    )
+
+    $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
+    if (-not (Test-Path $scpExe)) {
+        throw "OpenSSH scp not found at $scpExe."
+    }
+
+    & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $KeyPath $LocalPath "${User}@${IP}:${RemotePath}" 2>&1 | Out-Null
+}

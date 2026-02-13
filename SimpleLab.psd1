@@ -11,7 +11,7 @@
 RootModule = 'SimpleLab.psm1'
 
 # Version number of this module.
-ModuleVersion = '4.0.1'
+ModuleVersion = '5.0.0'
 
 # ID used to uniquely identify this module
 GUID = 'a1b2c3d4-e5f6-4a5b-8c7d-1e2f3a4b5c6d'
@@ -77,7 +77,7 @@ FunctionsToExport = @(
     'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
     'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs',
     'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey',
-    # Linux VM helpers (Lab-Common.ps1)
+    # Linux VM helpers (Public/)
     'Invoke-BashOnLinuxVM', 'New-LinuxVM', 'New-CidataVhdx',
     'Get-Sha512PasswordHash', 'Get-LinuxVMIPv4', 'Finalize-LinuxInstallMedia',
     'Wait-LinuxVMReady', 'Get-LinuxSSHConnectionInfo',

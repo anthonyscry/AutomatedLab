@@ -11,7 +11,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 
 # Defaults in case Lab-Config.ps1 is absent
@@ -30,18 +31,8 @@ if ($IncludeLIN1) {
     $requiredIsoList = $requiredIsoList | Where-Object { $_ -ne 'ubuntu-24.04.3.iso' }
 }
 
-$issues = @()
-
-function Add-Issue {
-    param([Parameter(Mandatory)][string]$Message)
-    $script:issues += $Message
-    Write-Host "  [FAIL] $Message" -ForegroundColor Red
-}
-
-function Add-Ok {
-    param([Parameter(Mandatory)][string]$Message)
-    Write-Host "  [OK] $Message" -ForegroundColor Green
-}
+$issues = New-Object System.Collections.Generic.List[string]
+. (Join-Path $ScriptDir 'Helpers-TestReport.ps1')
 
 Write-Host "`n=== OPENCODELAB PREFLIGHT ===" -ForegroundColor Cyan
 if ($IncludeLIN1) {

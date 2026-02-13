@@ -101,7 +101,15 @@ function New-LabNAT {
         if ($existingSwitch.SwitchType -ne 'Internal') {
             if ($Force) {
                 Remove-VMSwitch -Name $SwitchName -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 1
+                $switchRemovalDeadline = [datetime]::Now.AddSeconds(10)
+                while ([datetime]::Now -lt $switchRemovalDeadline) {
+                    $switchCheck = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
+                    if (-not $switchCheck) { break }
+                    Start-Sleep -Seconds 1
+                }
+                if (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue) {
+                    throw "Failed to remove non-internal switch '$SwitchName' before recreation."
+                }
             } else {
                 return [PSCustomObject]@{
                     OverallStatus = 'Failed'
@@ -112,14 +120,14 @@ function New-LabNAT {
                 }
             }
         } else {
-            Write-Host "[OK] VMSwitch exists: $SwitchName" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "VMSwitch exists: $SwitchName" -Indent 0
             $results.SwitchCreated = $true
         }
     }
 
     if (-not $results.SwitchCreated) {
         New-VMSwitch -Name $SwitchName -SwitchType Internal | Out-Null
-        Write-Host "[OK] Created VMSwitch: $SwitchName (Internal)" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Created VMSwitch: $SwitchName (Internal)" -Indent 0
         $results.SwitchCreated = $true
     }
 
@@ -135,10 +143,10 @@ function New-LabNAT {
 
         # Add gateway IP
         New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIP -PrefixLength $prefixLength | Out-Null
-        Write-Host "[OK] Set host gateway IP: $GatewayIP on $ifAlias" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Set host gateway IP: $GatewayIP on $ifAlias" -Indent 0
         $results.GatewayConfigured = $true
     } else {
-        Write-Host "[OK] Host gateway IP already set: $GatewayIP" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Host gateway IP already set: $GatewayIP" -Indent 0
         $results.GatewayConfigured = $true
     }
 
@@ -148,7 +156,15 @@ function New-LabNAT {
         if ($existingNat.InternalIPInterfaceAddressPrefix -ne $AddressSpace) {
             if ($Force) {
                 Remove-NetNat -Name $NatName -Confirm:$false | Out-Null
-                Start-Sleep -Seconds 1
+                $natRemovalDeadline = [datetime]::Now.AddSeconds(10)
+                while ([datetime]::Now -lt $natRemovalDeadline) {
+                    $natCheck = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+                    if (-not $natCheck) { break }
+                    Start-Sleep -Seconds 1
+                }
+                if (Get-NetNat -Name $NatName -ErrorAction SilentlyContinue) {
+                    throw "Failed to remove NAT '$NatName' before recreation."
+                }
             } else {
                 return [PSCustomObject]@{
                     OverallStatus = 'Partial'
@@ -159,14 +175,14 @@ function New-LabNAT {
                 }
             }
         } else {
-            Write-Host "[OK] NAT exists: $NatName" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "NAT exists: $NatName" -Indent 0
             $results.NATCreated = $true
         }
     }
 
     if (-not $results.NATCreated) {
         New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-Host "[OK] Created NAT: $NatName for $AddressSpace" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Created NAT: $NatName for $AddressSpace" -Indent 0
         $results.NATCreated = $true
     }
 

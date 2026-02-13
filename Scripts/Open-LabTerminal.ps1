@@ -14,15 +14,16 @@ param(
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
 function Get-LinuxIPForTerminal {
     $ip = Get-LinuxVMIPv4 -VMName 'LIN1'
     if (-not $ip) {
-        Write-Host "  [FAIL] Cannot find LIN1 IP. Is it running?" -ForegroundColor Red
+        Write-LabStatus -Status FAIL -Message "Cannot find LIN1 IP. Is it running?"
         Write-Host "  Try: Get-VMNetworkAdapter -VMName LIN1 | Select IPAddresses" -ForegroundColor Yellow
         return $null
     }
@@ -64,7 +65,7 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
             Open-NewTerminal -Title "LIN1 (1)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
             Start-Sleep -Milliseconds 500
             Open-NewTerminal -Title "LIN1 (2)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
-            Write-Host "  [OK] Opened 2 LIN1 sessions" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "Opened 2 LIN1 sessions"
             return
         }
         '5' {
@@ -76,7 +77,7 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
             Open-NewTerminal -Title "DC1 (PS Direct)" -Command "Enter-PSSession -VMName DC1"
             Start-Sleep -Milliseconds 500
             Open-NewTerminal -Title "WS1 (PS Direct)" -Command "Enter-PSSession -VMName WS1"
-            Write-Host "  [OK] Opened LIN1 + DC1 + WS1 sessions" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "Opened LIN1 + DC1 + WS1 sessions"
             return
         }
         default {
@@ -92,14 +93,14 @@ switch ($Target) {
         if (-not $ip) { return }
         Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
         Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
-        Write-Host "  [OK] Opened LIN1 SSH session" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Opened LIN1 SSH session"
     }
     'DC1' {
         Open-NewTerminal -Title "DC1 (PS Direct)" -Command "Enter-PSSession -VMName DC1"
-        Write-Host "  [OK] Opened DC1 PowerShell Direct session" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Opened DC1 PowerShell Direct session"
     }
     'WS1' {
         Open-NewTerminal -Title "WS1 (PS Direct)" -Command "Enter-PSSession -VMName WS1"
-        Write-Host "  [OK] Opened WS1 PowerShell Direct session" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Opened WS1 PowerShell Direct session"
     }
 }

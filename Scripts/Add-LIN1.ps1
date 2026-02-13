@@ -10,8 +10,9 @@ param(
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 
 if (-not (Test-Path $ConfigPath)) {
     throw "Lab-Config.ps1 not found at: $ConfigPath"
@@ -33,7 +34,7 @@ if ([string]::IsNullOrWhiteSpace($AdminPassword) -and $env:OPENCODELAB_ADMIN_PAS
 }
 if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
     $AdminPassword = 'Server123!'
-    Write-Host "  [WARN] AdminPassword was empty. Falling back to default password." -ForegroundColor Yellow
+    Write-LabStatus -Status WARN -Message "AdminPassword was empty. Falling back to default password."
 }
 
 Write-Host ""
@@ -55,12 +56,12 @@ if (-not $dc1 -or -not $ws1) {
     throw "DC1 or WS1 not found. Run Deploy.ps1 first to create the core lab."
 }
 
-Write-Host "[OK] Core lab (DC1/WS1) found" -ForegroundColor Green
+Write-LabStatus -Status OK -Message "Core lab (DC1/WS1) found" -Indent 0
 
 # Check if LIN1 already exists
 $existingLin1 = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
 if ($existingLin1) {
-    Write-Host "[WARN] LIN1 VM already exists!" -ForegroundColor Yellow
+    Write-LabStatus -Status WARN -Message "LIN1 VM already exists!" -Indent 0
     if (-not $NonInteractive) {
         $response = Read-Host "Do you want to remove and recreate it? (yes/no)"
         if ($response -ne 'yes') {
@@ -93,7 +94,7 @@ if (-not (Test-Path $ubuntuIso)) {
     throw "Ubuntu ISO not found"
 }
 
-Write-Host "[OK] Ubuntu ISO found: $ubuntuIso" -ForegroundColor Green
+Write-LabStatus -Status OK -Message "Ubuntu ISO found: $ubuntuIso" -Indent 0
 
 # Create LIN1
 Write-Host ""
@@ -127,7 +128,7 @@ try {
 
     # Start VM -- Ubuntu autoinstall should proceed unattended
     Start-VM -Name 'LIN1'
-    Write-Host "  [OK] LIN1 VM started. Ubuntu autoinstall in progress..." -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "LIN1 VM started. Ubuntu autoinstall in progress..."
     $lin1CreateSucceeded = $true
 }
 catch {
@@ -155,10 +156,10 @@ $lin1DhcpIp = if ($lin1WaitResult.IP) { $lin1WaitResult.IP } else { $lin1WaitRes
 
 if (-not $lin1Ready) {
     Write-Host ""
-    Write-Host "  [WARN] LIN1 did not become SSH-reachable within 30 minutes" -ForegroundColor Yellow
+    Write-LabStatus -Status WARN -Message "LIN1 did not become SSH-reachable within 30 minutes"
     Write-Host "  This is normal if autoinstall is still in progress." -ForegroundColor Yellow
     if ($lin1WaitResult.LeaseIP) {
-        Write-Host "  [INFO] LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)" -ForegroundColor DarkGray
+        Write-LabStatus -Status INFO -Message "LIN1 DHCP lease observed at: $($lin1WaitResult.LeaseIP)"
     }
     Write-Host ""
     Write-Host "  Next steps:" -ForegroundColor Cyan
@@ -216,10 +217,10 @@ $vars = @{
 
 try {
     Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars | Out-Null
-    Write-Host "  [OK] Post-install configuration complete" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "Post-install configuration complete"
 }
 catch {
-    Write-Host "  [WARN] Post-install configuration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-LabStatus -Status WARN -Message "Post-install configuration failed: $($_.Exception.Message)"
     Write-Host "  You can run .\Configure-LIN1.ps1 manually later" -ForegroundColor Yellow
 }
 

@@ -1,0 +1,26 @@
+# Test results
+testResults.xml
+*.trx
+
+# Logs
+*.log
+LabBuilder/Logs/
+
+# Archives (old backups preserved in git history)
+# .archive/  -- kept for deprecated scripts
+
+# Temporary files
+*.tmp
+~$*
+
+# PowerShell module output
+*.nupkg
+
+# IDE / Editor
+.vscode/
+*.code-workspace
+
+# OS artifacts
+Thumbs.db
+desktop.ini
+.DS_Store

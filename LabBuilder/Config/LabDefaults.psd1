@@ -1,6 +1,7 @@
-# SCOPE: Used by LabBuilder (Build-LabFromSelection.ps1, Invoke-LabBuilder.ps1, role files).
-# NOTE: Deploy.ps1 and standalone scripts use Lab-Config.ps1 separately.
-#       Both configs target the same lab; keep shared values (IPs, domain) in sync.
+# SCOPE: LabBuilder-specific settings (role menu, VM names, OS images, DSC config).
+# SHARED CONFIG: Build-LabFromSelection.ps1 now dot-sources Lab-Config.ps1 first,
+#   so shared values (IPs, domain, credentials, SSH, DHCP) come from there.
+#   Values here are LabBuilder-specific or override the shared defaults.
 @{
     # ── Lab Identity ──
     LabName        = 'LabBuilder'

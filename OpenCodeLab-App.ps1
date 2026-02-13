@@ -11,7 +11,6 @@ param(
         'setup',
         'one-button-setup',
         'one-button-reset',
-        'install-shortcuts',
         'preflight',
         'bootstrap',
         'deploy',
@@ -19,7 +18,6 @@ param(
         'lin1-config',
         'ansible',
         'health',
-        'lint',
         'start',
         'status',
         'terminal',
@@ -191,11 +189,12 @@ if ($DefaultsFile) {
 
 function Resolve-ScriptPath {
     param([Parameter(Mandatory)][string]$BaseName)
+    # Search root first, then Scripts/ subfolder
     $path = Join-Path $ScriptDir "$BaseName.ps1"
-    if (-not (Test-Path $path)) {
-        throw "Script not found: $path"
-    }
-    return $path
+    if (Test-Path $path) { return $path }
+    $altPath = Join-Path $ScriptDir "Scripts\$BaseName.ps1"
+    if (Test-Path $altPath) { return $altPath }
+    throw "Script not found: $path (also checked Scripts\$BaseName.ps1)"
 }
 
 function Convert-ArgumentArrayToSplat {
@@ -279,7 +278,9 @@ function Ensure-LabImported {
         try {
             $lab = Get-Lab -ErrorAction SilentlyContinue
             if ($lab -and $lab.Name -eq $LabName) { return }
-        } catch {}
+        } catch {
+            Write-Verbose "Lab query failed (expected if lab not yet created): $_"
+        }
     }
 
     try {
@@ -351,7 +352,7 @@ function Invoke-BlowAway {
         # during blow-away, so suppress raw error stream and continue cleanup.
         Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 2>$null
     } catch {
-        Write-Host "  [WARN] Remove-Lab returned: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-LabStatus -Status WARN -Message "Remove-Lab returned: $($_.Exception.Message)"
     }
 
     Write-Host "  [3/5] Removing Hyper-V VMs/checkpoints if present..." -ForegroundColor Cyan
@@ -360,7 +361,7 @@ function Invoke-BlowAway {
         if (Remove-VMHardSafe -VMName $vmName) {
             Write-Host "    removed VM $vmName" -ForegroundColor Gray
         } elseif (Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
-            Write-Host "    [WARN] Could not fully remove VM $vmName. Reboot host, then run blow-away again." -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "Could not fully remove VM $vmName. Reboot host, then run blow-away again." -Indent 2
         }
     }
 
@@ -368,7 +369,7 @@ function Invoke-BlowAway {
         Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
     }
     if (-not $remainingLabVms) {
-        Write-Host "    [OK] No lab VMs remain in Hyper-V inventory." -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "No lab VMs remain in Hyper-V inventory." -Indent 2
 
         # Hyper-V Manager can still show phantom entries until management services/UI refresh.
         try {
@@ -381,17 +382,17 @@ function Invoke-BlowAway {
             Start-Service vmms -ErrorAction Stop
             Start-Service vmcompute -ErrorAction SilentlyContinue
 
-            Write-Host "    [OK] Refreshed Hyper-V management services and closed stale UI sessions." -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "Refreshed Hyper-V management services and closed stale UI sessions." -Indent 2
         } catch {
-            Write-Host "    [WARN] Could not fully refresh Hyper-V services automatically: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "Could not fully refresh Hyper-V services automatically: $($_.Exception.Message)" -Indent 2
         }
 
         $ghostCheck = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
         if (-not $ghostCheck) {
-            Write-Host "    [OK] PowerShell confirms LIN1 is not present." -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "PowerShell confirms LIN1 is not present." -Indent 2
         }
 
-        Write-Host "    [NOTE] If Hyper-V Manager still shows LIN1 now, reboot the host to clear VMMS cache." -ForegroundColor DarkGray
+        Write-LabStatus -Status NOTE -Message "If Hyper-V Manager still shows LIN1 now, reboot the host to clear VMMS cache." -Indent 2
         Write-Host "           Then open Hyper-V Manager and refresh the server node." -ForegroundColor DarkGray
     }
 
@@ -418,7 +419,8 @@ function Invoke-BlowAway {
         Write-Host "    skipped (use -RemoveNetwork to include)" -ForegroundColor DarkGray
     }
 
-    Write-Host "`n  [OK] Lab teardown complete." -ForegroundColor Green
+    Write-Host ''
+    Write-LabStatus -Status OK -Message 'Lab teardown complete.'
     Write-Host "  Run '.\OpenCodeLab-App.ps1 -Action setup' to rebuild." -ForegroundColor Gray
 }
 
@@ -446,31 +448,32 @@ function Invoke-OneButtonSetup {
     $healthArgs = Get-HealthArgs
     try {
         Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
-        Write-Host "  [OK] Post-deploy health gate passed" -ForegroundColor Green
+        Write-LabStatus -Status OK -Message "Post-deploy health gate passed"
     } catch {
-        Write-Host "  [FAIL] Post-deploy health gate failed" -ForegroundColor Red
+        Write-LabStatus -Status FAIL -Message "Post-deploy health gate failed"
         Write-Host "  Attempting automatic rollback to LabReady..." -ForegroundColor Yellow
         try {
             Ensure-LabImported
             if (-not (Test-LabReadySnapshot)) {
                 Add-RunEvent -Step 'rollback' -Status 'fail' -Message 'LabReady snapshot missing'
-                Write-Host "  [WARN] LabReady snapshot missing. Cannot auto-rollback." -ForegroundColor Yellow
+                Write-LabStatus -Status WARN -Message "LabReady snapshot missing. Cannot auto-rollback."
                 Write-Host "  Run deploy once to recreate LabReady checkpoint." -ForegroundColor Yellow
             } else {
                 Add-RunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady'
                 Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
                 Add-RunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored'
-                Write-Host "  [OK] Automatic rollback completed" -ForegroundColor Green
+                Write-LabStatus -Status OK -Message "Automatic rollback completed"
                 Invoke-RepoScript -BaseName 'Lab-Status'
             }
         } catch {
             Add-RunEvent -Step 'rollback' -Status 'fail' -Message $_.Exception.Message
-            Write-Host "  [WARN] Automatic rollback failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-LabStatus -Status WARN -Message "Automatic rollback failed: $($_.Exception.Message)"
         }
         throw
     }
 
-    Write-Host "`n  [OK] One-button setup complete." -ForegroundColor Green
+    Write-Host ''
+    Write-LabStatus -Status OK -Message 'One-button setup complete.'
 }
 
 function Invoke-OneButtonReset {
@@ -513,7 +516,7 @@ function Invoke-MenuCommand {
         Add-RunEvent -Step "menu:$Name" -Status 'ok' -Message 'completed'
     } catch {
         Add-RunEvent -Step "menu:$Name" -Status 'fail' -Message $_.Exception.Message
-        Write-Host "  [FAIL] $($_.Exception.Message)" -ForegroundColor Red
+        Write-LabStatus -Status FAIL -Message "$($_.Exception.Message)"
     }
 
     if (-not $NoPause) {
@@ -536,11 +539,9 @@ function Show-Menu {
     Write-Host "   [B] Bootstrap + Deploy (Windows topology)" -ForegroundColor White
     Write-Host "       Duration: 30-60 min | Requires: ISOs, Hyper-V enabled" -ForegroundColor DarkGray
     Write-Host "   [D] Deploy only (skip prerequisite check)" -ForegroundColor White
-    Write-Host "   [I] Install Desktop Shortcuts" -ForegroundColor White
     Write-Host ""
     Write-Host "  OPERATE" -ForegroundColor DarkCyan
     Write-Host "   [H] Health Gate" -ForegroundColor White
-    Write-Host "   [T] Lint Scripts" -ForegroundColor White
     Write-Host "   [1] Start Lab" -ForegroundColor White
     Write-Host "   [2] Lab Status" -ForegroundColor White
     Write-Host "   [3] Open Terminal" -ForegroundColor White
@@ -574,9 +575,7 @@ function Invoke-InteractiveMenu {
             'A' { Invoke-MenuCommand -Name 'one-button-setup' -Command { Invoke-OneButtonSetup } }
             'B' { Invoke-MenuCommand -Name 'bootstrap' -Command { $bootstrapArgs = Get-BootstrapArgs; Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs } }
             'D' { Invoke-MenuCommand -Name 'deploy' -Command { $deployArgs = Get-DeployArgs; Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs } }
-            'I' { Invoke-MenuCommand -Name 'install-shortcuts' -Command { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts' } }
             'H' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs } }
-            'T' { Invoke-MenuCommand -Name 'lint' -Command { Invoke-RepoScript -BaseName 'Test-OpenCodeLabLint' } }
             '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-RepoScript -BaseName 'Start-LabDay' } }
             '2' { Invoke-MenuCommand -Name 'status' -Command { Invoke-RepoScript -BaseName 'Lab-Status' } }
             '3' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-RepoScript -BaseName 'Open-LabTerminal' } }
@@ -587,19 +586,19 @@ function Invoke-InteractiveMenu {
             '8' {
                 Invoke-MenuCommand -Name 'stop' -Command {
                     Stop-LabVMsSafe
-                    Write-Host "  [OK] Stop requested for all lab VMs" -ForegroundColor Green
+                    Write-LabStatus -Status OK -Message "Stop requested for all lab VMs"
                 }
             }
             '9' {
                 Invoke-MenuCommand -Name 'rollback' -Command {
                     Ensure-LabImported
                     if (-not (Test-LabReadySnapshot)) {
-                        Write-Host "  [WARN] LabReady snapshot not found on one or more VMs." -ForegroundColor Yellow
+                        Write-LabStatus -Status WARN -Message "LabReady snapshot not found on one or more VMs."
                         Write-Host "  Re-run deploy to recreate baseline." -ForegroundColor Yellow
                         return
                     }
                     Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-                    Write-Host "  [OK] Restored to LabReady" -ForegroundColor Green
+                    Write-LabStatus -Status OK -Message "Restored to LabReady"
                 }
             }
             'L' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-RepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') } }
@@ -646,7 +645,6 @@ try {
         'setup' { Invoke-Setup }
         'one-button-setup' { Invoke-OneButtonSetup }
         'one-button-reset' { Invoke-OneButtonReset -DropNetwork:$RemoveNetwork }
-        'install-shortcuts' { Invoke-RepoScript -BaseName 'Create-DesktopShortcuts' }
         'preflight' {
             $preflightArgs = Get-PreflightArgs
             Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
@@ -675,7 +673,7 @@ try {
             $healthArgs = Get-HealthArgs
             Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
         }
-        'lint' { Invoke-RepoScript -BaseName 'Test-OpenCodeLabLint' }
+
         'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }
         'status' { Invoke-RepoScript -BaseName 'Lab-Status' }
         'terminal' { Invoke-RepoScript -BaseName 'Open-LabTerminal' }
@@ -703,7 +701,7 @@ try {
             Add-RunEvent -Step 'stop' -Status 'start' -Message 'Stop-LabVMsSafe'
             Stop-LabVMsSafe
             Add-RunEvent -Step 'stop' -Status 'ok' -Message 'requested'
-            Write-Host "[OK] Stop requested for all lab VMs" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "Stop requested for all lab VMs" -Indent 0
         }
         'rollback' {
             Add-RunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady'
@@ -713,7 +711,7 @@ try {
             }
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
             Add-RunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored'
-            Write-Host "[OK] Restored to LabReady" -ForegroundColor Green
+            Write-LabStatus -Status OK -Message "Restored to LabReady" -Indent 0
         }
         'blow-away' { Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun }
     }

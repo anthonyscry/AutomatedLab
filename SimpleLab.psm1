@@ -28,13 +28,6 @@ foreach ($file in $PublicFunctions) {
     }
 }
 
-# Dot-source Lab-Common.ps1 for shared Linux helpers
-$labCommonPath = Join-Path $PSScriptRoot 'Lab-Common.ps1'
-if (Test-Path $labCommonPath) {
-    try { . $labCommonPath }
-    catch { Write-Warning "Failed to import Lab-Common.ps1: $_" }
-}
-
 # Export public functions explicitly
 Export-ModuleMember -Function @(
     # VM management

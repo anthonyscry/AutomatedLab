@@ -18,8 +18,9 @@ param(
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
@@ -135,7 +136,7 @@ if ($doSnapshot -eq 'y') {
     $snapName = "Save-$(Get-Date -Format 'MMdd-HHmm')"
     Write-Host "  Creating snapshot '$snapName'..." -ForegroundColor Yellow
     Checkpoint-LabVM -All -SnapshotName $snapName
-    Write-Host "  [OK] Snapshot created" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "Snapshot created"
 }
 
 # Shut down?
@@ -147,7 +148,7 @@ if ($NonInteractive) {
 if ($doStop -eq 'y') {
     Write-Host "  Stopping VMs..." -ForegroundColor Yellow
     Stop-LabVM -All
-    Write-Host "  [OK] All VMs stopped" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "All VMs stopped"
 }
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green

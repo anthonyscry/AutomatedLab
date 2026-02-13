@@ -14,8 +14,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-$CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$RepoRoot  = Split-Path -Parent $ScriptDir
+$ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
@@ -74,7 +75,7 @@ try {
     & $sshExe @sshArgs 'chmod +x /tmp/install-ansible.sh && bash /tmp/install-ansible.sh && rm -f /tmp/install-ansible.sh' 2>&1 | ForEach-Object {
         Write-Host "    $_" -ForegroundColor Gray
     }
-    Write-Host "  [OK] Ansible installed on $VMName" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "Ansible installed on $VMName"
 } catch {
     throw "Ansible installation failed: $($_.Exception.Message)"
 } finally {
@@ -99,7 +100,7 @@ if (Test-Path $inventoryTemplate) {
 
     & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $SSHPrivateKey $inventoryPath "${LinuxUser}@${ip}:~/ansible/inventory/lab.yml" 2>&1 | Out-Null
     Remove-Item $inventoryPath -Force -ErrorAction SilentlyContinue
-    Write-Host "  [OK] Inventory deployed to ~/ansible/inventory/lab.yml" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "Inventory deployed to ~/ansible/inventory/lab.yml"
 }
 
 # Deploy playbooks
@@ -109,7 +110,7 @@ if (Test-Path $playbooksDir) {
     foreach ($pb in $playbooks) {
         & $scpExe -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $SSHPrivateKey $pb.FullName "${LinuxUser}@${ip}:~/ansible/playbooks/$($pb.Name)" 2>&1 | Out-Null
     }
-    Write-Host "  [OK] $($playbooks.Count) playbook(s) deployed" -ForegroundColor Green
+    Write-LabStatus -Status OK -Message "$($playbooks.Count) playbook(s) deployed"
 }
 
 Write-Host "`n=== ANSIBLE READY ===" -ForegroundColor Green
