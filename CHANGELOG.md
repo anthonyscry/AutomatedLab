@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed `Restore-VMCheckpoint` parameter names (`-VMName`/`-Name` instead of `-Name`/`-SnapshotName`) and added `-Confirm:$false` to suppress interactive prompts during restore
+- Fixed `Remove-LabVMs` parameter name (`DeleteVHD` instead of `RemoveVHD`) and result property (`VHDDeleted` instead of `VHDRemoved`) to match `Remove-LabVM` return contract
+- Fixed preflight switch/NAT warnings to use `Write-Warning` for proper severity
+- Fixed `Wait-LabVMReady` variable interpolation (`${vmName}:` instead of `$vmName:`)
+
+### Added
+- Disk space validation (65 GB minimum) in `New-LabVM` before VHD creation
+- SCP exit code checking in `Copy-LinuxFile` — throws on non-zero exit
+- SSH default timeout fallback (10s) and exit code warning in `Invoke-LinuxSSH`
+- Dynamic VM list discovery from `$LabVMs` config with LIN1 auto-detection in 5 checkpoint/cleanup functions
+- Parallel checkpoint save/restore operations via `Start-Job` with 120s timeout
+- Parallel LIN1 git/mount health checks in `Lab-Status.ps1` via `Start-Job` with 30s timeout
+- Adaptive heartbeat polling in `Ensure-VMRunning` (500ms intervals, 15s deadline) replacing fixed 2s sleep
+- `Write-Verbose` and `Write-Progress` output for `Test-LabDNS` health checks
+- Configurable `$LabTimeZone` in `Lab-Config.ps1` (auto-detected from host) used by `New-LabUnattendXml`
+
 ### Changed
+- Masked admin password in `Add-LIN1.ps1` console output (shows `**********` instead of plaintext)
+- `Select-LabRoles` uses cursor repositioning instead of `Clear-Host` to eliminate screen flicker
 - Refactored module/script loaders (`SimpleLab.psm1`, `Lab-Common.ps1`) to use deterministic sorted imports with clearer failure messages.
 - Consolidated shared loader behavior into `Private/Import-LabScriptTree.ps1` and switched module/script imports to use it.
 - Reorganized Linux-specific helpers into `Public/Linux/` and `Private/Linux/` while preserving exported command names.
