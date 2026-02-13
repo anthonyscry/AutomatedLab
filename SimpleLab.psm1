@@ -6,26 +6,30 @@ $ErrorActionPreference = 'Stop'
 
 $ModuleRoot = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { $PSScriptRoot }
 
-# Dot-source functions deterministically to keep import order stable.
-$privateFiles = @(Get-ChildItem -Path "$ModuleRoot\Private\*.ps1" -ErrorAction SilentlyContinue | Sort-Object Name)
+$importHelperPath = Join-Path -Path $ModuleRoot -ChildPath 'Private\Import-LabScriptTree.ps1'
+if (-not (Test-Path -Path $importHelperPath -PathType Leaf)) {
+    throw "Required import helper not found: $importHelperPath"
+}
+
+. $importHelperPath
+
+$privateFiles = Get-LabScriptFiles -RootPath $ModuleRoot -RelativePaths @('Private') -ExcludeFileNames @('Import-LabScriptTree.ps1')
 foreach ($file in $privateFiles) {
     try {
         . $file.FullName
     }
     catch {
-        Write-Error "Failed to import private function '$($file.BaseName)': $_"
-        throw
+        throw "Failed to import private function '$($file.FullName)': $($_.Exception.Message)"
     }
 }
 
-$publicFiles = @(Get-ChildItem -Path "$ModuleRoot\Public\*.ps1" -ErrorAction SilentlyContinue | Sort-Object Name)
+$publicFiles = Get-LabScriptFiles -RootPath $ModuleRoot -RelativePaths @('Public')
 foreach ($file in $publicFiles) {
     try {
         . $file.FullName
     }
     catch {
-        Write-Error "Failed to import public function '$($file.BaseName)': $_"
-        throw
+        throw "Failed to import public function '$($file.FullName)': $($_.Exception.Message)"
     }
 }
 
@@ -42,7 +46,7 @@ Export-ModuleMember -Function @(
     'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
     'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs',
     'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey',
-    # Linux VM helpers (Lab-Common.ps1)
+    # Linux VM helpers (Public/Linux)
     'Invoke-BashOnLinuxVM', 'New-LinuxVM', 'New-CidataVhdx',
     'Get-Sha512PasswordHash', 'Get-LinuxVMIPv4', 'Finalize-LinuxInstallMedia',
     'Wait-LinuxVMReady', 'Get-LinuxSSHConnectionInfo',

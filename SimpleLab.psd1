@@ -77,7 +77,7 @@ FunctionsToExport = @(
     'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
     'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs',
     'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey',
-    # Linux VM helpers (Public/)
+    # Linux VM helpers (Public/Linux)
     'Invoke-BashOnLinuxVM', 'New-LinuxVM', 'New-CidataVhdx',
     'Get-Sha512PasswordHash', 'Get-LinuxVMIPv4', 'Finalize-LinuxInstallMedia',
     'Wait-LinuxVMReady', 'Get-LinuxSSHConnectionInfo',

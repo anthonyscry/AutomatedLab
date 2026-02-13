@@ -42,7 +42,15 @@ $config.TestResult.OutputPath = $OutputPath
 
 # Set code coverage
 $config.CodeCoverage.Enabled = $true
-$config.CodeCoverage.Path = (Join-Path $moduleRoot "Public\*.ps1"), (Join-Path $moduleRoot "Private\*.ps1")
+$publicCoveragePaths = @(
+    Get-ChildItem -Path (Join-Path $moduleRoot 'Public') -Filter '*.ps1' -File -Recurse -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty FullName
+)
+$privateCoveragePaths = @(
+    Get-ChildItem -Path (Join-Path $moduleRoot 'Private') -Filter '*.ps1' -File -Recurse -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty FullName
+)
+$config.CodeCoverage.Path = @($publicCoveragePaths + $privateCoveragePaths)
 $config.CodeCoverage.OutputPath = (Join-Path $PSScriptRoot "coverage.xml")
 $config.CodeCoverage.OutputFormat = 'JaCoCo'
 

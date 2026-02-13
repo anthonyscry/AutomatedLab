@@ -12,7 +12,10 @@ BeforeAll {
 
     # Dot-source private helpers under test.
     $repoRoot = Split-Path -Parent $PSScriptRoot
-    $privateScripts = @(Get-ChildItem -Path (Join-Path $repoRoot 'Private\*.ps1') -ErrorAction SilentlyContinue)
+    $privateScripts = @(
+        Get-ChildItem -Path (Join-Path $repoRoot 'Private') -Filter '*.ps1' -File -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object FullName
+    )
     foreach ($script in $privateScripts) {
         . $script.FullName
     }
