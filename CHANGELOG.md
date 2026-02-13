@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Refactored module/script loaders (`SimpleLab.psm1`, `Lab-Common.ps1`) to use deterministic sorted imports with clearer failure messages.
+- Consolidated shared loader behavior into `Private/Import-LabScriptTree.ps1` and switched module/script imports to use it.
+- Reorganized Linux-specific helpers into `Public/Linux/` and `Private/Linux/` while preserving exported command names.
+- Updated tests and coverage discovery to recurse under `Public/` and `Private/` so nested folders are automatically included.
+- Removed duplicate Git installer logic in `Deploy.ps1` by reusing a single remote installer scriptblock for both DC1 and Win11.
 - Added resilient module root resolution in `SimpleLab.psm1` for environments where `$PSScriptRoot` is unavailable during import.
 - Standardized user-facing topology naming in key orchestration flows from legacy `WSUS1` wording to `SVR1` where applicable.
 - Expanded `.gitignore` coverage for test and coverage XML artifacts to keep generated files out of version control.

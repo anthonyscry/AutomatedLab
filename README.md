@@ -60,7 +60,9 @@ $env:OPENCODELAB_ADMIN_PASSWORD = "YourStrongPasswordHere"
 ```text
 AutomatedLab/
 ├── Public/                    # Exported module functions
+│   └── Linux/                 # Linux-focused public helpers
 ├── Private/                   # Internal helper functions
+│   └── Linux/                 # Linux-focused private helpers
 ├── Scripts/                   # Day-2 operational scripts
 ├── LabBuilder/                # Role-driven builder workflows
 ├── Ansible/                   # Ansible templates/playbooks
