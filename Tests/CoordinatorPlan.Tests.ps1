@@ -70,4 +70,48 @@ Describe 'Invoke-LabCoordinatorPlan' {
         ($result.StepOutcomes | Where-Object StepId -eq 'policy').Outcome.GetType().Name | Should -Be 'LabCoordinatorStepOutcome'
         $result.Success | Should -BeFalse
     }
+
+    It 'fails fast when any step depends on an unknown step id' {
+        $plan = [pscustomobject]@{
+            Action = 'deploy'
+            Mode = 'quick'
+            Steps = @(
+                [pscustomobject]@{ Id = 'policy'; DependsOn = @('preflight') }
+            )
+        }
+
+        {
+            Invoke-LabCoordinatorPlan -Plan $plan
+        } | Should -Throw '*unknown dependency*'
+    }
+
+    It 'fails fast when duplicate step ids are present' {
+        $plan = [pscustomobject]@{
+            Action = 'deploy'
+            Mode = 'quick'
+            Steps = @(
+                [pscustomobject]@{ Id = 'preflight'; DependsOn = @() },
+                [pscustomobject]@{ Id = 'preflight'; DependsOn = @() }
+            )
+        }
+
+        {
+            Invoke-LabCoordinatorPlan -Plan $plan
+        } | Should -Throw '*duplicate step id*'
+    }
+
+    It 'fails fast when the plan has a dependency cycle' {
+        $plan = [pscustomobject]@{
+            Action = 'deploy'
+            Mode = 'quick'
+            Steps = @(
+                [pscustomobject]@{ Id = 'a'; DependsOn = @('b') },
+                [pscustomobject]@{ Id = 'b'; DependsOn = @('a') }
+            )
+        }
+
+        {
+            Invoke-LabCoordinatorPlan -Plan $plan
+        } | Should -Throw '*dependency cycle*'
+    }
 }

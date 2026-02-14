@@ -22,6 +22,29 @@ function Invoke-LabCoordinatorPlan {
         }
     )
 
+    $stepIds = @{}
+    foreach ($step in @($Plan.Steps)) {
+        $stepId = [string]$step.Id
+        if ([string]::IsNullOrWhiteSpace($stepId)) {
+            throw 'Coordinator plan contains a step with an empty id.'
+        }
+
+        if ($stepIds.ContainsKey($stepId)) {
+            throw ('Coordinator plan contains duplicate step id: {0}' -f $stepId)
+        }
+
+        $stepIds[$stepId] = $true
+    }
+
+    foreach ($step in @($Plan.Steps)) {
+        foreach ($dependencyId in @($step.DependsOn)) {
+            $dependencyStepId = [string]$dependencyId
+            if (-not $stepIds.ContainsKey($dependencyStepId)) {
+                throw ('Coordinator plan contains unknown dependency: {0} -> {1}' -f [string]$step.Id, $dependencyStepId)
+            }
+        }
+    }
+
     $pendingById = @{}
     $sourceOrder = @{}
     $index = 0
@@ -66,7 +89,7 @@ function Invoke-LabCoordinatorPlan {
             foreach ($dependencyId in $dependsOn) {
                 $dependencyOutcome = $outcomes | Where-Object { $_.StepId -eq [string]$dependencyId } | Select-Object -First 1
                 if ($null -eq $dependencyOutcome) {
-                    continue
+                    throw ('Coordinator plan execution encountered missing dependency outcome: {0} -> {1}' -f [string]$step.Id, [string]$dependencyId)
                 }
 
                 if ($dependencyOutcome.Outcome -ne [LabCoordinatorStepOutcome]::Succeeded) {
