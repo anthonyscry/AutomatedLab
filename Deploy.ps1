@@ -6,6 +6,8 @@
 
 [CmdletBinding()]
 param(
+    [ValidateSet('quick', 'full')]
+    [string]$Mode = 'full',
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
     [switch]$IncludeLIN1,
