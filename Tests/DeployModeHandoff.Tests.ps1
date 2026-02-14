@@ -29,4 +29,22 @@ Describe 'OpenCodeLab app deploy handoff' {
     It 'passes effective mode explicitly when launching Deploy.ps1' {
         $appText | Should -Match 'Get-DeployArgs\s+-Mode\s+\$EffectiveMode'
     }
+
+    It 'passes effective mode explicitly into Bootstrap.ps1 for all bootstrap entry paths' {
+        $matches = [regex]::Matches($appText, 'Get-BootstrapArgs\s+-Mode\s+\$EffectiveMode')
+        $matches.Count | Should -Be 3
+    }
+
+    It 'Get-BootstrapArgs accepts mode and forwards it to Bootstrap.ps1' {
+        $appText | Should -Match 'function\s+Get-BootstrapArgs\s*\{\s*param\('
+        $appText | Should -Match 'Get-BootstrapArgs\s*\{[\s\S]*\$scriptArgs\s*\+=\s*@\(''-Mode'',\s*\$Mode\)'
+    }
+}
+
+Describe 'Deploy mode semantics' {
+    It 'explicitly handles quick mode fallback to full mode' {
+        $deployText | Should -Match 'if\s*\(\$Mode\s*-eq\s*''quick''\)'
+        $deployText | Should -Match '\$EffectiveMode\s*=\s*''full'''
+        $deployText | Should -Match 'Write-LabStatus\s+-Status\s+WARN\s+-Message\s+".*quick.*full.*"'
+    }
 }
