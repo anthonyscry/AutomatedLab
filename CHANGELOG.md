@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `Wait-LabVMReady` variable interpolation (`${vmName}:` instead of `$vmName:`)
 
 ### Added
+- Added quick/full orchestration helpers for action dispatch, mode fallback decisions, execution intent, and profile resolution used by `OpenCodeLab-App.ps1`.
+- Added `OpenCodeLab-GUI.ps1` WinForms wrapper and GUI helper functions for safe argument building, command preview, and latest-run artifact summaries.
 - Disk space validation (65 GB minimum) in `New-LabVM` before VHD creation
 - SCP exit code checking in `Copy-LinuxFile` — throws on non-zero exit
 - SSH default timeout fallback (10s) and exit code warning in `Invoke-LinuxSSH`
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `docs/REPOSITORY-STRUCTURE.md` with folder responsibilities and repo hygiene conventions.
 - Rewrote `README.md` to match current entry points, topology, and usage patterns.
 - Added `.planning/runs/` to gitignore to avoid committing generated run artifacts.
+- Added design and implementation plan docs for fast deploy/teardown and GUI operations under `docs/plans/`.
 
 ### Removed
 - Removed tracked root `testResults.xml` artifact.

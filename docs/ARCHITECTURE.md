@@ -11,7 +11,26 @@ The repository has two layers:
 
 - **Bootstrap** (`Bootstrap.ps1`): installs dependencies and validates host prerequisites.
 - **Deploy** (`Deploy.ps1`): creates/repairs core topology (DC1, SVR1, WS1), with optional LIN1 flow.
-- **Operate** (`OpenCodeLab-App.ps1`): action router for setup, start, health, rollback, reset, and menu mode.
+- **Operate** (`OpenCodeLab-App.ps1`): action router for setup, quick/full deploy and teardown, health, rollback, reset, and menu mode.
+- **GUI wrapper** (`OpenCodeLab-GUI.ps1`): WinForms launcher that builds validated argument lists, starts app runs in a separate PowerShell process, and surfaces run artifact summaries.
+
+## Quick/full orchestration model
+
+- `deploy` and `teardown` are orchestration actions with two modes: `quick` and `full`.
+- `Resolve-LabDispatchPlan` keeps these actions mode-aware and forces mode `full` for setup/reset/blow-away style actions.
+- `Get-LabStateProbe` and `Resolve-LabModeDecision` gate `deploy -Mode quick`; if required state is missing, effective mode falls back to `full` with a reason.
+- `Resolve-LabOrchestrationIntent` maps effective mode to runtime behavior:
+  - `deploy + quick` -> start/status/health quick startup sequence
+  - `deploy + full` -> full `Deploy.ps1` path
+  - `teardown + quick` -> stop VMs and restore `LabReady` when available
+  - `teardown + full` -> destructive blow-away flow
+- `Resolve-LabExecutionProfile` centralizes profile defaults and optional profile-file overrides for both operations.
+
+## Run artifacts and observability
+
+- `OpenCodeLab-App.ps1` writes per-run JSON and text artifacts under `C:\LabSources\Logs`.
+- Artifacts include requested/effective mode, fallback reason, profile source, run flags, and step events.
+- `OpenCodeLab-GUI.ps1` reads the newest artifact from the current run window and appends an operator-friendly status line.
 
 ## Loading conventions
 

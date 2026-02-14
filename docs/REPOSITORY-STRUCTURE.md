@@ -12,6 +12,7 @@
 - `Tests/`: Pester suites and test runner.
 - `.planning/`: planning documents and local planning state.
 - `docs/`: architecture and repository organization notes.
+- `docs/plans/`: dated design and implementation plans for major workflow changes.
 
 ## Top-level files
 
@@ -20,8 +21,19 @@
 - `Lab-Config.ps1`: environment-specific defaults (VM names, network, paths, timing).
 - `Lab-Common.ps1`: script-loader shim for non-module workflows.
 - `OpenCodeLab-App.ps1`: primary user entry point for action-driven operations.
+- `OpenCodeLab-GUI.ps1`: WinForms wrapper for launching app actions with command preview/status output.
 - `Bootstrap.ps1`: machine/bootstrap prerequisites.
 - `Deploy.ps1`: full deployment and post-deployment configuration.
+
+## Orchestration helpers
+
+- `Private/Resolve-LabDispatchPlan.ps1`: normalizes requested action/mode before routing.
+- `Private/Get-LabStateProbe.ps1`: probes lab registration, VM presence, LabReady snapshot, and network primitives.
+- `Private/Resolve-LabModeDecision.ps1`: determines requested vs effective mode and fallback reason.
+- `Private/Resolve-LabOrchestrationIntent.ps1`: maps effective mode to quick/full execution strategy.
+- `Private/Resolve-LabExecutionProfile.ps1`: composes operation defaults with optional profile JSON overrides.
+- `Private/New-LabAppArgumentList.ps1`: builds safe argument arrays for the GUI launcher.
+- `Private/Get-LabRunArtifactSummary.ps1`: renders command preview and parses latest run artifacts for GUI status.
 
 ## Hygiene conventions
 
