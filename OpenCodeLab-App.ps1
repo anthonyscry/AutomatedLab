@@ -35,6 +35,9 @@ param(
     [string]$Action = 'menu',
     [ValidateSet('quick', 'full')]
     [string]$Mode = 'full',
+    [string[]]$TargetHosts,
+    [string]$InventoryPath,
+    [string]$ConfirmationToken,
     [string]$ProfilePath,
     [switch]$Force,
     [switch]$RemoveNetwork,
@@ -59,6 +62,11 @@ $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 if ((-not $NoExecute) -and (Test-Path $CommonPath)) { . $CommonPath }
 
 $OrchestrationHelperPaths = @(
+    (Join-Path $ScriptDir 'Private\Get-LabHostInventory.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabOperationIntent.ps1'),
+    (Join-Path $ScriptDir 'Private\Invoke-LabRemoteProbe.ps1'),
+    (Join-Path $ScriptDir 'Private\Get-LabFleetStateProbe.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabCoordinatorPolicy.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabActionRequest.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabDispatchPlan.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
@@ -342,7 +350,23 @@ function Resolve-NoExecuteStateOverride {
         return $null
     }
 
+    if ($state -is [System.Array]) {
+        return @($state)
+    }
+
+    if ($state -is [System.Collections.IEnumerable] -and $state -isnot [string] -and $state.PSObject.TypeNames -contains 'System.Object[]') {
+        return @($state)
+    }
+
     $statePropertyNames = @($state.PSObject.Properties.Name)
+    if (($statePropertyNames -contains 'Reachable') -or ($statePropertyNames -contains 'HostName')) {
+        return @($state)
+    }
+
+    if ($statePropertyNames -contains 'HostProbes') {
+        return @($state.HostProbes)
+    }
+
     if ($statePropertyNames -contains 'MissingVMs') {
         $state.MissingVMs = @($state.MissingVMs)
     }
@@ -1072,10 +1096,15 @@ function Invoke-InteractiveMenu {
 $runSuccess = $false
 $runError = ''
 
-try {
-    $rawAction = $Action
-    $rawMode = $Mode
-    $orchestrationAction = $null
+    try {
+        $rawAction = $Action
+        $rawMode = $Mode
+        $orchestrationAction = $null
+        $operationIntent = $null
+        $fleetProbe = @()
+        $policyDecision = $null
+        $policyOutcome = $null
+        $policyReason = $null
 
     if (Get-Command Resolve-LabDispatchPlan -ErrorAction SilentlyContinue) {
         $dispatchPlan = Resolve-LabDispatchPlan -Action $rawAction -Mode $rawMode
@@ -1105,10 +1134,158 @@ try {
     $orchestrationIntent = $null
 
     if ($orchestrationAction -in @('deploy', 'teardown')) {
+        $operationIntentSplat = @{
+            Action = $orchestrationAction
+            Mode = $RequestedMode
+        }
+        if ($TargetHosts) {
+            $operationIntentSplat.TargetHosts = @($TargetHosts)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($InventoryPath)) {
+            $operationIntentSplat.InventoryPath = $InventoryPath
+        }
+        $operationIntent = Resolve-LabOperationIntent @operationIntentSplat
+
         $stateProbe = Resolve-NoExecuteStateOverride
         if ($null -eq $stateProbe) {
-            $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
+            $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName)
         }
+        elseif ($stateProbe -is [System.Array]) {
+            $fleetProbe = @($stateProbe)
+        }
+        else {
+            $statePropertyNames = @($stateProbe.PSObject.Properties.Name)
+            $isLegacySingleState = ($statePropertyNames -contains 'LabRegistered') -or
+                ($statePropertyNames -contains 'MissingVMs') -or
+                ($statePropertyNames -contains 'LabReadyAvailable') -or
+                ($statePropertyNames -contains 'SwitchPresent') -or
+                ($statePropertyNames -contains 'NatPresent')
+
+            if ($isLegacySingleState) {
+                $legacyHostName = if ($operationIntent.TargetHosts.Count -gt 0) { [string]$operationIntent.TargetHosts[0] } else { 'local' }
+                $fleetProbe = @(
+                    [pscustomobject]@{
+                        HostName = $legacyHostName
+                        Reachable = $true
+                        Probe = $stateProbe
+                        Failure = $null
+                    }
+                )
+            }
+            else {
+                $fleetProbe = @($stateProbe)
+            }
+        }
+
+        if ($fleetProbe.Count -eq 0) {
+            $fleetProbe = @(
+                [pscustomobject]@{
+                    HostName = 'local'
+                    Reachable = $true
+                    Probe = [pscustomobject]@{
+                        LabRegistered = $false
+                        MissingVMs = @('unknown')
+                        LabReadyAvailable = $false
+                        SwitchPresent = $false
+                        NatPresent = $false
+                    }
+                    Failure = $null
+                }
+            )
+        }
+
+        $policyHostProbes = @($fleetProbe | ForEach-Object {
+            $probeHostName = if ($_.PSObject.Properties.Name -contains 'HostName' -and -not [string]::IsNullOrWhiteSpace([string]$_.HostName)) {
+                [string]$_.HostName
+            }
+            elseif ($_.PSObject.Properties.Name -contains 'Name' -and -not [string]::IsNullOrWhiteSpace([string]$_.Name)) {
+                [string]$_.Name
+            }
+            else {
+                'unknown'
+            }
+
+            [pscustomobject]@{
+                Name = $probeHostName
+                Reachable = if ($_.PSObject.Properties.Name -contains 'Reachable') { [bool]$_.Reachable } else { $false }
+            }
+        })
+
+        $safetyRequiresFull = $false
+        if ($orchestrationAction -eq 'teardown' -and $RequestedMode -eq 'quick') {
+            $safetyRequiresFull = @($fleetProbe | Where-Object {
+                ($_.PSObject.Properties.Name -contains 'Reachable') -and
+                [bool]$_.Reachable -and
+                (-not ($_.PSObject.Properties.Name -contains 'Probe') -or
+                 -not ($_.Probe.PSObject.Properties.Name -contains 'LabReadyAvailable') -or
+                 -not [bool]$_.Probe.LabReadyAvailable)
+            }).Count -gt 0
+        }
+
+        $hasScopedConfirmation = -not [string]::IsNullOrWhiteSpace($ConfirmationToken)
+        $policyDecision = Resolve-LabCoordinatorPolicy -Action $orchestrationAction -RequestedMode $RequestedMode -HostProbes $policyHostProbes -SafetyRequiresFull:$safetyRequiresFull -HasScopedConfirmation:$hasScopedConfirmation
+        $policyOutcome = $policyDecision.Outcome.ToString()
+        $policyReason = [string]$policyDecision.Reason
+
+        if (-not $policyDecision.Allowed) {
+            if ($policyDecision.PSObject.Properties.Name -contains 'EffectiveMode' -and -not [string]::IsNullOrWhiteSpace([string]$policyDecision.EffectiveMode)) {
+                $EffectiveMode = [string]$policyDecision.EffectiveMode
+            }
+            Add-RunEvent -Step 'policy' -Status 'blocked' -Message $policyReason
+
+            if ($NoExecute) {
+                $runSuccess = $true
+                Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)'
+                return [pscustomobject]@{
+                    RawAction = $rawAction
+                    RawMode = $rawMode
+                    DispatchAction = $Action
+                    OrchestrationAction = $orchestrationAction
+                    RequestedMode = $RequestedMode
+                    EffectiveMode = $EffectiveMode
+                    FallbackReason = $FallbackReason
+                    ProfileSource = $ProfileSource
+                    OperationIntent = $operationIntent
+                    FleetProbe = $fleetProbe
+                    StateProbe = $stateProbe
+                    PolicyOutcome = $policyOutcome
+                    PolicyReason = $policyReason
+                    ModeDecision = $modeDecision
+                    OrchestrationIntent = $orchestrationIntent
+                }
+            }
+
+            throw "Policy blocked execution: $policyReason"
+        }
+
+        Add-RunEvent -Step 'policy' -Status 'ok' -Message ("outcome={0}; reason={1}; requested_mode={2}; effective_mode={3}" -f $policyOutcome, $policyReason, $RequestedMode, $policyDecision.EffectiveMode)
+
+        $stateProbe = $null
+        $firstReachable = @($fleetProbe | Where-Object {
+            ($_.PSObject.Properties.Name -contains 'Reachable') -and
+            [bool]$_.Reachable -and
+            ($_.PSObject.Properties.Name -contains 'Probe') -and
+            $null -ne $_.Probe
+        }) | Select-Object -First 1
+
+        if ($firstReachable) {
+            $stateProbe = $firstReachable.Probe
+        }
+
+        if ($null -eq $stateProbe) {
+            $stateProbe = [pscustomobject]@{
+                LabRegistered = $false
+                MissingVMs = @('unknown')
+                LabReadyAvailable = $false
+                SwitchPresent = $false
+                NatPresent = $false
+            }
+        }
+
+        if (-not ($stateProbe.PSObject.Properties.Name -contains 'MissingVMs')) {
+            $stateProbe | Add-Member -NotePropertyName 'MissingVMs' -NotePropertyValue @()
+        }
+
         $modeDecision = Resolve-LabModeDecision -Operation $orchestrationAction -RequestedMode $RequestedMode -State $stateProbe
         $EffectiveMode = $modeDecision.EffectiveMode
         $FallbackReason = $modeDecision.FallbackReason
@@ -1153,7 +1330,11 @@ try {
             EffectiveMode = $EffectiveMode
             FallbackReason = $FallbackReason
             ProfileSource = $ProfileSource
+            OperationIntent = $operationIntent
+            FleetProbe = $fleetProbe
             StateProbe = $stateProbe
+            PolicyOutcome = $policyOutcome
+            PolicyReason = $policyReason
             ModeDecision = $modeDecision
             OrchestrationIntent = $orchestrationIntent
         }
