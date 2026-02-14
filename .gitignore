@@ -23,6 +23,7 @@ LabBuilder/Logs/
 # IDE / Editor
 .vscode/
 *.code-workspace
+.worktrees/
 
 # OS artifacts
 Thumbs.db
