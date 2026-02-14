@@ -20,6 +20,8 @@ param(
         'health',
         'start',
         'status',
+        'asset-report',
+        'offline-bundle',
         'terminal',
         'new-project',
         'push',
@@ -524,46 +526,368 @@ function Invoke-MenuCommand {
     }
 }
 
+function Get-MenuVmSelection {
+    param([string]$SuggestedVM = '')
+
+    $vmNames = @()
+    try {
+        $vmNames = @(Hyper-V\Get-VM -ErrorAction Stop | Select-Object -ExpandProperty Name)
+    } catch {
+        $vmNames = @($LabVMs) + @('LIN1')
+    }
+
+    $vmNames = @($vmNames | Sort-Object -Unique)
+    if (-not $vmNames -or $vmNames.Count -eq 0) {
+        if (-not [string]::IsNullOrWhiteSpace($SuggestedVM)) {
+            return $SuggestedVM
+        }
+        return (Read-Host '  Target VM name').Trim()
+    }
+
+    Write-Host ''
+    Write-Host '  Available target VMs:' -ForegroundColor Cyan
+    for ($i = 0; $i -lt $vmNames.Count; $i++) {
+        Write-Host ("   [{0}] {1}" -f ($i + 1), $vmNames[$i]) -ForegroundColor Gray
+    }
+    Write-Host '   [N] Enter custom VM name' -ForegroundColor Gray
+
+    if (-not [string]::IsNullOrWhiteSpace($SuggestedVM)) {
+        Write-Host ("  Suggested target: {0}" -f $SuggestedVM) -ForegroundColor DarkGray
+    }
+
+    $selection = (Read-Host '  Select target VM').Trim().ToUpperInvariant()
+    if ($selection -eq 'N') {
+        return (Read-Host '  Enter custom VM name').Trim()
+    }
+
+    $index = 0
+    if ([int]::TryParse($selection, [ref]$index) -and $index -ge 1 -and $index -le $vmNames.Count) {
+        return $vmNames[$index - 1]
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($SuggestedVM)) {
+        return $SuggestedVM
+    }
+
+    return $vmNames[0]
+}
+
+function Invoke-ConfigureRoleMenu {
+    $roles = @(
+        [pscustomobject]@{ Key = '1'; Name = 'DC';         DefaultVM = 'DC1';     BuilderTag = 'DC';         Automation = 'Built-in domain role' },
+        [pscustomobject]@{ Key = '2'; Name = 'WSUS';       DefaultVM = 'WSUS1';   BuilderTag = 'WSUS';       Automation = 'LabBuilder scaffold available' },
+        [pscustomobject]@{ Key = '3'; Name = 'SQL';        DefaultVM = 'SQL1';    BuilderTag = 'SQL';        Automation = 'LabBuilder scaffold available' },
+        [pscustomobject]@{ Key = '4'; Name = 'DHCP';       DefaultVM = 'DC1';      BuilderTag = '';           Automation = 'Manual role install flow' },
+        [pscustomobject]@{ Key = '5'; Name = 'File Server';DefaultVM = 'FILE1';    BuilderTag = 'FileServer'; Automation = 'LabBuilder scaffold available' },
+        [pscustomobject]@{ Key = '6'; Name = 'Print Server';DefaultVM = 'PRN1';     BuilderTag = 'PrintServer'; Automation = 'AutomatedLab Windows feature' },
+        [pscustomobject]@{ Key = '7'; Name = 'Splunk';      DefaultVM = 'SPLUNK1';  BuilderTag = '';            Automation = 'Custom install required' },
+        [pscustomobject]@{ Key = '8'; Name = 'Commvault';   DefaultVM = 'CV1';      BuilderTag = '';            Automation = 'Custom install required' },
+        [pscustomobject]@{ Key = '9'; Name = 'Trellix';     DefaultVM = 'TRELLIX1'; BuilderTag = '';            Automation = 'Custom install required' },
+        [pscustomobject]@{ Key = '0'; Name = 'ISE';         DefaultVM = 'ISE1';     BuilderTag = '';            Automation = 'Custom install required' }
+    )
+
+    Write-Host ''
+    Write-Host '  CONFIGURE ROLE' -ForegroundColor Cyan
+    foreach ($role in $roles) {
+        Write-Host ("   [{0}] {1}" -f $role.Key, $role.Name) -ForegroundColor White
+    }
+    Write-Host '   [X] Back' -ForegroundColor DarkGray
+
+    $roleChoice = (Read-Host '  Select role').Trim().ToUpperInvariant()
+    if ($roleChoice -eq 'X') { return }
+
+    $selectedRole = $roles | Where-Object { $_.Key -eq $roleChoice } | Select-Object -First 1
+    if (-not $selectedRole) {
+        Write-Host '  Invalid role selection.' -ForegroundColor Red
+        return
+    }
+
+    Write-Host ''
+    Write-Host '  Role topology mode:' -ForegroundColor Cyan
+    Write-Host '   [P] Primary (default)' -ForegroundColor Gray
+    Write-Host '   [S] Secondary' -ForegroundColor Gray
+    $modeChoice = (Read-Host '  Select mode').Trim().ToUpperInvariant()
+    $roleMode = if ($modeChoice -eq 'S') { 'Secondary' } else { 'Primary' }
+
+    $targetVM = Get-MenuVmSelection -SuggestedVM $selectedRole.DefaultVM
+    if ([string]::IsNullOrWhiteSpace($targetVM)) {
+        Write-Host '  Target VM is required.' -ForegroundColor Red
+        return
+    }
+
+    Add-RunEvent -Step 'configure-role' -Status 'ok' -Message ("Role={0}; Mode={1}; Target={2}" -f $selectedRole.Name, $roleMode, $targetVM)
+
+    Write-Host ''
+    Write-LabStatus -Status OK -Message ("Role plan captured: {0} ({1}) on {2}" -f $selectedRole.Name, $roleMode, $targetVM)
+    Write-Host ("  Automation: {0}" -f $selectedRole.Automation) -ForegroundColor DarkGray
+
+    if (-not [string]::IsNullOrWhiteSpace($selectedRole.BuilderTag)) {
+        $builderPath = Join-Path $ScriptDir 'LabBuilder\Invoke-LabBuilder.ps1'
+        Write-Host '  AutomatedLab-backed role detected.' -ForegroundColor Green
+        Write-Host ("  Build command: {0} -Operation Build -Roles DC,{1}" -f $builderPath, $selectedRole.BuilderTag) -ForegroundColor Gray
+
+        $runNow = (Read-Host '  Run this build now? (Y/n)').Trim().ToLowerInvariant()
+        if ([string]::IsNullOrWhiteSpace($runNow) -or $runNow -eq 'y' -or $runNow -eq 'yes') {
+            if (-not (Test-Path $builderPath)) {
+                Write-Host ("  LabBuilder entry not found: {0}" -f $builderPath) -ForegroundColor Red
+                return
+            }
+
+            $rolesToBuild = @('DC', $selectedRole.BuilderTag) | Select-Object -Unique
+            & $builderPath -Operation Build -Roles $rolesToBuild
+        }
+    } else {
+        Write-Host '  This role does not have an automated installer in this repo yet.' -ForegroundColor Yellow
+    }
+}
+
+function Invoke-AddVMWizard {
+    param(
+        [Parameter(Mandatory)][ValidateSet('Server', 'Workstation')][string]$VMType
+    )
+
+    $defaultName = if ($VMType -eq 'Server') { 'SVR2' } else { 'WS2' }
+    $defaultMemory = if ($VMType -eq 'Server') { 4 } else { 6 }
+    $defaultCpu = 2
+
+    $vmNameInput = (Read-Host ("  VM name [{0}]" -f $defaultName)).Trim()
+    $vmName = if ([string]::IsNullOrWhiteSpace($vmNameInput)) { $defaultName } else { $vmNameInput }
+
+    $memoryInput = (Read-Host ("  Memory GB [{0}]" -f $defaultMemory)).Trim()
+    $memoryGB = $defaultMemory
+    if (-not [string]::IsNullOrWhiteSpace($memoryInput)) {
+        $parsedMemory = 0
+        if ([int]::TryParse($memoryInput, [ref]$parsedMemory) -and $parsedMemory -ge 1) {
+            $memoryGB = $parsedMemory
+        }
+    }
+
+    $cpuInput = (Read-Host ("  CPU count [{0}]" -f $defaultCpu)).Trim()
+    $cpuCount = $defaultCpu
+    if (-not [string]::IsNullOrWhiteSpace($cpuInput)) {
+        $parsedCpu = 0
+        if ([int]::TryParse($cpuInput, [ref]$parsedCpu) -and $parsedCpu -ge 1) {
+            $cpuCount = $parsedCpu
+        }
+    }
+
+    $isoPath = (Read-Host '  ISO path (optional, leave blank for none)').Trim()
+
+    $diskRoot = Join-Path $LabPath 'Disks'
+    if (-not (Test-Path $diskRoot)) {
+        New-Item -Path $diskRoot -ItemType Directory -Force | Out-Null
+    }
+    $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
+
+    Write-Host ''
+    Write-Host '  VM plan:' -ForegroundColor Cyan
+    Write-Host ("    Type: {0}" -f $VMType) -ForegroundColor Gray
+    Write-Host ("    Name: {0}" -f $vmName) -ForegroundColor Gray
+    Write-Host ("    MemoryGB: {0}" -f $memoryGB) -ForegroundColor Gray
+    Write-Host ("    CPU: {0}" -f $cpuCount) -ForegroundColor Gray
+    Write-Host ("    Switch: {0}" -f $LabSwitch) -ForegroundColor Gray
+    Write-Host ("    VHD: {0}" -f $vhdPath) -ForegroundColor Gray
+    if (-not [string]::IsNullOrWhiteSpace($isoPath)) {
+        Write-Host ("    ISO: {0}" -f $isoPath) -ForegroundColor Gray
+    }
+
+    $confirm = (Read-Host '  Create VM now? (y/n)').Trim().ToLowerInvariant()
+    if ($confirm -ne 'y') {
+        Write-Host '  VM creation cancelled.' -ForegroundColor Yellow
+        return
+    }
+
+    $newVmCmd = Get-Command New-LabVM -ErrorAction SilentlyContinue
+    if (-not $newVmCmd) {
+        Write-Host '  New-LabVM function is not available in this session.' -ForegroundColor Red
+        return
+    }
+
+    $vmResult = $null
+    if ([string]::IsNullOrWhiteSpace($isoPath)) {
+        $vmResult = New-LabVM -VMName $vmName -MemoryGB $memoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $cpuCount
+    } else {
+        $vmResult = New-LabVM -VMName $vmName -MemoryGB $memoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $cpuCount -IsoPath $isoPath
+    }
+
+    if ($vmResult.Status -eq 'OK' -or $vmResult.Status -eq 'AlreadyExists') {
+        Add-RunEvent -Step 'add-vm' -Status 'ok' -Message ("Type={0}; VM={1}; Status={2}" -f $VMType, $vmName, $vmResult.Status)
+        Write-LabStatus -Status OK -Message $vmResult.Message
+    } else {
+        Add-RunEvent -Step 'add-vm' -Status 'fail' -Message ("Type={0}; VM={1}; Status={2}; Msg={3}" -f $VMType, $vmName, $vmResult.Status, $vmResult.Message)
+        Write-LabStatus -Status FAIL -Message $vmResult.Message
+    }
+}
+
+function Invoke-AddVMMenu {
+    Write-Host ''
+    Write-Host '  ADD VM' -ForegroundColor Cyan
+    Write-Host '   [1] Add additional Server VM' -ForegroundColor White
+    Write-Host '   [2] Add additional Workstation VM' -ForegroundColor White
+    Write-Host '   [X] Back' -ForegroundColor DarkGray
+
+    $vmChoice = (Read-Host '  Select').Trim().ToUpperInvariant()
+    switch ($vmChoice) {
+        '1' { Invoke-AddVMWizard -VMType 'Server' }
+        '2' { Invoke-AddVMWizard -VMType 'Workstation' }
+        'X' { return }
+        default { Write-Host '  Invalid selection.' -ForegroundColor Red }
+    }
+}
+
+function Read-MenuCount {
+    param(
+        [Parameter(Mandatory)][string]$Prompt,
+        [int]$DefaultValue = 0
+    )
+
+    $inputValue = (Read-Host ("  {0} [{1}]" -f $Prompt, $DefaultValue)).Trim()
+    if ([string]::IsNullOrWhiteSpace($inputValue)) {
+        return $DefaultValue
+    }
+
+    $count = 0
+    if ([int]::TryParse($inputValue, [ref]$count) -and $count -ge 0) {
+        return $count
+    }
+
+    Write-Host '  Invalid value; using default.' -ForegroundColor Yellow
+    return $DefaultValue
+}
+
+function Invoke-BulkAdditionalVMProvision {
+    param(
+        [Parameter(Mandatory)][ValidateRange(0, 100)][int]$ServerCount,
+        [Parameter(Mandatory)][ValidateRange(0, 100)][int]$WorkstationCount,
+        [string]$ServerIsoPath,
+        [string]$WorkstationIsoPath
+    )
+
+    $total = $ServerCount + $WorkstationCount
+    if ($total -eq 0) { return }
+
+    $serverMemoryGB = [int]([math]::Ceiling($Server_Memory / 1GB))
+    $workstationMemoryGB = [int]([math]::Ceiling($Client_Memory / 1GB))
+    $serverCpu = [int]$Server_Processors
+    $workstationCpu = [int]$Client_Processors
+
+    $diskRoot = Join-Path $LabPath 'Disks'
+    if (-not (Test-Path $diskRoot)) {
+        New-Item -Path $diskRoot -ItemType Directory -Force | Out-Null
+    }
+
+    $existingNames = @()
+    try {
+        $existingNames = @(Hyper-V\Get-VM -ErrorAction Stop | Select-Object -ExpandProperty Name)
+    } catch {
+        $existingNames = @()
+    }
+
+    $newVmCmd = Get-Command New-LabVM -ErrorAction SilentlyContinue
+    if (-not $newVmCmd) {
+        throw 'New-LabVM function is not available in this session.'
+    }
+
+    for ($i = 0; $i -lt $ServerCount; $i++) {
+        $suffix = 2
+        while ($existingNames -contains ("SVR{0}" -f $suffix)) { $suffix++ }
+        $vmName = "SVR{0}" -f $suffix
+        $existingNames += $vmName
+        $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
+
+        if ([string]::IsNullOrWhiteSpace($ServerIsoPath)) {
+            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $serverCpu
+        } else {
+            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $serverCpu -IsoPath $ServerIsoPath
+        }
+
+        if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
+            Add-RunEvent -Step 'setup-add-server-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status)
+            Write-LabStatus -Status OK -Message ("Provisioned server VM {0}: {1}" -f $vmName, $result.Status)
+        } else {
+            Add-RunEvent -Step 'setup-add-server-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message)
+            Write-LabStatus -Status FAIL -Message ("Failed to provision server VM {0}: {1}" -f $vmName, $result.Message)
+        }
+    }
+
+    for ($i = 0; $i -lt $WorkstationCount; $i++) {
+        $suffix = 2
+        while ($existingNames -contains ("WS{0}" -f $suffix)) { $suffix++ }
+        $vmName = "WS{0}" -f $suffix
+        $existingNames += $vmName
+        $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
+
+        if ([string]::IsNullOrWhiteSpace($WorkstationIsoPath)) {
+            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $workstationCpu
+        } else {
+            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $workstationCpu -IsoPath $WorkstationIsoPath
+        }
+
+        if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
+            Add-RunEvent -Step 'setup-add-workstation-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status)
+            Write-LabStatus -Status OK -Message ("Provisioned workstation VM {0}: {1}" -f $vmName, $result.Status)
+        } else {
+            Add-RunEvent -Step 'setup-add-workstation-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message)
+            Write-LabStatus -Status FAIL -Message ("Failed to provision workstation VM {0}: {1}" -f $vmName, $result.Message)
+        }
+    }
+}
+
+function Invoke-SetupLabMenu {
+    Write-Host ''
+    Write-Host '  SETUP LAB' -ForegroundColor Cyan
+    Write-Host '  Core build always includes DC1 + SVR1 + WS1.' -ForegroundColor DarkGray
+
+    $serverCount = Read-MenuCount -Prompt 'Additional server VMs to provision' -DefaultValue 0
+    $workstationCount = Read-MenuCount -Prompt 'Additional workstation VMs to provision' -DefaultValue 0
+
+    $serverIso = ''
+    $workstationIso = ''
+    if ($serverCount -gt 0) {
+        $serverIso = (Read-Host '  Server ISO path (optional)').Trim()
+    }
+    if ($workstationCount -gt 0) {
+        $workstationIso = (Read-Host '  Workstation ISO path (optional)').Trim()
+    }
+
+    Add-RunEvent -Step 'setup-plan' -Status 'ok' -Message ("ExtraServers={0}; ExtraWorkstations={1}" -f $serverCount, $workstationCount)
+
+    Invoke-OneButtonSetup
+
+    if (($serverCount + $workstationCount) -gt 0) {
+        Write-Host ''
+        Write-Host '  Provisioning additional VMs...' -ForegroundColor Cyan
+        Invoke-BulkAdditionalVMProvision -ServerCount $serverCount -WorkstationCount $workstationCount -ServerIsoPath $serverIso -WorkstationIsoPath $workstationIso
+    }
+}
+
 function Show-Menu {
     Clear-Host
     Write-Host ""
     Write-Host "  =============================================" -ForegroundColor Cyan
     Write-Host "   OPENCODE LAB APP" -ForegroundColor Cyan
-    Write-Host "   $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Gray
+    Write-Host ("   {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm')) -ForegroundColor Gray
     Write-Host "  =============================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  SETUP" -ForegroundColor DarkCyan
-    Write-Host "   [A] One-Button Setup (DC1 + SVR1 + WS1)" -ForegroundColor Green
-    Write-Host "       Automated: Bootstrap -> Deploy -> Start -> Health check" -ForegroundColor DarkGray
-    Write-Host "       Duration: 45-90 min | Requires: ISOs in C:\LabSources\ISOs" -ForegroundColor DarkGray
-    Write-Host "   [B] Bootstrap + Deploy (Windows topology)" -ForegroundColor White
-    Write-Host "       Duration: 30-60 min | Requires: ISOs, Hyper-V enabled" -ForegroundColor DarkGray
-    Write-Host "   [D] Deploy only (skip prerequisite check)" -ForegroundColor White
+    Write-Host "   [S] Setup Lab      Bootstrap + Deploy + optional extra VMs"
+    Write-Host "   [R] Reset Lab      Blow away + Rebuild"
     Write-Host ""
-    Write-Host "  OPERATE" -ForegroundColor DarkCyan
-    Write-Host "   [H] Health Gate" -ForegroundColor White
-    Write-Host "   [1] Start Lab" -ForegroundColor White
-    Write-Host "   [2] Lab Status" -ForegroundColor White
-    Write-Host "   [3] Open Terminal" -ForegroundColor White
-    Write-Host "   [4] New Project" -ForegroundColor White
-    Write-Host "   [5] Push to WS1" -ForegroundColor White
-    Write-Host "   [6] Test on WS1" -ForegroundColor White
-    Write-Host "   [7] Save Work" -ForegroundColor White
-    Write-Host "   [8] Stop Lab" -ForegroundColor White
-    Write-Host "   [9] Rollback to LabReady" -ForegroundColor Yellow
+    Write-Host "  MANAGE" -ForegroundColor DarkCyan
+    Write-Host "   [1] Start    [4] Rollback    [7] Terminal"
+    Write-Host "   [2] Stop     [5] Health      [8] New Project"
+    Write-Host "   [3] Status   [6] Push/Save   [9] Test"
+    Write-Host "   [A] Asset Report"
+    Write-Host "   [F] Offline AL Bundle"
+    Write-Host "   [O] Configure Role"
+    Write-Host "   [V] Add VM"
     Write-Host ""
     Write-Host "  LINUX" -ForegroundColor DarkCyan
-    Write-Host "   [L] Add LIN1 (Ubuntu VM)" -ForegroundColor White
-    Write-Host "       Creates Ubuntu 24.04 VM with cloud-init autoinstall" -ForegroundColor DarkGray
-    Write-Host "       Duration: 15-30 min | Requires: Ubuntu ISO, running DC1" -ForegroundColor DarkGray
-    Write-Host "   [C] Configure LIN1 (SSH + dev tools + SMB mount)" -ForegroundColor White
-    Write-Host "   [N] Install Ansible (control node on LIN1)" -ForegroundColor White
-    Write-Host "" 
-    Write-Host "  DESTRUCTIVE" -ForegroundColor DarkRed
-    Write-Host "   [K] One-Button Reset + Rebuild (requires 'REBUILD' confirmation)" -ForegroundColor Red
-    Write-Host "   [X] Blow Away Lab (requires 'BLOW-IT-AWAY' confirmation)" -ForegroundColor Red
+    Write-Host "   [L] Add LIN1 (Ubuntu)"
+    Write-Host "   [C] Configure LIN1"
+    Write-Host "   [N] Install Ansible"
     Write-Host ""
-    Write-Host "   [Q] Quit" -ForegroundColor DarkGray
+    Write-Host "  [X] Exit" -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -572,62 +896,53 @@ function Invoke-InteractiveMenu {
         Show-Menu
         $choice = (Read-Host "  Select").Trim().ToUpperInvariant()
         switch ($choice) {
-            'A' { Invoke-MenuCommand -Name 'one-button-setup' -Command { Invoke-OneButtonSetup } }
-            'B' { Invoke-MenuCommand -Name 'bootstrap' -Command { $bootstrapArgs = Get-BootstrapArgs; Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs } }
-            'D' { Invoke-MenuCommand -Name 'deploy' -Command { $deployArgs = Get-DeployArgs; Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs } }
-            'H' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs } }
-            '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-RepoScript -BaseName 'Start-LabDay' } }
-            '2' { Invoke-MenuCommand -Name 'status' -Command { Invoke-RepoScript -BaseName 'Lab-Status' } }
-            '3' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-RepoScript -BaseName 'Open-LabTerminal' } }
-            '4' { Invoke-MenuCommand -Name 'new-project' -Command { Invoke-RepoScript -BaseName 'New-LabProject' } }
-            '5' { Invoke-MenuCommand -Name 'push' -Command { Invoke-RepoScript -BaseName 'Push-ToWS1' } }
-            '6' { Invoke-MenuCommand -Name 'test' -Command { Invoke-RepoScript -BaseName 'Test-OnWS1' } }
-            '7' { Invoke-MenuCommand -Name 'save' -Command { Invoke-RepoScript -BaseName 'Save-LabWork' } }
-            '8' {
-                Invoke-MenuCommand -Name 'stop' -Command {
-                    Stop-LabVMsSafe
-                    Write-LabStatus -Status OK -Message "Stop requested for all lab VMs"
+            'S' { Invoke-MenuCommand -Name 'setup' -Command { Invoke-SetupLabMenu } }
+            'R' {
+                Invoke-MenuCommand -Name 'reset' -Command {
+                    $confirm = (Read-Host "  Type REBUILD to confirm").Trim()
+                    if ($confirm -eq 'REBUILD') {
+                        $dropNet = (Read-Host "  Remove network? (y/n)").Trim().ToLowerInvariant() -eq 'y'
+                        Invoke-OneButtonReset -DropNetwork:$dropNet
+                    } else {
+                        Write-Host "  Cancelled" -ForegroundColor Yellow
+                    }
                 }
             }
-            '9' {
+            '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-RepoScript -BaseName 'Start-LabDay' } }
+            '2' { Invoke-MenuCommand -Name 'stop' -Command { Stop-LabVMsSafe; Write-LabStatus -Status OK -Message "Lab stopped" } }
+            '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-RepoScript -BaseName 'Lab-Status' } }
+            '4' {
                 Invoke-MenuCommand -Name 'rollback' -Command {
                     Ensure-LabImported
                     if (-not (Test-LabReadySnapshot)) {
-                        Write-LabStatus -Status WARN -Message "LabReady snapshot not found on one or more VMs."
-                        Write-Host "  Re-run deploy to recreate baseline." -ForegroundColor Yellow
+                        Write-LabStatus -Status WARN -Message "LabReady snapshot not found"
                         return
                     }
                     Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
                     Write-LabStatus -Status OK -Message "Restored to LabReady"
                 }
             }
+            '5' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs } }
+            '6' {
+                Write-Host "  [P] Push to WS1  [S] Save Work" -ForegroundColor Cyan
+                $sub = (Read-Host "  Select").Trim().ToUpperInvariant()
+                if ($sub -eq 'P') { Invoke-RepoScript -BaseName 'Push-ToWS1' }
+                elseif ($sub -eq 'S') { Invoke-RepoScript -BaseName 'Save-LabWork' }
+            }
+            '7' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-RepoScript -BaseName 'Open-LabTerminal' } }
+            '8' { Invoke-MenuCommand -Name 'new-project' -Command { Invoke-RepoScript -BaseName 'New-LabProject' } }
+            '9' { Invoke-MenuCommand -Name 'test' -Command { Invoke-RepoScript -BaseName 'Test-OnWS1' } }
+            'A' { Invoke-MenuCommand -Name 'asset-report' -Command { Invoke-RepoScript -BaseName 'Asset-Report' } }
+            'F' { Invoke-MenuCommand -Name 'offline-bundle' -Command { Invoke-RepoScript -BaseName 'Build-OfflineAutomatedLabBundle' } }
+            'O' { Invoke-MenuCommand -Name 'configure-role' -Command { Invoke-ConfigureRoleMenu } }
+            'V' { Invoke-MenuCommand -Name 'add-vm' -Command { Invoke-AddVMMenu } }
             'L' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-RepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') } }
             'C' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-RepoScript -BaseName 'Configure-LIN1' } }
             'N' { Invoke-MenuCommand -Name 'ansible' -Command { Invoke-RepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') } }
-            'X' {
-                Invoke-MenuCommand -Name 'blow-away' -Command {
-                    $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").Trim().ToLowerInvariant() -eq 'y'
-                    Invoke-BlowAway -DropNetwork:$dropNet
-                }
-            }
-            'K' {
-                Invoke-MenuCommand -Name 'one-button-reset' -Command {
-                    $confirm = (Read-Host "  Type REBUILD to confirm reset+rebuild").Trim()
-                    if ($confirm -eq 'REBUILD') {
-                        $dropNet = (Read-Host "  Also remove switch/NAT? (y/n)").Trim().ToLowerInvariant() -eq 'y'
-                        Invoke-OneButtonReset -DropNetwork:$dropNet
-                    } else {
-                        Write-Host "  [ABORT] Cancelled" -ForegroundColor Yellow
-                    }
-                }
-            }
-            'Q' { break }
-            default {
-                Write-Host "  Invalid choice." -ForegroundColor Red
-                Start-Sleep -Seconds 1
-            }
+            'X' { break }
+            default { Write-Host "  Invalid" -ForegroundColor Red; Start-Sleep -Seconds 1 }
         }
-    } while ($choice -ne 'Q')
+    } while ($choice -ne 'X')
 }
 
 $runSuccess = $false
@@ -676,6 +991,8 @@ try {
 
         'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }
         'status' { Invoke-RepoScript -BaseName 'Lab-Status' }
+        'asset-report' { Invoke-RepoScript -BaseName 'Asset-Report' }
+        'offline-bundle' { Invoke-RepoScript -BaseName 'Build-OfflineAutomatedLabBundle' }
         'terminal' { Invoke-RepoScript -BaseName 'Open-LabTerminal' }
         'new-project' {
             $scriptArgs = @()

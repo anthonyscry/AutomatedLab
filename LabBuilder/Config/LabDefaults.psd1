@@ -26,6 +26,7 @@
         SQL        = '10.0.10.60'
         WSUS       = '10.0.10.70'
         FileServer = '10.0.10.80'
+        PrintServer = '10.0.10.85'
         Jumpbox    = '10.0.10.90'
         Client     = '10.0.10.100'
         Ubuntu     = '10.0.10.110'
@@ -43,6 +44,7 @@
         SQL        = 'SQL1'
         WSUS       = 'WSUS1'
         FileServer = 'FILE1'
+        PrintServer = 'PRN1'
         Jumpbox    = 'JUMP1'
         Client     = 'WIN10-01'
         Ubuntu     = 'LIN1'
@@ -154,6 +156,7 @@
         @{ Tag = 'SQL';        Label = 'SQL Server (SQL1) [scaffold]';       Locked = $false }
         @{ Tag = 'WSUS';       Label = 'WSUS (WSUS1) [scaffold]';           Locked = $false }
         @{ Tag = 'FileServer'; Label = 'File Server (FILE1)';               Locked = $false }
+        @{ Tag = 'PrintServer'; Label = 'Print Server (PRN1)';               Locked = $false }
         @{ Tag = 'Jumpbox';    Label = 'Jumpbox/Admin (JUMP1)';             Locked = $false }
         @{ Tag = 'Client';     Label = 'Client VM (WIN10-01)';              Locked = $false }
         @{ Separator = $true; Label = '── Linux VMs ──' }

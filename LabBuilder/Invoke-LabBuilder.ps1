@@ -110,7 +110,7 @@ try {
                 }
 
                 # Validate all role tags
-                $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'FileServer', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
+                $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'FileServer', 'PrintServer', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
                 $invalid = @($Roles | Where-Object { $_ -notin $validTags })
                 if ($invalid.Count -gt 0) {
                     Write-Host "  Invalid role(s): $($invalid -join ', ')" -ForegroundColor Red
@@ -139,6 +139,7 @@ try {
             Write-Host '    SQL         SQL Server [scaffold]' -ForegroundColor Gray
             Write-Host '    WSUS        WSUS [scaffold]' -ForegroundColor Gray
             Write-Host '    FileServer  File Server with SMB share (\\FILE1\LabShare)' -ForegroundColor Gray
+            Write-Host '    PrintServer Print Server role service (PRN1)' -ForegroundColor Gray
             Write-Host '    Jumpbox     Admin workstation (Win11 + RSAT)' -ForegroundColor Gray
             Write-Host '    Client      Client VM (Win11 + RDP)' -ForegroundColor Gray
             Write-Host '    Ubuntu      Ubuntu Server 24.04 (LIN1 + cloud-init + SSH)' -ForegroundColor Gray
