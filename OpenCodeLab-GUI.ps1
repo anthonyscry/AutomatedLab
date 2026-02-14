@@ -214,7 +214,7 @@ function Update-CommandPreview {
 }
 
 function Set-NonInteractiveSafetyDefault {
-    $guard = Get-LabGuiDestructiveGuard -Action ([string]$cmbAction.SelectedItem) -Mode ([string]$cmbMode.SelectedItem)
+    $guard = Get-LabGuiDestructiveGuard -Action ([string]$cmbAction.SelectedItem) -Mode ([string]$cmbMode.SelectedItem) -ProfilePath $txtProfilePath.Text
     if ($guard.RequiresConfirmation) {
         $chkNonInteractive.Checked = $false
     }
@@ -279,6 +279,7 @@ $chkDryRun.add_CheckedChanged($refreshPreview)
 $chkRemoveNetwork.add_CheckedChanged($refreshPreview)
 $chkCoreOnly.add_CheckedChanged($refreshPreview)
 $txtProfilePath.add_TextChanged($refreshPreview)
+$txtProfilePath.add_TextChanged({ Set-NonInteractiveSafetyDefault })
 $txtDefaultsFile.add_TextChanged($refreshPreview)
 
 $btnRun.add_Click({
@@ -289,7 +290,7 @@ $btnRun.add_Click({
 
     try {
         $options = Get-SelectedOptions
-        $guard = Get-LabGuiDestructiveGuard -Action $options.Action -Mode $options.Mode
+        $guard = Get-LabGuiDestructiveGuard -Action $options.Action -Mode $options.Mode -ProfilePath $options.ProfilePath
         if ($guard.RequiresConfirmation) {
             $confirmResult = [System.Windows.Forms.MessageBox]::Show(
                 "This will run $($guard.ConfirmationLabel). Click Yes to continue.",
