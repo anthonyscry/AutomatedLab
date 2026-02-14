@@ -4,6 +4,7 @@ BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot
     . (Join-Path $repoRoot 'Private/New-LabAppArgumentList.ps1')
     . (Join-Path $repoRoot 'Private/Get-LabRunArtifactSummary.ps1')
+    . (Join-Path $repoRoot 'Private/Get-LabGuiDestructiveGuard.ps1')
 }
 
 Describe 'New-LabGuiCommandPreview' {
@@ -145,5 +146,37 @@ Describe 'Get-LabRunArtifactSummary' {
         finally {
             Remove-Item -Path $root -Recurse -Force -ErrorAction SilentlyContinue
         }
+    }
+}
+
+Describe 'Get-LabGuiDestructiveGuard' {
+    It 'marks blow-away as destructive regardless of mode' {
+        $result = Get-LabGuiDestructiveGuard -Action 'blow-away' -Mode 'quick'
+
+        $result.RequiresConfirmation | Should -BeTrue
+        $result.RecommendedNonInteractiveDefault | Should -BeFalse
+        $result.ConfirmationLabel | Should -Be 'BLOW AWAY'
+    }
+
+    It 'marks full teardown as destructive' {
+        $result = Get-LabGuiDestructiveGuard -Action 'teardown' -Mode 'full'
+
+        $result.RequiresConfirmation | Should -BeTrue
+        $result.RecommendedNonInteractiveDefault | Should -BeFalse
+        $result.ConfirmationLabel | Should -Be 'FULL TEARDOWN'
+    }
+
+    It 'does not mark quick teardown as destructive' {
+        $result = Get-LabGuiDestructiveGuard -Action 'teardown' -Mode 'quick'
+
+        $result.RequiresConfirmation | Should -BeFalse
+        $result.RecommendedNonInteractiveDefault | Should -BeTrue
+    }
+
+    It 'does not mark deploy as destructive' {
+        $result = Get-LabGuiDestructiveGuard -Action 'deploy' -Mode 'full'
+
+        $result.RequiresConfirmation | Should -BeFalse
+        $result.RecommendedNonInteractiveDefault | Should -BeTrue
     }
 }

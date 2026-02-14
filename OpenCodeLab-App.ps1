@@ -1124,10 +1124,12 @@ try {
 
         $profileMode = if ($executionProfile.PSObject.Properties.Name -contains 'Mode') { [string]$executionProfile.Mode } else { $null }
         if (-not [string]::IsNullOrWhiteSpace($profileMode) -and $profileMode -ne $EffectiveMode) {
-            $EffectiveMode = $profileMode
-            $modeDecision = Resolve-LabModeDecision -Operation $orchestrationAction -RequestedMode $RequestedMode -State $stateProbe
-            if ($modeDecision.EffectiveMode -ne $EffectiveMode) {
-                $FallbackReason = 'profile_mode_override'
+            $isWeakerOverride = ($EffectiveMode -eq 'full') -and ($profileMode -eq 'quick')
+            if (-not $isWeakerOverride) {
+                $EffectiveMode = $profileMode
+                if ($RequestedMode -ne $EffectiveMode) {
+                    $FallbackReason = 'profile_mode_override'
+                }
             }
         }
 

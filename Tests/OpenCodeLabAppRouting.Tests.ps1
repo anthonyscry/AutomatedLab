@@ -14,7 +14,10 @@ BeforeAll {
             [string]$Mode = 'full',
 
             [Parameter()]
-            [pscustomobject]$State
+            [pscustomobject]$State,
+
+            [Parameter()]
+            [string]$ProfilePath
         )
 
         $invokeSplat = @{
@@ -25,6 +28,10 @@ BeforeAll {
 
         if ($null -ne $State) {
             $invokeSplat.NoExecuteStateJson = ($State | ConvertTo-Json -Depth 10 -Compress)
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($ProfilePath)) {
+            $invokeSplat.ProfilePath = $ProfilePath
         }
 
         & $appPath @invokeSplat
@@ -85,5 +92,39 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         $result.OrchestrationIntent.Strategy | Should -Be 'deploy-quick'
         $result.OrchestrationIntent.RunQuickStartupSequence | Should -BeTrue
         $result.OrchestrationIntent.RunDeployScript | Should -BeFalse
+    }
+
+    It 'deploy quick safety fallback cannot be weakened by profile mode quick override' {
+        $state = [pscustomobject]@{
+            LabRegistered = $false
+            MissingVMs = @()
+            LabReadyAvailable = $true
+            SwitchPresent = $true
+            NatPresent = $true
+        }
+        $profilePath = Join-Path $TestDrive 'unsafe-profile.json'
+        '{"Mode":"quick"}' | Set-Content -Path $profilePath -Encoding UTF8
+
+        $result = Invoke-AppNoExecute -Action 'deploy' -Mode 'quick' -State $state -ProfilePath $profilePath
+
+        $result.EffectiveMode | Should -Be 'full'
+        $result.FallbackReason | Should -Be 'lab_not_registered'
+    }
+
+    It 'deploy quick allows stricter profile override to full mode' {
+        $state = [pscustomobject]@{
+            LabRegistered = $true
+            MissingVMs = @()
+            LabReadyAvailable = $true
+            SwitchPresent = $true
+            NatPresent = $true
+        }
+        $profilePath = Join-Path $TestDrive 'strict-profile.json'
+        '{"Mode":"full"}' | Set-Content -Path $profilePath -Encoding UTF8
+
+        $result = Invoke-AppNoExecute -Action 'deploy' -Mode 'quick' -State $state -ProfilePath $profilePath
+
+        $result.EffectiveMode | Should -Be 'full'
+        $result.FallbackReason | Should -Be 'profile_mode_override'
     }
 }

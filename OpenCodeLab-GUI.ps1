@@ -10,6 +10,7 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $appScriptPath = Join-Path $scriptRoot 'OpenCodeLab-App.ps1'
 $argHelperPath = Join-Path $scriptRoot 'Private\New-LabAppArgumentList.ps1'
 $artifactHelperPath = Join-Path $scriptRoot 'Private\Get-LabRunArtifactSummary.ps1'
+$destructiveGuardHelperPath = Join-Path $scriptRoot 'Private\Get-LabGuiDestructiveGuard.ps1'
 
 if (-not (Test-Path -Path $appScriptPath)) {
     throw "OpenCodeLab-App.ps1 not found at path: $appScriptPath"
@@ -20,9 +21,13 @@ if (-not (Test-Path -Path $argHelperPath)) {
 if (-not (Test-Path -Path $artifactHelperPath)) {
     throw "Artifact helper not found at path: $artifactHelperPath"
 }
+if (-not (Test-Path -Path $destructiveGuardHelperPath)) {
+    throw "Destructive guard helper not found at path: $destructiveGuardHelperPath"
+}
 
 . $argHelperPath
 . $artifactHelperPath
+. $destructiveGuardHelperPath
 
 function Get-PowerShellHostPath {
     $pwsh = Get-Command 'pwsh' -ErrorAction SilentlyContinue
@@ -208,6 +213,13 @@ function Update-CommandPreview {
     }
 }
 
+function Set-NonInteractiveSafetyDefault {
+    $guard = Get-LabGuiDestructiveGuard -Action ([string]$cmbAction.SelectedItem) -Mode ([string]$cmbMode.SelectedItem)
+    if ($guard.RequiresConfirmation) {
+        $chkNonInteractive.Checked = $false
+    }
+}
+
 $script:CurrentRunProcess = $null
 $script:CurrentRunStartedUtc = $null
 $script:CurrentRunPreArtifacts = @()
@@ -258,7 +270,9 @@ $refreshPreview = {
 }
 
 $cmbAction.add_SelectedIndexChanged($refreshPreview)
+$cmbAction.add_SelectedIndexChanged({ Set-NonInteractiveSafetyDefault })
 $cmbMode.add_SelectedIndexChanged($refreshPreview)
+$cmbMode.add_SelectedIndexChanged({ Set-NonInteractiveSafetyDefault })
 $chkNonInteractive.add_CheckedChanged($refreshPreview)
 $chkForce.add_CheckedChanged($refreshPreview)
 $chkDryRun.add_CheckedChanged($refreshPreview)
@@ -275,6 +289,21 @@ $btnRun.add_Click({
 
     try {
         $options = Get-SelectedOptions
+        $guard = Get-LabGuiDestructiveGuard -Action $options.Action -Mode $options.Mode
+        if ($guard.RequiresConfirmation) {
+            $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+                "This will run $($guard.ConfirmationLabel). Click Yes to continue.",
+                'Confirm destructive action',
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+
+            if ($confirmResult -ne [System.Windows.Forms.DialogResult]::Yes) {
+                Add-StatusLine -StatusBox $txtStatus -Message 'Destructive action cancelled at confirmation gate.'
+                return
+            }
+        }
+
         $argumentList = New-LabAppArgumentList -Options $options
         $preview = New-LabGuiCommandPreview -AppScriptPath $appScriptPath -Options $options
         $hostPath = Get-PowerShellHostPath
@@ -300,6 +329,7 @@ $btnRun.add_Click({
     }
 })
 
+Set-NonInteractiveSafetyDefault
 Update-CommandPreview
 Add-StatusLine -StatusBox $txtStatus -Message 'GUI ready. Configure options and click Run.'
 
