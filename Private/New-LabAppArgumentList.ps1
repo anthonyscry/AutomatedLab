@@ -7,6 +7,38 @@ function New-LabAppArgumentList {
     $argumentList = New-Object System.Collections.Generic.List[string]
     $safeOptions = if ($null -eq $Options) { @{} } else { $Options }
 
+    function ConvertTo-SafeBoolean {
+        param($Value)
+
+        if ($null -eq $Value) { return $false }
+        if ($Value -is [bool]) { return $Value }
+
+        if ($Value -is [string]) {
+            $normalized = $Value.Trim().ToLowerInvariant()
+            switch ($normalized) {
+                { $_ -in @('true', '1', 'yes', 'on') } { return $true }
+                { $_ -in @('false', '0', 'no', 'off', '') } { return $false }
+                default { return $false }
+            }
+        }
+
+        if ($Value -is [byte] -or
+            $Value -is [sbyte] -or
+            $Value -is [int16] -or
+            $Value -is [uint16] -or
+            $Value -is [int32] -or
+            $Value -is [uint32] -or
+            $Value -is [int64] -or
+            $Value -is [uint64] -or
+            $Value -is [decimal] -or
+            $Value -is [single] -or
+            $Value -is [double]) {
+            return [double]$Value -ne 0
+        }
+
+        return $false
+    }
+
     if ($safeOptions.ContainsKey('Action') -and $null -ne $safeOptions.Action) {
         $argumentList.Add('-Action') | Out-Null
         $argumentList.Add([string]$safeOptions.Action) | Out-Null
@@ -19,7 +51,7 @@ function New-LabAppArgumentList {
 
     $switchOptionOrder = @('NonInteractive', 'Force', 'RemoveNetwork', 'DryRun')
     foreach ($name in $switchOptionOrder) {
-        if ($safeOptions.ContainsKey($name) -and [bool]$safeOptions[$name]) {
+        if ($safeOptions.ContainsKey($name) -and (ConvertTo-SafeBoolean -Value $safeOptions[$name])) {
             $argumentList.Add("-$name") | Out-Null
         }
     }
@@ -34,7 +66,7 @@ function New-LabAppArgumentList {
         $argumentList.Add([string]$safeOptions.DefaultsFile) | Out-Null
     }
 
-    if ($safeOptions.ContainsKey('CoreOnly') -and [bool]$safeOptions.CoreOnly) {
+    if ($safeOptions.ContainsKey('CoreOnly') -and (ConvertTo-SafeBoolean -Value $safeOptions.CoreOnly)) {
         $argumentList.Add('-CoreOnly') | Out-Null
     }
 

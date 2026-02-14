@@ -35,6 +35,13 @@ Describe 'Resolve-LabActionRequest' {
         $result.Mode | Should -Be 'full'
     }
 
+    It 'overrides provided mode for setup alias' {
+        $result = Resolve-LabActionRequest -Action 'setup' -Mode 'quick'
+
+        $result.Action | Should -Be 'deploy'
+        $result.Mode | Should -Be 'full'
+    }
+
     It 'keeps deploy with provided quick mode' {
         $result = Resolve-LabActionRequest -Action 'deploy' -Mode 'quick'
 
@@ -93,5 +100,45 @@ Describe 'New-LabAppArgumentList' {
         $result = New-LabAppArgumentList -Options $options
 
         $result | Should -Be @('-Action', 'teardown', '-Mode', 'full')
+    }
+
+    It 'treats string false values as false for switches' {
+        $options = @{
+            Action = 'deploy'
+            Mode = 'quick'
+            NonInteractive = 'false'
+            Force = 'FALSE'
+            RemoveNetwork = '0'
+            DryRun = 'no'
+            CoreOnly = 'off'
+        }
+
+        $result = New-LabAppArgumentList -Options $options
+
+        $result | Should -Be @('-Action', 'deploy', '-Mode', 'quick')
+    }
+
+    It 'treats string true values as true for switches' {
+        $options = @{
+            Action = 'deploy'
+            Mode = 'quick'
+            NonInteractive = 'true'
+            Force = 'TRUE'
+            RemoveNetwork = '1'
+            DryRun = 'yes'
+            CoreOnly = 'on'
+        }
+
+        $result = New-LabAppArgumentList -Options $options
+
+        $result | Should -Be @(
+            '-Action', 'deploy',
+            '-Mode', 'quick',
+            '-NonInteractive',
+            '-Force',
+            '-RemoveNetwork',
+            '-DryRun',
+            '-CoreOnly'
+        )
     }
 }
