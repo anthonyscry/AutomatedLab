@@ -19,6 +19,8 @@
 
 [CmdletBinding()]
 param(
+    [ValidateSet('quick', 'full')]
+    [string]$Mode = 'full',
     [switch]$NonInteractive,
     [switch]$IncludeLIN1,
     [switch]$SkipDeploy
@@ -312,15 +314,15 @@ if (Test-Path $DeployScript) {
     Write-Host "  This will take 30-60 minutes on first run.`n" -ForegroundColor Gray
     if ($NonInteractive) {
         if ($IncludeLIN1) {
-            & $DeployScript -NonInteractive -IncludeLIN1
+            & $DeployScript -Mode $Mode -NonInteractive -IncludeLIN1
         } else {
-            & $DeployScript -NonInteractive
+            & $DeployScript -Mode $Mode -NonInteractive
         }
     } else {
         if ($IncludeLIN1) {
-            & $DeployScript -IncludeLIN1
+            & $DeployScript -Mode $Mode -IncludeLIN1
         } else {
-            & $DeployScript
+            & $DeployScript -Mode $Mode
         }
     }
 } else {

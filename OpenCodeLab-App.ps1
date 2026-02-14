@@ -299,7 +299,13 @@ function Get-BootstrapArgs {
 }
 
 function Get-DeployArgs {
+    param(
+        [ValidateSet('quick', 'full')]
+        [string]$Mode = 'full'
+    )
+
     $scriptArgs = @()
+    $scriptArgs += @('-Mode', $Mode)
     if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
     return $scriptArgs
 }
@@ -1169,7 +1175,7 @@ try {
                 Invoke-QuickDeploy
             }
             else {
-                $deployArgs = Get-DeployArgs
+                $deployArgs = Get-DeployArgs -Mode $EffectiveMode
                 Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
             }
         }
