@@ -6,6 +6,15 @@ BeforeAll {
 }
 
 Describe 'Resolve-LabCoordinatorPolicy' {
+    It 'fails closed when host probes are missing' {
+        $result = Resolve-LabCoordinatorPolicy -Action teardown -RequestedMode quick -HostProbes @() -SafetyRequiresFull $false
+
+        $result.Allowed | Should -BeFalse
+        $result.Outcome.ToString() | Should -Be 'PolicyBlocked'
+        $result.Reason | Should -Be 'host_probes_missing'
+        $result.EffectiveMode | Should -Be 'quick'
+    }
+
     It 'fails closed when any host probe is unreachable' {
         $hostProbes = @(
             [pscustomobject]@{ Name = 'dc1'; Reachable = $true },

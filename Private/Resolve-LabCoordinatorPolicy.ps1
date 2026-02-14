@@ -67,6 +67,18 @@ function Resolve-LabCoordinatorPolicy {
 
     $effectiveMode = $RequestedMode
     $unreachableHost = $null
+    $probeCount = @($HostProbes).Count
+
+    if ($probeCount -eq 0) {
+        return [pscustomobject]@{
+            Allowed = $false
+            Outcome = [LabCoordinatorPolicyOutcome]::PolicyBlocked
+            Reason = 'host_probes_missing'
+            EffectiveMode = $effectiveMode
+            RequestedMode = $RequestedMode
+            HasScopedConfirmation = $HasScopedConfirmation
+        }
+    }
 
     foreach ($probe in @($HostProbes)) {
         $propertyNames = @($probe.PSObject.Properties.Name)
