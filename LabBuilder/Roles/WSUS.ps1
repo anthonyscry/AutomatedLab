@@ -1,11 +1,9 @@
 function Get-LabRole_WSUS {
     <#
     .SYNOPSIS
-        Returns the WSUS role definition for LabBuilder (scaffold).
+        Returns the WSUS role definition for LabBuilder.
     .DESCRIPTION
-        Defines WSUS1 as a domain-joined server VM. WSUS installation
-        is not automated — the VM is created and ready for manual setup.
-        PostInstall prints guidance on completing the installation.
+        Uses AutomatedLab module cmdlets for feature install and remote post-config.
     #>
     [CmdletBinding()]
     param(
@@ -31,14 +29,48 @@ function Get-LabRole_WSUS {
         PostInstall = {
             param([hashtable]$LabConfig)
 
-            Write-Host ''
-            Write-Host '    [SCAFFOLD] WSUS post-install is not yet implemented.' -ForegroundColor Yellow
-            Write-Host '    To complete manually:' -ForegroundColor Yellow
-            Write-Host '      1. Install-WindowsFeature UpdateServices -IncludeManagementTools' -ForegroundColor Gray
-            Write-Host '      2. Run: wsusutil.exe postinstall CONTENT_DIR=C:\WSUS' -ForegroundColor Gray
-            Write-Host '      3. Configure WSUS products, classifications, and sync schedule' -ForegroundColor Gray
-            Write-Host '      4. Configure GPO for WSUS client targeting' -ForegroundColor Gray
-            Write-Host ''
+            $wsusConfig = if ($LabConfig.ContainsKey('WSUS') -and $LabConfig.WSUS) { $LabConfig.WSUS } else { @{} }
+            $contentDir = if ($wsusConfig.ContainsKey('ContentDir') -and -not [string]::IsNullOrWhiteSpace([string]$wsusConfig.ContentDir)) { [string]$wsusConfig.ContentDir } else { 'C:\WSUS' }
+            $wsusPort = if ($wsusConfig.ContainsKey('Port') -and [int]$wsusConfig.Port -gt 0) { [int]$wsusConfig.Port } else { 8530 }
+
+            Install-LabWindowsFeature -ComputerName $LabConfig.VMNames.WSUS -FeatureName 'UpdateServices-Services,UpdateServices-DB' -IncludeManagementTools
+
+            Invoke-LabCommand -ComputerName $LabConfig.VMNames.WSUS -ActivityName 'WSUS-PostInstall' -ScriptBlock {
+                param(
+                    [string]$ContentDir,
+                    [int]$WsusPort
+                )
+
+                if (-not (Test-Path $ContentDir)) {
+                    New-Item -Path $ContentDir -ItemType Directory -Force | Out-Null
+                }
+
+                $wsusUtil = 'C:\Program Files\Update Services\Tools\wsusutil.exe'
+                if (-not (Test-Path $wsusUtil)) {
+                    throw "wsusutil.exe not found at $wsusUtil"
+                }
+
+                $alreadyConfigured = Test-Path 'HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup'
+                if (-not $alreadyConfigured) {
+                    Start-Process -FilePath $wsusUtil -ArgumentList 'postinstall', "CONTENT_DIR=\"$ContentDir\"" -Wait -NoNewWindow
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "wsusutil postinstall failed with exit code $LASTEXITCODE"
+                    }
+                    Write-Host "    [OK] WSUS postinstall completed (ContentDir=$ContentDir)." -ForegroundColor Green
+                }
+                else {
+                    Write-Host '    [OK] WSUS already configured (postinstall skipped).' -ForegroundColor Green
+                }
+
+                Set-Service -Name WsusService -StartupType Automatic -ErrorAction SilentlyContinue
+                Start-Service -Name WsusService -ErrorAction SilentlyContinue
+
+                $ruleName = "WSUS HTTP ($WsusPort)"
+                if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+                    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $WsusPort -Action Allow | Out-Null
+                    Write-Host "    [OK] Firewall rule created for WSUS port $WsusPort." -ForegroundColor Green
+                }
+            } -ArgumentList $contentDir, $wsusPort -Retries 2 -RetryIntervalInSeconds 20
         }
     }
 }

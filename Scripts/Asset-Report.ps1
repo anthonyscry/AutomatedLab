@@ -13,7 +13,47 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 
 $labConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
 $labCommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
-$defaultBuilderConfig = Join-Path $RepoRoot 'LabBuilder\Config\LabDefaults.psd1'
+$defaultBuilderConfig = Join-Path $RepoRoot 'Lab-Config.ps1'
+
+function Resolve-AssetReportBuilderConfig {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        return $null
+    }
+
+    $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+
+    if ($extension -eq '.ps1') {
+        return (& {
+            param([string]$ConfigScriptPath)
+            . $ConfigScriptPath
+
+            if (Get-Variable -Name LabBuilderConfig -ErrorAction SilentlyContinue) {
+                return (Get-Variable -Name LabBuilderConfig -ValueOnly)
+            }
+
+            if (Get-Variable -Name GlobalLabConfig -ErrorAction SilentlyContinue) {
+                $global = Get-Variable -Name GlobalLabConfig -ValueOnly
+                if ($global -and $global.Builder) {
+                    return $global.Builder
+                }
+            }
+
+            return $null
+        } -ConfigScriptPath $Path)
+    }
+
+    if ($extension -eq '.psd1') {
+        $raw = Import-PowerShellDataFile -Path $Path
+        if ($raw -and $raw.ContainsKey('LabBuilder')) {
+            return $raw.LabBuilder
+        }
+        return $raw
+    }
+
+    return $null
+}
 
 if (Test-Path $labConfigPath) { . $labConfigPath }
 if (Test-Path $labCommonPath) { . $labCommonPath }
@@ -23,9 +63,7 @@ if ([string]::IsNullOrWhiteSpace($LabBuilderConfigPath)) {
 }
 
 $builderConfig = $null
-if (Test-Path $LabBuilderConfigPath) {
-    $builderConfig = Import-PowerShellDataFile -Path $LabBuilderConfigPath
-}
+$builderConfig = Resolve-AssetReportBuilderConfig -Path $LabBuilderConfigPath
 
 try {
     Import-Module AutomatedLab -ErrorAction SilentlyContinue | Out-Null

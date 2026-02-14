@@ -1,3 +1,9 @@
+$resolveConfigPath = Join-Path $PSScriptRoot 'Resolve-LabBuilderConfig.ps1'
+if (-not (Test-Path $resolveConfigPath)) {
+    throw "Missing dependency: $resolveConfigPath"
+}
+. $resolveConfigPath
+
 function Select-LabRoles {
     <#
     .SYNOPSIS
@@ -14,15 +20,8 @@ function Select-LabRoles {
         [string]$ConfigPath
     )
 
-    # Resolve config path
-    if (-not $ConfigPath) {
-        $ConfigPath = Join-Path $PSScriptRoot 'Config\LabDefaults.psd1'
-    }
-    if (-not (Test-Path $ConfigPath)) {
-        throw "Config file not found: $ConfigPath"
-    }
-
-    $Config = Import-PowerShellDataFile -Path $ConfigPath
+    # Resolve config object (supports global Lab-Config.ps1 and legacy psd1).
+    $Config = Resolve-LabBuilderConfig -ConfigPath $ConfigPath
 
     # Initialize selection state — one bool per RoleMenu entry
     $roleMenu = $Config.RoleMenu
@@ -170,8 +169,9 @@ function Select-LabRoles {
             Write-Host '    DC         Domain Controller + DNS + Certificate Authority (always on)' -ForegroundColor Gray
             Write-Host '    DSC        DSC Pull Server — HTTP endpoints on port 8080 + 9080' -ForegroundColor Gray
             Write-Host '    IIS        IIS Web Server with sample site' -ForegroundColor Gray
-            Write-Host '    SQL        SQL Server (scaffold — VM created, install manual)' -ForegroundColor Gray
-            Write-Host '    WSUS       WSUS (scaffold — VM created, install manual)' -ForegroundColor Gray
+            Write-Host '    SQL        SQL Server (unattended setup from SQL ISO)' -ForegroundColor Gray
+            Write-Host '    WSUS       WSUS Server (feature + wsusutil postinstall)' -ForegroundColor Gray
+            Write-Host '    DHCP       DHCP Server (role + scope + options)' -ForegroundColor Gray
             Write-Host '    FileServer File Server with SMB share (\\FILE1\LabShare)' -ForegroundColor Gray
             Write-Host '    PrintServer Print server role service (PRN1)' -ForegroundColor Gray
             Write-Host '    Jumpbox    Admin workstation (Win11 + RSAT tools)' -ForegroundColor Gray

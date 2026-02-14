@@ -1,7 +1,7 @@
-# SCOPE: LabBuilder-specific settings (role menu, VM names, OS images, DSC config).
-# SHARED CONFIG: Build-LabFromSelection.ps1 now dot-sources Lab-Config.ps1 first,
-#   so shared values (IPs, domain, credentials, SSH, DHCP) come from there.
-#   Values here are LabBuilder-specific or override the shared defaults.
+# LEGACY OVERRIDE FILE:
+# - LabBuilder now defaults to ..\Lab-Config.ps1 as the global one-stop config.
+# - This file is still supported when passed explicitly with -ConfigPath.
+# - Keep this file only if you need a Builder-only override profile.
 @{
     # ── Lab Identity ──
     LabName        = 'LabBuilder'
@@ -25,6 +25,7 @@
         IIS        = '10.0.10.50'
         SQL        = '10.0.10.60'
         WSUS       = '10.0.10.70'
+        DHCP       = '10.0.10.75'
         FileServer = '10.0.10.80'
         PrintServer = '10.0.10.85'
         Jumpbox    = '10.0.10.90'
@@ -43,6 +44,7 @@
         IIS        = 'IIS1'
         SQL        = 'SQL1'
         WSUS       = 'WSUS1'
+        DHCP       = 'DHCP1'
         FileServer = 'FILE1'
         PrintServer = 'PRN1'
         Jumpbox    = 'JUMP1'
@@ -117,6 +119,21 @@
     # ── Required ISOs ──
     RequiredISOs = @('server2019.iso', 'windows11.iso')
 
+    # ── SQL Role Settings ──
+    SQL = @{
+        IsoPattern   = 'sql*.iso'
+        InstanceName = 'MSSQLSERVER'
+        Features     = 'SQLENGINE'
+        SaPassword   = 'SimpleLabSqlSa123!'
+        TcpPort      = 1433
+    }
+
+    # ── WSUS Role Settings ──
+    WSUS = @{
+        ContentDir = 'C:\WSUS'
+        Port       = 8530
+    }
+
     # ── DSC Pull Server Settings ──
     DSCPullServer = @{
         PullPort            = 8080
@@ -153,8 +170,9 @@
         @{ Tag = 'DC';         Label = 'Domain Controller (DC1) + DNS + CA'; Locked = $true  }
         @{ Tag = 'DSC';        Label = 'DSC Pull Server (DSC1)';             Locked = $false }
         @{ Tag = 'IIS';        Label = 'IIS Web Server (IIS1)';              Locked = $false }
-        @{ Tag = 'SQL';        Label = 'SQL Server (SQL1) [scaffold]';       Locked = $false }
-        @{ Tag = 'WSUS';       Label = 'WSUS (WSUS1) [scaffold]';           Locked = $false }
+        @{ Tag = 'SQL';        Label = 'SQL Server (SQL1)';                  Locked = $false }
+        @{ Tag = 'WSUS';       Label = 'WSUS (WSUS1)';                        Locked = $false }
+        @{ Tag = 'DHCP';       Label = 'DHCP Server (DHCP1)';                 Locked = $false }
         @{ Tag = 'FileServer'; Label = 'File Server (FILE1)';               Locked = $false }
         @{ Tag = 'PrintServer'; Label = 'Print Server (PRN1)';               Locked = $false }
         @{ Tag = 'Jumpbox';    Label = 'Jumpbox/Admin (JUMP1)';             Locked = $false }

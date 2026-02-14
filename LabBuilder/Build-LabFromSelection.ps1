@@ -1,3 +1,11 @@
+if (-not (Get-Command Resolve-LabBuilderConfig -CommandType Function -ErrorAction SilentlyContinue)) {
+    $resolveConfigPath = Join-Path $PSScriptRoot 'Resolve-LabBuilderConfig.ps1'
+    if (-not (Test-Path $resolveConfigPath)) {
+        throw "Missing dependency: $resolveConfigPath"
+    }
+    . $resolveConfigPath
+}
+
 function Build-LabFromSelection {
     <#
     .SYNOPSIS
@@ -10,7 +18,8 @@ function Build-LabFromSelection {
         Array of role tags to build (e.g., @('DC','DSC','IIS')).
         DC is always required and should always be included.
     .PARAMETER ConfigPath
-        Path to LabDefaults.psd1. Defaults to Config\LabDefaults.psd1 in script directory.
+        Optional path to a config file (.ps1 or .psd1).
+        Defaults to ..\Lab-Config.ps1 (global one-stop config).
     #>
     [CmdletBinding()]
     param(
@@ -32,15 +41,8 @@ function Build-LabFromSelection {
     $sharedCommonPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lab-Common.ps1'
     if (Test-Path $sharedCommonPath) { . $sharedCommonPath }
 
-    # Load LabBuilder-specific config (RoleMenu, VMNames, etc.)
-    if (-not $ConfigPath) {
-        $ConfigPath = Join-Path $PSScriptRoot 'Config\LabDefaults.psd1'
-    }
-    if (-not (Test-Path $ConfigPath)) {
-        throw "Config file not found: $ConfigPath"
-    }
-
-    $Config = Import-PowerShellDataFile -Path $ConfigPath
+    # Load LabBuilder-specific config (supports global Lab-Config.ps1 and legacy psd1).
+    $Config = Resolve-LabBuilderConfig -ConfigPath $ConfigPath
     # Add SelectedRoles so PostInstall scripts can check membership
     $Config.SelectedRoles = $SelectedRoles
 
@@ -176,6 +178,7 @@ function Build-LabFromSelection {
             IIS        = @{ File = 'IIS.ps1';            Function = 'Get-LabRole_IIS' }
             SQL        = @{ File = 'SQL.ps1';            Function = 'Get-LabRole_SQL' }
             WSUS       = @{ File = 'WSUS.ps1';           Function = 'Get-LabRole_WSUS' }
+            DHCP       = @{ File = 'DHCP.ps1';           Function = 'Get-LabRole_DHCP' }
             FileServer = @{ File = 'FileServer.ps1';     Function = 'Get-LabRole_FileServer' }
             PrintServer = @{ File = 'PrintServer.ps1';   Function = 'Get-LabRole_PrintServer' }
             Jumpbox    = @{ File = 'Jumpbox.ps1';        Function = 'Get-LabRole_Jumpbox' }

@@ -575,9 +575,9 @@ function Get-MenuVmSelection {
 function Invoke-ConfigureRoleMenu {
     $roles = @(
         [pscustomobject]@{ Key = '1'; Name = 'DC';         DefaultVM = 'DC1';     BuilderTag = 'DC';         Automation = 'Built-in domain role' },
-        [pscustomobject]@{ Key = '2'; Name = 'WSUS';       DefaultVM = 'WSUS1';   BuilderTag = 'WSUS';       Automation = 'LabBuilder scaffold available' },
-        [pscustomobject]@{ Key = '3'; Name = 'SQL';        DefaultVM = 'SQL1';    BuilderTag = 'SQL';        Automation = 'LabBuilder scaffold available' },
-        [pscustomobject]@{ Key = '4'; Name = 'DHCP';       DefaultVM = 'DC1';      BuilderTag = '';           Automation = 'Manual role install flow' },
+        [pscustomobject]@{ Key = '2'; Name = 'WSUS';       DefaultVM = 'WSUS1';   BuilderTag = 'WSUS';       Automation = 'LabBuilder unattended install' },
+        [pscustomobject]@{ Key = '3'; Name = 'SQL';        DefaultVM = 'SQL1';    BuilderTag = 'SQL';        Automation = 'LabBuilder unattended install' },
+        [pscustomobject]@{ Key = '4'; Name = 'DHCP';       DefaultVM = 'DHCP1';    BuilderTag = 'DHCP';       Automation = 'LabBuilder automated role pipeline' },
         [pscustomobject]@{ Key = '5'; Name = 'File Server';DefaultVM = 'FILE1';    BuilderTag = 'FileServer'; Automation = 'LabBuilder scaffold available' },
         [pscustomobject]@{ Key = '6'; Name = 'Print Server';DefaultVM = 'PRN1';     BuilderTag = 'PrintServer'; Automation = 'AutomatedLab Windows feature' },
         [pscustomobject]@{ Key = '7'; Name = 'Splunk';      DefaultVM = 'SPLUNK1';  BuilderTag = '';            Automation = 'Custom install required' },

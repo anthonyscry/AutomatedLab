@@ -18,7 +18,8 @@
     For -Operation Build: array of role tags to deploy.
     Example: -Roles DC,DSC,IIS
 .PARAMETER ConfigPath
-    Optional path to LabDefaults.psd1. Defaults to Config\LabDefaults.psd1.
+    Optional path to a config file (.ps1 or .psd1).
+    Defaults to ..\Lab-Config.ps1 (global one-stop config).
 
 .EXAMPLE
     .\Invoke-LabBuilder.ps1
@@ -60,11 +61,13 @@ $script:exitCode = $EXIT_SUCCESS
 
 # Resolve paths
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$RepoRoot = Split-Path $ScriptDir -Parent
 if (-not $ConfigPath) {
-    $ConfigPath = Join-Path $ScriptDir 'Config\LabDefaults.psd1'
+    $ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
 }
 
 # Dot-source dependencies
+. (Join-Path $ScriptDir 'Resolve-LabBuilderConfig.ps1')
 . (Join-Path $ScriptDir 'Select-LabRoles.ps1')
 . (Join-Path $ScriptDir 'Build-LabFromSelection.ps1')
 
@@ -110,7 +113,7 @@ try {
                 }
 
                 # Validate all role tags
-                $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'FileServer', 'PrintServer', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
+                $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'DHCP', 'FileServer', 'PrintServer', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
                 $invalid = @($Roles | Where-Object { $_ -notin $validTags })
                 if ($invalid.Count -gt 0) {
                     Write-Host "  Invalid role(s): $($invalid -join ', ')" -ForegroundColor Red
@@ -136,8 +139,9 @@ try {
             Write-Host '    DC          Domain Controller + DNS + CA (always required)' -ForegroundColor Gray
             Write-Host '    DSC         DSC Pull Server (HTTP 8080 + compliance 9080)' -ForegroundColor Gray
             Write-Host '    IIS         IIS Web Server with sample site' -ForegroundColor Gray
-            Write-Host '    SQL         SQL Server [scaffold]' -ForegroundColor Gray
-            Write-Host '    WSUS        WSUS [scaffold]' -ForegroundColor Gray
+            Write-Host '    SQL         SQL Server (unattended setup from SQL ISO)' -ForegroundColor Gray
+            Write-Host '    WSUS        WSUS Server (feature + wsusutil postinstall)' -ForegroundColor Gray
+            Write-Host '    DHCP        DHCP Server (role + scope + options)' -ForegroundColor Gray
             Write-Host '    FileServer  File Server with SMB share (\\FILE1\LabShare)' -ForegroundColor Gray
             Write-Host '    PrintServer Print Server role service (PRN1)' -ForegroundColor Gray
             Write-Host '    Jumpbox     Admin workstation (Win11 + RSAT)' -ForegroundColor Gray
@@ -149,10 +153,11 @@ try {
             Write-Host '    K8sUbuntu       Ubuntu Kubernetes (LINK8S1 + k3s)' -ForegroundColor Gray
             Write-Host ''
             Write-Host '  Configuration:' -ForegroundColor White
-            Write-Host '    Edit Config\LabDefaults.psd1 to customize:' -ForegroundColor Gray
+            Write-Host '    Edit ..\Lab-Config.ps1 to customize (global one-stop file):' -ForegroundColor Gray
             Write-Host '      - Domain name, subnet, IP plan' -ForegroundColor Gray
             Write-Host '      - VM names, memory, CPU counts' -ForegroundColor Gray
             Write-Host '      - OS images, DSC server ports' -ForegroundColor Gray
+            Write-Host '    Legacy override still supported via -ConfigPath .\Config\LabDefaults.psd1' -ForegroundColor DarkGray
             Write-Host ''
             Write-Host '  Credentials:' -ForegroundColor White
             Write-Host '    Set $env:LAB_ADMIN_PASSWORD before running, or enter at prompt.' -ForegroundColor Gray
