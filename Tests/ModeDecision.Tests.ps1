@@ -98,6 +98,52 @@ Describe 'Resolve-LabModeDecision' {
         $result.EffectiveMode | Should -Be 'full'
         $result.FallbackReason | Should -BeNullOrEmpty
     }
+
+    It 'quick deploy does not trust JSON-like and arbitrary string values for booleans' {
+        $state = [pscustomobject]@{
+            LabRegistered = '{"value":false}'
+            MissingVMs = @()
+            LabReadyAvailable = '[]'
+            SwitchPresent = 'false'
+            NatPresent = 'off'
+        }
+
+        $result = Resolve-LabModeDecision -Operation deploy -RequestedMode quick -State $state
+
+        $result.EffectiveMode | Should -Be 'full'
+        $result.FallbackReason | Should -Be 'lab_not_registered'
+    }
+
+    It 'quick deploy treats explicit false string values as false' {
+        $state = [pscustomobject]@{
+            LabRegistered = 'true'
+            MissingVMs = @()
+            LabReadyAvailable = 'false'
+            SwitchPresent = 'true'
+            NatPresent = 'true'
+        }
+
+        $result = Resolve-LabModeDecision -Operation deploy -RequestedMode quick -State $state
+
+        $result.EffectiveMode | Should -Be 'full'
+        $result.FallbackReason | Should -Be 'missing_labready'
+    }
+
+    It 'quick teardown stays quick regardless of probe state' {
+        $state = [pscustomobject]@{
+            LabRegistered = $false
+            MissingVMs = @('dc1')
+            LabReadyAvailable = $false
+            SwitchPresent = $false
+            NatPresent = $false
+        }
+
+        $result = Resolve-LabModeDecision -Operation teardown -RequestedMode quick -State $state
+
+        $result.RequestedMode | Should -Be 'quick'
+        $result.EffectiveMode | Should -Be 'quick'
+        $result.FallbackReason | Should -BeNullOrEmpty
+    }
 }
 
 Describe 'Get-LabStateProbe' {
@@ -117,5 +163,27 @@ Describe 'Get-LabStateProbe' {
         $result.LabReadyAvailable | Should -BeFalse
         $result.SwitchPresent | Should -BeFalse
         $result.NatPresent | Should -BeFalse
+    }
+
+    It 'uses probe cmdlets when available and reports reusable state' {
+        function Get-Lab { param([string]$Name) [pscustomobject]@{ Name = $Name } }
+        function Get-VM { param([string]$Name) [pscustomobject]@{ Name = $Name } }
+        function Get-VMSnapshot { param([string]$VMName, [string]$Name) [pscustomobject]@{ VMName = $VMName; Name = $Name } }
+        function Get-VMSwitch { param([string]$Name) [pscustomobject]@{ Name = $Name } }
+        function Get-NetNat { param([string]$Name) [pscustomobject]@{ Name = $Name } }
+
+        $result = Get-LabStateProbe -LabName 'TestLab' -VMNames @('dc1', 'ws1') -SwitchName 'LabSwitch' -NatName 'LabNat'
+
+        $result.LabRegistered | Should -BeTrue
+        $result.MissingVMs | Should -Be @()
+        $result.LabReadyAvailable | Should -BeTrue
+        $result.SwitchPresent | Should -BeTrue
+        $result.NatPresent | Should -BeTrue
+
+        Remove-Item Function:\Get-Lab
+        Remove-Item Function:\Get-VM
+        Remove-Item Function:\Get-VMSnapshot
+        Remove-Item Function:\Get-VMSwitch
+        Remove-Item Function:\Get-NetNat
     }
 }
