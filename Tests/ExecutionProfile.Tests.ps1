@@ -58,6 +58,40 @@ Describe 'Resolve-LabExecutionProfile' {
 
         {
             Resolve-LabExecutionProfile -Operation deploy -Mode quick -ProfilePath $missingPath
-        } | Should -Throw '*Profile path does not exist*'
+        } | Should -Throw '*Profile file could not be read*'
+    }
+
+    It 'reads profile files with literal wildcard characters in filename' {
+        $profilePath = Join-Path $TestDrive 'execution-profile[1].json'
+        $profileObject = [pscustomobject]@{
+            ReuseInfra = $false
+        }
+        [System.IO.File]::WriteAllText($profilePath, ($profileObject | ConvertTo-Json))
+
+        $result = Resolve-LabExecutionProfile -Operation deploy -Mode quick -ProfilePath $profilePath
+
+        $result.ReuseInfra | Should -BeFalse
+    }
+
+    It 'throws a JSON-specific error when profile content is invalid JSON' {
+        $profilePath = Join-Path $TestDrive 'invalid-profile.json'
+        [System.IO.File]::WriteAllText($profilePath, '{ invalid json }')
+
+        {
+            Resolve-LabExecutionProfile -Operation deploy -Mode quick -ProfilePath $profilePath
+        } | Should -Throw '*Profile file contains invalid JSON*'
+    }
+
+    It 'throws a read-specific error when profile file cannot be read' {
+        $profilePath = Join-Path $TestDrive 'unreadable-profile.json'
+        [System.IO.File]::WriteAllText($profilePath, '{"ReuseInfra":true}')
+
+        Mock Get-Content {
+            throw [System.UnauthorizedAccessException]::new('Access to the path is denied.')
+        } -ParameterFilter { $LiteralPath -eq $profilePath }
+
+        {
+            Resolve-LabExecutionProfile -Operation deploy -Mode quick -ProfilePath $profilePath
+        } | Should -Throw '*Profile file could not be read*'
     }
 }

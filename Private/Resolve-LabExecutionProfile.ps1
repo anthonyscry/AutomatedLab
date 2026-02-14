@@ -36,19 +36,26 @@ function Resolve-LabExecutionProfile {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($ProfilePath)) {
-        if (-not (Test-Path -Path $ProfilePath -PathType Leaf)) {
-            throw "Profile path does not exist: $ProfilePath"
+        if (-not (Test-Path -LiteralPath $ProfilePath -PathType Leaf)) {
+            throw "Profile file could not be read: $ProfilePath"
         }
 
         try {
-            $profileData = Get-Content -Path $ProfilePath -Raw | ConvertFrom-Json -ErrorAction Stop
+            $profileContent = Get-Content -LiteralPath $ProfilePath -Raw -ErrorAction Stop
         }
         catch {
-            throw "Profile file cannot be parsed as a JSON object: $ProfilePath"
+            throw "Profile file could not be read: $ProfilePath"
+        }
+
+        try {
+            $profileData = $profileContent | ConvertFrom-Json -ErrorAction Stop
+        }
+        catch {
+            throw "Profile file contains invalid JSON: $ProfilePath"
         }
 
         if ($profileData -isnot [pscustomobject]) {
-            throw "Profile file cannot be parsed as a JSON object: $ProfilePath"
+            throw "Profile file contains invalid JSON: $ProfilePath"
         }
 
         foreach ($property in $profileData.PSObject.Properties) {
