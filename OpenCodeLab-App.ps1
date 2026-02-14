@@ -293,7 +293,13 @@ function Get-PreflightArgs {
 }
 
 function Get-BootstrapArgs {
+    param(
+        [ValidateSet('quick', 'full')]
+        [string]$Mode = 'full'
+    )
+
     $scriptArgs = @()
+    $scriptArgs += @('-Mode', $Mode)
     if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
     return $scriptArgs
 }
@@ -505,7 +511,7 @@ function Invoke-OneButtonSetup {
     Write-Host "  Bootstrapping prerequisites + deploying lab + start + status" -ForegroundColor Gray
 
     $preflightArgs = Get-PreflightArgs
-    $bootstrapArgs = Get-BootstrapArgs
+    $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
 
     Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
     Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
@@ -568,7 +574,7 @@ function Invoke-OneButtonReset {
 
 function Invoke-Setup {
     $preflightArgs = Get-PreflightArgs
-    $bootstrapArgs = Get-BootstrapArgs
+    $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
 
     Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
     Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
@@ -1167,7 +1173,7 @@ try {
             Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
         }
         'bootstrap' {
-            $bootstrapArgs = Get-BootstrapArgs
+            $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
             Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
         }
         'deploy' {

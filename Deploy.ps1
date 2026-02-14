@@ -23,6 +23,12 @@ if (Test-Path $CommonPath) { . $CommonPath }
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+$RequestedMode = $Mode
+$EffectiveMode = $Mode
+if ($Mode -eq 'quick') {
+    $EffectiveMode = 'full'
+}
+
 # ============================================================
 # CONFIGURATION -- EDIT IF YOU WANT DIFFERENT IPs / NAMES
 # ============================================================
@@ -91,6 +97,11 @@ $logFile = "$logDir\Deploy-SimpleLab_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').log
 Start-Transcript -Path $logFile -Append
 
 try {
+    if ($RequestedMode -eq 'quick') {
+        Write-LabStatus -Status WARN -Message "Deploy.ps1 quick mode requested; this script performs full deployment. Falling back to full mode."
+    }
+    Write-LabStatus -Status INFO -Message "Deploy mode handoff: requested=$RequestedMode effective=$EffectiveMode"
+
     $deployStartTime = Get-Date
     Write-Host "`n[PRE-FLIGHT] Checking ISOs..." -ForegroundColor Cyan
     $missing = @()
