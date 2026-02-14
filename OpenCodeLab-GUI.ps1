@@ -209,6 +209,8 @@ function Update-CommandPreview {
 }
 
 $script:CurrentRunProcess = $null
+$script:CurrentRunStartedUtc = $null
+$script:CurrentRunPreArtifacts = @()
 $script:RunPollTimer = New-Object System.Windows.Forms.Timer
 $script:RunPollTimer.Interval = 1500
 $script:RunPollTimer.add_Tick({
@@ -222,16 +224,21 @@ $script:RunPollTimer.add_Tick({
     }
 
     $exitCode = $script:CurrentRunProcess.ExitCode
-    Add-StatusLine -StatusBox $txtStatus -Message "Background run exited with code $exitCode"
+    if ($exitCode -eq 0) {
+        Add-StatusLine -StatusBox $txtStatus -Message 'Run result: SUCCESS (exit code 0)'
+    }
+    else {
+        Add-StatusLine -StatusBox $txtStatus -Message "Run result: FAILED (exit code $exitCode)"
+    }
 
     try {
-        $artifactPath = Get-LabLatestRunArtifactPath
+        $artifactPath = Get-LabLatestRunArtifactPath -SinceUtc $script:CurrentRunStartedUtc -ExcludeArtifactPaths $script:CurrentRunPreArtifacts
         if ([string]::IsNullOrWhiteSpace($artifactPath)) {
-            Add-StatusLine -StatusBox $txtStatus -Message 'No run artifact found in C:\LabSources\Logs'
+            Add-StatusLine -StatusBox $txtStatus -Message 'No matching run artifact found for this execution.'
         }
         else {
             $artifactSummary = Get-LabRunArtifactSummary -ArtifactPath $artifactPath
-            Add-StatusLine -StatusBox $txtStatus -Message $artifactSummary.SummaryText
+            Add-StatusLine -StatusBox $txtStatus -Message "Artifact summary (supplemental): $($artifactSummary.SummaryText)"
             Add-StatusLine -StatusBox $txtStatus -Message "Artifact: $($artifactSummary.Path)"
         }
     }
@@ -240,6 +247,8 @@ $script:RunPollTimer.add_Tick({
     }
 
     $script:CurrentRunProcess = $null
+    $script:CurrentRunStartedUtc = $null
+    $script:CurrentRunPreArtifacts = @()
     $btnRun.Enabled = $true
     $script:RunPollTimer.Stop()
 })
@@ -269,15 +278,24 @@ $btnRun.add_Click({
         $argumentList = New-LabAppArgumentList -Options $options
         $preview = New-LabGuiCommandPreview -AppScriptPath $appScriptPath -Options $options
         $hostPath = Get-PowerShellHostPath
+        $startWindowStyle = if ($options.NonInteractive) { 'Hidden' } else { 'Normal' }
 
         Add-StatusLine -StatusBox $txtStatus -Message "Starting: $preview"
+        if (-not $options.NonInteractive) {
+            Add-StatusLine -StatusBox $txtStatus -Message 'Launching visible PowerShell window for interactive prompts.'
+        }
 
         $processArguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $appScriptPath) + $argumentList
-        $script:CurrentRunProcess = Start-Process -FilePath $hostPath -ArgumentList $processArguments -PassThru -WindowStyle Hidden
+        $script:CurrentRunPreArtifacts = Get-LabRunArtifactPaths
+        $script:CurrentRunStartedUtc = [datetime]::UtcNow
+        $script:CurrentRunProcess = Start-Process -FilePath $hostPath -ArgumentList $processArguments -PassThru -WindowStyle $startWindowStyle
         $btnRun.Enabled = $false
         $script:RunPollTimer.Start()
     }
     catch {
+        $script:CurrentRunProcess = $null
+        $script:CurrentRunStartedUtc = $null
+        $script:CurrentRunPreArtifacts = @()
         Add-StatusLine -StatusBox $txtStatus -Message "Run failed to start: $($_.Exception.Message)"
     }
 })
