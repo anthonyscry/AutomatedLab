@@ -29,9 +29,13 @@ param(
         'save',
         'stop',
         'rollback',
-        'blow-away'
+        'blow-away',
+        'teardown'
     )]
     [string]$Action = 'menu',
+    [ValidateSet('quick', 'full')]
+    [string]$Mode = 'full',
+    [string]$ProfilePath,
     [switch]$Force,
     [switch]$RemoveNetwork,
     [switch]$NonInteractive,
@@ -51,6 +55,20 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 if (Test-Path $CommonPath) { . $CommonPath }
 
+$OrchestrationHelperPaths = @(
+    (Join-Path $ScriptDir 'Private\Resolve-LabActionRequest.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
+    (Join-Path $ScriptDir 'Private\Get-LabStateProbe.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabModeDecision.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabOrchestrationIntent.ps1')
+)
+
+foreach ($helperPath in $OrchestrationHelperPaths) {
+    if (Test-Path $helperPath) {
+        . $helperPath
+    }
+}
+
 # Alias for backward compatibility with existing code
 Set-Alias -Name Remove-VMHardSafe -Value Remove-HyperVVMStale -Scope Script
 
@@ -65,6 +83,10 @@ $RunStart = Get-Date
 $RunId = (Get-Date -Format 'yyyyMMdd-HHmmss')
 $RunLogRoot = 'C:\LabSources\Logs'
 $RunEvents = New-Object System.Collections.Generic.List[object]
+$RequestedMode = $Mode
+$EffectiveMode = $Mode
+$FallbackReason = $null
+$ProfileSource = if ([string]::IsNullOrWhiteSpace($ProfilePath)) { 'default' } else { 'file' }
 
 function Add-RunEvent {
     param(
@@ -100,6 +122,10 @@ function Write-RunArtifacts {
     $report = [pscustomobject]@{
         run_id = $RunId
         action = $Action
+        requested_mode = $RequestedMode
+        effective_mode = $EffectiveMode
+        fallback_reason = $FallbackReason
+        profile_source = $ProfileSource
         noninteractive = [bool]$NonInteractive
         core_only = [bool]$CoreOnly
         force = [bool]$Force
@@ -121,6 +147,10 @@ function Write-RunArtifacts {
     $lines = @(
         "run_id: $RunId",
         "action: $Action",
+        "requested_mode: $RequestedMode",
+        "effective_mode: $EffectiveMode",
+        "fallback_reason: $FallbackReason",
+        "profile_source: $ProfileSource",
         "core_only: $CoreOnly",
         "success: $Success",
         "started_utc: $($RunStart.ToUniversalTime().ToString('o'))",
@@ -499,6 +529,51 @@ function Invoke-Setup {
 
     Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
     Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
+}
+
+function Invoke-QuickDeploy {
+    if ($DryRun) {
+        Write-Host "`n=== DRY RUN: QUICK DEPLOY ===" -ForegroundColor Yellow
+        Write-Host '  Would run quick startup sequence: Start-LabDay -> Lab-Status -> Test-OpenCodeLabHealth' -ForegroundColor DarkGray
+        Add-RunEvent -Step 'deploy-quick' -Status 'dry-run' -Message 'No changes made'
+        return
+    }
+
+    Write-Host "`n=== QUICK DEPLOY ===" -ForegroundColor Cyan
+    Invoke-RepoScript -BaseName 'Start-LabDay'
+    Invoke-RepoScript -BaseName 'Lab-Status'
+    $healthArgs = Get-HealthArgs
+    Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
+}
+
+function Invoke-QuickTeardown {
+    if ($DryRun) {
+        Write-Host "`n=== DRY RUN: QUICK TEARDOWN ===" -ForegroundColor Yellow
+        Write-Host '  Would stop VMs and restore LabReady snapshot when available' -ForegroundColor DarkGray
+        Add-RunEvent -Step 'teardown-quick' -Status 'dry-run' -Message 'No changes made'
+        return
+    }
+
+    Write-Host "`n=== QUICK TEARDOWN ===" -ForegroundColor Cyan
+    Add-RunEvent -Step 'teardown-quick' -Status 'start' -Message 'stop + optional restore'
+    Stop-LabVMsSafe
+
+    try {
+        Ensure-LabImported
+        if (Test-LabReadySnapshot -VMNames (Get-ExpectedVMs)) {
+            Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
+            Add-RunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored'
+            Write-LabStatus -Status OK -Message 'Quick teardown complete (LabReady restored)' -Indent 0
+        }
+        else {
+            Add-RunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady not found; VMs stopped only'
+            Write-LabStatus -Status WARN -Message 'LabReady snapshot missing; quick teardown stopped VMs only.' -Indent 0
+        }
+    }
+    catch {
+        Add-RunEvent -Step 'teardown-quick' -Status 'ok' -Message 'Restore skipped after stop'
+        Write-LabStatus -Status WARN -Message "Quick teardown restored no snapshot: $($_.Exception.Message)" -Indent 0
+    }
 }
 
 function Pause-Menu {
@@ -949,7 +1024,56 @@ $runSuccess = $false
 $runError = ''
 
 try {
-    Add-RunEvent -Step 'run' -Status 'start' -Message "Action=$Action"
+    $rawAction = $Action
+    $rawMode = $Mode
+
+    if (Get-Command Resolve-LabActionRequest -ErrorAction SilentlyContinue) {
+        $request = Resolve-LabActionRequest -Action $rawAction -Mode $rawMode
+        $Action = $request.Action
+        $RequestedMode = $request.Mode
+    }
+    else {
+        $RequestedMode = $rawMode
+    }
+
+    $executionProfile = $null
+    $modeDecision = $null
+    $stateProbe = $null
+    $orchestrationIntent = $null
+
+    if ($Action -in @('deploy', 'teardown')) {
+        $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
+        $modeDecision = Resolve-LabModeDecision -Operation $Action -RequestedMode $RequestedMode -State $stateProbe
+        $EffectiveMode = $modeDecision.EffectiveMode
+        $FallbackReason = $modeDecision.FallbackReason
+
+        $executionProfileSplat = @{
+            Operation = $Action
+            Mode = $EffectiveMode
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ProfilePath)) {
+            $executionProfileSplat.ProfilePath = $ProfilePath
+        }
+        $executionProfile = Resolve-LabExecutionProfile @executionProfileSplat
+
+        $profileMode = if ($executionProfile.PSObject.Properties.Name -contains 'Mode') { [string]$executionProfile.Mode } else { $null }
+        if (-not [string]::IsNullOrWhiteSpace($profileMode) -and $profileMode -ne $EffectiveMode) {
+            $EffectiveMode = $profileMode
+            $modeDecision = Resolve-LabModeDecision -Operation $Action -RequestedMode $RequestedMode -State $stateProbe
+            if ($modeDecision.EffectiveMode -ne $EffectiveMode) {
+                $FallbackReason = 'profile_mode_override'
+            }
+        }
+
+        $orchestrationIntent = Resolve-LabOrchestrationIntent -Action $Action -EffectiveMode $EffectiveMode
+        Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; requested_mode={2}; effective_mode={3}; strategy={4}; fallback={5}; profile_source={6}" -f $rawAction, $Action, $RequestedMode, $EffectiveMode, $orchestrationIntent.Strategy, $FallbackReason, $ProfileSource)
+    }
+    else {
+        $EffectiveMode = $RequestedMode
+        Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; requested_mode={2}; effective_mode={3}; profile_source={4}" -f $rawAction, $Action, $RequestedMode, $EffectiveMode, $ProfileSource)
+    }
+
+    Add-RunEvent -Step 'run' -Status 'start' -Message "Action=$Action; Mode=$EffectiveMode"
     switch ($Action) {
         'menu' {
             if ($NonInteractive) {
@@ -969,8 +1093,21 @@ try {
             Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
         }
         'deploy' {
-            $deployArgs = Get-DeployArgs
-            Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+            if ($orchestrationIntent.RunQuickStartupSequence) {
+                Invoke-QuickDeploy
+            }
+            else {
+                $deployArgs = Get-DeployArgs
+                Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+            }
+        }
+        'teardown' {
+            if ($orchestrationIntent.RunQuickReset) {
+                Invoke-QuickTeardown
+            }
+            else {
+                Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun
+            }
         }
         'add-lin1' {
             $linArgs = @('-NonInteractive')
