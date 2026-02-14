@@ -17,6 +17,10 @@ function Resolve-LabOperationIntent {
     $normalizedAction = $Action.Trim().ToLowerInvariant()
     $normalizedMode = $Mode.Trim().ToLowerInvariant()
 
+    if ($normalizedAction -notin @('deploy', 'teardown')) {
+        throw "Unsupported action '$Action'. Supported actions are: deploy, teardown."
+    }
+
     if ($normalizedMode -notin @('quick', 'full')) {
         throw "Unsupported mode '$Mode'. Supported modes are: quick, full."
     }

@@ -77,4 +77,10 @@ Describe 'Get-LabHostInventory' {
             Get-LabHostInventory -InventoryPath $inventoryPath
         } | Should -Throw "Invalid inventory JSON*"
     }
+
+    It 'throws contract error for non-filesystem inventory path' {
+        {
+            Get-LabHostInventory -InventoryPath 'env:PATH'
+        } | Should -Throw "InventoryPath must resolve to a filesystem file*"
+    }
 }

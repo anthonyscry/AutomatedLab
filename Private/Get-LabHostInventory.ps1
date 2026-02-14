@@ -38,7 +38,23 @@ function Get-LabHostInventory {
         }
     }
 
-    $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InventoryPath)
+    $inventoryItem = $null
+    try {
+        $inventoryItem = Get-Item -LiteralPath $InventoryPath -ErrorAction Stop
+    }
+    catch {
+        throw "Failed to read inventory file '$InventoryPath': $($_.Exception.Message)"
+    }
+
+    if ($inventoryItem.PSProvider.Name -ne 'FileSystem') {
+        throw "InventoryPath must resolve to a filesystem file. Path '$InventoryPath' resolves to provider '$($inventoryItem.PSProvider.Name)'."
+    }
+
+    if ($inventoryItem.PSIsContainer) {
+        throw "InventoryPath must resolve to a filesystem file. Path '$InventoryPath' is a directory."
+    }
+
+    $resolvedPath = $inventoryItem.FullName
 
     try {
         $rawInventory = Get-Content -LiteralPath $resolvedPath -Raw -ErrorAction Stop
