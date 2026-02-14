@@ -1,0 +1,97 @@
+# Action request normalization and app argument list tests
+
+BeforeAll {
+    $repoRoot = Split-Path -Parent $PSScriptRoot
+    . (Join-Path $repoRoot 'Private/Resolve-LabActionRequest.ps1')
+    . (Join-Path $repoRoot 'Private/New-LabAppArgumentList.ps1')
+}
+
+Describe 'Resolve-LabActionRequest' {
+    It 'maps setup to deploy/full' {
+        $result = Resolve-LabActionRequest -Action 'setup'
+
+        $result.Action | Should -Be 'deploy'
+        $result.Mode | Should -Be 'full'
+    }
+
+    It 'maps one-button-setup to deploy/full' {
+        $result = Resolve-LabActionRequest -Action 'one-button-setup'
+
+        $result.Action | Should -Be 'deploy'
+        $result.Mode | Should -Be 'full'
+    }
+
+    It 'maps one-button-reset to teardown/full' {
+        $result = Resolve-LabActionRequest -Action 'one-button-reset'
+
+        $result.Action | Should -Be 'teardown'
+        $result.Mode | Should -Be 'full'
+    }
+
+    It 'maps blow-away to teardown/full' {
+        $result = Resolve-LabActionRequest -Action 'blow-away'
+
+        $result.Action | Should -Be 'teardown'
+        $result.Mode | Should -Be 'full'
+    }
+
+    It 'keeps deploy with provided quick mode' {
+        $result = Resolve-LabActionRequest -Action 'deploy' -Mode 'quick'
+
+        $result.Action | Should -Be 'deploy'
+        $result.Mode | Should -Be 'quick'
+    }
+
+    It 'passes unknown action through unchanged' {
+        $result = Resolve-LabActionRequest -Action 'custom-action' -Mode 'quick'
+
+        $result.Action | Should -Be 'custom-action'
+        $result.Mode | Should -Be 'quick'
+    }
+}
+
+Describe 'New-LabAppArgumentList' {
+    It 'builds deterministic argument list including advanced options' {
+        $options = @{
+            Action = 'deploy'
+            Mode = 'quick'
+            NonInteractive = $true
+            Force = $true
+            RemoveNetwork = $true
+            DryRun = $true
+            ProfilePath = 'C:\Profiles\lab-profile.json'
+            DefaultsFile = 'C:\Profiles\defaults.json'
+            CoreOnly = $true
+        }
+
+        $result = New-LabAppArgumentList -Options $options
+
+        $result | Should -Be @(
+            '-Action', 'deploy',
+            '-Mode', 'quick',
+            '-NonInteractive',
+            '-Force',
+            '-RemoveNetwork',
+            '-DryRun',
+            '-ProfilePath', 'C:\Profiles\lab-profile.json',
+            '-DefaultsFile', 'C:\Profiles\defaults.json',
+            '-CoreOnly'
+        )
+    }
+
+    It 'omits false switches' {
+        $options = @{
+            Action = 'teardown'
+            Mode = 'full'
+            NonInteractive = $false
+            Force = $false
+            RemoveNetwork = $false
+            DryRun = $false
+            CoreOnly = $false
+        }
+
+        $result = New-LabAppArgumentList -Options $options
+
+        $result | Should -Be @('-Action', 'teardown', '-Mode', 'full')
+    }
+}
