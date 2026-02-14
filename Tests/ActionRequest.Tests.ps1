@@ -7,38 +7,38 @@ BeforeAll {
 }
 
 Describe 'Resolve-LabActionRequest' {
-    It 'maps setup to deploy/full' {
+    It 'preserves setup action and forces full mode' {
         $result = Resolve-LabActionRequest -Action 'setup'
 
-        $result.Action | Should -Be 'deploy'
+        $result.Action | Should -Be 'setup'
         $result.Mode | Should -Be 'full'
     }
 
-    It 'maps one-button-setup to deploy/full' {
+    It 'preserves one-button-setup action and forces full mode' {
         $result = Resolve-LabActionRequest -Action 'one-button-setup'
 
-        $result.Action | Should -Be 'deploy'
+        $result.Action | Should -Be 'one-button-setup'
         $result.Mode | Should -Be 'full'
     }
 
-    It 'maps one-button-reset to teardown/full' {
+    It 'preserves one-button-reset action and forces full mode' {
         $result = Resolve-LabActionRequest -Action 'one-button-reset'
 
-        $result.Action | Should -Be 'teardown'
+        $result.Action | Should -Be 'one-button-reset'
         $result.Mode | Should -Be 'full'
     }
 
-    It 'maps blow-away to teardown/full' {
+    It 'preserves blow-away action and forces full mode' {
         $result = Resolve-LabActionRequest -Action 'blow-away'
 
-        $result.Action | Should -Be 'teardown'
+        $result.Action | Should -Be 'blow-away'
         $result.Mode | Should -Be 'full'
     }
 
-    It 'overrides provided mode for setup alias' {
+    It 'overrides provided mode for setup action' {
         $result = Resolve-LabActionRequest -Action 'setup' -Mode 'quick'
 
-        $result.Action | Should -Be 'deploy'
+        $result.Action | Should -Be 'setup'
         $result.Mode | Should -Be 'full'
     }
 

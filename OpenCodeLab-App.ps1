@@ -57,6 +57,7 @@ if (Test-Path $CommonPath) { . $CommonPath }
 
 $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Resolve-LabActionRequest.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabDispatchPlan.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
     (Join-Path $ScriptDir 'Private\Get-LabStateProbe.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabModeDecision.ps1'),
@@ -566,12 +567,12 @@ function Invoke-QuickTeardown {
             Write-LabStatus -Status OK -Message 'Quick teardown complete (LabReady restored)' -Indent 0
         }
         else {
-            Add-RunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady not found; VMs stopped only'
+            Add-RunEvent -Step 'teardown-quick' -Status 'warn' -Message 'LabReady not found; VMs stopped only'
             Write-LabStatus -Status WARN -Message 'LabReady snapshot missing; quick teardown stopped VMs only.' -Indent 0
         }
     }
     catch {
-        Add-RunEvent -Step 'teardown-quick' -Status 'ok' -Message 'Restore skipped after stop'
+        Add-RunEvent -Step 'teardown-quick' -Status 'fail' -Message 'Restore skipped after stop'
         Write-LabStatus -Status WARN -Message "Quick teardown restored no snapshot: $($_.Exception.Message)" -Indent 0
     }
 }
@@ -1026,14 +1027,28 @@ $runError = ''
 try {
     $rawAction = $Action
     $rawMode = $Mode
+    $orchestrationAction = $null
 
-    if (Get-Command Resolve-LabActionRequest -ErrorAction SilentlyContinue) {
+    if (Get-Command Resolve-LabDispatchPlan -ErrorAction SilentlyContinue) {
+        $dispatchPlan = Resolve-LabDispatchPlan -Action $rawAction -Mode $rawMode
+        $Action = $dispatchPlan.DispatchAction
+        $RequestedMode = $dispatchPlan.Mode
+        $orchestrationAction = $dispatchPlan.OrchestrationAction
+    }
+    elseif (Get-Command Resolve-LabActionRequest -ErrorAction SilentlyContinue) {
         $request = Resolve-LabActionRequest -Action $rawAction -Mode $rawMode
         $Action = $request.Action
         $RequestedMode = $request.Mode
+        if ($Action -in @('deploy', 'teardown')) {
+            $orchestrationAction = $Action
+        }
     }
     else {
+        $Action = $rawAction
         $RequestedMode = $rawMode
+        if ($Action -in @('deploy', 'teardown')) {
+            $orchestrationAction = $Action
+        }
     }
 
     $executionProfile = $null
@@ -1041,14 +1056,14 @@ try {
     $stateProbe = $null
     $orchestrationIntent = $null
 
-    if ($Action -in @('deploy', 'teardown')) {
+    if ($orchestrationAction -in @('deploy', 'teardown')) {
         $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
-        $modeDecision = Resolve-LabModeDecision -Operation $Action -RequestedMode $RequestedMode -State $stateProbe
+        $modeDecision = Resolve-LabModeDecision -Operation $orchestrationAction -RequestedMode $RequestedMode -State $stateProbe
         $EffectiveMode = $modeDecision.EffectiveMode
         $FallbackReason = $modeDecision.FallbackReason
 
         $executionProfileSplat = @{
-            Operation = $Action
+            Operation = $orchestrationAction
             Mode = $EffectiveMode
         }
         if (-not [string]::IsNullOrWhiteSpace($ProfilePath)) {
@@ -1059,14 +1074,14 @@ try {
         $profileMode = if ($executionProfile.PSObject.Properties.Name -contains 'Mode') { [string]$executionProfile.Mode } else { $null }
         if (-not [string]::IsNullOrWhiteSpace($profileMode) -and $profileMode -ne $EffectiveMode) {
             $EffectiveMode = $profileMode
-            $modeDecision = Resolve-LabModeDecision -Operation $Action -RequestedMode $RequestedMode -State $stateProbe
+            $modeDecision = Resolve-LabModeDecision -Operation $orchestrationAction -RequestedMode $RequestedMode -State $stateProbe
             if ($modeDecision.EffectiveMode -ne $EffectiveMode) {
                 $FallbackReason = 'profile_mode_override'
             }
         }
 
-        $orchestrationIntent = Resolve-LabOrchestrationIntent -Action $Action -EffectiveMode $EffectiveMode
-        Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; requested_mode={2}; effective_mode={3}; strategy={4}; fallback={5}; profile_source={6}" -f $rawAction, $Action, $RequestedMode, $EffectiveMode, $orchestrationIntent.Strategy, $FallbackReason, $ProfileSource)
+        $orchestrationIntent = Resolve-LabOrchestrationIntent -Action $orchestrationAction -EffectiveMode $EffectiveMode
+        Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; orchestration_action={2}; requested_mode={3}; effective_mode={4}; strategy={5}; fallback={6}; profile_source={7}" -f $rawAction, $Action, $orchestrationAction, $RequestedMode, $EffectiveMode, $orchestrationIntent.Strategy, $FallbackReason, $ProfileSource)
     }
     else {
         $EffectiveMode = $RequestedMode

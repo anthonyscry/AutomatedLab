@@ -11,16 +11,8 @@ function Resolve-LabActionRequest {
     $resolvedAction = $Action
     $resolvedMode = $Mode
 
-    $aliasMap = @{
-        'setup' = @{ Action = 'deploy'; Mode = 'full' }
-        'one-button-setup' = @{ Action = 'deploy'; Mode = 'full' }
-        'one-button-reset' = @{ Action = 'teardown'; Mode = 'full' }
-        'blow-away' = @{ Action = 'teardown'; Mode = 'full' }
-    }
-
-    if ($aliasMap.ContainsKey($Action)) {
-        $resolvedAction = $aliasMap[$Action].Action
-        $resolvedMode = $aliasMap[$Action].Mode
+    if ($Action -in @('setup', 'one-button-setup', 'one-button-reset', 'blow-away')) {
+        $resolvedMode = 'full'
     }
 
     return [pscustomobject]@{
