@@ -173,6 +173,14 @@ Describe 'Get-LabGuiDestructiveGuard' {
         $result.RecommendedNonInteractiveDefault | Should -BeTrue
     }
 
+    It 'marks quick teardown with profile path as potentially destructive' {
+        $result = Get-LabGuiDestructiveGuard -Action 'teardown' -Mode 'quick' -ProfilePath 'C:\Profiles\override.json'
+
+        $result.RequiresConfirmation | Should -BeTrue
+        $result.RecommendedNonInteractiveDefault | Should -BeFalse
+        $result.ConfirmationLabel | Should -Be 'POTENTIAL FULL TEARDOWN'
+    }
+
     It 'does not mark deploy as destructive' {
         $result = Get-LabGuiDestructiveGuard -Action 'deploy' -Mode 'full'
 
