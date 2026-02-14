@@ -173,6 +173,7 @@ function Select-LabRoles {
             Write-Host '    SQL        SQL Server (scaffold — VM created, install manual)' -ForegroundColor Gray
             Write-Host '    WSUS       WSUS (scaffold — VM created, install manual)' -ForegroundColor Gray
             Write-Host '    FileServer File Server with SMB share (\\FILE1\LabShare)' -ForegroundColor Gray
+            Write-Host '    PrintServer Print server role service (PRN1)' -ForegroundColor Gray
             Write-Host '    Jumpbox    Admin workstation (Win11 + RSAT tools)' -ForegroundColor Gray
             Write-Host '    Client     Client VM (Win11 + RDP enabled)' -ForegroundColor Gray
             Write-Host '    Ubuntu     Ubuntu Server 24.04 (LIN1 + SSH post-install)' -ForegroundColor Gray

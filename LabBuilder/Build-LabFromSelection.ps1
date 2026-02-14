@@ -177,6 +177,7 @@ function Build-LabFromSelection {
             SQL        = @{ File = 'SQL.ps1';            Function = 'Get-LabRole_SQL' }
             WSUS       = @{ File = 'WSUS.ps1';           Function = 'Get-LabRole_WSUS' }
             FileServer = @{ File = 'FileServer.ps1';     Function = 'Get-LabRole_FileServer' }
+            PrintServer = @{ File = 'PrintServer.ps1';   Function = 'Get-LabRole_PrintServer' }
             Jumpbox    = @{ File = 'Jumpbox.ps1';        Function = 'Get-LabRole_Jumpbox' }
             Client     = @{ File = 'Client.ps1';         Function = 'Get-LabRole_Client' }
             Ubuntu     = @{ File = 'Ubuntu.ps1';         Function = 'Get-LabRole_Ubuntu' }
@@ -388,18 +389,48 @@ function Build-LabFromSelection {
             & $dcRole.PostInstall $Config
         }
 
-        # Then all other roles (not DC)
-        foreach ($rd in $roleDefs) {
-            if ($rd.Tag -eq 'DC') { continue }
-            if ($rd.IsLinux) { continue }
-            if ($rd.PostInstall) {
-                Write-Host "    Running post-install: $($rd.VMName)..." -ForegroundColor Yellow
-                try {
-                    & $rd.PostInstall $Config
-                }
-                catch {
-                    Write-Warning "Post-install for $($rd.VMName) failed: $($_.Exception.Message)"
-                    Write-Host '    Continuing with remaining post-installs...' -ForegroundColor Yellow
+        # Then all other Windows roles (not DC) in parallel
+        $windowsPostInstallRoles = @($roleDefs | Where-Object { $_.Tag -ne 'DC' -and -not $_.IsLinux -and $_.PostInstall })
+        if ($windowsPostInstallRoles.Count -gt 0) {
+            $postInstallJobs = @()
+
+            foreach ($rd in $windowsPostInstallRoles) {
+                Write-Host "    Queuing post-install: $($rd.VMName)..." -ForegroundColor Yellow
+
+                $job = Start-Job -ScriptBlock {
+                    param($roleDef, $cfg, $commonPath, $labCfgPath)
+
+                    try {
+                        if (Test-Path $labCfgPath) { . $labCfgPath }
+                        if (Test-Path $commonPath) { . $commonPath }
+                        Import-Module AutomatedLab -ErrorAction Stop | Out-Null
+
+                        $block = [scriptblock]::Create($roleDef.PostInstall.ToString())
+                        & $block $cfg
+                        [pscustomobject]@{ VMName = $roleDef.VMName; Success = $true; Error = '' }
+                    }
+                    catch {
+                        [pscustomobject]@{ VMName = $roleDef.VMName; Success = $false; Error = $_.Exception.Message }
+                    }
+                } -ArgumentList $rd, $Config, (Join-Path $PSScriptRoot '..\Lab-Common.ps1'), (Join-Path $PSScriptRoot '..\Lab-Config.ps1')
+
+                $postInstallJobs += $job
+            }
+
+            if ($postInstallJobs.Count -gt 0) {
+                Wait-Job -Job $postInstallJobs | Out-Null
+                foreach ($job in $postInstallJobs) {
+                    $jobResult = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                    if ($jobResult -and $jobResult.Success) {
+                        Write-Host "    [OK] Post-install complete: $($jobResult.VMName)" -ForegroundColor Green
+                    }
+                    else {
+                        $jobName = if ($jobResult) { $jobResult.VMName } else { $job.Name }
+                        $jobErr = if ($jobResult) { $jobResult.Error } else { 'Unknown post-install failure.' }
+                        Write-Warning "Post-install for $jobName failed: $jobErr"
+                        Write-Host '    Continuing with remaining post-installs...' -ForegroundColor Yellow
+                    }
+                    Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
                 }
             }
         }
