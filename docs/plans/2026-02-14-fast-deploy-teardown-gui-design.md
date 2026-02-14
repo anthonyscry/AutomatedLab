@@ -8,7 +8,7 @@ Provide operators with a predictable quick/full orchestration model for `deploy`
 
 - In scope:
   - Mode-aware orchestration for `deploy` and `teardown`.
-  - Automatic quick->full fallback when state checks fail.
+  - Automatic quick->full fallback for `deploy` when state checks fail.
   - GUI launcher for common actions/modes and key switches.
   - Run artifact visibility for CLI and GUI users.
 - Out of scope:
@@ -32,7 +32,8 @@ Provide operators with a predictable quick/full orchestration model for `deploy`
 ## Operator UX
 
 - CLI operators can request `-Mode quick` without manually checking state first.
-- If quick preconditions are not met, routing transparently falls back to full and records why.
+- For `deploy -Mode quick`, if preconditions are not met, routing transparently falls back to full and records why.
+- For `teardown -Mode quick`, the flow stops VMs and restores `LabReady` when present; if snapshots are missing it warns and completes as stop-only.
 - GUI operators get:
   - Command preview matching launch options.
   - One-click run start in a separate PowerShell process.

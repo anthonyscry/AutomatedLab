@@ -39,7 +39,7 @@ For mode-aware orchestration, use `deploy`/`teardown` with `-Mode quick|full`:
 # Fast stop + restore to LabReady when available
 .\OpenCodeLab-App.ps1 -Action teardown -Mode quick -NonInteractive
 
-# Full destructive teardown/rebuild path
+# Full destructive teardown path
 .\OpenCodeLab-App.ps1 -Action teardown -Mode full -Force -RemoveNetwork -NonInteractive
 ```
 
