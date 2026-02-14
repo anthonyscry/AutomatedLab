@@ -23,8 +23,27 @@ BeforeAll {
 
     # Helper function to detect platform
     function Test-IsWindows {
-        $isWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
-        return $isWindows
+        $platformIsWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
+        return $platformIsWindows
+    }
+
+    function Get-TestTempPath {
+        $tempPath = [System.IO.Path]::GetTempPath()
+        if ([string]::IsNullOrWhiteSpace($tempPath)) {
+            foreach ($variableName in @('TEMP', 'TMP', 'TMPDIR')) {
+                $candidate = [Environment]::GetEnvironmentVariable($variableName)
+                if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                    $tempPath = $candidate
+                    break
+                }
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($tempPath)) {
+            return $PSScriptRoot
+        }
+
+        return $tempPath
     }
 }
 
@@ -110,7 +129,7 @@ Describe 'Get-LabVMConfig' {
 Describe 'Write-RunArtifact' {
     BeforeEach {
         # Create a temp directory for artifacts
-        $tempDir = Join-Path $env:TEMP "SimpleLabTests_$(Get-Random)"
+        $tempDir = Join-Path (Get-TestTempPath) "SimpleLabTests_$(Get-Random)"
         New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
     }
 

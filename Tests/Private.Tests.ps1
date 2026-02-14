@@ -22,8 +22,27 @@ BeforeAll {
 
     # Helper function to detect platform
     function Test-IsWindows {
-        $isWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
-        return $isWindows
+        $platformIsWindows = if ($IsWindows -eq $null) { $env:OS -eq 'Windows_NT' } else { $IsWindows }
+        return $platformIsWindows
+    }
+
+    function Get-TestTempPath {
+        $tempPath = [System.IO.Path]::GetTempPath()
+        if ([string]::IsNullOrWhiteSpace($tempPath)) {
+            foreach ($variableName in @('TEMP', 'TMP', 'TMPDIR')) {
+                $candidate = [Environment]::GetEnvironmentVariable($variableName)
+                if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                    $tempPath = $candidate
+                    break
+                }
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($tempPath)) {
+            return $PSScriptRoot
+        }
+
+        return $tempPath
     }
 }
 
@@ -58,14 +77,14 @@ Describe 'Test-LabVM' {
 
 Describe 'Find-LabIso' {
     It 'Returns result object with Found property' {
-        $searchPaths = @($env:TEMP)
+        $searchPaths = @(Get-TestTempPath)
         $result = Find-LabIso -IsoName 'TestISO' -SearchPaths $searchPaths
         $result.PSObject.Properties.Name | Should -Contain 'Found'
         $result.Found | Should -BeOfType [bool]
     }
 
     It 'Returns Found=false when ISO does not exist' {
-        $searchPaths = @($env:TEMP)
+        $searchPaths = @(Get-TestTempPath)
         $result = Find-LabIso -IsoName 'DefinitelyNotExistingISO_12345' -SearchPaths $searchPaths
         $result.Found | Should -Be $false
     }
@@ -74,7 +93,7 @@ Describe 'Find-LabIso' {
 Describe 'Initialize-LabConfig' {
     It 'Creates config file when it does not exist' {
         # Test in a temp location
-        $tempDir = Join-Path $env:TEMP "SimpleLabConfigTest_$(Get-Random)"
+        $tempDir = Join-Path (Get-TestTempPath) "SimpleLabConfigTest_$(Get-Random)"
         New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
 
         try {

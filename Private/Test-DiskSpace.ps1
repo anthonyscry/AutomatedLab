@@ -43,16 +43,16 @@ function Test-DiskSpace {
         # Detect platform and set default path if not specified
         # Use Get-Variable for PowerShell 5.1 compatibility
         $isWindowsVar = Get-Variable -Name 'IsWindows' -ErrorAction SilentlyContinue
-        $isWindows = if ($null -eq $isWindowsVar) { $env:OS -eq 'Windows_NT' } else { $isWindowsVar.Value }
+        $platformIsWindows = if ($null -eq $isWindowsVar) { $env:OS -eq 'Windows_NT' } else { $isWindowsVar.Value }
 
         if ([string]::IsNullOrEmpty($Path)) {
-            $Path = if ($isWindows) { "C:\" } else { "/" }
+            $Path = if ($platformIsWindows) { "C:\" } else { "/" }
         }
 
         $result.Path = $Path
 
         # Platform-specific disk space check
-        if ($isWindows) {
+        if ($platformIsWindows) {
             # Windows: Use Get-PSDrive for drive letter
             $driveLetter = ($Path -split ':')[0]
             $drive = Get-PSDrive -Name $driveLetter -ErrorAction SilentlyContinue
