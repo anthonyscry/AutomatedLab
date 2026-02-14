@@ -25,12 +25,12 @@ function Test-LabPrereqs {
 
     # Detect platform (use Get-Variable for PowerShell 5.1 compatibility)
     $isWindowsVar = Get-Variable -Name 'IsWindows' -ErrorAction SilentlyContinue
-    $isWindows = if ($null -eq $isWindowsVar) { $env:OS -eq 'Windows_NT' } else { $isWindowsVar.Value }
-    Write-Verbose "Platform: $(if ($isWindows) { 'Windows' } else { $PSVersionTable.Platform })"
+    $platformIsWindows = if ($null -eq $isWindowsVar) { $env:OS -eq 'Windows_NT' } else { $isWindowsVar.Value }
+    Write-Verbose "Platform: $(if ($platformIsWindows) { 'Windows' } else { $PSVersionTable.Platform })"
 
     try {
         # Check 1: Hyper-V (Windows only)
-        if ($isWindows) {
+        if ($platformIsWindows) {
             $hypervResult = Test-HyperVEnabled
             $checks += [PSCustomObject]@{
                 Name = "HyperV"
@@ -68,7 +68,7 @@ function Test-LabPrereqs {
             $minDiskSpace = $config.Requirements.MinDiskSpaceGB
             if ($minDiskSpace) {
                 # Use platform-appropriate default path
-                $diskPath = if ($isWindows) { "C:\" } else { "/" }
+                $diskPath = if ($platformIsWindows) { "C:\" } else { "/" }
                 $diskResult = Test-DiskSpace -Path $diskPath -MinSpaceGB $minDiskSpace
                 $checks += [PSCustomObject]@{
                     Name = "DiskSpace"
@@ -87,7 +87,7 @@ function Test-LabPrereqs {
 
         # Check 4: ISOs (only if config loaded, and only on Windows)
         if ($null -ne $config) {
-            if ($isWindows) {
+            if ($platformIsWindows) {
                 # Check if Linux is enabled
                 $enableLinux = if ($config.PSObject.Properties.Name -contains 'LabSettings') {
                     $config.LabSettings.PSObject.Properties.Name -contains 'EnableLinux' -and $config.LabSettings.EnableLinux -eq $true

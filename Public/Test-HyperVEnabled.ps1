@@ -23,11 +23,11 @@ function Test-HyperVEnabled {
 
     # Detect platform (use Get-Variable for PowerShell 5.1 compatibility)
     $isWindowsVar = Get-Variable -Name 'IsWindows' -ErrorAction SilentlyContinue
-    $isWindows = if ($null -eq $isWindowsVar) { $env:OS -eq 'Windows_NT' } else { $isWindowsVar.Value }
+    $platformIsWindows = if ($null -eq $isWindowsVar) { $env:OS -eq 'Windows_NT' } else { $isWindowsVar.Value }
 
     try {
         # Non-Windows platforms: Hyper-V is not available, but this isn't an error
-        if (-not $isWindows) {
+        if (-not $platformIsWindows) {
             Write-Verbose "Running on non-Windows platform ($($PSVersionTable.Platform)) - Hyper-V not available"
             return $false
         }
