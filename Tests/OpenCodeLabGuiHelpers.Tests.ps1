@@ -158,6 +158,13 @@ Describe 'Get-LabGuiDestructiveGuard' {
         $result.ConfirmationLabel | Should -Be 'BLOW AWAY'
     }
 
+    It 'marks one-button-reset as destructive' {
+        $result = Get-LabGuiDestructiveGuard -Action 'one-button-reset' -Mode 'quick'
+
+        $result.RequiresConfirmation | Should -BeTrue
+        $result.RecommendedNonInteractiveDefault | Should -BeFalse
+    }
+
     It 'marks full teardown as destructive' {
         $result = Get-LabGuiDestructiveGuard -Action 'teardown' -Mode 'full'
 
