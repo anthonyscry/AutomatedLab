@@ -67,7 +67,7 @@ function Resolve-LabModeDecision {
             $effectiveMode = 'full'
             $fallbackReason = 'lab_not_registered'
         }
-        elseif ($missingVMs.Count -gt 0) {
+        elseif ((@($missingVMs)).Count -gt 0) {
             $effectiveMode = 'full'
             $fallbackReason = 'vm_state_inconsistent'
         }

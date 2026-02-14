@@ -42,6 +42,9 @@ param(
     [switch]$CoreOnly = $true,
     [string]$DefaultsFile,
     [switch]$DryRun,
+    [switch]$NoExecute,
+    [string]$NoExecuteStateJson,
+    [string]$NoExecuteStatePath,
     [int]$LogRetentionDays = 14
 )
 
@@ -50,10 +53,10 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-if (Test-Path $ConfigPath) { . $ConfigPath }
+if ((-not $NoExecute) -and (Test-Path $ConfigPath)) { . $ConfigPath }
 
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
-if (Test-Path $CommonPath) { . $CommonPath }
+if ((-not $NoExecute) -and (Test-Path $CommonPath)) { . $CommonPath }
 
 $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Resolve-LabActionRequest.ps1'),
@@ -303,6 +306,39 @@ function Get-DeployArgs {
 
 function Get-HealthArgs {
     return @()
+}
+
+function Resolve-NoExecuteStateOverride {
+    if (-not $NoExecute) {
+        return $null
+    }
+
+    $state = $null
+
+    if (-not [string]::IsNullOrWhiteSpace($NoExecuteStateJson)) {
+        $state = ($NoExecuteStateJson | ConvertFrom-Json)
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($NoExecuteStatePath)) {
+        if (-not (Test-Path $NoExecuteStatePath)) {
+            throw "NoExecute state path not found: $NoExecuteStatePath"
+        }
+
+        $state = (Get-Content -Raw -Path $NoExecuteStatePath | ConvertFrom-Json)
+    }
+
+    if ($null -eq $state) {
+        return $null
+    }
+
+    $statePropertyNames = @($state.PSObject.Properties.Name)
+    if ($statePropertyNames -contains 'MissingVMs') {
+        $state.MissingVMs = @($state.MissingVMs)
+    }
+    else {
+        $state | Add-Member -NotePropertyName 'MissingVMs' -NotePropertyValue @()
+    }
+
+    return $state
 }
 
 function Ensure-LabImported {
@@ -1057,7 +1093,10 @@ try {
     $orchestrationIntent = $null
 
     if ($orchestrationAction -in @('deploy', 'teardown')) {
-        $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
+        $stateProbe = Resolve-NoExecuteStateOverride
+        if ($null -eq $stateProbe) {
+            $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
+        }
         $modeDecision = Resolve-LabModeDecision -Operation $orchestrationAction -RequestedMode $RequestedMode -State $stateProbe
         $EffectiveMode = $modeDecision.EffectiveMode
         $FallbackReason = $modeDecision.FallbackReason
@@ -1086,6 +1125,24 @@ try {
     else {
         $EffectiveMode = $RequestedMode
         Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; requested_mode={2}; effective_mode={3}; profile_source={4}" -f $rawAction, $Action, $RequestedMode, $EffectiveMode, $ProfileSource)
+    }
+
+    if ($NoExecute) {
+        $runSuccess = $true
+        Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only'
+        return [pscustomobject]@{
+            RawAction = $rawAction
+            RawMode = $rawMode
+            DispatchAction = $Action
+            OrchestrationAction = $orchestrationAction
+            RequestedMode = $RequestedMode
+            EffectiveMode = $EffectiveMode
+            FallbackReason = $FallbackReason
+            ProfileSource = $ProfileSource
+            StateProbe = $stateProbe
+            ModeDecision = $modeDecision
+            OrchestrationIntent = $orchestrationIntent
+        }
     }
 
     Add-RunEvent -Step 'run' -Status 'start' -Message "Action=$Action; Mode=$EffectiveMode"
@@ -1191,6 +1248,8 @@ try {
     Add-RunEvent -Step 'run' -Status 'fail' -Message $runError
     throw
 } finally {
-    Write-RunArtifacts -Success:$runSuccess -ErrorMessage $runError
-    Invoke-LogRetention
+    if (-not $NoExecute) {
+        Write-RunArtifacts -Success:$runSuccess -ErrorMessage $runError
+        Invoke-LogRetention
+    }
 }
