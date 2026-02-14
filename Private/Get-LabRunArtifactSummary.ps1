@@ -28,30 +28,82 @@ function New-LabGuiCommandPreview {
 function Get-LabLatestRunArtifactPath {
     [CmdletBinding()]
     param(
-        [string]$LogRoot = 'C:\LabSources\Logs'
+        [string]$LogRoot = 'C:\LabSources\Logs',
+        [datetime]$SinceUtc,
+        [string[]]$ExcludeArtifactPaths = @()
     )
 
     if (-not (Test-Path -Path $LogRoot)) {
         return $null
     }
 
-    $latestJson = Get-ChildItem -Path $LogRoot -Filter 'OpenCodeLab-Run-*.json' -File -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
+    $excludeSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($excluded in $ExcludeArtifactPaths) {
+        if ([string]::IsNullOrWhiteSpace($excluded)) {
+            continue
+        }
 
-    if ($latestJson) {
-        return $latestJson.FullName
+        try {
+            $resolved = (Resolve-Path -Path $excluded -ErrorAction Stop).Path
+            $excludeSet.Add($resolved) | Out-Null
+        }
+        catch {
+            $excludeSet.Add([System.IO.Path]::GetFullPath($excluded)) | Out-Null
+        }
     }
 
-    $latestTxt = Get-ChildItem -Path $LogRoot -Filter 'OpenCodeLab-Run-*.txt' -File -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
+    $candidateFiles = @(Get-ChildItem -Path $LogRoot -Filter 'OpenCodeLab-Run-*' -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            [string]::Equals($_.Extension, '.json', [System.StringComparison]::OrdinalIgnoreCase) -or
+            [string]::Equals($_.Extension, '.txt', [System.StringComparison]::OrdinalIgnoreCase)
+        })
+
+    if ($PSBoundParameters.ContainsKey('SinceUtc')) {
+        $candidateFiles = @($candidateFiles | Where-Object { $_.LastWriteTimeUtc -ge $SinceUtc })
+    }
+
+    if ($excludeSet.Count -gt 0) {
+        $candidateFiles = @($candidateFiles | Where-Object { -not $excludeSet.Contains($_.FullName) })
+    }
+
+    $latestArtifact = $candidateFiles |
+        Sort-Object -Property @(
+            @{ Expression = { $_.LastWriteTimeUtc }; Descending = $true },
+            @{ Expression = {
+                    if ([string]::Equals($_.Extension, '.json', [System.StringComparison]::OrdinalIgnoreCase)) {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                }; Descending = $false },
+            @{ Expression = { $_.Name }; Descending = $true }
+        ) |
         Select-Object -First 1
 
-    if ($latestTxt) {
-        return $latestTxt.FullName
+    if ($latestArtifact) {
+        return $latestArtifact.FullName
     }
 
     return $null
+}
+
+function Get-LabRunArtifactPaths {
+    [CmdletBinding()]
+    param(
+        [string]$LogRoot = 'C:\LabSources\Logs'
+    )
+
+    if (-not (Test-Path -Path $LogRoot)) {
+        return @()
+    }
+
+    return @(Get-ChildItem -Path $LogRoot -Filter 'OpenCodeLab-Run-*' -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            [string]::Equals($_.Extension, '.json', [System.StringComparison]::OrdinalIgnoreCase) -or
+            [string]::Equals($_.Extension, '.txt', [System.StringComparison]::OrdinalIgnoreCase)
+        } |
+        ForEach-Object { $_.FullName })
 }
 
 function Get-LabRunArtifactSummary {
@@ -76,7 +128,12 @@ function Get-LabRunArtifactSummary {
     $errorText = ''
 
     if ($isJson) {
-        $payload = Get-Content -Raw -Path $ArtifactPath | ConvertFrom-Json
+        try {
+            $payload = Get-Content -Raw -Path $ArtifactPath | ConvertFrom-Json
+        }
+        catch {
+            throw "Invalid run artifact JSON in '$ArtifactPath': $($_.Exception.Message)"
+        }
         $runId = [string]$payload.run_id
         $action = [string]$payload.action
         $mode = [string]$payload.effective_mode
