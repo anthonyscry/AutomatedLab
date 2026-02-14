@@ -14,11 +14,15 @@ function Get-LabGuiDestructiveGuard {
     $normalizedAction = $Action.Trim().ToLowerInvariant()
     $hasProfilePath = -not [string]::IsNullOrWhiteSpace($ProfilePath)
     $teardownMayEscalate = ($normalizedAction -eq 'teardown') -and ($Mode -eq 'quick') -and $hasProfilePath
-    $requiresConfirmation = ($normalizedAction -eq 'blow-away') -or (($normalizedAction -eq 'teardown') -and ($Mode -eq 'full')) -or $teardownMayEscalate
+    $isOneButtonReset = $normalizedAction -eq 'one-button-reset'
+    $requiresConfirmation = ($normalizedAction -eq 'blow-away') -or $isOneButtonReset -or (($normalizedAction -eq 'teardown') -and ($Mode -eq 'full')) -or $teardownMayEscalate
 
     $confirmationLabel = ''
     if ($normalizedAction -eq 'blow-away') {
         $confirmationLabel = 'BLOW AWAY'
+    }
+    elseif ($isOneButtonReset) {
+        $confirmationLabel = 'ONE BUTTON RESET'
     }
     elseif ($teardownMayEscalate) {
         $confirmationLabel = 'POTENTIAL FULL TEARDOWN'
