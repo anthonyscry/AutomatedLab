@@ -11,6 +11,7 @@ $appScriptPath = Join-Path $scriptRoot 'OpenCodeLab-App.ps1'
 $argHelperPath = Join-Path $scriptRoot 'Private\New-LabAppArgumentList.ps1'
 $artifactHelperPath = Join-Path $scriptRoot 'Private\Get-LabRunArtifactSummary.ps1'
 $destructiveGuardHelperPath = Join-Path $scriptRoot 'Private\Get-LabGuiDestructiveGuard.ps1'
+$layoutStateHelperPath = Join-Path $scriptRoot 'Private\Get-LabGuiLayoutState.ps1'
 
 if (-not (Test-Path -Path $appScriptPath)) {
     throw "OpenCodeLab-App.ps1 not found at path: $appScriptPath"
@@ -24,10 +25,14 @@ if (-not (Test-Path -Path $artifactHelperPath)) {
 if (-not (Test-Path -Path $destructiveGuardHelperPath)) {
     throw "Destructive guard helper not found at path: $destructiveGuardHelperPath"
 }
+if (-not (Test-Path -Path $layoutStateHelperPath)) {
+    throw "Gui layout helper not found at path: $layoutStateHelperPath"
+}
 
 . $argHelperPath
 . $artifactHelperPath
 . $destructiveGuardHelperPath
+. $layoutStateHelperPath
 
 function Get-PowerShellHostPath {
     $pwsh = Get-Command 'pwsh' -ErrorAction SilentlyContinue
@@ -65,7 +70,7 @@ $form.StartPosition = 'CenterScreen'
 $layout = New-Object System.Windows.Forms.TableLayoutPanel
 $layout.Dock = 'Fill'
 $layout.ColumnCount = 4
-$layout.RowCount = 11
+$layout.RowCount = 8
 $layout.Padding = New-Object System.Windows.Forms.Padding(12)
 $layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
 $layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
@@ -95,14 +100,25 @@ $chkNonInteractive.Text = 'NonInteractive'
 $chkNonInteractive.Checked = $true
 $chkForce = New-Object System.Windows.Forms.CheckBox
 $chkForce.Text = 'Force'
-$chkDryRun = New-Object System.Windows.Forms.CheckBox
-$chkDryRun.Text = 'DryRun'
 
 $chkRemoveNetwork = New-Object System.Windows.Forms.CheckBox
 $chkRemoveNetwork.Text = 'RemoveNetwork'
 $chkCoreOnly = New-Object System.Windows.Forms.CheckBox
 $chkCoreOnly.Text = 'CoreOnly'
 $chkCoreOnly.Checked = $true
+
+$chkDryRun = New-Object System.Windows.Forms.CheckBox
+$chkDryRun.Text = 'DryRun'
+
+$btnToggleAdvanced = New-Object System.Windows.Forms.Button
+$btnToggleAdvanced.Text = 'Show advanced options'
+$btnToggleAdvanced.Width = 180
+$btnToggleAdvanced.Height = 28
+
+$pnlAdvanced = New-Object System.Windows.Forms.Panel
+$pnlAdvanced.Dock = 'Fill'
+$pnlAdvanced.Visible = $false
+
 
 $lblProfilePath = New-Object System.Windows.Forms.Label
 $lblProfilePath.Text = 'ProfilePath'
@@ -138,6 +154,10 @@ $txtPreview.ScrollBars = 'Vertical'
 $txtPreview.Height = 90
 $txtPreview.Dock = 'Fill'
 
+$chkShowArtifactDetails = New-Object System.Windows.Forms.CheckBox
+$chkShowArtifactDetails.Text = 'Show artifact details on completion'
+$chkShowArtifactDetails.AutoSize = $true
+
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = 'Run'
 $btnRun.Width = 120
@@ -152,6 +172,41 @@ $txtStatus.ReadOnly = $true
 $txtStatus.ScrollBars = 'Vertical'
 $txtStatus.Dock = 'Fill'
 
+$advancedLayout = New-Object System.Windows.Forms.TableLayoutPanel
+$advancedLayout.ColumnCount = 4
+$advancedLayout.RowCount = 6
+$advancedLayout.Dock = 'Fill'
+$advancedLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
+$advancedLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+$advancedLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
+$advancedLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
+
+$advancedLayout.Controls.Add($chkRemoveNetwork, 0, 0)
+$advancedLayout.SetColumnSpan($chkRemoveNetwork, 2)
+$advancedLayout.Controls.Add($chkCoreOnly, 2, 0)
+$advancedLayout.SetColumnSpan($chkCoreOnly, 2)
+
+$advancedLayout.Controls.Add($chkDryRun, 0, 1)
+$advancedLayout.SetColumnSpan($chkDryRun, 4)
+
+$advancedLayout.Controls.Add($lblProfilePath, 0, 2)
+$advancedLayout.Controls.Add($txtProfilePath, 1, 2)
+$advancedLayout.SetColumnSpan($txtProfilePath, 3)
+
+$advancedLayout.Controls.Add($lblDefaultsFile, 0, 3)
+$advancedLayout.Controls.Add($txtDefaultsFile, 1, 3)
+$advancedLayout.SetColumnSpan($txtDefaultsFile, 3)
+
+$advancedLayout.Controls.Add($lblTargetHosts, 0, 4)
+$advancedLayout.Controls.Add($txtTargetHosts, 1, 4)
+$advancedLayout.SetColumnSpan($txtTargetHosts, 3)
+
+$advancedLayout.Controls.Add($lblConfirmationToken, 0, 5)
+$advancedLayout.Controls.Add($txtConfirmationToken, 1, 5)
+$advancedLayout.SetColumnSpan($txtConfirmationToken, 3)
+
+$pnlAdvanced.Controls.Add($advancedLayout)
+
 $layout.Controls.Add($lblAction, 0, 0)
 $layout.Controls.Add($cmbAction, 1, 0)
 $layout.Controls.Add($lblMode, 2, 0)
@@ -159,35 +214,21 @@ $layout.Controls.Add($cmbMode, 3, 0)
 
 $layout.Controls.Add($chkNonInteractive, 0, 1)
 $layout.Controls.Add($chkForce, 1, 1)
-$layout.Controls.Add($chkDryRun, 2, 1)
-$layout.Controls.Add($chkRemoveNetwork, 3, 1)
+$layout.Controls.Add($btnToggleAdvanced, 0, 2)
+$layout.SetColumnSpan($btnToggleAdvanced, 4)
 
-$layout.Controls.Add($chkCoreOnly, 0, 2)
-$layout.SetColumnSpan($chkCoreOnly, 4)
+$layout.Controls.Add($pnlAdvanced, 0, 3)
+$layout.SetColumnSpan($pnlAdvanced, 4)
 
-$layout.Controls.Add($lblProfilePath, 0, 3)
-$layout.Controls.Add($txtProfilePath, 1, 3)
-$layout.SetColumnSpan($txtProfilePath, 3)
-
-$layout.Controls.Add($lblDefaultsFile, 0, 4)
-$layout.Controls.Add($txtDefaultsFile, 1, 4)
-$layout.SetColumnSpan($txtDefaultsFile, 3)
-
-$layout.Controls.Add($lblTargetHosts, 0, 5)
-$layout.Controls.Add($txtTargetHosts, 1, 5)
-$layout.SetColumnSpan($txtTargetHosts, 3)
-
-$layout.Controls.Add($lblConfirmationToken, 0, 6)
-$layout.Controls.Add($txtConfirmationToken, 1, 6)
-$layout.SetColumnSpan($txtConfirmationToken, 3)
-
-$layout.Controls.Add($lblPreview, 0, 7)
+$layout.Controls.Add($lblPreview, 0, 4)
 $layout.SetColumnSpan($lblPreview, 4)
-$layout.Controls.Add($txtPreview, 0, 8)
+$layout.Controls.Add($txtPreview, 0, 5)
 $layout.SetColumnSpan($txtPreview, 4)
 
-$layout.Controls.Add($btnRun, 0, 9)
-$layout.Controls.Add($lblStatus, 0, 10)
+$layout.Controls.Add($btnRun, 0, 6)
+$layout.Controls.Add($chkShowArtifactDetails, 1, 6)
+$layout.SetColumnSpan($chkShowArtifactDetails, 3)
+$layout.Controls.Add($lblStatus, 0, 7)
 $layout.SetColumnSpan($lblStatus, 4)
 
 $statusHost = New-Object System.Windows.Forms.Panel
@@ -200,7 +241,7 @@ $form.Controls.Add($layout)
 $form.Controls.Add($statusHost)
 
 function Get-SelectedOptions {
-    $targetHosts = @($txtTargetHosts.Text -split '[,;\s]+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
+    $targetHosts = Get-ParsedTargetHosts -Text $txtTargetHosts.Text
 
     $options = @{
         Action = [string]$cmbAction.SelectedItem
@@ -234,6 +275,22 @@ function Get-SelectedOptions {
     return $options
 }
 
+function Get-ParsedTargetHosts {
+    param(
+        [string]$Text
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return @()
+    }
+
+    return @(
+        $Text -split '[,;\s]+' |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        ForEach-Object { $_.Trim() }
+    )
+}
+
 function Update-CommandPreview {
     try {
         $options = Get-SelectedOptions
@@ -244,10 +301,43 @@ function Update-CommandPreview {
     }
 }
 
+$script:ShowAdvancedPanel = $false
+
 function Set-NonInteractiveSafetyDefault {
-    $guard = Get-LabGuiDestructiveGuard -Action ([string]$cmbAction.SelectedItem) -Mode ([string]$cmbMode.SelectedItem) -ProfilePath $txtProfilePath.Text
-    if ($guard.RequiresConfirmation) {
-        $chkNonInteractive.Checked = $false
+    $targetHosts = Get-ParsedTargetHosts -Text $txtTargetHosts.Text
+    $layoutState = Get-LabGuiLayoutState -Action ([string]$cmbAction.SelectedItem) -Mode ([string]$cmbMode.SelectedItem) -ProfilePath $txtProfilePath.Text -TargetHosts $targetHosts
+
+    $chkNonInteractive.Checked = $layoutState.RecommendedNonInteractiveDefault
+
+    $showAdvanced = if ($layoutState.ShowAdvanced) { $true } else { $script:ShowAdvancedPanel }
+    $pnlAdvanced.Visible = $showAdvanced
+    if ($showAdvanced) {
+        $btnToggleAdvanced.Text = 'Hide advanced options'
+    }
+    else {
+        $btnToggleAdvanced.Text = 'Show advanced options'
+    }
+
+    Update-CommandPreview
+}
+
+function Add-RunSummaryLine {
+    param(
+        [Parameter(Mandatory)]
+        [object]$ArtifactSummary,
+
+        [switch]$Verbose
+    )
+
+    if ($Verbose) {
+        Add-StatusLine -StatusBox $txtStatus -Message "Artifact summary: $($ArtifactSummary.SummaryText)"
+        if (-not [string]::IsNullOrWhiteSpace($ArtifactSummary.Error)) {
+            Add-StatusLine -StatusBox $txtStatus -Message "Artifact error: $($ArtifactSummary.Error)"
+        }
+        Add-StatusLine -StatusBox $txtStatus -Message "Artifact path: $($ArtifactSummary.Path)"
+    }
+    else {
+        Add-StatusLine -StatusBox $txtStatus -Message "Artifact: $($ArtifactSummary.Path) :: $($ArtifactSummary.SummaryText)"
     }
 }
 
@@ -281,8 +371,7 @@ $script:RunPollTimer.add_Tick({
         }
         else {
             $artifactSummary = Get-LabRunArtifactSummary -ArtifactPath $artifactPath
-            Add-StatusLine -StatusBox $txtStatus -Message "Artifact summary (supplemental): $($artifactSummary.SummaryText)"
-            Add-StatusLine -StatusBox $txtStatus -Message "Artifact: $($artifactSummary.Path)"
+            Add-RunSummaryLine -ArtifactSummary $artifactSummary -Verbose:$chkShowArtifactDetails.Checked
         }
     }
     catch {
@@ -300,20 +389,28 @@ $refreshPreview = {
     Update-CommandPreview
 }
 
-$cmbAction.add_SelectedIndexChanged($refreshPreview)
 $cmbAction.add_SelectedIndexChanged({ Set-NonInteractiveSafetyDefault })
-$cmbMode.add_SelectedIndexChanged($refreshPreview)
 $cmbMode.add_SelectedIndexChanged({ Set-NonInteractiveSafetyDefault })
 $chkNonInteractive.add_CheckedChanged($refreshPreview)
 $chkForce.add_CheckedChanged($refreshPreview)
 $chkDryRun.add_CheckedChanged($refreshPreview)
 $chkRemoveNetwork.add_CheckedChanged($refreshPreview)
 $chkCoreOnly.add_CheckedChanged($refreshPreview)
-$txtProfilePath.add_TextChanged($refreshPreview)
 $txtProfilePath.add_TextChanged({ Set-NonInteractiveSafetyDefault })
 $txtDefaultsFile.add_TextChanged($refreshPreview)
-$txtTargetHosts.add_TextChanged($refreshPreview)
+$txtTargetHosts.add_TextChanged({ Set-NonInteractiveSafetyDefault })
 $txtConfirmationToken.add_TextChanged($refreshPreview)
+
+$btnToggleAdvanced.add_Click({
+    $targetHosts = Get-ParsedTargetHosts -Text $txtTargetHosts.Text
+    $layoutState = Get-LabGuiLayoutState -Action ([string]$cmbAction.SelectedItem) -Mode ([string]$cmbMode.SelectedItem) -ProfilePath $txtProfilePath.Text -TargetHosts $targetHosts
+    if ($layoutState.AdvancedForDestructiveAction) {
+        return
+    }
+
+    $script:ShowAdvancedPanel = -not $pnlAdvanced.Visible
+    Set-NonInteractiveSafetyDefault
+})
 
 $btnRun.add_Click({
     if ($null -ne $script:CurrentRunProcess -and -not $script:CurrentRunProcess.HasExited) {
