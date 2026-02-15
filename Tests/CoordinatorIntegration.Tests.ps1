@@ -3,6 +3,19 @@
 BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot
     $appPath = Join-Path $repoRoot 'OpenCodeLab-App.ps1'
+
+    function Get-LatestRunReport {
+        param(
+            [Parameter(Mandatory)]
+            [string]$LogRoot
+        )
+
+        $reportFile = Get-ChildItem -Path $LogRoot -Filter '*.json' |
+            Sort-Object -Property LastWriteTimeUtc, Name -Descending |
+            Select-Object -First 1
+        $reportFile | Should -Not -BeNullOrEmpty
+        return (Get-Content -Path $reportFile.FullName -Raw | ConvertFrom-Json)
+    }
 }
 
 Describe 'OpenCodeLab-App coordinator pipeline integration' {
@@ -10,12 +23,16 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         Remove-Item Env:OPENCODELAB_RUN_LOG_ROOT -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_RUNTIME_STATE_JSON -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS -ErrorAction SilentlyContinue
     }
 
     AfterEach {
         Remove-Item Env:OPENCODELAB_RUN_LOG_ROOT -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_RUNTIME_STATE_JSON -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS -ErrorAction SilentlyContinue
     }
 
     It 'accepts inventory and target host inputs and returns approved policy in no-execute mode' {
@@ -144,9 +161,7 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
 
         & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode canary -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath
 
-        $jsonReport = Get-ChildItem -Path $logRoot -Filter '*.json' | Select-Object -First 1
-        $jsonReport | Should -Not -BeNullOrEmpty
-        $report = Get-Content -Path $jsonReport.FullName -Raw | ConvertFrom-Json
+        $report = Get-LatestRunReport -LogRoot $logRoot
 
         $report.dispatch_mode | Should -Be 'canary'
         $report.execution_outcome | Should -Be 'succeeded'
@@ -199,14 +214,165 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
 
         & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath
 
-        $jsonReport = Get-ChildItem -Path $logRoot -Filter '*.json' | Select-Object -First 1
-        $jsonReport | Should -Not -BeNullOrEmpty
-        $report = Get-Content -Path $jsonReport.FullName -Raw | ConvertFrom-Json
+        $report = Get-LatestRunReport -LogRoot $logRoot
 
         $report.dispatch_mode | Should -Be 'enforced'
         $report.execution_outcome | Should -Be 'succeeded'
         @($report.host_outcomes).Count | Should -Be 2
         @($report.host_outcomes | ForEach-Object { [string]$_.DispatchStatus }) | Should -Be @('succeeded', 'succeeded')
         @($report.host_outcomes | ForEach-Object { [int]$_.AttemptCount }) | Should -Be @(1, 1)
+    }
+
+    It 'non-noexecute enforced dispatch partial outcome fails run and records failed artifact outcome' {
+        $logRoot = Join-Path $TestDrive 'run-logs-enforced-partial'
+        $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
+        $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS = 'hv-b'
+        $inventoryPath = Join-Path $TestDrive 'runtime-enforced-partial-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" },
+    { "name": "hv-b", "role": "secondary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            },
+            [pscustomobject]@{
+                HostName = 'hv-b'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        { & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath } | Should -Throw '*Coordinator dispatch did not succeed*'
+
+        $report = Get-LatestRunReport -LogRoot $logRoot
+        $report.dispatch_mode | Should -Be 'enforced'
+        $report.success | Should -BeFalse
+        $report.execution_outcome | Should -Be 'failed'
+        @($report.host_outcomes).Count | Should -Be 2
+        @($report.host_outcomes | ForEach-Object { [string]$_.DispatchStatus }) | Should -Be @('succeeded', 'failed')
+    }
+
+    It 'canary dispatch mode fails fast when dispatcher is unavailable' {
+        $logRoot = Join-Path $TestDrive 'run-logs-canary-no-dispatcher'
+        $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
+        $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH = '1'
+        $inventoryPath = Join-Path $TestDrive 'runtime-canary-no-dispatcher-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" },
+    { "name": "hv-b", "role": "secondary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            },
+            [pscustomobject]@{
+                HostName = 'hv-b'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        { & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode canary -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath } | Should -Throw '*Dispatch mode canary requires Invoke-LabCoordinatorDispatch*'
+    }
+
+    It 'enforced dispatch mode fails fast when dispatcher is unavailable' {
+        $logRoot = Join-Path $TestDrive 'run-logs-enforced-no-dispatcher'
+        $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
+        $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH = '1'
+        $inventoryPath = Join-Path $TestDrive 'runtime-enforced-no-dispatcher-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" },
+    { "name": "hv-b", "role": "secondary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            },
+            [pscustomobject]@{
+                HostName = 'hv-b'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        { & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath } | Should -Throw '*Dispatch mode enforced requires Invoke-LabCoordinatorDispatch*'
+    }
+
+    It 'runtime state override env is ignored when bootstrap skip guard is disabled' {
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = '{"bad_json":'
+        $result = & $appPath -Action deploy -Mode quick -NoExecute
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.ExecutionOutcome | Should -Be 'not_dispatched'
     }
 }

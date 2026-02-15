@@ -420,6 +420,10 @@ function Resolve-NoExecuteStateOverride {
 }
 
 function Resolve-RuntimeStateOverride {
+    if (-not $SkipRuntimeBootstrap) {
+        return $null
+    }
+
     if ([string]::IsNullOrWhiteSpace($env:OPENCODELAB_RUNTIME_STATE_JSON)) {
         return $null
     }
@@ -1187,7 +1191,6 @@ $executionOutcome = 'not_dispatched'
 $executionStartedAt = $null
 $executionCompletedAt = $null
 $dispatchResult = $null
-$dispatchRan = $false
 $skipLegacyOrchestration = $false
 
     try {
@@ -1611,18 +1614,43 @@ $skipLegacyOrchestration = $false
         }
     }
 
+    $dispatcherUnavailableInTestMode = $SkipRuntimeBootstrap -and
+        (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH))
+    $dispatcherAvailable = (-not $dispatcherUnavailableInTestMode) -and
+        (Get-Command Invoke-LabCoordinatorDispatch -ErrorAction SilentlyContinue)
+
+    if ((-not $NoExecute) -and ($ResolvedDispatchMode -in @('canary', 'enforced')) -and (-not $dispatcherAvailable)) {
+        throw "Dispatch mode $ResolvedDispatchMode requires Invoke-LabCoordinatorDispatch, but it is unavailable."
+    }
+
     $canInvokeCoordinatorDispatch = (-not $NoExecute) -and
         ($orchestrationAction -in @('deploy', 'teardown')) -and
         ($policyOutcome -eq 'Approved') -and
         ($null -ne $operationIntent) -and
         (@($operationIntent.TargetHosts).Count -gt 0) -and
-        (Get-Command Invoke-LabCoordinatorDispatch -ErrorAction SilentlyContinue)
+        $dispatcherAvailable
 
     if ($canInvokeCoordinatorDispatch) {
         Add-RunEvent -Step 'dispatch' -Status 'start' -Message ("action={0}; mode={1}; dispatch_mode={2}; targets={3}" -f $orchestrationAction, $EffectiveMode, $ResolvedDispatchMode, (@($operationIntent.TargetHosts).Count))
 
-        $dispatchResult = Invoke-LabCoordinatorDispatch -Action $orchestrationAction -EffectiveMode $EffectiveMode -DispatchMode $ResolvedDispatchMode -TargetHosts @($operationIntent.TargetHosts)
-        $dispatchRan = $true
+        $dispatchSplat = @{
+            Action = $orchestrationAction
+            EffectiveMode = $EffectiveMode
+            DispatchMode = $ResolvedDispatchMode
+            TargetHosts = @($operationIntent.TargetHosts)
+        }
+
+        if ($SkipRuntimeBootstrap -and -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS)) {
+            $failureHosts = @($env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS.Split(',') | ForEach-Object { [string]$_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            if ($failureHosts.Count -gt 0) {
+                $dispatchSplat.HostStepRunner = {
+                    param($HostName, $Action, $EffectiveMode, $Attempt)
+                    return (-not (@($failureHosts) -contains [string]$HostName))
+                }.GetNewClosure()
+            }
+        }
+
+        $dispatchResult = Invoke-LabCoordinatorDispatch @dispatchSplat
 
         if ($null -ne $dispatchResult) {
             $hostOutcomes = @($dispatchResult.HostOutcomes)
@@ -1754,8 +1782,9 @@ $skipLegacyOrchestration = $false
             $executionOutcome = 'not_dispatched'
         }
 
-        if ($executionOutcome -eq 'failed') {
-            throw "Coordinator dispatch failed for action '$orchestrationAction'."
+        if ($executionOutcome -in @('failed', 'partial')) {
+            $executionOutcome = 'failed'
+            throw "Coordinator dispatch did not succeed for action '$orchestrationAction'."
         }
 
         if ($null -eq $executionCompletedAt) {
