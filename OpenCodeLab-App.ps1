@@ -176,6 +176,7 @@ function Write-RunArtifacts {
         "error: $ErrorMessage",
         "policy_outcome: $policyOutcome",
         "policy_reason: $policyReason",
+        "host_outcomes: $((@($hostOutcomes | ForEach-Object { if ($_.PSObject.Properties.Name -contains 'HostName') { [string]$_.HostName } else { 'unknown' } }) -join ','))",
         "blast_radius: $($blastRadius -join ',')",
         "host: $env:COMPUTERNAME",
         "user: $env:USERDOMAIN\$env:USERNAME",
