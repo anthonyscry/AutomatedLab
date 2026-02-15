@@ -37,7 +37,7 @@ Describe 'Deploy and bootstrap mode defaults' {
 
 Describe 'OpenCodeLab app deploy handoff' {
     It 'passes effective mode explicitly when launching Deploy.ps1' {
-        $appText | Should -Match 'Get-DeployArgs\s+-Mode\s+\$EffectiveMode'
+        $appText | Should -Match '(Get-DeployArgs\s+-Mode\s+\$EffectiveMode|Invoke-OrchestrationActionCore\s+-OrchestrationAction\s+''deploy''\s+-Mode\s+\$EffectiveMode)'
     }
 
     It 'passes effective mode explicitly into Bootstrap.ps1 for all bootstrap entry paths' {
