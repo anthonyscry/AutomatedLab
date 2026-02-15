@@ -59,10 +59,11 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
-if ((-not $NoExecute) -and (Test-Path $ConfigPath)) { . $ConfigPath }
+$SkipRuntimeBootstrap = -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP)
+if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap) -and (Test-Path $ConfigPath)) { . $ConfigPath }
 
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
-if ((-not $NoExecute) -and (Test-Path $CommonPath)) { . $CommonPath }
+if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap) -and (Test-Path $CommonPath)) { . $CommonPath }
 
 $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Get-LabHostInventory.ps1'),
@@ -385,6 +386,50 @@ function Resolve-NoExecuteStateOverride {
         }
 
         $state = (Get-Content -Raw -Path $NoExecuteStatePath | ConvertFrom-Json)
+    }
+
+    if ($null -eq $state) {
+        return $null
+    }
+
+    if ($state -is [System.Array]) {
+        return @($state)
+    }
+
+    if ($state -is [System.Collections.IEnumerable] -and $state -isnot [string] -and $state.PSObject.TypeNames -contains 'System.Object[]') {
+        return @($state)
+    }
+
+    $statePropertyNames = @($state.PSObject.Properties.Name)
+    if (($statePropertyNames -contains 'Reachable') -or ($statePropertyNames -contains 'HostName')) {
+        return @($state)
+    }
+
+    if ($statePropertyNames -contains 'HostProbes') {
+        return @($state.HostProbes)
+    }
+
+    if ($statePropertyNames -contains 'MissingVMs') {
+        $state.MissingVMs = @($state.MissingVMs)
+    }
+    else {
+        $state | Add-Member -NotePropertyName 'MissingVMs' -NotePropertyValue @()
+    }
+
+    return $state
+}
+
+function Resolve-RuntimeStateOverride {
+    if ([string]::IsNullOrWhiteSpace($env:OPENCODELAB_RUNTIME_STATE_JSON)) {
+        return $null
+    }
+
+    $state = $null
+    try {
+        $state = ($env:OPENCODELAB_RUNTIME_STATE_JSON | ConvertFrom-Json)
+    }
+    catch {
+        throw "Runtime state override JSON is invalid."
     }
 
     if ($null -eq $state) {
@@ -1141,6 +1186,9 @@ $blastRadius = @()
 $executionOutcome = 'not_dispatched'
 $executionStartedAt = $null
 $executionCompletedAt = $null
+$dispatchResult = $null
+$dispatchRan = $false
+$skipLegacyOrchestration = $false
 
     try {
         $rawAction = $Action
@@ -1236,6 +1284,9 @@ $executionCompletedAt = $null
         $operationIntent.TargetHosts = $resolvedTargetHosts
 
         $stateProbe = Resolve-NoExecuteStateOverride
+        if ($null -eq $stateProbe) {
+            $stateProbe = Resolve-RuntimeStateOverride
+        }
         if ($null -eq $stateProbe) {
             $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName)
         }
@@ -1560,8 +1611,38 @@ $executionCompletedAt = $null
         }
     }
 
-    $executionStartedAt = (Get-Date).ToUniversalTime().ToString('o')
-    $executionOutcome = 'in_progress'
+    $canInvokeCoordinatorDispatch = (-not $NoExecute) -and
+        ($orchestrationAction -in @('deploy', 'teardown')) -and
+        ($policyOutcome -eq 'Approved') -and
+        ($null -ne $operationIntent) -and
+        (@($operationIntent.TargetHosts).Count -gt 0) -and
+        (Get-Command Invoke-LabCoordinatorDispatch -ErrorAction SilentlyContinue)
+
+    if ($canInvokeCoordinatorDispatch) {
+        Add-RunEvent -Step 'dispatch' -Status 'start' -Message ("action={0}; mode={1}; dispatch_mode={2}; targets={3}" -f $orchestrationAction, $EffectiveMode, $ResolvedDispatchMode, (@($operationIntent.TargetHosts).Count))
+
+        $dispatchResult = Invoke-LabCoordinatorDispatch -Action $orchestrationAction -EffectiveMode $EffectiveMode -DispatchMode $ResolvedDispatchMode -TargetHosts @($operationIntent.TargetHosts)
+        $dispatchRan = $true
+
+        if ($null -ne $dispatchResult) {
+            $hostOutcomes = @($dispatchResult.HostOutcomes)
+            $executionOutcome = [string]$dispatchResult.ExecutionOutcome
+            $executionStartedAt = $dispatchResult.ExecutionStartedAt
+            $executionCompletedAt = $dispatchResult.ExecutionCompletedAt
+
+            Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("outcome={0}; host_outcomes={1}" -f $executionOutcome, (@($hostOutcomes).Count))
+        }
+
+        if ($ResolvedDispatchMode -in @('canary', 'enforced')) {
+            $skipLegacyOrchestration = $true
+            Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("legacy_orchestration_skipped=true; dispatch_mode={0}" -f $ResolvedDispatchMode)
+        }
+    }
+
+    if (-not $skipLegacyOrchestration) {
+        $executionStartedAt = (Get-Date).ToUniversalTime().ToString('o')
+        $executionOutcome = 'in_progress'
+    }
     Add-RunEvent -Step 'run' -Status 'start' -Message "Action=$Action; Mode=$EffectiveMode"
     switch ($Action) {
         'menu' {
@@ -1582,20 +1663,30 @@ $executionCompletedAt = $null
             Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
         }
         'deploy' {
-            if ($orchestrationIntent.RunQuickStartupSequence) {
-                Invoke-QuickDeploy
+            if ($skipLegacyOrchestration -and $orchestrationAction -eq 'deploy') {
+                Add-RunEvent -Step 'deploy' -Status 'ok' -Message 'skipped legacy deploy path (dispatcher handled orchestration action)'
             }
             else {
-                $deployArgs = Get-DeployArgs -Mode $EffectiveMode
-                Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+                if ($orchestrationIntent.RunQuickStartupSequence) {
+                    Invoke-QuickDeploy
+                }
+                else {
+                    $deployArgs = Get-DeployArgs -Mode $EffectiveMode
+                    Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+                }
             }
         }
         'teardown' {
-            if ($orchestrationIntent.RunQuickReset) {
-                Invoke-QuickTeardown
+            if ($skipLegacyOrchestration -and $orchestrationAction -eq 'teardown') {
+                Add-RunEvent -Step 'teardown' -Status 'ok' -Message 'skipped legacy teardown path (dispatcher handled orchestration action)'
             }
             else {
-                Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun
+                if ($orchestrationIntent.RunQuickReset) {
+                    Invoke-QuickTeardown
+                }
+                else {
+                    Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun
+                }
             }
         }
         'add-lin1' {
@@ -1658,10 +1749,28 @@ $executionCompletedAt = $null
         }
         'blow-away' { Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun }
     }
-    $executionCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
-    $executionOutcome = 'succeeded'
-    $runSuccess = $true
-    Add-RunEvent -Step 'run' -Status 'ok' -Message 'completed'
+    if ($skipLegacyOrchestration) {
+        if ([string]::IsNullOrWhiteSpace($executionOutcome)) {
+            $executionOutcome = 'not_dispatched'
+        }
+
+        if ($executionOutcome -eq 'failed') {
+            throw "Coordinator dispatch failed for action '$orchestrationAction'."
+        }
+
+        if ($null -eq $executionCompletedAt) {
+            $executionCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+        }
+
+        $runSuccess = $true
+        Add-RunEvent -Step 'run' -Status 'ok' -Message 'completed (dispatcher)'
+    }
+    else {
+        $executionCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+        $executionOutcome = 'succeeded'
+        $runSuccess = $true
+        Add-RunEvent -Step 'run' -Status 'ok' -Message 'completed'
+    }
 } catch {
     if ($executionOutcome -eq 'in_progress') {
         $executionOutcome = 'failed'
