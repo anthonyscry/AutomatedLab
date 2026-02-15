@@ -1855,7 +1855,36 @@ $skipLegacyOrchestration = $false
 
         if ($executionOutcome -in @('failed', 'partial')) {
             $executionOutcome = 'failed'
-            throw "Coordinator dispatch did not succeed for action '$orchestrationAction'."
+
+            $failedHostSummaries = @($hostOutcomes | Where-Object {
+                ($_.PSObject.Properties.Name -contains 'DispatchStatus') -and
+                ([string]$_.DispatchStatus -eq 'failed')
+            } | ForEach-Object {
+                $failedHostName = if ($_.PSObject.Properties.Name -contains 'HostName' -and -not [string]::IsNullOrWhiteSpace([string]$_.HostName)) {
+                    [string]$_.HostName
+                }
+                else {
+                    'unknown'
+                }
+
+                $failedHostMessage = if ($_.PSObject.Properties.Name -contains 'LastFailureMessage' -and -not [string]::IsNullOrWhiteSpace([string]$_.LastFailureMessage)) {
+                    [string]$_.LastFailureMessage
+                }
+                else {
+                    'unknown_failure'
+                }
+
+                '{0}: {1}' -f $failedHostName, $failedHostMessage
+            })
+
+            $failureDetail = if ($failedHostSummaries.Count -gt 0) {
+                $failedHostSummaries -join '; '
+            }
+            else {
+                'no_failed_host_details'
+            }
+
+            throw "Coordinator dispatch did not succeed for action '$orchestrationAction'. Failed hosts: $failureDetail"
         }
 
         if ($null -eq $executionCompletedAt) {

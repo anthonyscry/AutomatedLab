@@ -291,7 +291,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         )
         $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
 
-        { & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath } | Should -Throw '*Coordinator dispatch did not succeed*'
+        {
+            & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath
+        } | Should -Throw '*Coordinator dispatch did not succeed*hv-b*Host step runner returned unsuccessful result*'
 
         $report = Get-LatestRunReport -LogRoot $logRoot
         $report.dispatch_mode | Should -Be 'enforced'
@@ -404,5 +406,42 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
 
         $result | Should -Not -BeNullOrEmpty
         $result.ExecutionOutcome | Should -Be 'not_dispatched'
+    }
+
+    It 'enforced dispatch fails closed for remote targets when simulated remote success hook is disabled' {
+        $logRoot = Join-Path $TestDrive 'run-logs-enforced-remote-fail-closed'
+        $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
+        $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $inventoryPath = Join-Path $TestDrive 'runtime-enforced-remote-fail-closed-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-remote-a", "role": "primary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-remote-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        {
+            & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-remote-a') -InventoryPath $inventoryPath
+        } | Should -Throw '*Remote dispatch target*requires an explicit remote execution implementation*'
+
+        $report = Get-LatestRunReport -LogRoot $logRoot
+        $report.execution_outcome | Should -Be 'failed'
     }
 }
