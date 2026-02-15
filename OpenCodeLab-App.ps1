@@ -100,7 +100,8 @@ if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue)) { $NatName 
 $SwitchName = $LabSwitch
 $RunStart = Get-Date
 $RunId = (Get-Date -Format 'yyyyMMdd-HHmmss')
-$RunLogRoot = 'C:\LabSources\Logs'
+$RunLogRoot = if ([string]::IsNullOrWhiteSpace($env:OPENCODELAB_RUN_LOG_ROOT)) { 'C:\LabSources\Logs' } else { [string]$env:OPENCODELAB_RUN_LOG_ROOT }
+$WriteArtifactsInNoExecute = -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_WRITE_ARTIFACTS_IN_NOEXECUTE)
 $RunEvents = New-Object System.Collections.Generic.List[object]
 $RequestedMode = $Mode
 $EffectiveMode = $Mode
@@ -1674,7 +1675,7 @@ $executionCompletedAt = $null
     Add-RunEvent -Step 'run' -Status 'fail' -Message $runError
     throw
 } finally {
-    if (-not $NoExecute) {
+    if ((-not $NoExecute) -or $WriteArtifactsInNoExecute) {
         Write-RunArtifacts -Success:$runSuccess -ErrorMessage $runError
         Invoke-LogRetention
     }

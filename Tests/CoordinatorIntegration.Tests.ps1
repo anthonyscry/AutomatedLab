@@ -36,6 +36,10 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $result.OperationIntent.InventorySource | Should -Be $inventoryPath
         $result.PolicyOutcome | Should -Be 'Approved'
         $result.PolicyReason | Should -Be 'approved'
+        $result.DispatchMode | Should -Be 'off'
+        $result.ExecutionOutcome | Should -Be 'not_dispatched'
+        $result.ExecutionStartedAt | Should -Be $null
+        $result.ExecutionCompletedAt | Should -Be $null
     }
 
     It 'returns blocked policy fields when fleet probe is unreachable' {
