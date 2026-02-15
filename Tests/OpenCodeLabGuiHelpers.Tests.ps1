@@ -5,6 +5,7 @@ BeforeAll {
     . (Join-Path $repoRoot 'Private/New-LabAppArgumentList.ps1')
     . (Join-Path $repoRoot 'Private/Get-LabRunArtifactSummary.ps1')
     . (Join-Path $repoRoot 'Private/Get-LabGuiDestructiveGuard.ps1')
+    . (Join-Path $repoRoot 'Private/Get-LabGuiLayoutState.ps1')
 }
 
 Describe 'New-LabGuiCommandPreview' {
@@ -234,5 +235,31 @@ Describe 'Get-LabGuiDestructiveGuard' {
 
         $result.RequiresConfirmation | Should -BeFalse
         $result.RecommendedNonInteractiveDefault | Should -BeTrue
+    }
+}
+
+Describe 'Get-LabGuiLayoutState' {
+    It 'keeps advanced panel hidden for quick default teardown without target hosts' {
+        $result = Get-LabGuiLayoutState -Action 'deploy' -Mode 'quick' -ProfilePath ''
+
+        $result.ShowAdvanced | Should -BeFalse
+        $result.AdvancedForDestructiveAction | Should -BeFalse
+        $result.HasTargetHosts | Should -BeFalse
+        $result.RecommendedNonInteractiveDefault | Should -BeTrue
+    }
+
+    It 'auto-opens advanced controls for destructive actions' {
+        $result = Get-LabGuiLayoutState -Action 'teardown' -Mode 'full' -ProfilePath ''
+
+        $result.ShowAdvanced | Should -BeTrue
+        $result.AdvancedForDestructiveAction | Should -BeTrue
+    }
+
+    It 'flags target host input as a reason to open advanced controls' {
+        $result = Get-LabGuiLayoutState -Action 'deploy' -Mode 'quick' -ProfilePath '' -TargetHosts @('hv-a,hv-b')
+
+        $result.ShowAdvanced | Should -BeTrue
+        $result.HasTargetHosts | Should -BeTrue
+        $result.AdvancedForDestructiveAction | Should -BeFalse
     }
 }
