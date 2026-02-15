@@ -150,6 +150,10 @@ function Write-RunArtifacts {
         duration_seconds = $duration
         success = $Success
         error = $ErrorMessage
+        policy_outcome = $policyOutcome
+        policy_reason = $policyReason
+        host_outcomes = @($hostOutcomes)
+        blast_radius = @($blastRadius)
         host = $env:COMPUTERNAME
         user = "$env:USERDOMAIN\$env:USERNAME"
         events = $RunEvents
@@ -170,6 +174,9 @@ function Write-RunArtifacts {
         "ended_utc: $($ended.ToUniversalTime().ToString('o'))",
         "duration_seconds: $duration",
         "error: $ErrorMessage",
+        "policy_outcome: $policyOutcome",
+        "policy_reason: $policyReason",
+        "blast_radius: $($blastRadius -join ',')",
         "host: $env:COMPUTERNAME",
         "user: $env:USERDOMAIN\$env:USERNAME",
         "events:"
@@ -1096,6 +1103,8 @@ function Invoke-InteractiveMenu {
 
 $runSuccess = $false
 $runError = ''
+$hostOutcomes = @()
+$blastRadius = @()
 
     try {
         $rawAction = $Action
@@ -1106,6 +1115,8 @@ $runError = ''
         $policyDecision = $null
         $policyOutcome = $null
         $policyReason = $null
+        $hostOutcomes = @()
+        $blastRadius = @()
 
     if (Get-Command Resolve-LabDispatchPlan -ErrorAction SilentlyContinue) {
         $dispatchPlan = Resolve-LabDispatchPlan -Action $rawAction -Mode $rawMode
@@ -1148,6 +1159,7 @@ $runError = ''
         $operationIntent = Resolve-LabOperationIntent @operationIntentSplat
 
         $resolvedTargetHosts = @($operationIntent.TargetHosts | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+        $blastRadius = @($resolvedTargetHosts)
         if ($resolvedTargetHosts.Count -eq 0) {
             $policyOutcome = 'PolicyBlocked'
             $policyReason = 'target_hosts_empty'
@@ -1171,6 +1183,8 @@ $runError = ''
                     StateProbe = $stateProbe
                     PolicyOutcome = $policyOutcome
                     PolicyReason = $policyReason
+                    HostOutcomes = @($hostOutcomes)
+                    BlastRadius = @($blastRadius)
                     ModeDecision = $modeDecision
                     OrchestrationIntent = $orchestrationIntent
                 }
@@ -1228,6 +1242,8 @@ $runError = ''
                 }
             )
         }
+
+        $hostOutcomes = @($fleetProbe)
 
         $policyHostProbes = @($fleetProbe | ForEach-Object {
             $probeHostName = if ($_.PSObject.Properties.Name -contains 'HostName' -and -not [string]::IsNullOrWhiteSpace([string]$_.HostName)) {
@@ -1326,6 +1342,8 @@ $runError = ''
                     StateProbe = $stateProbe
                     PolicyOutcome = $policyOutcome
                     PolicyReason = $policyReason
+                    HostOutcomes = @($hostOutcomes)
+                    BlastRadius = @($blastRadius)
                     ModeDecision = $modeDecision
                     OrchestrationIntent = $orchestrationIntent
                 }
@@ -1411,6 +1429,8 @@ $runError = ''
             StateProbe = $stateProbe
             PolicyOutcome = $policyOutcome
             PolicyReason = $policyReason
+            HostOutcomes = @($hostOutcomes)
+            BlastRadius = @($blastRadius)
             ModeDecision = $modeDecision
             OrchestrationIntent = $orchestrationIntent
         }

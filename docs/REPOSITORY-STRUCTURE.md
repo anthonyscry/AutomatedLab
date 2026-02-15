@@ -28,6 +28,11 @@
 ## Orchestration helpers
 
 - `Private/Resolve-LabDispatchPlan.ps1`: normalizes requested action/mode before routing.
+- `Private/Get-LabHostInventory.ps1`: resolves host inventory and validates target host selections.
+- `Private/Resolve-LabOperationIntent.ps1`: computes orchestration intent from action/mode plus `-TargetHosts`/`-InventoryPath`.
+- `Private/Resolve-LabCoordinatorPolicy.ps1`: fail-closed coordinator policy evaluator (`Approved`, `EscalationRequired`, `PolicyBlocked`).
+- `Private/New-LabScopedConfirmationToken.ps1`: creates scoped confirmation tokens for destructive operations.
+- `Private/Test-LabScopedConfirmationToken.ps1`: validates scoped confirmation tokens at execution time.
 - `Private/Get-LabStateProbe.ps1`: probes lab registration, VM presence, LabReady snapshot, and network primitives.
 - `Private/Resolve-LabModeDecision.ps1`: determines requested vs effective mode and fallback reason.
 - `Private/Resolve-LabOrchestrationIntent.ps1`: maps effective mode to quick/full execution strategy.
