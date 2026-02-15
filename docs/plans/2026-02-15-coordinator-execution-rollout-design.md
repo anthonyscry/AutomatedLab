@@ -2,128 +2,138 @@
 
 ## Goal
 
-Enable safe real execution for multi-host coordinator flows while preserving current safety guarantees and response contract stability.
+Ship production-ready coordinator dispatch behavior with contract-first hardening.
 
-## Context and Constraints
+This iteration prioritizes deterministic test pass and backward-compatible responses while preserving existing safety guarantees.
 
-- Current coordinator control plane is implemented and validated in no-execute mode.
-- First rollout milestone targets a single remote canary host.
-- Failure policy is action-based: fail-fast for destructive teardown, contain and continue for non-destructive actions.
-- Automatic retries are enabled for transient transport failures with bounded attempts.
-- Existing `OpenCodeLab-App.ps1` output contracts must remain backward compatible.
+## Validated Constraints
+
+- Existing response contracts must not break.
+- Rollout remains feature-flagged through `DispatchMode` (`off`, `canary`, `enforced`).
+- Safety policy remains fail-closed for destructive operations.
+- Kill-switch rollback to `off` must remain immediate and deterministic.
+- Success gate for this iteration is deterministic dispatch-focused test pass.
 
 ## Approaches Considered
 
-### 1) Feature-Flagged Dispatcher (selected)
+### 1) Contract-First Hardening (selected)
 
-- Add an execution dispatcher layer selected by rollout mode (`off`, `canary`, `enforced`).
-- Keep policy and safety gating unchanged.
-- Pros: safest staged rollout, fast rollback, clear separation of control and execution planes.
-- Cons: adds a small amount of adapter/selection plumbing.
+- Stabilize additive response/artifact behavior first, then harden dispatch execution logic under that contract.
+- Pros: strongest protection against regressions, directly aligned with no-contract-breaks goal.
+- Cons: live canary confidence arrives later than execution-first approaches.
 
-### 2) Direct In-App Cutover
+### 2) Canary-First Execution Validation
 
-- Wire real execution directly into current app routing.
-- Pros: fewer new abstractions initially.
-- Cons: tighter coupling, harder rollback, riskier production cutover.
+- Prioritize real canary dispatch behavior first, then tighten contracts.
+- Pros: faster runtime proof.
+- Cons: higher risk of contract drift during fast iteration.
 
-### 3) Shadow-Then-Enforce Only
+### 3) Release-Gate Packaging First
 
-- Run shadow execution telemetry first, then later enable dispatch.
-- Pros: strongest pre-cutover confidence.
-- Cons: slower delivery for first usable canary.
+- Build promotion/verification gates before implementation changes.
+- Pros: strong operational rigor.
+- Cons: slower delivery of behavior fixes.
 
 ## Architecture
 
-Keep the existing control plane pipeline unchanged:
+Keep the control plane unchanged:
 
 `intent -> inventory -> fleet probe -> policy -> plan`
 
-Add a separate data plane dispatcher that executes only after policy approval:
+Dispatch stays a separate data-plane step after policy approval.
 
-- `NoExecuteAdapter`: current behavior, always safe baseline.
-- `RemotingCanaryAdapter`: real execution for approved canary scope.
-- `Invoke-LabCoordinatorDispatch`: shared dispatcher entrypoint.
-- Rollout selector: config/flag/env choosing `off|canary|enforced`.
+- If policy is not `Approved`, execution remains `not_dispatched`.
+- Existing top-level fields and semantics remain unchanged.
+- Dispatch/execution metadata is additive and deterministic in all branches.
+- `DispatchMode=off` remains the rollback kill switch and must short-circuit execution only.
 
-Safety invariants remain policy-owned:
+## Component Design
 
-- `EscalationRequired` and `PolicyBlocked` never dispatch.
-- Destructive full teardown requires valid scoped confirmation token.
-- Destructive paths re-probe and revalidate policy before dispatch.
+- `Resolve-LabDispatchMode`
+  - Resolves mode precedence (`parameter > environment > default`).
+  - Normalizes values and surfaces source for observability.
 
-## Execution Flow
+- `Invoke-LabCoordinatorDispatch`
+  - Owns canary selection, per-host execution status, retries, and action-based failure behavior.
+  - Returns deterministic run-level and host-level execution metadata.
 
-1. Resolve operation intent and target hosts.
-2. Probe fleet and evaluate policy.
-3. If outcome is not `Approved`, return no-execute contract response.
-4. If `Approved`, build execution plan and select dispatcher from rollout mode.
-5. For destructive steps, re-probe and revalidate just before execution barrier.
-6. Dispatch host actions and record attempt/result metadata.
-7. Return stable top-level response with additive execution fields.
+- `Test-LabTransientTransportFailure`
+  - Classifies retry-eligible transient transport/remoting failures.
+  - Prevents retries for deterministic non-transient classes.
 
-### Canary Scope Rules
+- `OpenCodeLab-App.ps1` integration path
+  - Keeps policy gate unchanged.
+  - Invokes dispatch only when approved and execution-eligible.
+  - Always emits deterministic additive execution fields.
 
-- Real dispatch is limited to one explicitly targeted approved remote host.
-- Additional resolved hosts remain `not_dispatched` and are still included in `HostOutcomes`.
+## Data Flow
 
-## Failure Handling and Retry Policy
+1. Resolve action, mode, target hosts, and `DispatchMode` once at startup.
+2. Run existing policy pipeline unchanged.
+3. If policy is not `Approved`, return non-execution response with additive defaults.
+4. If execution is eligible, invoke dispatcher according to resolved mode.
+5. In `canary`, dispatch exactly one eligible host and mark remaining hosts `not_dispatched`.
+6. Merge host outcomes into response without renaming or removing existing fields.
+7. Persist additive metadata to run artifacts in all code paths.
 
-### Action-Based Failure Behavior
+## Error Handling and Safety
 
-- Destructive teardown: fail-fast on first execution failure and stop remaining destructive steps.
-- Non-destructive deploy/start: continue remaining hosts and return partial outcome when needed.
+- Fail closed for invalid/unresolved execution preconditions.
+- Retry only transient transport/remoting failures with bounded attempts.
+- Never retry policy/auth/scope-mismatch/logic failures.
+- For destructive `teardown + full`, fail fast on first dispatched host failure and mark downstream hosts `skipped`.
+- Preserve scoped confirmation and policy revalidation barriers for destructive flows.
 
-### Retry Policy
+## Contract and Artifact Invariants
 
-- Retry transient transport/remoting failures only.
-- Use bounded retries with short exponential backoff (initial attempt plus two retries).
-- Do not retry policy, auth, capability, or deterministic execution logic failures.
-
-## Contract and Artifact Design
-
-Maintain existing fields and semantics:
+Existing fields remain authoritative and unchanged:
 
 - `PolicyOutcome`, `PolicyReason`, `HostOutcomes`, `BlastRadius`, `EffectiveMode`, `OperationIntent`.
 
-Additive fields for execution visibility:
+Additive run-level fields remain deterministic:
 
-- Run-level: `DispatchMode`, `ExecutionOutcome`, `ExecutionStartedAt`, `ExecutionCompletedAt`.
-- Host-level: `DispatchStatus`, `AttemptCount`, `LastFailureClass`, `LastFailureMessage`.
+- `DispatchMode`, `ExecutionOutcome`, `ExecutionStartedAt`, `ExecutionCompletedAt`.
+
+Additive host-level fields remain deterministic:
+
+- `DispatchStatus`, `AttemptCount`, `LastFailureClass`, `LastFailureMessage`.
 
 Artifact invariants:
 
 - Exactly one host outcome per resolved target host.
-- `BlastRadius` remains the authoritative host set for safety/audit.
-- Destructive runs record non-secret confirmation metadata (run scope + scope-match result).
+- `BlastRadius` remains authoritative for safety/audit scope.
+- JSON/text artifacts always include additive dispatch/execution keys.
 
-## Testing Strategy
+## Testing and Release Gates
 
-- Unit tests for dispatch selector, retry classifier, action-based failure policy, and additive contract defaults.
-- Integration tests for single-host canary dispatch and mixed dispatch states (`dispatched` + `not_dispatched`).
-- Regression tests proving destructive dispatch cannot occur without valid scoped confirmation and fresh revalidation.
-- Contract compatibility tests ensuring existing top-level fields and meanings remain unchanged.
+Primary gate for this iteration: deterministic dispatch-focused suite pass.
 
-## Rollout Plan
+Required coverage:
 
-1. **Stage A (`off`)**: keep no-execute baseline.
-2. **Stage B (`canary`)**: single approved remote host, non-destructive actions first.
-3. **Stage C (`canary+`)**: expand host/action scope after safety SLO gates pass.
-4. **Stage D (`enforced`)**: permit destructive execution only after canary evidence and confirmation gate compliance.
+- Dispatch mode resolver precedence and validation.
+- Transient transport failure classifier behavior.
+- Dispatcher behavior for `off`, `canary`, and `enforced`.
+- Action-based failure policy (destructive fail-fast, non-destructive continue).
+- Additive contract checks for no-execute, blocked, and approved paths.
+- Artifact key presence and deterministic defaults.
 
-Promotion gates between stages:
+Acceptance criteria:
 
-- Zero unauthorized destructive operations.
-- Deterministic host outcome accounting.
-- Retry behavior improves transient resiliency without masking persistent failures.
+- All dispatch-focused suites pass with only expected environment-specific skips.
+- No legacy field removals, renames, or semantic changes.
+- Host outcome accounting remains deterministic across rollout modes.
 
-Rollback:
+## Rollout and Rollback
 
-- Single kill switch returns dispatch mode to `off` immediately.
-- Artifact contract remains stable across all modes.
+- Stage A: `off` baseline.
+- Stage B: `canary` on single eligible host.
+- Stage C: scoped expansion after evidence and gate pass.
+- Stage D: `enforced` only after canary confidence and destructive-path safety validation.
+
+Rollback is immediate by switching to `DispatchMode=off` while keeping policy and artifact behavior intact.
 
 ## Success Criteria
 
-- Real execution can be enabled progressively without weakening current safety guarantees.
-- Existing consumers continue to function without contract breakage.
-- Operators can audit policy and execution outcomes deterministically per run and per host.
+- Production readiness is achieved without contract breakage.
+- Deterministic test-pass gate is satisfied.
+- Operators can audit policy, blast radius, and execution outcomes per run.
