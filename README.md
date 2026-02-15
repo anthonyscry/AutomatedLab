@@ -45,6 +45,22 @@ For mode-aware orchestration, use `deploy`/`teardown` with `-Mode quick|full`:
 
 `quick` deploy automatically falls back to `full` when required state is missing (for example missing lab registration, missing VMs, missing LabReady snapshot, or network drift).
 
+For multi-host safety-first orchestration, operators can scope and approve destructive intent explicitly:
+
+```powershell
+# Scope orchestration to explicit hosts
+.\OpenCodeLab-App.ps1 -Action deploy -Mode quick -TargetHosts hv-a,hv-b -InventoryPath .\Ansible\inventory.ini -NonInteractive
+
+# Full teardown requires a scoped confirmation token (fail-closed if missing/invalid)
+.\OpenCodeLab-App.ps1 -Action teardown -Mode full -TargetHosts hv-a -InventoryPath .\Ansible\inventory.ini -ConfirmationToken <token> -Force -NonInteractive
+```
+
+- `-TargetHosts`: explicit host blast radius for `deploy`/`teardown` routing.
+- `-InventoryPath`: inventory source used to resolve/validate host targeting.
+- `-ConfirmationToken`: scoped approval token required for destructive `teardown -Mode full` execution.
+- `EscalationRequired`: policy outcome emitted when `teardown -Mode quick` would require destructive escalation; the run does not silently switch behavior.
+- Fail-closed policy outcomes: unresolved targets, missing scoped confirmation, or invalid scoped confirmation block execution (`PolicyBlocked`) until operators provide valid scope/approval.
+
 3) Check status:
 
 ```powershell

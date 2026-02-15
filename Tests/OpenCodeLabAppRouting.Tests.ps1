@@ -189,6 +189,41 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         $result.EffectiveMode | Should -Be 'full'
     }
 
+    It 'routing payload includes coordinator policy and host routing metadata' {
+        $targetHost = [Environment]::MachineName
+        $hostProbeA = [pscustomobject]@{
+            HostName = $targetHost
+            Reachable = $true
+            Probe = [pscustomobject]@{
+                LabRegistered = $true
+                MissingVMs = @()
+                LabReadyAvailable = $true
+                SwitchPresent = $true
+                NatPresent = $true
+            }
+            Failure = $null
+        }
+        $hostProbeB = [pscustomobject]@{
+            HostName = 'ignored-host'
+            Reachable = $false
+            Probe = [pscustomobject]@{
+                LabRegistered = $false
+                MissingVMs = @('dc1')
+                LabReadyAvailable = $false
+                SwitchPresent = $false
+                NatPresent = $false
+            }
+            Failure = 'probe_timeout'
+        }
+        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'quick' -State @($hostProbeA, $hostProbeB) -TargetHosts @($targetHost)
+
+        $result.PolicyOutcome | Should -Not -BeNullOrEmpty
+        $result.PolicyReason | Should -Not -BeNullOrEmpty
+        @($result.BlastRadius) | Should -Be @($targetHost)
+        @($result.HostOutcomes).Count | Should -Be 2
+        @($result.HostOutcomes | ForEach-Object { [string]$_.HostName }) | Should -Be @($targetHost, 'ignored-host')
+    }
+
     It 'teardown full returns policy blocked outcome when scoped confirmation is missing' {
         $hostProbe = [pscustomobject]@{
             HostName = 'local'

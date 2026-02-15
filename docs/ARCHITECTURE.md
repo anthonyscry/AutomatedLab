@@ -18,18 +18,23 @@ The repository has two layers:
 
 - `deploy` and `teardown` are orchestration actions with two modes: `quick` and `full`.
 - `Resolve-LabDispatchPlan` keeps these actions mode-aware and forces mode `full` for setup/reset/blow-away style actions.
+- `Resolve-LabOperationIntent` combines `-TargetHosts` and optional `-InventoryPath` to compute validated host scope before orchestration runs.
+- `Resolve-LabCoordinatorPolicy` enforces fail-closed safety decisions (`Approved`, `EscalationRequired`, `PolicyBlocked`) before execution.
 - `Get-LabStateProbe` and `Resolve-LabModeDecision` gate `deploy -Mode quick`; if required state is missing, effective mode falls back to `full` with a reason.
 - `Resolve-LabOrchestrationIntent` maps effective mode to runtime behavior:
   - `deploy + quick` -> start/status/health quick startup sequence
   - `deploy + full` -> full `Deploy.ps1` path
   - `teardown + quick` -> stop VMs and restore `LabReady` when available
   - `teardown + full` -> destructive blow-away flow
+- `teardown -Mode full` requires scoped approval via `-ConfirmationToken`; missing or invalid tokens are blocked by policy (fail-closed).
+- `EscalationRequired` is surfaced when quick teardown cannot be safely honored without a full teardown path.
 - `Resolve-LabExecutionProfile` centralizes profile defaults and optional profile-file overrides for both operations.
 
 ## Run artifacts and observability
 
 - `OpenCodeLab-App.ps1` writes per-run JSON and text artifacts under `C:\LabSources\Logs`.
 - Artifacts include requested/effective mode, fallback reason, profile source, run flags, and step events.
+- Coordinator-aware artifact fields include `policy_outcome`, `policy_reason`, `host_outcomes`, and `blast_radius` so operators can audit host scope and safety decisions after each run.
 - `OpenCodeLab-GUI.ps1` reads the newest artifact from the current run window and appends an operator-friendly status line.
 
 ## Loading conventions

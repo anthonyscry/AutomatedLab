@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added quick/full orchestration helpers for action dispatch, mode fallback decisions, execution intent, and profile resolution used by `OpenCodeLab-App.ps1`.
 - Added `OpenCodeLab-GUI.ps1` WinForms wrapper and GUI helper functions for safe argument building, command preview, and latest-run artifact summaries.
+- Added coordinator metadata to run artifacts (`policy_outcome`, `policy_reason`, `host_outcomes`, `blast_radius`) for post-run auditability of host scope and policy decisions.
 - Disk space validation (65 GB minimum) in `New-LabVM` before VHD creation
 - SCP exit code checking in `Copy-LinuxFile` — throws on non-zero exit
 - SSH default timeout fallback (10s) and exit code warning in `Invoke-LinuxSSH`
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable `$LabTimeZone` in `Lab-Config.ps1` (auto-detected from host) used by `New-LabUnattendXml`
 
 ### Changed
+- Updated operator docs to publish multi-host orchestration arguments (`-TargetHosts`, `-InventoryPath`, `-ConfirmationToken`) and fail-closed coordinator outcomes including `EscalationRequired`.
 - Masked admin password in `Add-LIN1.ps1` console output (shows `**********` instead of plaintext)
 - `Select-LabRoles` uses cursor repositioning instead of `Clear-Host` to eliminate screen flicker
 - Refactored module/script loaders (`SimpleLab.psm1`, `Lab-Common.ps1`) to use deterministic sorted imports with clearer failure messages.
