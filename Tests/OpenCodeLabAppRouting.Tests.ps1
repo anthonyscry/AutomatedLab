@@ -3,6 +3,12 @@
 BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot
     $appPath = Join-Path $repoRoot 'OpenCodeLab-App.ps1'
+    . (Join-Path $repoRoot 'Private/New-LabScopedConfirmationToken.ps1')
+
+    $script:originalConfirmationRunId = $env:OPENCODELAB_CONFIRMATION_RUN_ID
+    $script:originalConfirmationSecret = $env:OPENCODELAB_CONFIRMATION_SECRET
+    $env:OPENCODELAB_CONFIRMATION_RUN_ID = 'tdd-run-scope-routing'
+    $env:OPENCODELAB_CONFIRMATION_SECRET = 'tdd-secret-routing'
 
     function Invoke-AppNoExecute {
         param(
@@ -56,6 +62,22 @@ BeforeAll {
         }
 
         & $appPath @invokeSplat
+    }
+}
+
+AfterAll {
+    if ($null -eq $script:originalConfirmationRunId) {
+        Remove-Item Env:OPENCODELAB_CONFIRMATION_RUN_ID -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:OPENCODELAB_CONFIRMATION_RUN_ID = $script:originalConfirmationRunId
+    }
+
+    if ($null -eq $script:originalConfirmationSecret) {
+        Remove-Item Env:OPENCODELAB_CONFIRMATION_SECRET -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:OPENCODELAB_CONFIRMATION_SECRET = $script:originalConfirmationSecret
     }
 }
 
@@ -114,7 +136,8 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
             Failure = $null
         }
 
-        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'full' -State @($hostProbe) -ConfirmationToken 'token-123'
+        $token = New-LabScopedConfirmationToken -RunId 'tdd-run-scope-routing' -TargetHosts @([Environment]::MachineName) -OperationHash 'teardown:full:teardown' -Secret 'tdd-secret-routing' -TtlSeconds 300
+        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'full' -State @($hostProbe) -ConfirmationToken $token
 
         $result.OrchestrationAction | Should -Be 'teardown'
         $result.EffectiveMode | Should -Be 'full'
@@ -122,6 +145,27 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         $result.OrchestrationIntent.Strategy | Should -Be 'teardown-full'
         $result.OrchestrationIntent.RunQuickReset | Should -BeFalse
         $result.OrchestrationIntent.RunBlowAway | Should -BeTrue
+    }
+
+    It 'teardown full rejects invalid scoped confirmation token and surfaces validator reason' {
+        $hostProbe = [pscustomobject]@{
+            HostName = 'local'
+            Reachable = $true
+            Probe = [pscustomobject]@{
+                LabRegistered = $true
+                MissingVMs = @()
+                LabReadyAvailable = $true
+                SwitchPresent = $true
+                NatPresent = $true
+            }
+            Failure = $null
+        }
+
+        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'full' -State @($hostProbe) -ConfirmationToken 'not-a-valid-token'
+
+        $result.PolicyOutcome | Should -Be 'PolicyBlocked'
+        $result.PolicyReason | Should -Be 'scoped_confirmation_invalid:malformed_token'
+        $result.EffectiveMode | Should -Be 'full'
     }
 
     It 'teardown quick returns escalation-required policy outcome without silent destructive escalation' {

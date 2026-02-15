@@ -67,6 +67,7 @@ $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Invoke-LabRemoteProbe.ps1'),
     (Join-Path $ScriptDir 'Private\Get-LabFleetStateProbe.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabCoordinatorPolicy.ps1'),
+    (Join-Path $ScriptDir 'Private\Test-LabScopedConfirmationToken.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabActionRequest.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabDispatchPlan.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
@@ -1146,6 +1147,40 @@ $runError = ''
         }
         $operationIntent = Resolve-LabOperationIntent @operationIntentSplat
 
+        $resolvedTargetHosts = @($operationIntent.TargetHosts | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+        if ($resolvedTargetHosts.Count -eq 0) {
+            $policyOutcome = 'PolicyBlocked'
+            $policyReason = 'target_hosts_empty'
+            $EffectiveMode = $RequestedMode
+            Add-RunEvent -Step 'policy' -Status 'blocked' -Message $policyReason
+
+            if ($NoExecute) {
+                $runSuccess = $true
+                Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)'
+                return [pscustomobject]@{
+                    RawAction = $rawAction
+                    RawMode = $rawMode
+                    DispatchAction = $Action
+                    OrchestrationAction = $orchestrationAction
+                    RequestedMode = $RequestedMode
+                    EffectiveMode = $EffectiveMode
+                    FallbackReason = $FallbackReason
+                    ProfileSource = $ProfileSource
+                    OperationIntent = $operationIntent
+                    FleetProbe = $fleetProbe
+                    StateProbe = $stateProbe
+                    PolicyOutcome = $policyOutcome
+                    PolicyReason = $policyReason
+                    ModeDecision = $modeDecision
+                    OrchestrationIntent = $orchestrationIntent
+                }
+            }
+
+            throw "Policy blocked execution: $policyReason"
+        }
+
+        $operationIntent.TargetHosts = $resolvedTargetHosts
+
         $stateProbe = Resolve-NoExecuteStateOverride
         if ($null -eq $stateProbe) {
             $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName)
@@ -1222,10 +1257,51 @@ $runError = ''
             }).Count -gt 0
         }
 
-        $hasScopedConfirmation = -not [string]::IsNullOrWhiteSpace($ConfirmationToken)
+        $hasScopedConfirmation = $false
+        $scopedConfirmationFailureReason = $null
+        if (-not [string]::IsNullOrWhiteSpace($ConfirmationToken)) {
+            $confirmationRunScope = if (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_CONFIRMATION_RUN_ID)) {
+                [string]$env:OPENCODELAB_CONFIRMATION_RUN_ID
+            }
+            else {
+                $RunId
+            }
+
+            $confirmationOperationHash = '{0}:{1}:{2}' -f $orchestrationAction, $RequestedMode, $Action
+            $confirmationSecret = if (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_CONFIRMATION_SECRET)) {
+                [string]$env:OPENCODELAB_CONFIRMATION_SECRET
+            }
+            elseif (Get-Variable -Name LabScopedConfirmationSecret -ErrorAction SilentlyContinue) {
+                [string]$LabScopedConfirmationSecret
+            }
+            else {
+                $null
+            }
+
+            if (-not (Get-Command Test-LabScopedConfirmationToken -ErrorAction SilentlyContinue)) {
+                $scopedConfirmationFailureReason = 'scoped_confirmation_validator_unavailable'
+            }
+            elseif ([string]::IsNullOrWhiteSpace($confirmationSecret)) {
+                $scopedConfirmationFailureReason = 'scoped_confirmation_secret_unavailable'
+            }
+            else {
+                $confirmationValidation = Test-LabScopedConfirmationToken -Token $ConfirmationToken -RunId $confirmationRunScope -TargetHosts $resolvedTargetHosts -OperationHash $confirmationOperationHash -Secret $confirmationSecret
+                if ($confirmationValidation.Valid) {
+                    $hasScopedConfirmation = $true
+                }
+                else {
+                    $scopedConfirmationFailureReason = 'scoped_confirmation_invalid:{0}' -f ([string]$confirmationValidation.Reason)
+                }
+            }
+        }
+
         $policyDecision = Resolve-LabCoordinatorPolicy -Action $orchestrationAction -RequestedMode $RequestedMode -HostProbes $policyHostProbes -SafetyRequiresFull:$safetyRequiresFull -HasScopedConfirmation:$hasScopedConfirmation
         $policyOutcome = $policyDecision.Outcome.ToString()
         $policyReason = [string]$policyDecision.Reason
+
+        if (($policyReason -eq 'missing_scoped_confirmation') -and (-not [string]::IsNullOrWhiteSpace($scopedConfirmationFailureReason))) {
+            $policyReason = $scopedConfirmationFailureReason
+        }
 
         if (-not $policyDecision.Allowed) {
             if ($policyDecision.PSObject.Properties.Name -contains 'EffectiveMode' -and -not [string]::IsNullOrWhiteSpace([string]$policyDecision.EffectiveMode)) {

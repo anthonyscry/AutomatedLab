@@ -39,6 +39,15 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
     }
 
     It 'returns blocked policy fields when fleet probe is unreachable' {
+        $inventoryPath = Join-Path $TestDrive 'unreachable-host-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-x", "role": "primary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
         $hostProbe = [pscustomobject]@{
             HostName = 'hv-x'
             Reachable = $false
@@ -46,10 +55,28 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
             Failure = 'timeout'
         }
 
-        $result = & $appPath -Action teardown -Mode full -NoExecute -TargetHosts @('hv-x') -NoExecuteStateJson (@($hostProbe) | ConvertTo-Json -Depth 10 -Compress)
+        $result = & $appPath -Action teardown -Mode full -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-x') -NoExecuteStateJson (@($hostProbe) | ConvertTo-Json -Depth 10 -Compress)
 
         $result.PolicyOutcome | Should -Be 'PolicyBlocked'
         $result.PolicyReason | Should -Be 'host_probe_unreachable:hv-x'
+        $result.EffectiveMode | Should -Be 'full'
+    }
+
+    It 'returns deterministic blocked outcome when resolved target host set is empty' {
+        $inventoryPath = Join-Path $TestDrive 'empty-targets-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $result = & $appPath -Action teardown -Mode full -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-missing')
+
+        @($result.OperationIntent.TargetHosts).Count | Should -Be 0
+        $result.PolicyOutcome | Should -Be 'PolicyBlocked'
+        $result.PolicyReason | Should -Be 'target_hosts_empty'
         $result.EffectiveMode | Should -Be 'full'
     }
 }
