@@ -45,6 +45,21 @@ For mode-aware orchestration, use `deploy`/`teardown` with `-Mode quick|full`:
 
 `quick` deploy automatically falls back to `full` when required state is missing (for example missing lab registration, missing VMs, missing LabReady snapshot, or network drift).
 
+Dispatch execution is controlled separately with `-DispatchMode off|canary|enforced`:
+
+```powershell
+# Kill switch: disable all dispatch execution paths
+.\OpenCodeLab-App.ps1 -Action deploy -Mode quick -DispatchMode off -NonInteractive
+
+# Canary: dispatch exactly one eligible host and mark others not_dispatched
+.\OpenCodeLab-App.ps1 -Action deploy -Mode quick -TargetHosts hv-a,hv-b -DispatchMode canary -NonInteractive
+
+# Enforced: dispatch all eligible hosts
+.\OpenCodeLab-App.ps1 -Action deploy -Mode quick -TargetHosts hv-a,hv-b -DispatchMode enforced -NonInteractive
+```
+
+Rollback note: if a rollout regresses, switch to `-DispatchMode off` immediately (or set `OPENCODELAB_DISPATCH_MODE=off`) to bypass dispatcher execution while preserving coordinator policy checks and run artifacts.
+
 For multi-host safety-first orchestration, operators can scope and approve destructive intent explicitly:
 
 ```powershell
@@ -85,6 +100,7 @@ Run-scope and secret contract for token issuance/validation:
 - `-TargetHosts`: explicit host blast radius for `deploy`/`teardown` routing.
 - `-InventoryPath`: inventory source used to resolve/validate host targeting.
 - `-ConfirmationToken`: scoped approval token required for destructive `teardown -Mode full` execution.
+- `-DispatchMode`: dispatch execution control (`off|canary|enforced`), with `off` as kill switch during rollback.
 - `EscalationRequired`: policy outcome emitted when `teardown -Mode quick` would require destructive escalation; the run does not silently switch behavior.
 - Fail-closed policy outcomes: unresolved targets, missing scoped confirmation, or invalid scoped confirmation block execution (`PolicyBlocked`) until operators provide valid scope/approval.
 

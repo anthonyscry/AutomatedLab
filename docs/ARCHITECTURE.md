@@ -7,6 +7,10 @@ The repository has two layers:
 - **Module layer (`SimpleLab`)**: reusable commands in `Public/` and `Private/`, loaded via `SimpleLab.psm1`.
 - **Orchestration layer**: app-like scripts (`OpenCodeLab-App.ps1`, `Bootstrap.ps1`, `Deploy.ps1`, `Scripts/*.ps1`) that compose module functions into workflows.
 
+Dispatch-aware orchestration adds an execution-control layer:
+
+- **Dispatcher layer**: action routing honors `DispatchMode` (`off`, `canary`, `enforced`) so operators can disable rollout, run one-host canaries, or enforce full dispatch.
+
 ## Core workflows
 
 - **Bootstrap** (`Bootstrap.ps1`): installs dependencies and validates host prerequisites.
@@ -20,6 +24,8 @@ The repository has two layers:
 - `Resolve-LabDispatchPlan` keeps these actions mode-aware and forces mode `full` for setup/reset/blow-away style actions.
 - `Resolve-LabOperationIntent` combines `-TargetHosts` and optional `-InventoryPath` to compute validated host scope before orchestration runs.
 - `Resolve-LabCoordinatorPolicy` enforces fail-closed safety decisions (`Approved`, `EscalationRequired`, `PolicyBlocked`) before execution.
+- Dispatcher outcomes are action-based: unsupported or blocked action/host combinations return non-dispatch outcomes (`not_dispatched`) instead of attempting execution.
+- Action-based failure policy keeps destructive actions fail-closed: when policy is unresolved or blocked, execution is denied and artifacts capture the policy reason.
 - `Get-LabStateProbe` and `Resolve-LabModeDecision` gate `deploy -Mode quick`; if required state is missing, effective mode falls back to `full` with a reason.
 - `Resolve-LabOrchestrationIntent` maps effective mode to runtime behavior:
   - `deploy + quick` -> start/status/health quick startup sequence
