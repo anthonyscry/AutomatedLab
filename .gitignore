@@ -24,6 +24,7 @@ LabBuilder/Logs/
 .vscode/
 *.code-workspace
 .worktrees/
+.tools/powershell-lsp/
 
 # OS artifacts
 Thumbs.db

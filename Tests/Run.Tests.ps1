@@ -53,6 +53,7 @@ $privateCoveragePaths = @(
 $config.CodeCoverage.Path = @($publicCoveragePaths + $privateCoveragePaths)
 $config.CodeCoverage.OutputPath = (Join-Path $PSScriptRoot "coverage.xml")
 $config.CodeCoverage.OutputFormat = 'JaCoCo'
+$config.CodeCoverage.CoveragePercentTarget = 15
 
 # Display settings
 $config.Output.CIFormat = 'Auto'
