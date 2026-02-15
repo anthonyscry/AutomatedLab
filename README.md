@@ -49,11 +49,38 @@ For multi-host safety-first orchestration, operators can scope and approve destr
 
 ```powershell
 # Scope orchestration to explicit hosts
-.\OpenCodeLab-App.ps1 -Action deploy -Mode quick -TargetHosts hv-a,hv-b -InventoryPath .\Ansible\inventory.ini -NonInteractive
+.\OpenCodeLab-App.ps1 -Action deploy -Mode quick -TargetHosts hv-a,hv-b -InventoryPath .\Ansible\inventory.json -NonInteractive
 
 # Full teardown requires a scoped confirmation token (fail-closed if missing/invalid)
-.\OpenCodeLab-App.ps1 -Action teardown -Mode full -TargetHosts hv-a -InventoryPath .\Ansible\inventory.ini -ConfirmationToken <token> -Force -NonInteractive
+.\OpenCodeLab-App.ps1 -Action teardown -Mode full -TargetHosts hv-a -InventoryPath .\Ansible\inventory.json -ConfirmationToken <token> -Force -NonInteractive
 ```
+
+Inventory files use JSON with a top-level `hosts` array:
+
+```json
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "local" },
+    { "name": "hv-b", "role": "secondary", "connection": "ssh" }
+  ]
+}
+```
+
+Mint scoped confirmation tokens from the public script surface before destructive runs:
+
+```powershell
+$env:OPENCODELAB_CONFIRMATION_RUN_ID = "run-20260214-01"
+$env:OPENCODELAB_CONFIRMATION_SECRET = "<shared-secret>"
+
+$token = .\Scripts\New-ScopedConfirmationToken.ps1 -TargetHosts hv-a -Action teardown -Mode full
+
+.\OpenCodeLab-App.ps1 -Action teardown -Mode full -TargetHosts hv-a -InventoryPath .\Ansible\inventory.json -ConfirmationToken $token -Force -NonInteractive
+```
+
+Run-scope and secret contract for token issuance/validation:
+- `OPENCODELAB_CONFIRMATION_RUN_ID`: required run scope; the same value must be used when minting and when executing `OpenCodeLab-App.ps1`.
+- `OPENCODELAB_CONFIRMATION_SECRET`: required shared secret used to sign and validate scoped confirmation tokens.
+- `Scripts/New-ScopedConfirmationToken.ps1` also accepts explicit `-RunId` and `-Secret` parameters when env vars are not used.
 
 - `-TargetHosts`: explicit host blast radius for `deploy`/`teardown` routing.
 - `-InventoryPath`: inventory source used to resolve/validate host targeting.

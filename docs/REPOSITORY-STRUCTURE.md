@@ -6,7 +6,7 @@
 - `Public/Linux/`: Linux-focused exported helpers grouped under the main public API tree.
 - `Private/`: internal helpers not exported from the module.
 - `Private/Linux/`: Linux-focused internal helpers.
-- `Scripts/`: operator-facing utility scripts (status, start day, push/test flows, LIN1 tasks).
+- `Scripts/`: operator-facing utility scripts (status, start day, push/test flows, LIN1 tasks, scoped confirmation token issuance).
 - `LabBuilder/`: role selection and role template definitions.
 - `Ansible/`: inventory template and playbooks for optional Linux-side automation.
 - `Tests/`: Pester suites and test runner.

@@ -189,6 +189,29 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         $result.EffectiveMode | Should -Be 'full'
     }
 
+    It 'teardown quick with profile full override is policy blocked without scoped confirmation' {
+        $hostProbe = [pscustomobject]@{
+            HostName = 'local'
+            Reachable = $true
+            Probe = [pscustomobject]@{
+                LabRegistered = $true
+                MissingVMs = @()
+                LabReadyAvailable = $true
+                SwitchPresent = $true
+                NatPresent = $true
+            }
+            Failure = $null
+        }
+        $profilePath = Join-Path $TestDrive 'teardown-profile-full.json'
+        '{"Mode":"full"}' | Set-Content -Path $profilePath -Encoding UTF8
+
+        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'quick' -State @($hostProbe) -ProfilePath $profilePath
+
+        $result.PolicyOutcome | Should -Be 'PolicyBlocked'
+        $result.PolicyReason | Should -Be 'missing_scoped_confirmation'
+        $result.EffectiveMode | Should -Be 'full'
+    }
+
     It 'routing payload includes coordinator policy and host routing metadata' {
         $targetHost = [Environment]::MachineName
         $hostProbeA = [pscustomobject]@{

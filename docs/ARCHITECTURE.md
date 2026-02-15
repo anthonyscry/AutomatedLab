@@ -27,6 +27,7 @@ The repository has two layers:
   - `teardown + quick` -> stop VMs and restore `LabReady` when available
   - `teardown + full` -> destructive blow-away flow
 - `teardown -Mode full` requires scoped approval via `-ConfirmationToken`; missing or invalid tokens are blocked by policy (fail-closed).
+- Operators can mint scoped confirmation tokens via `Scripts/New-ScopedConfirmationToken.ps1` using the same run-scope and secret contract consumed by `OpenCodeLab-App.ps1`.
 - `EscalationRequired` is surfaced when quick teardown cannot be safely honored without a full teardown path.
 - `Resolve-LabExecutionProfile` centralizes profile defaults and optional profile-file overrides for both operations.
 

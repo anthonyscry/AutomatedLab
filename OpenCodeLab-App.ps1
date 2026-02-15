@@ -1394,15 +1394,63 @@ $blastRadius = @()
         }
         $executionProfile = Resolve-LabExecutionProfile @executionProfileSplat
 
+        $policyReevaluationRequired = $false
         $profileMode = if ($executionProfile.PSObject.Properties.Name -contains 'Mode') { [string]$executionProfile.Mode } else { $null }
         if (-not [string]::IsNullOrWhiteSpace($profileMode) -and $profileMode -ne $EffectiveMode) {
             $isWeakerOverride = ($EffectiveMode -eq 'full') -and ($profileMode -eq 'quick')
             if (-not $isWeakerOverride) {
                 $EffectiveMode = $profileMode
+                $policyReevaluationRequired = $true
                 if ($RequestedMode -ne $EffectiveMode) {
                     $FallbackReason = 'profile_mode_override'
                 }
             }
+        }
+
+        if ($policyReevaluationRequired) {
+            $policyDecisionAfterOverride = Resolve-LabCoordinatorPolicy -Action $orchestrationAction -RequestedMode $EffectiveMode -HostProbes $policyHostProbes -SafetyRequiresFull:$safetyRequiresFull -HasScopedConfirmation:$hasScopedConfirmation
+            $policyOutcome = $policyDecisionAfterOverride.Outcome.ToString()
+            $policyReason = [string]$policyDecisionAfterOverride.Reason
+
+            if (($policyReason -eq 'missing_scoped_confirmation') -and (-not [string]::IsNullOrWhiteSpace($scopedConfirmationFailureReason))) {
+                $policyReason = $scopedConfirmationFailureReason
+            }
+
+            if (-not $policyDecisionAfterOverride.Allowed) {
+                if ($policyDecisionAfterOverride.PSObject.Properties.Name -contains 'EffectiveMode' -and -not [string]::IsNullOrWhiteSpace([string]$policyDecisionAfterOverride.EffectiveMode)) {
+                    $EffectiveMode = [string]$policyDecisionAfterOverride.EffectiveMode
+                }
+
+                Add-RunEvent -Step 'policy' -Status 'blocked' -Message $policyReason
+
+                if ($NoExecute) {
+                    $runSuccess = $true
+                    Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)'
+                    return [pscustomobject]@{
+                        RawAction = $rawAction
+                        RawMode = $rawMode
+                        DispatchAction = $Action
+                        OrchestrationAction = $orchestrationAction
+                        RequestedMode = $RequestedMode
+                        EffectiveMode = $EffectiveMode
+                        FallbackReason = $FallbackReason
+                        ProfileSource = $ProfileSource
+                        OperationIntent = $operationIntent
+                        FleetProbe = $fleetProbe
+                        StateProbe = $stateProbe
+                        PolicyOutcome = $policyOutcome
+                        PolicyReason = $policyReason
+                        HostOutcomes = @($hostOutcomes)
+                        BlastRadius = @($blastRadius)
+                        ModeDecision = $modeDecision
+                        OrchestrationIntent = $orchestrationIntent
+                    }
+                }
+
+                throw "Policy blocked execution: $policyReason"
+            }
+
+            Add-RunEvent -Step 'policy' -Status 'ok' -Message ("outcome={0}; reason={1}; requested_mode={2}; effective_mode={3}" -f $policyOutcome, $policyReason, $EffectiveMode, $policyDecisionAfterOverride.EffectiveMode)
         }
 
         $orchestrationIntent = Resolve-LabOrchestrationIntent -Action $orchestrationAction -EffectiveMode $EffectiveMode
