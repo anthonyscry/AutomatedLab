@@ -55,9 +55,9 @@ if ($NoLaunch) {
     return
 }
 
-$effectiveArguments = @($AppArguments)
-if ($effectiveArguments.Count -eq 0) {
-    $effectiveArguments = @('-Action', 'menu')
+$effectiveArguments = @($AppArguments | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+if ($effectiveArguments.Count -eq 0 -or ($effectiveArguments.Count -eq 1 -and $effectiveArguments[0] -eq '-Action')) {
+    $effectiveArguments = @('menu')
 }
 
 & $appScriptPath @effectiveArguments
