@@ -38,6 +38,38 @@ Describe 'Resolve-LabDispatchMode' {
         $result.ExecutionEnabled | Should -BeTrue
     }
 
+    It 'uses environment value when parameter is not provided' {
+        $env:OPENCODELAB_DISPATCH_MODE = 'canary'
+
+        $result = Resolve-LabDispatchMode
+
+        $result.Mode | Should -Be 'canary'
+        $result.Source | Should -Be 'environment'
+        $result.ExecutionEnabled | Should -BeTrue
+    }
+
+    It 'normalizes environment value casing and whitespace' {
+        $env:OPENCODELAB_DISPATCH_MODE = '  EnFoRcEd  '
+
+        $result = Resolve-LabDispatchMode
+
+        $result.Mode | Should -Be 'enforced'
+        $result.Source | Should -Be 'environment'
+        $result.ExecutionEnabled | Should -BeTrue
+    }
+
+    It 'rejects unsupported environment value' {
+        $env:OPENCODELAB_DISPATCH_MODE = 'invalid'
+
+        { Resolve-LabDispatchMode } | Should -Throw '*Unsupported dispatch mode*'
+    }
+
+    It 'rejects explicit empty mode and does not fall back to environment' {
+        $env:OPENCODELAB_DISPATCH_MODE = 'canary'
+
+        { Resolve-LabDispatchMode -Mode '   ' } | Should -Throw '*Mode cannot be empty*'
+    }
+
     It 'rejects unsupported values' {
         { Resolve-LabDispatchMode -Mode 'invalid' } | Should -Throw '*Unsupported dispatch mode*'
     }

@@ -9,7 +9,11 @@ function Resolve-LabDispatchMode {
     $resolvedMode = 'off'
     $source = 'default'
 
-    if ($PSBoundParameters.ContainsKey('Mode') -and -not [string]::IsNullOrWhiteSpace($Mode)) {
+    if ($PSBoundParameters.ContainsKey('Mode')) {
+        if ([string]::IsNullOrWhiteSpace($Mode)) {
+            throw 'Mode cannot be empty when explicitly provided.'
+        }
+
         $resolvedMode = $Mode.Trim().ToLowerInvariant()
         $source = 'parameter'
     }
