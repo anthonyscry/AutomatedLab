@@ -25,6 +25,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         Remove-Item Env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_SIMULATE_LOCAL_DISPATCH_SUCCESS -ErrorAction SilentlyContinue
     }
 
     AfterEach {
@@ -33,6 +36,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         Remove-Item Env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_TEST_SIMULATE_LOCAL_DISPATCH_SUCCESS -ErrorAction SilentlyContinue
     }
 
     It 'accepts inventory and target host inputs and returns approved policy in no-execute mode' {
@@ -69,6 +75,10 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $result.ExecutionOutcome | Should -Be 'not_dispatched'
         $result.ExecutionStartedAt | Should -Be $null
         $result.ExecutionCompletedAt | Should -Be $null
+        @($result.HostOutcomes).Count | Should -Be 1
+        @($result.HostOutcomes[0].PSObject.Properties.Name) | Should -Contain 'Reachable'
+        @($result.HostOutcomes[0].PSObject.Properties.Name) | Should -Contain 'Probe'
+        @($result.HostOutcomes[0].PSObject.Properties.Name) | Should -Not -Contain 'DispatchStatus'
     }
 
     It 'returns blocked policy fields when fleet probe is unreachable' {
@@ -121,6 +131,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $logRoot = Join-Path $TestDrive 'run-logs-canary'
         $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
         $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS = '1'
+        $markerPath = Join-Path $TestDrive 'dispatch-canary-marker.log'
+        $env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER = $markerPath
         $inventoryPath = Join-Path $TestDrive 'runtime-canary-inventory.json'
         @'
 {
@@ -168,12 +181,18 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         @($report.host_outcomes).Count | Should -Be 2
         @($report.host_outcomes | ForEach-Object { [string]$_.DispatchStatus }) | Should -Be @('succeeded', 'not_dispatched')
         @($report.host_outcomes | ForEach-Object { [int]$_.AttemptCount }) | Should -Be @(1, 0)
+
+        Test-Path $markerPath | Should -BeTrue
+        @(Get-Content -Path $markerPath).Count | Should -Be 1
     }
 
     It 'non-noexecute enforced dispatch writes dispatcher outcomes for all targets' {
         $logRoot = Join-Path $TestDrive 'run-logs-enforced'
         $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
         $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS = '1'
+        $markerPath = Join-Path $TestDrive 'dispatch-enforced-marker.log'
+        $env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER = $markerPath
         $inventoryPath = Join-Path $TestDrive 'runtime-enforced-inventory.json'
         @'
 {
@@ -221,6 +240,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         @($report.host_outcomes).Count | Should -Be 2
         @($report.host_outcomes | ForEach-Object { [string]$_.DispatchStatus }) | Should -Be @('succeeded', 'succeeded')
         @($report.host_outcomes | ForEach-Object { [int]$_.AttemptCount }) | Should -Be @(1, 1)
+
+        Test-Path $markerPath | Should -BeTrue
+        @(Get-Content -Path $markerPath).Count | Should -Be 2
     }
 
     It 'non-noexecute enforced dispatch partial outcome fails run and records failed artifact outcome' {
@@ -228,6 +250,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
         $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
         $env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS = 'hv-b'
+        $env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS = '1'
+        $markerPath = Join-Path $TestDrive 'dispatch-enforced-partial-marker.log'
+        $env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER = $markerPath
         $inventoryPath = Join-Path $TestDrive 'runtime-enforced-partial-inventory.json'
         @'
 {
@@ -274,6 +299,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $report.execution_outcome | Should -Be 'failed'
         @($report.host_outcomes).Count | Should -Be 2
         @($report.host_outcomes | ForEach-Object { [string]$_.DispatchStatus }) | Should -Be @('succeeded', 'failed')
+
+        Test-Path $markerPath | Should -BeTrue
+        @(Get-Content -Path $markerPath).Count | Should -Be 2
     }
 
     It 'canary dispatch mode fails fast when dispatcher is unavailable' {
@@ -281,6 +309,7 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
         $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
         $env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH = '1'
+        $env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS = '1'
         $inventoryPath = Join-Path $TestDrive 'runtime-canary-no-dispatcher-inventory.json'
         @'
 {
@@ -327,6 +356,7 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
         $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
         $env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH = '1'
+        $env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS = '1'
         $inventoryPath = Join-Path $TestDrive 'runtime-enforced-no-dispatcher-inventory.json'
         @'
 {

@@ -370,6 +370,41 @@ function Get-HealthArgs {
     return @()
 }
 
+function Invoke-OrchestrationActionCore {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('deploy', 'teardown')]
+        [string]$OrchestrationAction,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('quick', 'full')]
+        [string]$Mode,
+
+        [Parameter(Mandatory)]
+        [object]$Intent
+    )
+
+    switch ($OrchestrationAction) {
+        'deploy' {
+            if ($Intent.RunQuickStartupSequence) {
+                Invoke-QuickDeploy
+            }
+            else {
+                $deployArgs = Get-DeployArgs -Mode $Mode
+                Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+            }
+        }
+        'teardown' {
+            if ($Intent.RunQuickReset) {
+                Invoke-QuickTeardown
+            }
+            else {
+                Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun
+            }
+        }
+    }
+}
+
 function Resolve-NoExecuteStateOverride {
     if (-not $NoExecute) {
         return $null
@@ -1614,16 +1649,18 @@ $skipLegacyOrchestration = $false
         }
     }
 
+    $dispatchUsesCoordinator = $ResolvedDispatchMode -in @('canary', 'enforced')
     $dispatcherUnavailableInTestMode = $SkipRuntimeBootstrap -and
         (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_DISABLE_COORDINATOR_DISPATCH))
     $dispatcherAvailable = (-not $dispatcherUnavailableInTestMode) -and
         (Get-Command Invoke-LabCoordinatorDispatch -ErrorAction SilentlyContinue)
 
-    if ((-not $NoExecute) -and ($ResolvedDispatchMode -in @('canary', 'enforced')) -and (-not $dispatcherAvailable)) {
+    if ((-not $NoExecute) -and $dispatchUsesCoordinator -and (-not $dispatcherAvailable)) {
         throw "Dispatch mode $ResolvedDispatchMode requires Invoke-LabCoordinatorDispatch, but it is unavailable."
     }
 
     $canInvokeCoordinatorDispatch = (-not $NoExecute) -and
+        $dispatchUsesCoordinator -and
         ($orchestrationAction -in @('deploy', 'teardown')) -and
         ($policyOutcome -eq 'Approved') -and
         ($null -ne $operationIntent) -and
@@ -1638,17 +1675,64 @@ $skipLegacyOrchestration = $false
             EffectiveMode = $EffectiveMode
             DispatchMode = $ResolvedDispatchMode
             TargetHosts = @($operationIntent.TargetHosts)
+            MaxRetryCount = 2
+            RetryDelayMilliseconds = 200
         }
 
+        $failureHosts = @()
         if ($SkipRuntimeBootstrap -and -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS)) {
             $failureHosts = @($env:OPENCODELAB_TEST_DISPATCH_FAILURE_HOSTS.Split(',') | ForEach-Object { [string]$_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-            if ($failureHosts.Count -gt 0) {
-                $dispatchSplat.HostStepRunner = {
-                    param($HostName, $Action, $EffectiveMode, $Attempt)
-                    return (-not (@($failureHosts) -contains [string]$HostName))
-                }.GetNewClosure()
-            }
         }
+
+        $dispatchMarkerPath = $null
+        if ($SkipRuntimeBootstrap -and -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER)) {
+            $dispatchMarkerPath = [string]$env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER
+        }
+
+        $allowSimulatedRemote = $false
+        if ($SkipRuntimeBootstrap -and -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS)) {
+            $allowSimulatedRemote = $true
+        }
+
+        $localDispatchExecutor = {
+            param($DispatchAction, $DispatchEffectiveMode)
+
+            Invoke-OrchestrationActionCore -OrchestrationAction $DispatchAction -Mode $DispatchEffectiveMode -Intent $orchestrationIntent
+            return $true
+        }.GetNewClosure()
+
+        $dispatchSplat.HostStepRunner = {
+            param($HostName, $DispatchAction, $DispatchEffectiveMode, $Attempt)
+
+            $normalizedHostName = [string]$HostName
+            if ($dispatchMarkerPath) {
+                "host=$normalizedHostName;action=$DispatchAction;mode=$DispatchEffectiveMode;attempt=$Attempt" | Add-Content -Path $dispatchMarkerPath -Encoding UTF8
+            }
+
+            if ($failureHosts -contains $normalizedHostName) {
+                return $false
+            }
+
+            $isLocalTarget = $false
+            $hostNameLower = $normalizedHostName.ToLowerInvariant()
+            if ($hostNameLower -in @('local', 'localhost', '.', [Environment]::MachineName.ToLowerInvariant())) {
+                $isLocalTarget = $true
+            }
+
+            if ($isLocalTarget) {
+                if ($SkipRuntimeBootstrap -and (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_TEST_SIMULATE_LOCAL_DISPATCH_SUCCESS))) {
+                    return $true
+                }
+
+                return (& $localDispatchExecutor $DispatchAction $DispatchEffectiveMode)
+            }
+
+            if ($allowSimulatedRemote) {
+                return $true
+            }
+
+            throw "Remote dispatch target '$normalizedHostName' requires an explicit remote execution implementation."
+        }.GetNewClosure()
 
         $dispatchResult = Invoke-LabCoordinatorDispatch @dispatchSplat
 
@@ -1661,10 +1745,8 @@ $skipLegacyOrchestration = $false
             Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("outcome={0}; host_outcomes={1}" -f $executionOutcome, (@($hostOutcomes).Count))
         }
 
-        if ($ResolvedDispatchMode -in @('canary', 'enforced')) {
-            $skipLegacyOrchestration = $true
-            Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("legacy_orchestration_skipped=true; dispatch_mode={0}" -f $ResolvedDispatchMode)
-        }
+        $skipLegacyOrchestration = $true
+        Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("legacy_orchestration_skipped=true; dispatch_mode={0}" -f $ResolvedDispatchMode)
     }
 
     if (-not $skipLegacyOrchestration) {
@@ -1695,13 +1777,7 @@ $skipLegacyOrchestration = $false
                 Add-RunEvent -Step 'deploy' -Status 'ok' -Message 'skipped legacy deploy path (dispatcher handled orchestration action)'
             }
             else {
-                if ($orchestrationIntent.RunQuickStartupSequence) {
-                    Invoke-QuickDeploy
-                }
-                else {
-                    $deployArgs = Get-DeployArgs -Mode $EffectiveMode
-                    Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
-                }
+                Invoke-OrchestrationActionCore -OrchestrationAction 'deploy' -Mode $EffectiveMode -Intent $orchestrationIntent
             }
         }
         'teardown' {
@@ -1709,12 +1785,7 @@ $skipLegacyOrchestration = $false
                 Add-RunEvent -Step 'teardown' -Status 'ok' -Message 'skipped legacy teardown path (dispatcher handled orchestration action)'
             }
             else {
-                if ($orchestrationIntent.RunQuickReset) {
-                    Invoke-QuickTeardown
-                }
-                else {
-                    Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun
-                }
+                Invoke-OrchestrationActionCore -OrchestrationAction 'teardown' -Mode $EffectiveMode -Intent $orchestrationIntent
             }
         }
         'add-lin1' {
