@@ -155,6 +155,10 @@ function Write-RunArtifacts {
     $report = [pscustomobject]@{
         run_id = $RunId
         action = $Action
+        dispatch_mode = $ResolvedDispatchMode
+        execution_outcome = $executionOutcome
+        execution_started_at = $executionStartedAt
+        execution_completed_at = $executionCompletedAt
         requested_mode = $RequestedMode
         effective_mode = $EffectiveMode
         fallback_reason = $FallbackReason
@@ -184,6 +188,10 @@ function Write-RunArtifacts {
     $lines = @(
         "run_id: $RunId",
         "action: $Action",
+        "dispatch_mode: $ResolvedDispatchMode",
+        "execution_outcome: $executionOutcome",
+        "execution_started_at: $executionStartedAt",
+        "execution_completed_at: $executionCompletedAt",
         "requested_mode: $RequestedMode",
         "effective_mode: $EffectiveMode",
         "fallback_reason: $FallbackReason",
@@ -1129,6 +1137,9 @@ $runSuccess = $false
 $runError = ''
 $hostOutcomes = @()
 $blastRadius = @()
+$executionOutcome = 'not_dispatched'
+$executionStartedAt = $null
+$executionCompletedAt = $null
 
     try {
         $rawAction = $Action
@@ -1199,9 +1210,9 @@ $blastRadius = @()
                     DispatchAction = $Action
                     OrchestrationAction = $orchestrationAction
                     DispatchMode = $ResolvedDispatchMode
-                    ExecutionOutcome = 'not_dispatched'
-                    ExecutionStartedAt = $null
-                    ExecutionCompletedAt = $null
+                    ExecutionOutcome = $executionOutcome
+                    ExecutionStartedAt = $executionStartedAt
+                    ExecutionCompletedAt = $executionCompletedAt
                     RequestedMode = $RequestedMode
                     EffectiveMode = $EffectiveMode
                     FallbackReason = $FallbackReason
@@ -1364,9 +1375,9 @@ $blastRadius = @()
                     DispatchAction = $Action
                     OrchestrationAction = $orchestrationAction
                     DispatchMode = $ResolvedDispatchMode
-                    ExecutionOutcome = 'not_dispatched'
-                    ExecutionStartedAt = $null
-                    ExecutionCompletedAt = $null
+                    ExecutionOutcome = $executionOutcome
+                    ExecutionStartedAt = $executionStartedAt
+                    ExecutionCompletedAt = $executionCompletedAt
                     RequestedMode = $RequestedMode
                     EffectiveMode = $EffectiveMode
                     FallbackReason = $FallbackReason
@@ -1487,9 +1498,9 @@ $blastRadius = @()
                         DispatchAction = $Action
                         OrchestrationAction = $orchestrationAction
                         DispatchMode = $ResolvedDispatchMode
-                        ExecutionOutcome = 'not_dispatched'
-                        ExecutionStartedAt = $null
-                        ExecutionCompletedAt = $null
+                        ExecutionOutcome = $executionOutcome
+                        ExecutionStartedAt = $executionStartedAt
+                        ExecutionCompletedAt = $executionCompletedAt
                         RequestedMode = $RequestedMode
                         EffectiveMode = $EffectiveMode
                         FallbackReason = $FallbackReason
@@ -1529,9 +1540,9 @@ $blastRadius = @()
             DispatchAction = $Action
             OrchestrationAction = $orchestrationAction
             DispatchMode = $ResolvedDispatchMode
-            ExecutionOutcome = 'not_dispatched'
-            ExecutionStartedAt = $null
-            ExecutionCompletedAt = $null
+            ExecutionOutcome = $executionOutcome
+            ExecutionStartedAt = $executionStartedAt
+            ExecutionCompletedAt = $executionCompletedAt
             RequestedMode = $RequestedMode
             EffectiveMode = $EffectiveMode
             FallbackReason = $FallbackReason
@@ -1548,6 +1559,8 @@ $blastRadius = @()
         }
     }
 
+    $executionStartedAt = (Get-Date).ToUniversalTime().ToString('o')
+    $executionOutcome = 'in_progress'
     Add-RunEvent -Step 'run' -Status 'start' -Message "Action=$Action; Mode=$EffectiveMode"
     switch ($Action) {
         'menu' {
@@ -1644,9 +1657,19 @@ $blastRadius = @()
         }
         'blow-away' { Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun }
     }
+    $executionCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+    $executionOutcome = 'succeeded'
     $runSuccess = $true
     Add-RunEvent -Step 'run' -Status 'ok' -Message 'completed'
 } catch {
+    if ($executionOutcome -eq 'in_progress') {
+        $executionOutcome = 'failed'
+    }
+
+    if (($null -eq $executionCompletedAt) -and ($null -ne $executionStartedAt)) {
+        $executionCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+    }
+
     $runError = $_.Exception.Message
     Add-RunEvent -Step 'run' -Status 'fail' -Message $runError
     throw

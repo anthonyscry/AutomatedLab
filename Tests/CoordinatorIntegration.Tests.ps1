@@ -78,5 +78,9 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $result.PolicyOutcome | Should -Be 'PolicyBlocked'
         $result.PolicyReason | Should -Be 'target_hosts_empty'
         $result.EffectiveMode | Should -Be 'full'
+        $result.DispatchMode | Should -Be 'off'
+        $result.ExecutionOutcome | Should -Be 'not_dispatched'
+        $result.ExecutionStartedAt | Should -Be $null
+        $result.ExecutionCompletedAt | Should -Be $null
     }
 }
