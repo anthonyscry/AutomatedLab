@@ -13,7 +13,9 @@ Describe 'Test-LabTransientTransportFailure' {
         @{ Message = 'WinRM cannot complete the operation. Verify that the specified computer name is valid, that the computer is accessible over the network, and that a firewall exception for the WinRM service is enabled.' },
         @{ Message = 'The client cannot connect to the destination specified in the request. Verify that the service on the destination is running and is accepting requests. Error number: -2144108526 0x80338126' },
         @{ Message = 'The WinRM operation timed out while waiting for a response from the remote host.' },
-        @{ Message = 'The WSMan provider host process did not return a proper response. The operation has timed out.' }
+        @{ Message = 'The WSMan provider host process did not return a proper response. The operation has timed out.' },
+        @{ Message = 'Scoped confirmation completed, but the WinRM operation timed out while waiting for a response from the remote host.' },
+        @{ Message = 'The WSMan request timed out while negotiating a remote session.' }
     ) {
         param($Message)
 
@@ -24,6 +26,7 @@ Describe 'Test-LabTransientTransportFailure' {
         @{ Message = 'Access is denied.' },
         @{ Message = 'User declined scoped confirmation token prompt.' },
         @{ Message = 'Scoped confirmation token validation failed: run_scope_mismatch.' },
+        @{ Message = 'Scoped confirmation failed because the token signature is invalid.' },
         @{ Message = 'Execution policy restricts running scripts on this system.' },
         @{ Message = 'WinRM cannot process the request. The following error occurred while using Kerberos authentication: Access is denied.' },
         @{ Message = 'The WSMan provider host process did not return a proper response. The client cannot connect because the server rejected the credentials.' },
