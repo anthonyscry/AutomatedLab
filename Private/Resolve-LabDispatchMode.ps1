@@ -1,0 +1,30 @@
+function Resolve-LabDispatchMode {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [string]$Mode
+    )
+
+    $supportedModes = @('off', 'canary', 'enforced')
+    $resolvedMode = 'off'
+    $source = 'default'
+
+    if ($PSBoundParameters.ContainsKey('Mode') -and -not [string]::IsNullOrWhiteSpace($Mode)) {
+        $resolvedMode = $Mode.Trim().ToLowerInvariant()
+        $source = 'parameter'
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_DISPATCH_MODE)) {
+        $resolvedMode = $env:OPENCODELAB_DISPATCH_MODE.Trim().ToLowerInvariant()
+        $source = 'environment'
+    }
+
+    if ($supportedModes -notcontains $resolvedMode) {
+        throw "Unsupported dispatch mode '$resolvedMode'. Supported values: off, canary, enforced."
+    }
+
+    return [pscustomobject]@{
+        Mode = $resolvedMode
+        Source = $source
+        ExecutionEnabled = ($resolvedMode -ne 'off')
+    }
+}
