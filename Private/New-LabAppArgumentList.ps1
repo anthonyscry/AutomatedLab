@@ -67,11 +67,17 @@ function New-LabAppArgumentList {
     }
 
     if ($safeOptions.ContainsKey('TargetHosts') -and $null -ne $safeOptions.TargetHosts) {
-        $targetHosts = @($safeOptions.TargetHosts | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        $targetHosts = @(
+            $safeOptions.TargetHosts |
+                ForEach-Object { [string]$_ } |
+                ForEach-Object { $_ -split '[,;\s]+' } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                ForEach-Object { $_.Trim() }
+        )
         if ($targetHosts.Count -gt 0) {
             $argumentList.Add('-TargetHosts') | Out-Null
             foreach ($targetHost in $targetHosts) {
-                $argumentList.Add($targetHost.Trim()) | Out-Null
+                $argumentList.Add($targetHost) | Out-Null
             }
         }
     }
