@@ -224,6 +224,20 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         @($result.HostOutcomes | ForEach-Object { [string]$_.HostName }) | Should -Be @($targetHost, 'ignored-host')
     }
 
+    It 'Write-RunArtifacts definitions include coordinator metadata keys for json and txt payloads' {
+        $scriptContent = Get-Content -Path $appPath -Raw
+
+        $scriptContent | Should -Match 'policy_outcome\s*='
+        $scriptContent | Should -Match 'policy_reason\s*='
+        $scriptContent | Should -Match 'host_outcomes\s*='
+        $scriptContent | Should -Match 'blast_radius\s*='
+
+        $scriptContent | Should -Match '"policy_outcome:\s*\$policyOutcome"'
+        $scriptContent | Should -Match '"policy_reason:\s*\$policyReason"'
+        $scriptContent | Should -Match '"host_outcomes:'
+        $scriptContent | Should -Match '"blast_radius:\s*\$\(\$blastRadius\s*-join\s*'',''\)"'
+    }
+
     It 'teardown full returns policy blocked outcome when scoped confirmation is missing' {
         $hostProbe = [pscustomobject]@{
             HostName = 'local'
