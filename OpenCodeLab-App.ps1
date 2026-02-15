@@ -49,6 +49,8 @@ param(
     [switch]$NoExecute,
     [string]$NoExecuteStateJson,
     [string]$NoExecuteStatePath,
+    [ValidateSet('off', 'canary', 'enforced')]
+    [string]$DispatchMode,
     [int]$LogRetentionDays = 14
 )
 
@@ -74,7 +76,10 @@ $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
     (Join-Path $ScriptDir 'Private\Get-LabStateProbe.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabModeDecision.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabOrchestrationIntent.ps1')
+    (Join-Path $ScriptDir 'Private\Resolve-LabOrchestrationIntent.ps1'),
+    (Join-Path $ScriptDir 'Private\Resolve-LabDispatchMode.ps1'),
+    (Join-Path $ScriptDir 'Private\Test-LabTransientTransportFailure.ps1'),
+    (Join-Path $ScriptDir 'Private\Invoke-LabCoordinatorDispatch.ps1')
 )
 
 foreach ($helperPath in $OrchestrationHelperPaths) {
@@ -101,6 +106,20 @@ $RequestedMode = $Mode
 $EffectiveMode = $Mode
 $FallbackReason = $null
 $ProfileSource = if ([string]::IsNullOrWhiteSpace($ProfilePath)) { 'default' } else { 'file' }
+$ResolvedDispatchMode = 'off'
+
+if (Get-Command Resolve-LabDispatchMode -ErrorAction SilentlyContinue) {
+    if ($PSBoundParameters.ContainsKey('DispatchMode')) {
+        $resolvedDispatchModeResult = Resolve-LabDispatchMode -Mode $DispatchMode
+    }
+    else {
+        $resolvedDispatchModeResult = Resolve-LabDispatchMode
+    }
+    $ResolvedDispatchMode = [string]$resolvedDispatchModeResult.Mode
+}
+elseif ($PSBoundParameters.ContainsKey('DispatchMode')) {
+    $ResolvedDispatchMode = [string]$DispatchMode
+}
 
 function Add-RunEvent {
     param(
@@ -1179,6 +1198,10 @@ $blastRadius = @()
                     RawMode = $rawMode
                     DispatchAction = $Action
                     OrchestrationAction = $orchestrationAction
+                    DispatchMode = $ResolvedDispatchMode
+                    ExecutionOutcome = 'not_dispatched'
+                    ExecutionStartedAt = $null
+                    ExecutionCompletedAt = $null
                     RequestedMode = $RequestedMode
                     EffectiveMode = $EffectiveMode
                     FallbackReason = $FallbackReason
@@ -1340,6 +1363,10 @@ $blastRadius = @()
                     RawMode = $rawMode
                     DispatchAction = $Action
                     OrchestrationAction = $orchestrationAction
+                    DispatchMode = $ResolvedDispatchMode
+                    ExecutionOutcome = 'not_dispatched'
+                    ExecutionStartedAt = $null
+                    ExecutionCompletedAt = $null
                     RequestedMode = $RequestedMode
                     EffectiveMode = $EffectiveMode
                     FallbackReason = $FallbackReason
@@ -1459,6 +1486,10 @@ $blastRadius = @()
                         RawMode = $rawMode
                         DispatchAction = $Action
                         OrchestrationAction = $orchestrationAction
+                        DispatchMode = $ResolvedDispatchMode
+                        ExecutionOutcome = 'not_dispatched'
+                        ExecutionStartedAt = $null
+                        ExecutionCompletedAt = $null
                         RequestedMode = $RequestedMode
                         EffectiveMode = $EffectiveMode
                         FallbackReason = $FallbackReason
@@ -1497,6 +1528,10 @@ $blastRadius = @()
             RawMode = $rawMode
             DispatchAction = $Action
             OrchestrationAction = $orchestrationAction
+            DispatchMode = $ResolvedDispatchMode
+            ExecutionOutcome = 'not_dispatched'
+            ExecutionStartedAt = $null
+            ExecutionCompletedAt = $null
             RequestedMode = $RequestedMode
             EffectiveMode = $EffectiveMode
             FallbackReason = $FallbackReason

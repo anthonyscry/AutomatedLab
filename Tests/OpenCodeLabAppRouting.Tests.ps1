@@ -32,7 +32,11 @@ BeforeAll {
             [string]$InventoryPath,
 
             [Parameter()]
-            [string]$ConfirmationToken
+            [string]$ConfirmationToken,
+
+            [Parameter()]
+            [ValidateSet('off', 'canary', 'enforced')]
+            [string]$DispatchMode
         )
 
         $invokeSplat = @{
@@ -59,6 +63,10 @@ BeforeAll {
 
         if (-not [string]::IsNullOrWhiteSpace($ConfirmationToken)) {
             $invokeSplat.ConfirmationToken = $ConfirmationToken
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($DispatchMode)) {
+            $invokeSplat.DispatchMode = $DispatchMode
         }
 
         & $appPath @invokeSplat
@@ -96,6 +104,29 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         $result.DispatchAction | Should -Be 'one-button-reset'
         $result.OrchestrationAction | Should -BeNullOrEmpty
         $result.RequestedMode | Should -Be 'full'
+    }
+
+    It 'no-execute response includes additive dispatch and execution fields with deterministic defaults' {
+        $result = Invoke-AppNoExecute -Action 'setup' -Mode 'full'
+
+        @($result.PSObject.Properties.Name) | Should -Contain 'DispatchMode'
+        @($result.PSObject.Properties.Name) | Should -Contain 'ExecutionOutcome'
+        @($result.PSObject.Properties.Name) | Should -Contain 'ExecutionStartedAt'
+        @($result.PSObject.Properties.Name) | Should -Contain 'ExecutionCompletedAt'
+
+        $result.DispatchMode | Should -Be 'off'
+        $result.ExecutionOutcome | Should -Be 'not_dispatched'
+        $result.ExecutionStartedAt | Should -BeNullOrEmpty
+        $result.ExecutionCompletedAt | Should -BeNullOrEmpty
+    }
+
+    It 'no-execute response contract includes explicit canary dispatch mode' {
+        $result = Invoke-AppNoExecute -Action 'setup' -Mode 'full' -DispatchMode 'canary'
+
+        $result.DispatchMode | Should -Be 'canary'
+        $result.ExecutionOutcome | Should -Be 'not_dispatched'
+        $result.ExecutionStartedAt | Should -BeNullOrEmpty
+        $result.ExecutionCompletedAt | Should -BeNullOrEmpty
     }
 
     It 'teardown quick chooses quick reset intent when policy approves' {
