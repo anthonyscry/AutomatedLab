@@ -3,6 +3,7 @@
 BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot
     $appPath = Join-Path $repoRoot 'OpenCodeLab-App.ps1'
+    . (Join-Path $repoRoot 'Private/New-LabScopedConfirmationToken.ps1')
 
     function Get-LatestRunReport {
         param(
@@ -28,6 +29,8 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         Remove-Item Env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_SIMULATE_LOCAL_DISPATCH_SUCCESS -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_CONFIRMATION_RUN_ID -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_CONFIRMATION_SECRET -ErrorAction SilentlyContinue
     }
 
     AfterEach {
@@ -39,6 +42,8 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         Remove-Item Env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS -ErrorAction SilentlyContinue
         Remove-Item Env:OPENCODELAB_TEST_SIMULATE_LOCAL_DISPATCH_SUCCESS -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_CONFIRMATION_RUN_ID -ErrorAction SilentlyContinue
+        Remove-Item Env:OPENCODELAB_CONFIRMATION_SECRET -ErrorAction SilentlyContinue
     }
 
     It 'accepts inventory and target host inputs and returns approved policy in no-execute mode' {
@@ -103,6 +108,100 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $result.PolicyOutcome | Should -Be 'PolicyBlocked'
         $result.PolicyReason | Should -Be 'host_probe_unreachable:hv-x'
         $result.EffectiveMode | Should -Be 'full'
+    }
+
+    It 'blocks quick teardown when any multi-host probe is unreachable with host-specific reason' {
+        $inventoryPath = Join-Path $TestDrive 'quick-unreachable-multihost-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" },
+    { "name": "hv-b", "role": "secondary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            },
+            [pscustomobject]@{
+                HostName = 'hv-b'
+                Reachable = $false
+                Probe = $null
+                Failure = 'timeout'
+            }
+        )
+
+        $result = & $appPath -Action teardown -Mode quick -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-a', 'hv-b') -NoExecuteStateJson ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        $result.PolicyOutcome | Should -Be 'PolicyBlocked'
+        $result.PolicyReason | Should -Be 'host_probe_unreachable:hv-b'
+        $result.EffectiveMode | Should -Be 'quick'
+    }
+
+    It 'requires scoped confirmation for full teardown across multiple hosts' {
+        $inventoryPath = Join-Path $TestDrive 'full-multihost-confirmation-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" },
+    { "name": "hv-b", "role": "secondary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            },
+            [pscustomobject]@{
+                HostName = 'hv-b'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+
+        $noConfirmationResult = & $appPath -Action teardown -Mode full -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-a', 'hv-b') -NoExecuteStateJson ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        $noConfirmationResult.PolicyOutcome | Should -Be 'PolicyBlocked'
+        $noConfirmationResult.PolicyReason | Should -Be 'missing_scoped_confirmation'
+        $noConfirmationResult.EffectiveMode | Should -Be 'full'
+
+        $env:OPENCODELAB_CONFIRMATION_RUN_ID = 'integration-multihost-confirm-run'
+        $env:OPENCODELAB_CONFIRMATION_SECRET = 'integration-multihost-confirm-secret'
+        $token = New-LabScopedConfirmationToken -RunId 'integration-multihost-confirm-run' -TargetHosts @('hv-a', 'hv-b') -OperationHash 'teardown:full:teardown' -Secret 'integration-multihost-confirm-secret' -TtlSeconds 300
+
+        $withConfirmationResult = & $appPath -Action teardown -Mode full -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-a', 'hv-b') -NoExecuteStateJson ($hostProbes | ConvertTo-Json -Depth 10 -Compress) -ConfirmationToken $token
+
+        $withConfirmationResult.PolicyOutcome | Should -Be 'Approved'
+        $withConfirmationResult.PolicyReason | Should -Be 'approved'
+        $withConfirmationResult.EffectiveMode | Should -Be 'full'
     }
 
     It 'returns deterministic blocked outcome when resolved target host set is empty' {
