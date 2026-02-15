@@ -8,7 +8,7 @@ BeforeAll {
 }
 
 Describe 'Dispatch documentation coverage' {
-    It 'README documents concrete dispatch mode examples and rollback kill switch' {
+    It 'README documents concrete dispatch mode examples, rollback kill switch, and execution outcomes' {
         $content = Get-Content -Path $readmePath -Raw
 
         $content | Should -Match 'DispatchMode'
@@ -16,6 +16,7 @@ Describe 'Dispatch documentation coverage' {
         $content | Should -Match '(?m)^\.\\OpenCodeLab-App\.ps1 .* -DispatchMode canary .*NonInteractive$'
         $content | Should -Match '(?i)rollback note:'
         $content | Should -Match '(?i)kill switch'
+        $content | Should -Match 'ExecutionOutcome'
     }
 
     It 'README documents DispatchMode precedence over OPENCODELAB_DISPATCH_MODE' {
@@ -33,6 +34,15 @@ Describe 'Dispatch documentation coverage' {
         $content | Should -Match 'ExecutionOutcome'
         $content | Should -Match '(?i)exactly one host is dispatched'
         $content | Should -Match '(?i)all others are reported as `not_dispatched`'
+    }
+
+    It 'smoke checklist documents dispatch gate suite verification commands' {
+        $content = Get-Content -Path $smokeChecklistPath -Raw
+
+        $content | Should -Match 'DispatchMode\.Tests\.ps1'
+        $content | Should -Match 'CoordinatorDispatch\.Tests\.ps1'
+        $content | Should -Match 'OpenCodeLabDispatchContract\.Tests\.ps1'
+        $content | Should -Match 'Tests\\Run\.Tests\.ps1'
     }
 
     It 'architecture notes document dispatcher layer and action-based failure policy' {

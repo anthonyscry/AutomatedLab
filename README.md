@@ -62,6 +62,8 @@ Rollback note: if a rollout regresses, switch to `-DispatchMode off` immediately
 
 Precedence: explicit `-DispatchMode` takes precedence over `OPENCODELAB_DISPATCH_MODE` when both are provided.
 
+Execution outcomes are recorded per run in artifacts via `ExecutionOutcome` so operators can confirm rollout intent: `off` keeps hosts non-dispatched, `canary` dispatches one eligible host and records remaining hosts as `not_dispatched`, and `enforced` dispatches all eligible hosts.
+
 For multi-host safety-first orchestration, operators can scope and approve destructive intent explicitly:
 
 ```powershell
