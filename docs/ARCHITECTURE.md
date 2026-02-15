@@ -10,6 +10,7 @@ The repository has two layers:
 Dispatch-aware orchestration adds an execution-control layer:
 
 - **Dispatcher layer**: action routing honors `DispatchMode` (`off`, `canary`, `enforced`) so operators can disable rollout, run one-host canaries, or enforce full dispatch.
+- Dispatch controls are verified through `ExecutionOutcome` artifacts: `off` should report `not_dispatched`, `canary` should dispatch exactly one host while remaining hosts report `not_dispatched`, and `enforced` should show dispatched hosts or explicit policy-blocked outcomes.
 
 ## Core workflows
 
