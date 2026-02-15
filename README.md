@@ -60,6 +60,8 @@ Dispatch execution is controlled separately with `-DispatchMode off|canary|enfor
 
 Rollback note: if a rollout regresses, switch to `-DispatchMode off` immediately (or set `OPENCODELAB_DISPATCH_MODE=off`) to bypass dispatcher execution while preserving coordinator policy checks and run artifacts.
 
+Precedence: explicit `-DispatchMode` takes precedence over `OPENCODELAB_DISPATCH_MODE` when both are provided.
+
 For multi-host safety-first orchestration, operators can scope and approve destructive intent explicitly:
 
 ```powershell
