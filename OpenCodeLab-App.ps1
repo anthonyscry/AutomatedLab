@@ -1276,6 +1276,8 @@ $blastRadius = @()
 
         $hasScopedConfirmation = $false
         $scopedConfirmationFailureReason = $null
+        $confirmationRunScope = $null
+        $confirmationSecret = $null
         if (-not [string]::IsNullOrWhiteSpace($ConfirmationToken)) {
             $confirmationRunScope = if (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_CONFIRMATION_RUN_ID)) {
                 [string]$env:OPENCODELAB_CONFIRMATION_RUN_ID
@@ -1408,6 +1410,28 @@ $blastRadius = @()
         }
 
         if ($policyReevaluationRequired) {
+            if (-not [string]::IsNullOrWhiteSpace($ConfirmationToken)) {
+                $hasScopedConfirmation = $false
+                $scopedConfirmationFailureReason = $null
+
+                if (-not (Get-Command Test-LabScopedConfirmationToken -ErrorAction SilentlyContinue)) {
+                    $scopedConfirmationFailureReason = 'scoped_confirmation_validator_unavailable'
+                }
+                elseif ([string]::IsNullOrWhiteSpace($confirmationSecret)) {
+                    $scopedConfirmationFailureReason = 'scoped_confirmation_secret_unavailable'
+                }
+                else {
+                    $overrideConfirmationOperationHash = '{0}:{1}:{2}' -f $orchestrationAction, $EffectiveMode, $Action
+                    $overrideConfirmationValidation = Test-LabScopedConfirmationToken -Token $ConfirmationToken -RunId $confirmationRunScope -TargetHosts $resolvedTargetHosts -OperationHash $overrideConfirmationOperationHash -Secret $confirmationSecret
+                    if ($overrideConfirmationValidation.Valid) {
+                        $hasScopedConfirmation = $true
+                    }
+                    else {
+                        $scopedConfirmationFailureReason = 'scoped_confirmation_invalid:{0}' -f ([string]$overrideConfirmationValidation.Reason)
+                    }
+                }
+            }
+
             $policyDecisionAfterOverride = Resolve-LabCoordinatorPolicy -Action $orchestrationAction -RequestedMode $EffectiveMode -HostProbes $policyHostProbes -SafetyRequiresFull:$safetyRequiresFull -HasScopedConfirmation:$hasScopedConfirmation
             $policyOutcome = $policyDecisionAfterOverride.Outcome.ToString()
             $policyReason = [string]$policyDecisionAfterOverride.Reason

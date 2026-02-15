@@ -212,6 +212,55 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         $result.EffectiveMode | Should -Be 'full'
     }
 
+    It 'teardown quick with profile full override blocks quick-scoped token as invalid' {
+        $hostProbe = [pscustomobject]@{
+            HostName = 'local'
+            Reachable = $true
+            Probe = [pscustomobject]@{
+                LabRegistered = $true
+                MissingVMs = @()
+                LabReadyAvailable = $true
+                SwitchPresent = $true
+                NatPresent = $true
+            }
+            Failure = $null
+        }
+        $profilePath = Join-Path $TestDrive 'teardown-profile-full-invalid-token.json'
+        '{"Mode":"full"}' | Set-Content -Path $profilePath -Encoding UTF8
+        $quickScopedToken = New-LabScopedConfirmationToken -RunId 'tdd-run-scope-routing' -TargetHosts @([Environment]::MachineName) -OperationHash 'teardown:quick:teardown' -Secret 'tdd-secret-routing' -TtlSeconds 300
+
+        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'quick' -State @($hostProbe) -ProfilePath $profilePath -ConfirmationToken $quickScopedToken
+
+        $result.PolicyOutcome | Should -Be 'PolicyBlocked'
+        $result.PolicyReason | Should -Be 'scoped_confirmation_invalid:operation_scope_mismatch'
+        $result.EffectiveMode | Should -Be 'full'
+    }
+
+    It 'teardown quick with profile full override accepts full-scoped token after revalidation' {
+        $hostProbe = [pscustomobject]@{
+            HostName = 'local'
+            Reachable = $true
+            Probe = [pscustomobject]@{
+                LabRegistered = $true
+                MissingVMs = @()
+                LabReadyAvailable = $true
+                SwitchPresent = $true
+                NatPresent = $true
+            }
+            Failure = $null
+        }
+        $profilePath = Join-Path $TestDrive 'teardown-profile-full-valid-token.json'
+        '{"Mode":"full"}' | Set-Content -Path $profilePath -Encoding UTF8
+        $fullScopedToken = New-LabScopedConfirmationToken -RunId 'tdd-run-scope-routing' -TargetHosts @([Environment]::MachineName) -OperationHash 'teardown:full:teardown' -Secret 'tdd-secret-routing' -TtlSeconds 300
+
+        $result = Invoke-AppNoExecute -Action 'teardown' -Mode 'quick' -State @($hostProbe) -ProfilePath $profilePath -ConfirmationToken $fullScopedToken
+
+        $result.PolicyOutcome | Should -Be 'Approved'
+        $result.PolicyReason | Should -Be 'approved'
+        $result.EffectiveMode | Should -Be 'full'
+        $result.OrchestrationIntent.Strategy | Should -Be 'teardown-full'
+    }
+
     It 'routing payload includes coordinator policy and host routing metadata' {
         $targetHost = [Environment]::MachineName
         $hostProbeA = [pscustomobject]@{
