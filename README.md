@@ -94,6 +94,24 @@ Run-scope and secret contract for token issuance/validation:
 .\OpenCodeLab-App.ps1 -Action status
 ```
 
+## OpenCode `/run` alias
+
+This repo includes a project command alias at `.opencode/commands/run.md`.
+
+In OpenCode, run:
+
+```text
+/run
+```
+
+You can also pass app arguments through the alias:
+
+```text
+/run -Action status
+```
+
+The alias calls `Scripts/Run-OpenCodeLab.ps1`, which syntax-checks key app scripts before launch (unless you pass `-SkipBuild`).
+
 ## Common operations
 
 ```powershell
