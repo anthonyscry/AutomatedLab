@@ -45,10 +45,11 @@ Describe 'Dispatch documentation coverage' {
         $content | Should -Match 'Tests\\Run\.Tests\.ps1'
     }
 
-    It 'architecture notes document dispatcher layer and action-based failure policy' {
+    It 'architecture notes document dispatcher controls, failure policy, and execution outcome verification expectations' {
         $content = Get-Content -Path $architecturePath -Raw
 
         $content | Should -Match '(?i)dispatcher layer'
         $content | Should -Match '(?i)action-based failure policy'
+        $content | Should -Match '(?is)dispatch controls are verified through\s+`ExecutionOutcome`.*off.*not_dispatched.*canary.*exactly one host.*enforced'
     }
 }
