@@ -51,6 +51,18 @@ Describe 'New-LabAppArgumentList' {
 
         $result | Should -Be @('-Action', 'teardown', '-Mode', 'full', '-TargetHosts', 'hv-a', 'hv-b', '-ConfirmationToken', 'scope-token-001')
     }
+
+    It 'normalizes target hosts from mixed delimiters and whitespace' {
+        $options = @{
+            Action = 'teardown'
+            Mode = 'full'
+            TargetHosts = @(' hv-a, hv-b ', 'hv-c;  hv-d', '   ')
+        }
+
+        $result = New-LabAppArgumentList -Options $options
+
+        $result | Should -Be @('-Action', 'teardown', '-Mode', 'full', '-TargetHosts', 'hv-a', 'hv-b', 'hv-c', 'hv-d')
+    }
 }
 
 Describe 'Get-LabLatestRunArtifactPath' {

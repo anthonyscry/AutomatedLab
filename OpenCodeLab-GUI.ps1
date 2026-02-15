@@ -117,7 +117,7 @@ $txtDefaultsFile = New-Object System.Windows.Forms.TextBox
 $txtDefaultsFile.Dock = 'Fill'
 
 $lblTargetHosts = New-Object System.Windows.Forms.Label
-$lblTargetHosts.Text = 'TargetHosts (comma/space/newline)'
+$lblTargetHosts.Text = 'TargetHosts (comma/space/semicolon)'
 $lblTargetHosts.AutoSize = $true
 $txtTargetHosts = New-Object System.Windows.Forms.TextBox
 $txtTargetHosts.Dock = 'Fill'
