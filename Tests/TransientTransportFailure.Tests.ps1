@@ -24,11 +24,20 @@ Describe 'Test-LabTransientTransportFailure' {
         @{ Message = 'Access is denied.' },
         @{ Message = 'User declined scoped confirmation token prompt.' },
         @{ Message = 'Scoped confirmation token validation failed: run_scope_mismatch.' },
-        @{ Message = 'Execution policy restricts running scripts on this system.' }
+        @{ Message = 'Execution policy restricts running scripts on this system.' },
+        @{ Message = 'WinRM cannot process the request. The following error occurred while using Kerberos authentication: Access is denied.' },
+        @{ Message = 'The WSMan provider host process did not return a proper response. The client cannot connect because the server rejected the credentials.' },
+        @{ Message = 'WinRM cannot process the request because authentication failed for the remote endpoint.' }
     ) {
         param($Message)
 
         Test-LabTransientTransportFailure -Message $Message | Should -BeFalse
+    }
+
+    It 'returns false when timeout and access denied signals are both present' {
+        $message = 'The WinRM operation timed out while waiting for a response from the remote host. Access is denied.'
+
+        Test-LabTransientTransportFailure -Message $message | Should -BeFalse
     }
 
     It 'returns false for null or empty input' -TestCases @(
