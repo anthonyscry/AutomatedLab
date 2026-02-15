@@ -13,12 +13,15 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $RepoRoot  = Split-Path -Parent $ScriptDir
 $ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
+$subnetConflictHelperPath = Join-Path $RepoRoot 'Private\Test-LabVirtualSwitchSubnetConflict.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
+if (Test-Path $subnetConflictHelperPath) { . $subnetConflictHelperPath }
 
 # Defaults in case Lab-Config.ps1 is absent
 if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
 if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'AutomatedLab' }
 if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = 'AutomatedLabNAT' }
+if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $AddressSpace = '10.0.10.0/24' }
 if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso') }
 
 $IsoPath = Join-Path $LabSourcesRoot 'ISOs'
@@ -83,6 +86,27 @@ foreach ($iso in $requiredIsoList) {
     } else {
         Add-Issue "Missing ISO: $iso"
     }
+}
+
+try {
+    if (Get-Command -Name 'Test-LabVirtualSwitchSubnetConflict' -ErrorAction SilentlyContinue) {
+        $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $LabSwitch -AddressSpace $AddressSpace
+        if ($subnetConflict.HasConflict) {
+            $conflictSummary = @(
+                $subnetConflict.ConflictingAdapters |
+                    ForEach-Object { "$($_.InterfaceAlias) [$($_.IPAddress)]" }
+            )
+            Write-Warning "Conflicting vEthernet subnet assignments detected for $($AddressSpace): $($conflictSummary -join '; '). Deploy preflight can auto-fix these conflicts when you continue with deployment."
+        }
+        else {
+            Add-Ok "No conflicting vEthernet adapters found for subnet $AddressSpace"
+        }
+    }
+    else {
+        Write-Warning 'Subnet conflict helper not available; skipping vEthernet subnet conflict preflight check.'
+    }
+} catch {
+    Add-Issue "Failed vEthernet subnet conflict check: $($_.Exception.Message)"
 }
 
 $switch = Get-VMSwitch -Name $LabSwitch -ErrorAction SilentlyContinue

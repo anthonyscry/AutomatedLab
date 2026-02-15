@@ -323,7 +323,14 @@ $btnRun.add_Click({
 
     try {
         $options = Get-SelectedOptions
-        $guard = Get-LabGuiDestructiveGuard -Action $options.Action -Mode $options.Mode -ProfilePath $options.ProfilePath
+        $profilePathForGuard = if ($options.ContainsKey('ProfilePath') -and $null -ne $options.ProfilePath) {
+            [string]$options.ProfilePath
+        }
+        else {
+            ''
+        }
+
+        $guard = Get-LabGuiDestructiveGuard -Action $options.Action -Mode $options.Mode -ProfilePath $profilePathForGuard
         if ($guard.RequiresConfirmation) {
             $confirmResult = [System.Windows.Forms.MessageBox]::Show(
                 "This will run $($guard.ConfirmationLabel). Click Yes to continue.",

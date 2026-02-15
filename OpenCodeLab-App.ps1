@@ -42,6 +42,7 @@ param(
     [switch]$Force,
     [switch]$RemoveNetwork,
     [switch]$NonInteractive,
+    [switch]$AutoFixSubnetConflict,
     [switch]$CoreOnly = $true,
     [string]$DefaultsFile,
     [switch]$DryRun,
@@ -237,6 +238,7 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.RemoveNetwork) { $RemoveNetwork = [bool]$defaults.RemoveNetwork }
     if ($null -ne $defaults.Force) { $Force = [bool]$defaults.Force }
     if ($null -ne $defaults.NonInteractive) { $NonInteractive = [bool]$defaults.NonInteractive }
+    if ($null -ne $defaults.AutoFixSubnetConflict) { $AutoFixSubnetConflict = [bool]$defaults.AutoFixSubnetConflict }
     if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
 }
 
@@ -318,6 +320,7 @@ function Get-BootstrapArgs {
     $scriptArgs = @()
     $scriptArgs += @('-Mode', $Mode)
     if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
+    if ($AutoFixSubnetConflict) { $scriptArgs += '-AutoFixSubnetConflict' }
     return $scriptArgs
 }
 
@@ -330,6 +333,7 @@ function Get-DeployArgs {
     $scriptArgs = @()
     $scriptArgs += @('-Mode', $Mode)
     if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
+    if ($AutoFixSubnetConflict) { $scriptArgs += '-AutoFixSubnetConflict' }
     return $scriptArgs
 }
 

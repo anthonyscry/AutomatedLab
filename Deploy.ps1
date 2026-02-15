@@ -10,6 +10,7 @@ param(
     [string]$Mode = 'full',
     [switch]$NonInteractive,
     [switch]$ForceRebuild,
+    [switch]$AutoFixSubnetConflict,
     [switch]$IncludeLIN1,
     [string]$AdminPassword
 )
@@ -17,8 +18,10 @@ param(
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
+$switchSubnetConflictHelperPath = Join-Path $ScriptDir 'Private\Test-LabVirtualSwitchSubnetConflict.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
+if (Test-Path $switchSubnetConflictHelperPath) { . $switchSubnetConflictHelperPath }
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -112,6 +115,52 @@ try {
     }
     if ($missing.Count -gt 0) {
         throw "Missing ISOs in ${IsoPath}: $($missing -join ', ')`nDownload from: https://www.microsoft.com/en-us/evalcenter/`nPlace files in: $IsoPath"
+    }
+
+    if (Get-Command -Name 'Test-LabVirtualSwitchSubnetConflict' -ErrorAction SilentlyContinue) {
+        $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $LabSwitch -AddressSpace $AddressSpace
+        if ($subnetConflict.HasConflict) {
+            $conflictSummary = @(
+                $subnetConflict.ConflictingAdapters |
+                    ForEach-Object { "$($_.InterfaceAlias) [$($_.IPAddress)]" }
+            )
+            Write-LabStatus -Status WARN -Message "Detected conflicting vEthernet subnet assignments for $($AddressSpace): $($conflictSummary -join '; ')." -Indent 0
+
+            $allowSubnetAutoFix = $AutoFixSubnetConflict
+
+            if ($allowSubnetAutoFix) {
+                $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $LabSwitch -AddressSpace $AddressSpace -AutoFix
+                if ($subnetConflict.AutoFixApplied) {
+                    Write-LabStatus -Status WARN -Message "Auto-fixed $($subnetConflict.FixedAdapters.Count) vEthernet subnet conflict(s) for $AddressSpace." -Indent 0
+                }
+            }
+
+            if ($subnetConflict.HasConflict) {
+                $reportConflicts = if ($subnetConflict.UnresolvedAdapters.Count -gt 0) {
+                    $subnetConflict.UnresolvedAdapters
+                }
+                else {
+                    $subnetConflict.ConflictingAdapters
+                }
+
+                $unresolvedSummary = @(
+                    $reportConflicts |
+                        ForEach-Object {
+                            $hasError = $_.PSObject.Properties.Name -contains 'Error'
+                            $errorSuffix = if (-not $hasError -or [string]::IsNullOrWhiteSpace([string]$_.Error)) { '' } else { " Error=$($_.Error)" }
+                            "$($_.InterfaceAlias) [$($_.IPAddress)]$errorSuffix"
+                        }
+                )
+
+                throw "Found conflicting Hyper-V vEthernet adapters in subnet '$AddressSpace': $($unresolvedSummary -join '; '). Resolve the conflicts or change Lab-Config network settings before rerunning deploy. Use -AutoFixSubnetConflict to opt in to automatic remediation."
+            }
+        }
+        else {
+            Write-LabStatus -Status OK -Message "No conflicting vEthernet adapters found for subnet $AddressSpace." -Indent 0
+        }
+    }
+    else {
+        Write-LabStatus -Status WARN -Message 'Subnet conflict preflight helper not found; skipping vEthernet subnet conflict check.' -Indent 0
     }
 
     # Remove existing lab if present

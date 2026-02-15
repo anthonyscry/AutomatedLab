@@ -22,6 +22,7 @@ param(
     [ValidateSet('quick', 'full')]
     [string]$Mode = 'full',
     [switch]$NonInteractive,
+    [switch]$AutoFixSubnetConflict,
     [switch]$IncludeLIN1,
     [switch]$SkipDeploy
 )
@@ -312,19 +313,12 @@ if (Test-Path $DeployScript) {
         Write-Host "  Mode: WINDOWS CORE (DC1 + SVR1 + WS1)" -ForegroundColor Yellow
     }
     Write-Host "  This will take 30-60 minutes on first run.`n" -ForegroundColor Gray
-    if ($NonInteractive) {
-        if ($IncludeLIN1) {
-            & $DeployScript -Mode $Mode -NonInteractive -IncludeLIN1
-        } else {
-            & $DeployScript -Mode $Mode -NonInteractive
-        }
-    } else {
-        if ($IncludeLIN1) {
-            & $DeployScript -Mode $Mode -IncludeLIN1
-        } else {
-            & $DeployScript -Mode $Mode
-        }
-    }
+
+    $deployArgs = @('-Mode', $Mode)
+    if ($NonInteractive) { $deployArgs += '-NonInteractive' }
+    if ($IncludeLIN1) { $deployArgs += '-IncludeLIN1' }
+    if ($AutoFixSubnetConflict) { $deployArgs += '-AutoFixSubnetConflict' }
+    & $DeployScript @deployArgs
 } else {
     Write-Fail "Deploy script not found at: $DeployScript"
     Write-Host "  Make sure Deploy.ps1 is in the same folder as this script." -ForegroundColor Yellow
