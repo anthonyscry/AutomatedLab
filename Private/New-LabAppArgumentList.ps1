@@ -66,6 +66,24 @@ function New-LabAppArgumentList {
         $argumentList.Add([string]$safeOptions.DefaultsFile) | Out-Null
     }
 
+    if ($safeOptions.ContainsKey('TargetHosts') -and $null -ne $safeOptions.TargetHosts) {
+        $targetHosts = @($safeOptions.TargetHosts | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($targetHosts.Count -gt 0) {
+            $argumentList.Add('-TargetHosts') | Out-Null
+            foreach ($targetHost in $targetHosts) {
+                $argumentList.Add($targetHost.Trim()) | Out-Null
+            }
+        }
+    }
+
+    if ($safeOptions.ContainsKey('ConfirmationToken') -and $null -ne $safeOptions.ConfirmationToken) {
+        $confirmationToken = [string]$safeOptions.ConfirmationToken
+        if (-not [string]::IsNullOrWhiteSpace($confirmationToken)) {
+            $argumentList.Add('-ConfirmationToken') | Out-Null
+            $argumentList.Add($confirmationToken.Trim()) | Out-Null
+        }
+    }
+
     if ($safeOptions.ContainsKey('CoreOnly') -and (ConvertTo-SafeBoolean -Value $safeOptions.CoreOnly)) {
         $argumentList.Add('-CoreOnly') | Out-Null
     }
