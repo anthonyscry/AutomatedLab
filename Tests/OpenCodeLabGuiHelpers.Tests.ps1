@@ -22,6 +22,35 @@ Describe 'New-LabGuiCommandPreview' {
 
         $result | Should -Be ".\\OpenCodeLab-App.ps1 -Action deploy -Mode quick -NonInteractive -DryRun -ProfilePath 'C:\Profiles\quick.json' -CoreOnly"
     }
+
+    It 'includes target hosts and confirmation token in preview when provided' {
+        $options = @{
+            Action = 'teardown'
+            Mode = 'full'
+            NonInteractive = $true
+            TargetHosts = @('hv-a', 'hv-b')
+            ConfirmationToken = 'scope-token-001'
+        }
+
+        $result = New-LabGuiCommandPreview -AppScriptPath 'C:\Lab\OpenCodeLab-App.ps1' -Options $options
+
+        $result | Should -Be ".\\OpenCodeLab-App.ps1 -Action teardown -Mode full -NonInteractive -TargetHosts hv-a hv-b -ConfirmationToken scope-token-001"
+    }
+}
+
+Describe 'New-LabAppArgumentList' {
+    It 'adds target hosts and confirmation token arguments when provided' {
+        $options = @{
+            Action = 'teardown'
+            Mode = 'full'
+            TargetHosts = @('hv-a', 'hv-b')
+            ConfirmationToken = 'scope-token-001'
+        }
+
+        $result = New-LabAppArgumentList -Options $options
+
+        $result | Should -Be @('-Action', 'teardown', '-Mode', 'full', '-TargetHosts', 'hv-a', 'hv-b', '-ConfirmationToken', 'scope-token-001')
+    }
 }
 
 Describe 'Get-LabLatestRunArtifactPath' {

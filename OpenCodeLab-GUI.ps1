@@ -65,7 +65,7 @@ $form.StartPosition = 'CenterScreen'
 $layout = New-Object System.Windows.Forms.TableLayoutPanel
 $layout.Dock = 'Fill'
 $layout.ColumnCount = 4
-$layout.RowCount = 9
+$layout.RowCount = 11
 $layout.Padding = New-Object System.Windows.Forms.Padding(12)
 $layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 180)))
 $layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 50)))
@@ -116,6 +116,18 @@ $lblDefaultsFile.AutoSize = $true
 $txtDefaultsFile = New-Object System.Windows.Forms.TextBox
 $txtDefaultsFile.Dock = 'Fill'
 
+$lblTargetHosts = New-Object System.Windows.Forms.Label
+$lblTargetHosts.Text = 'TargetHosts (comma/space/newline)'
+$lblTargetHosts.AutoSize = $true
+$txtTargetHosts = New-Object System.Windows.Forms.TextBox
+$txtTargetHosts.Dock = 'Fill'
+
+$lblConfirmationToken = New-Object System.Windows.Forms.Label
+$lblConfirmationToken.Text = 'ConfirmationToken'
+$lblConfirmationToken.AutoSize = $true
+$txtConfirmationToken = New-Object System.Windows.Forms.TextBox
+$txtConfirmationToken.Dock = 'Fill'
+
 $lblPreview = New-Object System.Windows.Forms.Label
 $lblPreview.Text = 'Command preview'
 $lblPreview.AutoSize = $true
@@ -161,13 +173,21 @@ $layout.Controls.Add($lblDefaultsFile, 0, 4)
 $layout.Controls.Add($txtDefaultsFile, 1, 4)
 $layout.SetColumnSpan($txtDefaultsFile, 3)
 
-$layout.Controls.Add($lblPreview, 0, 5)
+$layout.Controls.Add($lblTargetHosts, 0, 5)
+$layout.Controls.Add($txtTargetHosts, 1, 5)
+$layout.SetColumnSpan($txtTargetHosts, 3)
+
+$layout.Controls.Add($lblConfirmationToken, 0, 6)
+$layout.Controls.Add($txtConfirmationToken, 1, 6)
+$layout.SetColumnSpan($txtConfirmationToken, 3)
+
+$layout.Controls.Add($lblPreview, 0, 7)
 $layout.SetColumnSpan($lblPreview, 4)
-$layout.Controls.Add($txtPreview, 0, 6)
+$layout.Controls.Add($txtPreview, 0, 8)
 $layout.SetColumnSpan($txtPreview, 4)
 
-$layout.Controls.Add($btnRun, 0, 7)
-$layout.Controls.Add($lblStatus, 0, 8)
+$layout.Controls.Add($btnRun, 0, 9)
+$layout.Controls.Add($lblStatus, 0, 10)
 $layout.SetColumnSpan($lblStatus, 4)
 
 $statusHost = New-Object System.Windows.Forms.Panel
@@ -180,6 +200,8 @@ $form.Controls.Add($layout)
 $form.Controls.Add($statusHost)
 
 function Get-SelectedOptions {
+    $targetHosts = @($txtTargetHosts.Text -split '[,;\s]+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
+
     $options = @{
         Action = [string]$cmbAction.SelectedItem
         Mode = [string]$cmbMode.SelectedItem
@@ -198,6 +220,15 @@ function Get-SelectedOptions {
     $defaultsFile = $txtDefaultsFile.Text.Trim()
     if (-not [string]::IsNullOrWhiteSpace($defaultsFile)) {
         $options.DefaultsFile = $defaultsFile
+    }
+
+    if ($targetHosts.Count -gt 0) {
+        $options.TargetHosts = $targetHosts
+    }
+
+    $confirmationToken = $txtConfirmationToken.Text.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($confirmationToken)) {
+        $options.ConfirmationToken = $confirmationToken
     }
 
     return $options
@@ -281,6 +312,8 @@ $chkCoreOnly.add_CheckedChanged($refreshPreview)
 $txtProfilePath.add_TextChanged($refreshPreview)
 $txtProfilePath.add_TextChanged({ Set-NonInteractiveSafetyDefault })
 $txtDefaultsFile.add_TextChanged($refreshPreview)
+$txtTargetHosts.add_TextChanged($refreshPreview)
+$txtConfirmationToken.add_TextChanged($refreshPreview)
 
 $btnRun.add_Click({
     if ($null -ne $script:CurrentRunProcess -and -not $script:CurrentRunProcess.HasExited) {
