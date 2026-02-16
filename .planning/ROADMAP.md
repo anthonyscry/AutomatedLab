@@ -48,10 +48,12 @@ Plans:
   2. SSH operations use accept-new or known_hosts — never StrictHostKeyChecking=no
   3. All external downloads validate SHA256 checksums before execution
   4. Credentials never appear in plain text in log output or run artifacts
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: [To be planned]
+- [ ] 02-01-PLAN.md -- Credential resolution chain with warning-on-default and interactive fallback (SEC-01)
+- [ ] 02-02-PLAN.md -- Replace SSH UserKnownHostsFile=NUL with lab-specific known_hosts (SEC-02)
+- [ ] 02-03-PLAN.md -- Mandatory download checksums and credential scrubbing for logs (SEC-03, SEC-04)
 
 ### Phase 3: Core Lifecycle Integration
 **Goal**: Bootstrap → Deploy → Use → Teardown completes end-to-end on clean Windows host without errors
@@ -128,7 +130,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Cleanup & Config Foundation | 4/4 | Complete | 2026-02-16 |
-| 2. Security Hardening | 0/0 | Not started | - |
+| 2. Security Hardening | 0/3 | Planned | - |
 | 3. Core Lifecycle Integration | 0/0 | Not started | - |
 | 4. Role Provisioning | 0/0 | Not started | - |
 | 5. GUI Integration | 0/0 | Not started | - |
