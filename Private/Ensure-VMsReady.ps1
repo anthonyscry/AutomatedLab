@@ -11,7 +11,7 @@ function Ensure-VMsReady {
         } else {
             $vmList = $VMNames -join ', '
             $start = Read-Host "  $vmList not running. Start now? (y/n)"
-            if ($start -ne 'y') { exit 0 }
+            if ($start -ne 'y') { return }
             Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
         }
     }
