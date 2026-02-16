@@ -531,6 +531,7 @@ function Invoke-BlowAway {
         Write-Host "  Would stop lab VMs: $(@($GlobalLabConfig.Lab.CoreVMNames) -join ', ')" -ForegroundColor DarkGray
         Write-Host "  Would remove lab definition: $GlobalLabConfig.Lab.Name" -ForegroundColor DarkGray
         Write-Host "  Would remove lab files: (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor DarkGray
+        Write-Host "  Would clear SSH known_hosts entries" -ForegroundColor DarkGray
         if ($DropNetwork) {
             Write-Host "  Would remove network: $SwitchName / $GlobalLabConfig.Network.NatName" -ForegroundColor DarkGray
         }
@@ -614,12 +615,28 @@ function Invoke-BlowAway {
         Write-Host "    removed (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor Gray
     }
 
+    Write-Host "  [4b/5] Clearing SSH known hosts..." -ForegroundColor Cyan
+    if (Get-Command Clear-LabSSHKnownHosts -ErrorAction SilentlyContinue) {
+        try {
+            Clear-LabSSHKnownHosts
+            Write-Host "    SSH known_hosts cleared" -ForegroundColor Gray
+        } catch {
+            Write-LabStatus -Status WARN -Message "SSH known_hosts cleanup failed: $($_.Exception.Message)"
+        }
+    }
+
     Write-Host "  [5/5] Cleaning network artifacts (optional)..." -ForegroundColor Cyan
     if ($DropNetwork) {
         $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
         if ($nat) {
             Remove-NetNat -Name $GlobalLabConfig.Network.NatName -Confirm:$false -ErrorAction SilentlyContinue
             Write-Host "    removed NAT $GlobalLabConfig.Network.NatName" -ForegroundColor Gray
+
+            # Verify NAT removal
+            $natCheck = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
+            if ($natCheck) {
+                Write-LabStatus -Status WARN -Message "NAT '$($GlobalLabConfig.Network.NatName)' still present after removal attempt"
+            }
         }
 
         $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
@@ -699,7 +716,9 @@ function Invoke-OneButtonReset {
         return
     }
 
-    Invoke-BlowAway -BypassPrompt -DropNetwork:$DropNetwork
+    # For direct action calls (not from menu), require confirmation unless Force/NonInteractive
+    $shouldBypassPrompt = $Force -or $NonInteractive
+    Invoke-BlowAway -BypassPrompt:$shouldBypassPrompt -DropNetwork:$DropNetwork
     Invoke-OneButtonSetup
 }
 
