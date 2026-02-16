@@ -61,36 +61,19 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 $SkipRuntimeBootstrap = -not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP)
-if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap) -and (Test-Path $ConfigPath)) { . $ConfigPath }
+if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap)) {
+    if (-not (Test-Path $ConfigPath)) {
+        throw "Required configuration not found: $ConfigPath"
+    }
+    . $ConfigPath
+}
 
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
-if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap) -and (Test-Path $CommonPath)) { . $CommonPath }
-
-$OrchestrationHelperPaths = @(
-    (Join-Path $ScriptDir 'Private\Get-LabHostInventory.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabOperationIntent.ps1'),
-    (Join-Path $ScriptDir 'Private\Invoke-LabRemoteProbe.ps1'),
-    (Join-Path $ScriptDir 'Private\Get-LabFleetStateProbe.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabCoordinatorPolicy.ps1'),
-    (Join-Path $ScriptDir 'Private\Test-LabScopedConfirmationToken.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabActionRequest.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabDispatchPlan.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
-    (Join-Path $ScriptDir 'Private\Get-LabStateProbe.ps1'),
-    (Join-Path $ScriptDir 'Private\Invoke-LabQuickModeHeal.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabModeDecision.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabOrchestrationIntent.ps1'),
-    (Join-Path $ScriptDir 'Private\Resolve-LabDispatchMode.ps1'),
-    (Join-Path $ScriptDir 'Private\Test-LabTransientTransportFailure.ps1'),
-    (Join-Path $ScriptDir 'Private\Invoke-LabCoordinatorDispatch.ps1'),
-    (Join-Path $ScriptDir 'Private\Get-ActiveTemplateConfig.ps1'),
-    (Join-Path $ScriptDir 'Private\Save-LabTemplate.ps1')
-)
-
-foreach ($helperPath in $OrchestrationHelperPaths) {
-    if (Test-Path $helperPath) {
-        . $helperPath
+if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap)) {
+    if (-not (Test-Path $CommonPath)) {
+        throw "Required helper loader not found: $CommonPath"
     }
+    . $CommonPath
 }
 
 # Alias for backward compatibility with existing code
