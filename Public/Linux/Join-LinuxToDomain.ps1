@@ -14,7 +14,7 @@ function Join-LinuxToDomain {
         [string]$VMName = 'LIN1',
         [string]$GlobalLabConfig.Lab.DomainName = $(if ($GlobalLabConfig.Lab.DomainName) { $GlobalLabConfig.Lab.DomainName } else { 'simplelab.local' }),
         [string]$DomainAdmin = $(if ($GlobalLabConfig.Credentials.InstallUser) { $GlobalLabConfig.Credentials.InstallUser } else { 'Administrator' }),
-        [string]$DomainPassword = $(if ($GlobalLabConfig.Credentials.AdminPassword) { $GlobalLabConfig.Credentials.AdminPassword } else { 'SimpleLab123!' }),
+        [string]$DomainPassword = $(if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Credentials.AdminPassword } else { '' }),
         [string]$User = $(if ($GlobalLabConfig.Credentials.LinuxUser) { $GlobalLabConfig.Credentials.LinuxUser } else { 'labadmin' }),
         [string]$KeyPath = $(if ((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)) { (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) } else { 'C:\LabSources\SSHKeys\id_ed25519' }),
         [int]$SSHTimeout = $(if ($GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout) { $GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout } else { 8 })
