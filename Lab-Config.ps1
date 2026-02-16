@@ -397,119 +397,47 @@ $GlobalLabConfig = @{
     }
 }
 
-# -----------------------------------------------------------------------------
-# Legacy variable exports (existing scripts rely on these variable names)
-# -----------------------------------------------------------------------------
-
-# Lab identity
-$LabName = $GlobalLabConfig.Lab.Name
-$LabVMs = @($GlobalLabConfig.Lab.CoreVMNames)
-$DomainName = $GlobalLabConfig.Lab.DomainName
-
-# Lab paths
-$LabPath = Join-Path $GlobalLabConfig.Paths.LabRoot $LabName
-$LabSourcesRoot = $GlobalLabConfig.Paths.LabSourcesRoot
-$ScriptsRoot = Join-Path $LabSourcesRoot 'Scripts'
-
-# Networking
-$LabSwitch = $GlobalLabConfig.Network.SwitchName
-$AddressSpace = $GlobalLabConfig.Network.AddressSpace
-$GatewayIp = $GlobalLabConfig.Network.GatewayIp
-$NatName = $GlobalLabConfig.Network.NatName
-
-# Static IP plan
-$dc1_Ip = $GlobalLabConfig.IPPlan.DC1
-$svr1_Ip = $GlobalLabConfig.IPPlan.SVR1
-$ws1_Ip = $GlobalLabConfig.IPPlan.WS1
-$dsc_Ip = $GlobalLabConfig.IPPlan.DSC1
-$DnsIp = $GlobalLabConfig.Network.DnsIp
-
-# Legacy aliases (for backward compatibility)
-$DC1_Ip = $dc1_Ip
-$Server1_Ip = $svr1_Ip
-$Win11_Ip = $ws1_Ip
-
-# VM sizing
-$DC_Memory = $GlobalLabConfig.VMSizing.DC.Memory
-$DC_MinMemory = $GlobalLabConfig.VMSizing.DC.MinMemory
-$DC_MaxMemory = $GlobalLabConfig.VMSizing.DC.MaxMemory
-$DC_Processors = $GlobalLabConfig.VMSizing.DC.Processors
-
-$Server_Memory = $GlobalLabConfig.VMSizing.Server.Memory
-$Server_MinMemory = $GlobalLabConfig.VMSizing.Server.MinMemory
-$Server_MaxMemory = $GlobalLabConfig.VMSizing.Server.MaxMemory
-$Server_Processors = $GlobalLabConfig.VMSizing.Server.Processors
-
-$Client_Memory = $GlobalLabConfig.VMSizing.Client.Memory
-$Client_MinMemory = $GlobalLabConfig.VMSizing.Client.MinMemory
-$Client_MaxMemory = $GlobalLabConfig.VMSizing.Client.MaxMemory
-$Client_Processors = $GlobalLabConfig.VMSizing.Client.Processors
-
-$DSC_Memory = $GlobalLabConfig.VMSizing.DSC.Memory
-$DSC_MinMemory = $GlobalLabConfig.VMSizing.DSC.MinMemory
-$DSC_MaxMemory = $GlobalLabConfig.VMSizing.DSC.MaxMemory
-$DSC_Processors = $GlobalLabConfig.VMSizing.DSC.Processors
-
-# Credentials
-$LabInstallUser = $GlobalLabConfig.Credentials.InstallUser
-$AdminPassword = $GlobalLabConfig.Credentials.AdminPassword
-$SqlSaPassword = $GlobalLabConfig.Credentials.SqlSaPassword
-$LinuxUser = $GlobalLabConfig.Credentials.LinuxUser
-if ($AdminPassword -eq 'SimpleLab123!') {
-    Write-Warning "[Lab-Config] AdminPassword is set to the default value. Set the '$($GlobalLabConfig.Credentials.PasswordEnvVar)' environment variable or update Lab-Config.ps1 for production use."
-}
-$GitName = $GlobalLabConfig.Credentials.GitName
-$GitEmail = $GlobalLabConfig.Credentials.GitEmail
-
-# Required ISOs
-$RequiredISOs = @($GlobalLabConfig.RequiredISOs)
-
-# AutomatedLab timeout overrides (minutes)
-$AL_Timeout_DcRestart = $GlobalLabConfig.Timeouts.AutomatedLab.DcRestart
-$AL_Timeout_AdwsReady = $GlobalLabConfig.Timeouts.AutomatedLab.AdwsReady
-$AL_Timeout_StartVM = $GlobalLabConfig.Timeouts.AutomatedLab.StartVM
-$AL_Timeout_WaitVM = $GlobalLabConfig.Timeouts.AutomatedLab.WaitVM
-
-# Linux VM static IPs
-$lin1_Ip = $GlobalLabConfig.IPPlan.LIN1
-$LIN1_Ip = $lin1_Ip
-
-# Ubuntu VM sizing
-$UBU_Memory = $GlobalLabConfig.VMSizing.Ubuntu.Memory
-$UBU_MinMemory = $GlobalLabConfig.VMSizing.Ubuntu.MinMemory
-$UBU_MaxMemory = $GlobalLabConfig.VMSizing.Ubuntu.MaxMemory
-$UBU_Processors = $GlobalLabConfig.VMSizing.Ubuntu.Processors
-
-# DHCP scope
-$DhcpScopeId = $GlobalLabConfig.DHCP.ScopeId
-$DhcpStart = $GlobalLabConfig.DHCP.Start
-$DhcpEnd = $GlobalLabConfig.DHCP.End
-$DhcpMask = $GlobalLabConfig.DHCP.Mask
-
-# SSH / Linux identity
-$SSHKeyDir = Join-Path $LabSourcesRoot 'SSHKeys'
-$SSHPublicKey = Join-Path $SSHKeyDir 'id_ed25519.pub'
-$SSHPrivateKey = Join-Path $SSHKeyDir 'id_ed25519'
-
-# Share paths
-$ShareName = $GlobalLabConfig.Paths.ShareName
-$SharePath = $GlobalLabConfig.Paths.SharePath
-$GitRepoPath = $GlobalLabConfig.Paths.GitRepoPath
-
-# Linux paths
-$LinuxLabShareMount = $GlobalLabConfig.Paths.LinuxLabShareMount
-$LinuxProjectsRoot = $GlobalLabConfig.Paths.LinuxProjectsRoot
-
-# Linux-specific timeouts
-$LIN1_WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
-$SSH_ConnectTimeout = $GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout
-$SSH_PollInitialSec = $GlobalLabConfig.Timeouts.Linux.SSHPollInitialSec
-$SSH_PollMaxSec = $GlobalLabConfig.Timeouts.Linux.SSHPollMaxSec
-
-# Timezone
-$LabTimeZone = $GlobalLabConfig.Lab.TimeZone
-
-# Expose Builder config as a first-class variable for LabBuilder loaders.
+# Expose Builder config for LabBuilder scripts (intentional coupling -- see 01-RESEARCH.md)
 $LabBuilderConfig = $GlobalLabConfig.Builder
 
-$GitPackageConfig = $GlobalLabConfig.SoftwarePackages.Git
+# ── Configuration Validation ──────────────────────────────────────────────
+# Validates required fields exist and have valid values.
+# Fails loudly per design: missing required fields = script stops.
+
+function Test-LabConfigRequired {
+    [CmdletBinding()]
+    param([hashtable]$Config)
+
+    $requiredFields = @{
+        'Lab.Name'              = { param($v) $v -match '^[a-zA-Z0-9_-]+$' }
+        'Lab.DomainName'        = { param($v) $v -match '^[a-z0-9.-]+$' }
+        'Network.SwitchName'    = { param($v) $v -match '^[a-zA-Z0-9_ -]+$' }
+        'Network.AddressSpace'  = { param($v) $v -match '^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$' }
+        'Network.GatewayIp'     = { param($v) $v -match '^\d{1,3}(\.\d{1,3}){3}$' }
+        'Network.DnsIp'         = { param($v) $v -match '^\d{1,3}(\.\d{1,3}){3}$' }
+        'Credentials.InstallUser' = { param($v) -not [string]::IsNullOrWhiteSpace($v) }
+        'Credentials.AdminPassword' = { param($v) -not [string]::IsNullOrWhiteSpace($v) }
+        'Paths.LabRoot'         = { param($v) -not [string]::IsNullOrWhiteSpace($v) }
+        'Paths.LabSourcesRoot'  = { param($v) -not [string]::IsNullOrWhiteSpace($v) }
+    }
+
+    foreach ($keyPath in $requiredFields.Keys) {
+        $parts = $keyPath -split '\.'
+        $value = $Config
+        foreach ($part in $parts) {
+            if (-not ($value -is [hashtable]) -or -not $value.ContainsKey($part)) {
+                throw "Lab-Config validation failed: Required field '$keyPath' is missing from `$GlobalLabConfig."
+            }
+            $value = $value[$part]
+        }
+        if (-not (& $requiredFields[$keyPath] $value)) {
+            throw "Lab-Config validation failed: Invalid value for '$keyPath': '$value'"
+        }
+    }
+}
+
+Test-LabConfigRequired -Config $GlobalLabConfig
+
+if ($GlobalLabConfig.Credentials.AdminPassword -eq 'SimpleLab123!') {
+    Write-Warning "[Lab-Config] AdminPassword is set to the default value. Set the '$($GlobalLabConfig.Credentials.PasswordEnvVar)' environment variable or update Lab-Config.ps1 for production use."
+}
