@@ -25,8 +25,7 @@ function Get-ActiveTemplateConfig {
         $config = Get-Content -Path $configPath -Raw | ConvertFrom-Json
     }
     catch {
-        Write-Warning "Failed to read config.json: $_"
-        return $null
+        throw "Failed to read config.json: $_"
     }
 
     if (-not $config.ActiveTemplate) { return $null }
@@ -43,14 +42,12 @@ function Get-ActiveTemplateConfig {
         $template = Get-Content -Path $templatePath -Raw | ConvertFrom-Json
     }
     catch {
-        Write-Warning "Failed to parse template '$templateName': $_"
-        return $null
+        throw "Template file '$templatePath' contains invalid JSON: $($_.Exception.Message)"
     }
 
-    if (-not $template.vms -or @($template.vms).Count -eq 0) {
-        Write-Warning "Template '$templateName' has no VM definitions."
-        return $null
-    }
+    # Validate template data using shared validation helper
+    # This will throw if structure is invalid or any VM data is invalid
+    Test-LabTemplateData -Template $template -TemplatePath $templatePath
 
     $vmDefs = @()
     foreach ($vm in $template.vms) {
