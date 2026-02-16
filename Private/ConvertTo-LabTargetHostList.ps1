@@ -13,6 +13,10 @@ function ConvertTo-LabTargetHostList {
                 foreach ($segment in ($entry -split '[,;\s]+')) {
                     $trimmed = $segment.Trim()
                     if ($trimmed.Length -gt 0) {
+                        if ($trimmed -notmatch '^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$') {
+                            Write-Warning "[ConvertTo-LabTargetHostList] Skipping invalid hostname: '$trimmed'"
+                            continue
+                        }
                         $collected.Add($trimmed)
                     }
                 }

@@ -1,5 +1,5 @@
 # Deploy-SimpleLab.ps1 - Rebuildable 3-VM SimpleLab (AutomatedLab)
-# Builds DC1 (AD/DNS/DHCP/CA), Server1 (Server 2019), Win11 (Windows 11) on Hyper-V
+# Builds dc1 (AD/DNS/DHCP/CA), svr1 (Server 2019), ws1 (Windows 11) on Hyper-V
 # Requires: AutomatedLab module, Hyper-V, ISOs in C:\LabSources\ISOs
 
 #Requires -RunAsAdministrator
@@ -275,13 +275,13 @@ try {
     # MACHINE DEFINITIONS (Simple 3-VM topology)
     # ============================================================
     if ($IncludeLIN1) {
-        Write-Host "`n[LAB] Defining all machines (DC1 + Server1 + Win11 + LIN1)..." -ForegroundColor Cyan
+        Write-Host "`n[LAB] Defining all machines (dc1 + svr1 + ws1 + LIN1)..." -ForegroundColor Cyan
     } else {
-        Write-Host "`n[LAB] Defining Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
+        Write-Host "`n[LAB] Defining Windows machines (dc1 + svr1 + ws1)..." -ForegroundColor Cyan
         Write-LabStatus -Status INFO -Message "Linux VM nodes are disabled for this run. Use -IncludeLIN1 to include Ubuntu."
     }
 
-    Add-LabMachineDefinition -Name 'DC1' `
+    Add-LabMachineDefinition -Name 'dc1' `
         -Roles RootDC, CaRoot `
         -DomainName $DomainName `
         -Network $LabSwitch `
@@ -290,7 +290,7 @@ try {
         -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
         -Processors $DC_Processors
 
-    Add-LabMachineDefinition -Name 'Server1' `
+    Add-LabMachineDefinition -Name 'svr1' `
         -DomainName $DomainName `
         -Network $LabSwitch `
         -IpAddress $Server1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
@@ -298,7 +298,7 @@ try {
         -Memory $Server_Memory -MinMemory $Server_MinMemory -MaxMemory $Server_MaxMemory `
         -Processors $Server_Processors
 
-    Add-LabMachineDefinition -Name 'Win11' `
+    Add-LabMachineDefinition -Name 'ws1' `
         -DomainName $DomainName `
         -Network $LabSwitch `
         -IpAddress $Win11_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
@@ -311,10 +311,10 @@ try {
     # AutomatedLab's lack of Ubuntu 24.04 support
 
     # ============================================================
-    # INSTALL LAB (DC1 + Server1 + Win11 via AutomatedLab)
+    # INSTALL LAB (dc1 + svr1 + ws1 via AutomatedLab)
     # LIN1 will be created manually after this step if -IncludeLIN1 is set
     # ============================================================
-    Write-Host "`n[INSTALL] Installing Windows machines (DC1 + Server1 + Win11)..." -ForegroundColor Cyan
+    Write-Host "`n[INSTALL] Installing Windows machines (dc1 + svr1 + ws1)..." -ForegroundColor Cyan
     $installStart = Get-Date
     Write-Host "  Started at: $(Get-Date -Format 'HH:mm:ss'). This typically takes 15-45 minutes." -ForegroundColor Gray
 
@@ -777,8 +777,8 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     # Add domain members to share group (after join)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Add-Clients-To-ShareGroup' -ScriptBlock {
         try {
-            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'Win11$' -ErrorAction Stop | Out-Null
-            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'Server1$' -ErrorAction SilentlyContinue | Out-Null
+            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'ws1$' -ErrorAction Stop | Out-Null
+            Add-ADGroupMember -Identity 'LabShareUsers' -Members 'svr1$' -ErrorAction SilentlyContinue | Out-Null
         } catch {
             Write-Verbose "LabShareUsers membership update skipped: $($_.Exception.Message)"
         }
@@ -980,21 +980,21 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
 
     # ============================================================
-    # Server1: keep as fresh Windows Server 2019 member server
+    # svr1: keep as fresh Windows Server 2019 member server
     # ============================================================
-    Write-Host "`n[POST] Server1 baseline..." -ForegroundColor Cyan
-    Write-LabStatus -Status OK -Message "Server1 left as a clean Windows Server 2019 VM (no WSUS role installed)."
-    Write-LabStatus -Status INFO -Message "Install additional roles/features on Server1 manually when ready."
+    Write-Host "`n[POST] svr1 baseline..." -ForegroundColor Cyan
+    Write-LabStatus -Status OK -Message "svr1 left as a clean Windows Server 2019 VM (no WSUS role installed)."
+    Write-LabStatus -Status INFO -Message "Install additional roles/features on svr1 manually when ready."
 
     # ============================================================
-    # Win11: client basics (RSAT + drive map)
+    # ws1: client basics (RSAT + drive map)
     # ============================================================
-    Write-Host "`n[POST] Configuring Win11..." -ForegroundColor Cyan
+    Write-Host "`n[POST] Configuring ws1..." -ForegroundColor Cyan
 
     # RSAT install: domain GP may redirect Windows Update through DC1 (no WSUS),
     # causing "Access is denied" COMException. Temporarily bypass the WSUS policy.
     try {
-        Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Install-RSAT-Win11' -ScriptBlock {
+        Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Install-RSAT-ws1' -ScriptBlock {
             $wuAuPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
             $originalUseWU = $null
 
@@ -1032,20 +1032,20 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
                 }
             }
         } | Out-Null
-        Write-LabStatus -Status OK -Message "RSAT capabilities installed on Win11"
+        Write-LabStatus -Status OK -Message "RSAT capabilities installed on ws1"
     }
     catch {
         Write-LabStatus -Status WARN -Message "RSAT installation failed: $($_.Exception.Message)"
-        Write-LabStatus -Status WARN -Message "Win11 will work without RSAT. Install manually later if needed."
+        Write-LabStatus -Status WARN -Message "ws1 will work without RSAT. Install manually later if needed."
     }
 
-    Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Map-LabShare' -ScriptBlock {
+    Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Map-LabShare' -ScriptBlock {
         param($ShareName)
         net use L: "\\DC1\$ShareName" /persistent:yes 2>$null
     } -ArgumentList $ShareName | Out-Null
 
-    # Win11: WinRM HTTPS + ICMP
-    Invoke-LabCommand -ComputerName 'Win11' -ActivityName 'Configure-WinRM-HTTPS-Win11' -ScriptBlock {
+    # ws1: WinRM HTTPS + ICMP
+    Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Configure-WinRM-HTTPS-ws1' -ScriptBlock {
         $fqdn = "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
         $cert = New-SelfSignedCertificate -DnsName $fqdn, $env:COMPUTERNAME -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
 
@@ -1058,25 +1058,25 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         New-NetFirewallRule -DisplayName 'ICMPv4 Allow' -Protocol ICMPv4 -IcmpType 8 -Action Allow -Direction Inbound -ErrorAction SilentlyContinue | Out-Null
     } | Out-Null
 
-    # Win11: Git (winget preferred, with offline/web fallback)
+    # ws1: Git (winget preferred, with offline/web fallback)
     try {
-        $win11GitResults = @(Invoke-LabCommand -ComputerName 'Win11' -PassThru -ActivityName 'Install-Git-Win11' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe')
+        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'ws1' -PassThru -ActivityName 'Install-Git-ws1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe')
 
-        $win11GitResult = @($win11GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
+        $ws1GitResult = @($ws1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
-        if ($win11GitResult.Count -gt 0 -and $win11GitResult[0].Installed) {
-            Write-LabStatus -Status OK -Message "$($win11GitResult[0].Message)"
-        } elseif ($win11GitResult.Count -gt 0) {
-            $msg = if ($win11GitResult[0].Message) { $win11GitResult[0].Message } else { 'Unknown Git install failure on Win11.' }
+        if ($ws1GitResult.Count -gt 0 -and $ws1GitResult[0].Installed) {
+            Write-LabStatus -Status OK -Message "$($ws1GitResult[0].Message)"
+        } elseif ($ws1GitResult.Count -gt 0) {
+            $msg = if ($ws1GitResult[0].Message) { $ws1GitResult[0].Message } else { 'Unknown Git install failure on ws1.' }
             Write-LabStatus -Status WARN -Message "$msg"
-            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on Win11."
+            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on ws1."
         } else {
-            Write-LabStatus -Status WARN -Message "Git installation step on Win11 returned no structured result."
-            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on Win11."
+            Write-LabStatus -Status WARN -Message "Git installation step on ws1 returned no structured result."
+            Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on ws1."
         }
     } catch {
-        Write-LabStatus -Status WARN -Message "Git installation step on Win11 failed: $($_.Exception.Message)"
-        Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on Win11."
+        Write-LabStatus -Status WARN -Message "Git installation step on ws1 failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "Continuing deployment without guaranteed Git on ws1."
     }
 
 
@@ -1136,8 +1136,8 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     # ============================================================
     Write-Host "`n[SUMMARY]" -ForegroundColor Cyan
     Write-Host "  DC1:  $DC1_Ip" -ForegroundColor Gray
-    Write-Host "  Server1: $Server1_Ip" -ForegroundColor Gray
-    Write-Host "  Win11:  $Win11_Ip" -ForegroundColor Gray
+    Write-Host "  svr1:  $Server1_Ip" -ForegroundColor Gray
+    Write-Host "  ws1:   $Win11_Ip" -ForegroundColor Gray
     if ($IncludeLIN1 -and $lin1Ready) {
         Write-Host "  LIN1: $LIN1_Ip (static configured by script)" -ForegroundColor Gray
         Write-Host ""

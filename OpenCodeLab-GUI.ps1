@@ -364,6 +364,20 @@ $script:RunPollTimer.add_Tick({
     }
     else {
         Add-StatusLine -StatusBox $txtStatus -Message "Run result: FAILED (exit code $exitCode)"
+        if ($script:RunOutputLog -and (Test-Path $script:RunOutputLog)) {
+            $tail = Get-Content $script:RunOutputLog -Tail 10 -ErrorAction SilentlyContinue
+            if ($tail) {
+                Add-StatusLine -StatusBox $txtStatus -Message "--- Last output lines ---"
+                foreach ($line in $tail) { Add-StatusLine -StatusBox $txtStatus -Message $line }
+            }
+        }
+        if ($script:RunOutputLog -and (Test-Path "$($script:RunOutputLog).err")) {
+            $errTail = Get-Content "$($script:RunOutputLog).err" -Tail 5 -ErrorAction SilentlyContinue
+            if ($errTail) {
+                Add-StatusLine -StatusBox $txtStatus -Message "--- Errors ---"
+                foreach ($line in $errTail) { Add-StatusLine -StatusBox $txtStatus -Message $line }
+            }
+        }
     }
 
     try {
@@ -457,7 +471,19 @@ $btnRun.add_Click({
         $processArguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $appScriptPath) + $argumentList
         $script:CurrentRunPreArtifacts = Get-LabRunArtifactPaths
         $script:CurrentRunStartedUtc = [datetime]::UtcNow
-        $script:CurrentRunProcess = Start-Process -FilePath $hostPath -ArgumentList $processArguments -PassThru -WindowStyle $startWindowStyle
+        $startParams = @{
+            FilePath = $hostPath
+            ArgumentList = $processArguments
+            PassThru = $true
+            WindowStyle = $startWindowStyle
+        }
+        if ($options.NonInteractive) {
+            $script:RunOutputLog = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "opencodelab-run-$(Get-Date -Format 'yyyyMMdd-HHmmss').log")
+            $startParams.RedirectStandardOutput = $script:RunOutputLog
+            $startParams.RedirectStandardError = "$($script:RunOutputLog).err"
+            Add-StatusLine -StatusBox $txtStatus -Message "Output log: $($script:RunOutputLog)"
+        }
+        $script:CurrentRunProcess = Start-Process @startParams
         $btnRun.Enabled = $false
         $script:RunPollTimer.Start()
     }

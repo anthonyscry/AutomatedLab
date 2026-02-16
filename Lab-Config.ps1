@@ -21,7 +21,7 @@ $GlobalLabConfig = @{
 
         # Changing CoreVMNames alters which VMs are targeted by default for
         # start/stop/status flows in scripts that operate on the "core lab".
-        CoreVMNames = @('dc1', 'svr1', 'dsc', 'ws1')
+        CoreVMNames = @('dc1', 'svr1', 'ws1')
 
         # Changing DomainName updates the AD domain used for joins and reports.
         DomainName = $defaultDomainName
