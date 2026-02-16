@@ -18,7 +18,7 @@ function Get-LinuxSSHConnectionInfo {
     $ip = Get-LinuxVMIPv4 -VMName $VMName
     if (-not $ip) { return $null }
 
-    $sshCmd = "ssh -o StrictHostKeyChecking=no -i `"$KeyPath`" $User@$ip"
+    $sshCmd = "ssh -o StrictHostKeyChecking=accept-new -i `"$KeyPath`" $User@$ip"
 
     return @{
         VMName  = $VMName

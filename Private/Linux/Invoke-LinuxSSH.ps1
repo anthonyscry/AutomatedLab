@@ -20,7 +20,7 @@ function Invoke-LinuxSSH {
     }
 
     $sshArgs = @(
-        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'StrictHostKeyChecking=accept-new',
         '-o', 'UserKnownHostsFile=NUL',
         '-o', "ConnectTimeout=$ConnectTimeout",
         '-i', $KeyPath,
