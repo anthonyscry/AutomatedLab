@@ -787,7 +787,8 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     $gitInstallerScriptBlock = {
         param(
             [string]$LocalInstallerPath,
-            [string]$GitDownloadUrl
+            [string]$GitDownloadUrl,
+            [string]$ExpectedSha256
         )
 
         $result = [pscustomobject]@{ Installed = $false; Message = '' }
@@ -864,6 +865,17 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         for ($attempt = 1; $attempt -le 2; $attempt++) {
             try {
                 Invoke-WebRequest -Uri $GitDownloadUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
+
+                # Validate download integrity
+                if ($ExpectedSha256) {
+                    $actualHash = (Get-FileHash -Path $gitInstaller -Algorithm SHA256).Hash
+                    if ($actualHash -ne $ExpectedSha256) {
+                        Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+                        $result.Message = "Git installer checksum mismatch (expected $ExpectedSha256, got $actualHash)"
+                        return $result
+                    }
+                }
+
                 $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
                 if ((Get-Command git -ErrorAction SilentlyContinue) -or $webExit -eq 0) {
                     $result.Installed = $true
@@ -886,7 +898,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     # Install Git on DC1 (winget preferred, with offline/web fallback)
     try {
-        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe')
+        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe', '0229E3ACB535D0DC5F0D4A7E33CD36E3E3BA5B67A44B507B4D5E6A63B0B8BBDE')
 
         $dc1GitResult = @($dc1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
@@ -1060,7 +1072,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     # ws1: Git (winget preferred, with offline/web fallback)
     try {
-        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'ws1' -PassThru -ActivityName 'Install-Git-ws1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe')
+        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'ws1' -PassThru -ActivityName 'Install-Git-ws1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe', '0229E3ACB535D0DC5F0D4A7E33CD36E3E3BA5B67A44B507B4D5E6A63B0B8BBDE')
 
         $ws1GitResult = @($ws1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
