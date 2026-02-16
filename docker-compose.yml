@@ -1,10 +1,8 @@
 services:
   test:
     build: .
-    tmpfs:
-      - /app/.planning/runs
     volumes:
-      - .:/app:ro
+      - .:/app
       - ./Tests/results:/app/Tests/results
     command: >
       pwsh -NoProfile -Command
