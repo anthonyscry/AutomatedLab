@@ -28,64 +28,90 @@ function Save-LabTemplate {
         [array]$VMs
     )
 
+    # Known VM roles (empty/null is also acceptable for generic VMs)
+    $validRoles = @(
+        'DC', 'SQL', 'IIS', 'WSUS', 'DHCP', 'FileServer', 'PrintServer',
+        'DSC', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu',
+        'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu'
+    )
+
     # Validate template name is filesystem-safe
     if ($Name -notmatch '^[a-zA-Z0-9_-]+$') {
-        return [pscustomobject]@{
-            Success = $false
-            Message = "Template name '$Name' contains invalid characters. Use only letters, numbers, hyphens, and underscores."
-        }
+        throw "Template validation failed: Template name '$Name' contains invalid characters. Use only letters, numbers, hyphens, and underscores."
     }
 
     # Validate at least one VM
     if ($VMs.Count -eq 0) {
-        return [pscustomobject]@{
-            Success = $false
-            Message = 'At least one VM is required.'
-        }
+        throw "Template validation failed: At least one VM is required."
     }
 
     # Validate each VM
     $vmNames = @()
+    $vmIPs = @()
     foreach ($vm in $VMs) {
         # NetBIOS name validation
         if ($vm.name -notmatch '^[a-zA-Z0-9-]{1,15}$') {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "VM name '$($vm.name)' is invalid. Use 1-15 alphanumeric characters and hyphens."
-            }
+            throw "Template validation failed: VM name '$($vm.name)' is invalid. NetBIOS names must be 1-15 alphanumeric characters and hyphens."
+        }
+
+        # Check name length explicitly for better error message
+        if ($vm.name.Length -gt 15) {
+            throw "Template validation failed: VM name '$($vm.name)' exceeds 15 characters."
         }
 
         # Unique name check
         if ($vmNames -contains $vm.name.ToLowerInvariant()) {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Duplicate VM name: '$($vm.name)'."
-            }
+            throw "Template validation failed: Duplicate VM name '$($vm.name)'."
         }
         $vmNames += $vm.name.ToLowerInvariant()
 
-        # IP validation
+        # IP validation - format
         if ($vm.ip -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Invalid IP address for VM '$($vm.name)': '$($vm.ip)'."
+            throw "Template validation failed: Invalid IP '$($vm.ip)' for VM '$($vm.name)'. Expected IPv4 format."
+        }
+
+        # IP validation - octet range check
+        $octets = $vm.ip -split '\.'
+        foreach ($octet in $octets) {
+            if ([int]$octet -lt 0 -or [int]$octet -gt 255) {
+                throw "Template validation failed: Invalid IP '$($vm.ip)' for VM '$($vm.name)'. Octets must be 0-255."
             }
         }
 
-        # Memory validation
-        if ([int]$vm.memoryGB -lt 1) {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Memory for VM '$($vm.name)' must be at least 1 GB."
-            }
+        # Unique IP check
+        if ($vmIPs -contains $vm.ip) {
+            throw "Template validation failed: Duplicate IP address '$($vm.ip)'."
+        }
+        $vmIPs += $vm.ip
+
+        # Role validation (empty/null is acceptable)
+        if ($vm.role -and $vm.role -ne '' -and $validRoles -notcontains $vm.role) {
+            $roleList = $validRoles -join ', '
+            throw "Template validation failed: Unknown role '$($vm.role)' for VM '$($vm.name)'. Valid roles: $roleList"
         }
 
-        # Processor validation
-        if ([int]$vm.processors -lt 1 -or [int]$vm.processors -gt 8) {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Processors for VM '$($vm.name)' must be between 1 and 8."
-            }
+        # Memory validation (1-64 GB range per spec)
+        try {
+            $memoryValue = [int]$vm.memoryGB
+        }
+        catch {
+            throw "Template validation failed: Memory for VM '$($vm.name)' must be a numeric value."
+        }
+
+        if ($memoryValue -lt 1 -or $memoryValue -gt 64) {
+            throw "Template validation failed: Memory for VM '$($vm.name)' must be between 1 and 64 GB."
+        }
+
+        # Processor validation (1-16 range per spec)
+        try {
+            $processorValue = [int]$vm.processors
+        }
+        catch {
+            throw "Template validation failed: Processors for VM '$($vm.name)' must be a numeric value."
+        }
+
+        if ($processorValue -lt 1 -or $processorValue -gt 16) {
+            throw "Template validation failed: Processors for VM '$($vm.name)' must be between 1 and 16."
         }
     }
 
@@ -122,9 +148,6 @@ function Save-LabTemplate {
         }
     }
     catch {
-        return [pscustomobject]@{
-            Success = $false
-            Message = "Failed to save template: $_"
-        }
+        throw "Failed to save template to '$templatePath': $_"
     }
 }
