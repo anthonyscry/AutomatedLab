@@ -1,11 +1,17 @@
 function Test-LabNetwork {
     <#
     .SYNOPSIS
-        Tests if the SimpleLab virtual switch exists.
+        Tests if the lab virtual switch exists.
 
     .DESCRIPTION
-        Checks if the SimpleLab Hyper-V virtual switch exists and returns
-        its type (Internal, External, or Private).
+        Checks if the lab Hyper-V virtual switch exists and returns
+        its type (Internal, External, or Private). Uses the switch name
+        from $GlobalLabConfig.Network.SwitchName if available.
+
+    .PARAMETER SwitchName
+        Name of the virtual switch to test. Defaults to the switch name
+        from $GlobalLabConfig.Network.SwitchName, or "SimpleLab" if config
+        is not available.
 
     .OUTPUTS
         PSCustomObject with SwitchName, Exists (bool), SwitchType, Status, and Message.
@@ -13,14 +19,27 @@ function Test-LabNetwork {
     .EXAMPLE
         $network = Test-LabNetwork
         if ($network.Exists) { "Network OK" }
+
+    .EXAMPLE
+        $network = Test-LabNetwork -SwitchName "MyLabSwitch"
+        if ($network.Exists) { "Network OK" }
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
-    param()
+    param(
+        [Parameter()]
+        [string]$SwitchName = $(
+            if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Network.SwitchName) {
+                $GlobalLabConfig.Network.SwitchName
+            } else {
+                "SimpleLab"
+            }
+        )
+    )
 
     # Initialize result object
     $result = [PSCustomObject]@{
-        SwitchName = "SimpleLab"
+        SwitchName = $SwitchName
         Exists = $false
         SwitchType = $null
         Status = "NotFound"
@@ -36,20 +55,20 @@ function Test-LabNetwork {
             return $result
         }
 
-        # Try to get the SimpleLab vSwitch
-        $switch = Get-VMSwitch -Name "SimpleLab" -ErrorAction SilentlyContinue
+        # Try to get the vSwitch
+        $switch = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
 
         if ($null -ne $switch) {
             $result.Exists = $true
             $result.SwitchType = $switch.SwitchType
             $result.Status = "OK"
-            $result.Message = "SimpleLab vSwitch exists (Type: $($switch.SwitchType))"
+            $result.Message = "$SwitchName vSwitch exists (Type: $($switch.SwitchType))"
         }
         else {
             $result.Exists = $false
             $result.SwitchType = $null
             $result.Status = "NotFound"
-            $result.Message = "SimpleLab vSwitch not found"
+            $result.Message = "$SwitchName vSwitch not found"
         }
     }
     catch {
