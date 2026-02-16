@@ -3,14 +3,21 @@ function Initialize-LabVMs {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$SwitchName = "SimpleLab",
+        [string]$SwitchName,
 
         [Parameter()]
-        [string]$VHDBasePath = "C:\Lab\VMs",
+        [string]$VHDBasePath,
 
         [Parameter()]
         [switch]$Force
     )
+
+    if (-not $SwitchName) {
+        $SwitchName = if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Network.SwitchName } else { 'SimpleLab' }
+    }
+    if (-not $VHDBasePath) {
+        $VHDBasePath = if (Test-Path variable:GlobalLabConfig) { Join-Path $GlobalLabConfig.Paths.LabRoot 'VMs' } else { 'C:\Lab\VMs' }
+    }
 
     # Start timing
     $startTime = Get-Date
@@ -67,7 +74,7 @@ function Initialize-LabVMs {
     $vmOrder = @("dc1", "svr1", "ws1")
 
     # Default admin password for unattended install
-    $defaultPassword = "SimpleLab123!"
+    $defaultPassword = if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Credentials.AdminPassword } else { 'SimpleLab123!' }
 
     # Create each VM
     foreach ($vmName in $vmOrder) {
