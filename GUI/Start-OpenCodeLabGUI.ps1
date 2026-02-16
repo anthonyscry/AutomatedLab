@@ -198,13 +198,19 @@ function Switch-View {
         $script:contentArea.Children.Add($script:txtPlaceholder) | Out-Null
     }
 
+    # ── Clear stale element refs when leaving a view ────────────────
+    if ($script:CurrentView -eq 'Logs') {
+        $script:LogOutputElement  = $null
+        $script:LogScrollerElement = $null
+    }
+
     $script:CurrentView = $ViewName
 
     # ── Post-load initialisation stubs ──────────────────────────────
     switch ($ViewName) {
         'Dashboard' { Initialize-DashboardView }
         'Actions'   { Initialize-ActionsView }
-        'Logs'      { <# Initialize-LogsView when ready #> }
+        'Logs'      { Initialize-LogsView }
         'Settings'  { <# Initialize-SettingsView when ready #> }
     }
 }
@@ -733,6 +739,119 @@ function Initialize-ActionsView {
     & $updatePreview
 
     $script:ActionsInitialized = $true
+}
+
+# ── Log management ──────────────────────────────────────────────────────
+$script:LogEntries        = [System.Collections.Generic.List[PSCustomObject]]::new()
+$script:LogFilter         = 'All'
+$script:LogOutputElement  = $null
+$script:LogScrollerElement = $null
+
+function Add-LogEntry {
+    <#
+    .SYNOPSIS
+        Appends a timestamped, levelled log entry and refreshes the log display.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message,
+
+        [ValidateSet('Info','Warning','Error','Success')]
+        [string]$Level = 'Info'
+    )
+
+    $entry = [PSCustomObject]@{
+        Timestamp = (Get-Date).ToString('HH:mm:ss')
+        Level     = $Level
+        Message   = $Message
+    }
+    $script:LogEntries.Add($entry)
+
+    if ($script:LogOutputElement) {
+        Render-LogEntries
+    }
+}
+
+function Render-LogEntries {
+    <#
+    .SYNOPSIS
+        Renders colour-coded log entries into the txtLogOutput TextBlock using Inlines.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not $script:LogOutputElement) { return }
+
+    $script:LogOutputElement.Inlines.Clear()
+
+    foreach ($entry in $script:LogEntries) {
+        if ($script:LogFilter -ne 'All' -and $entry.Level -ne $script:LogFilter) {
+            continue
+        }
+
+        $text = "[$($entry.Timestamp)] [$($entry.Level.ToUpper())] $($entry.Message)`n"
+        $run  = New-Object System.Windows.Documents.Run($text)
+
+        $brushKey = switch ($entry.Level) {
+            'Error'   { 'ErrorBrush' }
+            'Warning' { 'WarningBrush' }
+            'Success' { 'SuccessBrush' }
+            default   { 'TextPrimaryBrush' }
+        }
+        $run.Foreground = $mainWindow.FindResource($brushKey)
+
+        $script:LogOutputElement.Inlines.Add($run)
+    }
+
+    if ($script:LogScrollerElement) {
+        $script:LogScrollerElement.ScrollToEnd()
+    }
+}
+
+function Initialize-LogsView {
+    <#
+    .SYNOPSIS
+        Wires up the Logs view controls: filter combo, clear button, and renders
+        any existing log entries.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $viewElement = $script:contentArea.Children[0]
+
+    $script:LogOutputElement   = $viewElement.FindName('txtLogOutput')
+    $script:LogScrollerElement = $viewElement.FindName('logScroller')
+    $cmbLogFilter              = $viewElement.FindName('cmbLogFilter')
+    $btnClearLogs              = $viewElement.FindName('btnClearLogs')
+
+    # Populate filter combo
+    $filterOptions = @('All', 'Info', 'Warning', 'Error', 'Success')
+    foreach ($opt in $filterOptions) {
+        $cmbLogFilter.Items.Add($opt) | Out-Null
+    }
+
+    # Set current filter selection
+    $idx = $filterOptions.IndexOf($script:LogFilter)
+    $cmbLogFilter.SelectedIndex = if ($idx -ge 0) { $idx } else { 0 }
+
+    # Wire filter change
+    $cmbLogFilter.Add_SelectionChanged({
+        $selected = $cmbLogFilter.SelectedItem
+        if ($selected) {
+            $script:LogFilter = $selected.ToString()
+            Render-LogEntries
+        }
+    }.GetNewClosure())
+
+    # Wire clear button
+    $btnClearLogs.Add_Click({
+        $script:LogEntries.Clear()
+        Render-LogEntries
+    }.GetNewClosure())
+
+    # Render existing entries
+    Render-LogEntries
 }
 
 # ── Default view ────────────────────────────────────────────────────────

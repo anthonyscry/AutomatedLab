@@ -1,0 +1,41 @@
+<DockPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ── Top bar ────────────────────────────────────────────────── -->
+    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Column="0"
+                   Text="Logs"
+                   Style="{DynamicResource HeaderLabel}" />
+
+        <ComboBox x:Name="cmbLogFilter"
+                  Grid.Column="2"
+                  Width="120"
+                  Margin="0,0,8,0"
+                  Style="{DynamicResource ModernComboBox}" />
+
+        <Button x:Name="btnClearLogs"
+                Grid.Column="3"
+                Content="Clear"
+                Padding="12,6"
+                Style="{DynamicResource ModernButton}" />
+    </Grid>
+
+    <!-- ── Log output area ────────────────────────────────────────── -->
+    <Border Style="{DynamicResource CardBorder}">
+        <ScrollViewer x:Name="logScroller"
+                      VerticalScrollBarVisibility="Auto">
+            <TextBlock x:Name="txtLogOutput"
+                       FontFamily="Cascadia Code,Consolas,Courier New"
+                       FontSize="12"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       TextWrapping="Wrap" />
+        </ScrollViewer>
+    </Border>
+</DockPanel>
