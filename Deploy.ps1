@@ -933,14 +933,18 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
             try {
                 Invoke-WebRequest -Uri $GitDownloadUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
 
-                # Validate download integrity
-                if ($ExpectedSha256) {
-                    $actualHash = (Get-FileHash -Path $gitInstaller -Algorithm SHA256).Hash
-                    if ($actualHash -ne $ExpectedSha256) {
-                        Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
-                        $result.Message = "Git installer checksum mismatch (expected $ExpectedSha256, got $actualHash)"
-                        return $result
-                    }
+                # Validate download integrity (mandatory - reject if no checksum provided)
+                if ([string]::IsNullOrWhiteSpace($ExpectedSha256)) {
+                    Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+                    $result.Message = "Git installer download rejected: no checksum provided. Set SoftwarePackages.Git.Sha256 in Lab-Config.ps1."
+                    return $result
+                }
+
+                $actualHash = (Get-FileHash -Path $gitInstaller -Algorithm SHA256).Hash
+                if ($actualHash -ne $ExpectedSha256) {
+                    Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+                    $result.Message = "Git installer checksum mismatch (expected $ExpectedSha256, got $actualHash)"
+                    return $result
                 }
 
                 $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
