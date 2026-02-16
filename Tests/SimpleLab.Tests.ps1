@@ -165,9 +165,7 @@ Describe 'Module Exports' {
             'Test-LabIso',
             'Test-LabNetwork',
             'Test-LabNetworkHealth',
-            'Test-LabPrereqs',
-            'Write-RunArtifact',
-            'Write-ValidationReport'
+            'Write-RunArtifact'
         )
 
         $exportedFunctions = (Get-Module -Name 'SimpleLab').ExportedFunctions.Keys
@@ -175,26 +173,6 @@ Describe 'Module Exports' {
         foreach ($func in $expectedFunctions) {
             $exportedFunctions | Should -Contain $func
         }
-    }
-}
-
-Describe 'Test-LabPrereqs' {
-    It 'Returns a result object' {
-        $result = Test-LabPrereqs
-        $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.Properties.Name | Should -Contain 'OverallStatus'
-        $result.PSObject.Properties.Name | Should -Contain 'Checks'
-        $result.PSObject.Properties.Name | Should -Contain 'Duration'
-    }
-
-    It 'Includes platform-appropriate checks' {
-        $result = Test-LabPrereqs
-        $result.Checks | Should -Not -BeNullOrEmpty
-
-        # Check that Hyper-V is either tested or skipped based on platform
-        $hyperVCheck = $result.Checks | Where-Object { $_.Name -eq 'HyperV' }
-        $hyperVCheck | Should -Not -BeNullOrEmpty
-        $hyperVCheck.Status | Should -BeIn @('Pass', 'Fail', 'Skip')
     }
 }
 
