@@ -1,67 +1,18 @@
-﻿{
-    "_comment":  "SimpleLab v3.1.1 - Windows-only lab configuration (Linux disabled)",
-    "IsoPaths":  {
-                     "Server2019":  "C:\\LabSources\\ISOs\\server2019.iso",
-                     "Windows11":  "C:\\LabSources\\ISOs\\windows11.iso"
-                 },
-    "IsoSearchPaths":  [
-                           "C:\\LabSources\\ISOs",
-                           "C:\\Lab\\ISOs",
-                           "D:\\ISOs",
-                           ".\\ISOs"
-                       ],
-    "Requirements":  {
-                         "MinDiskSpaceGB":  100,
-                         "MinMemoryGB":  16
-                     },
-    "LabSettings":  {
-                        "LabName":  "SimpleLab",
-                        "LabPath":  "C:\\AutomatedLab\\SimpleLab",
-                        "DomainName":  "simplelab.local",
-                        "EnableLinux":  false,
-                        "EnableNAT":  false
-                    },
-    "NetworkConfiguration":  {
-                                 "_comment":  "Simple internal switch (default) or NAT with gateway (if EnableNAT=true)",
-                                 "Subnet":  "10.0.0.0/24",
-                                 "PrefixLength":  24,
-                                 "Gateway":  "",
-                                 "SwitchName":  "SimpleLab",
-                                 "NATName":  "SimpleLabNAT",
-                                 "AddressSpace":  "10.0.0.0/24",
-                                 "HostGatewayIP":  "10.0.0.1",
-                                 "DhcpScopeId":  "10.0.0.0",
-                                 "DhcpStart":  "10.0.0.100",
-                                 "DhcpEnd":  "10.0.0.200",
-                                 "DhcpMask":  "255.255.255.0",
-                                 "DNSServers":  [
-
-                                                ],
-                                 "VMIPs":  {
-                                               "dc1":  "10.0.0.2",
-                                               "svr1":  "10.0.0.3",
-                                               "ws1":  "10.0.0.4"
-                                           }
-                             },
-    "VMConfiguration":  {
-                            "dc1":  {
-                                        "Role":  "DC",
-                                        "MemoryGB":  4,
-                                        "ProcessorCount":  4,
-                                        "IP":  "10.0.10.10"
-                                    },
-                            "svr1":  {
-                                         "Role":  "Server",
-                                         "MemoryGB":  4,
-                                         "ProcessorCount":  4,
-                                         "IP":  "10.0.10.20"
-                                     },
-                            "ws1":  {
-                                        "Role":  "Client",
-                                        "MemoryGB":  4,
-                                        "ProcessorCount":  4,
-                                        "IP":  "10.0.10.30"
-                                    }
-                        },
-    "ActiveTemplate":  "default"
+{
+    "mode": "yolo",
+    "depth": "standard",
+    "model_profile": "balanced",
+    "commit_docs": true,
+    "parallelization": true,
+    "workflow": {
+        "research": true,
+        "plan_check": true,
+        "verifier": true,
+        "auto_advance": true
+    },
+    "git": {
+        "branching_strategy": "phase",
+        "phase_branch_template": "gsd/phase-{phase}-{slug}",
+        "milestone_branch_template": "gsd/{milestone}-{slug}"
+    }
 }
