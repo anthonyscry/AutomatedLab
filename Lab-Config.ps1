@@ -55,7 +55,7 @@ $GlobalLabConfig = @{
 
     Credentials = @{
         # Changing InstallUser changes the username used for domain admin tasks.
-        InstallUser = 'Administrator'
+        InstallUser = 'admin'
 
         # Changing AdminPassword changes the fallback password used by scripts.
         # Prefer environment variable usage for secrets in shared environments.
