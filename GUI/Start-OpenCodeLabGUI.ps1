@@ -202,7 +202,7 @@ function Switch-View {
 
     # ── Post-load initialisation stubs ──────────────────────────────
     switch ($ViewName) {
-        'Dashboard' { <# Initialize-DashboardView when ready #> }
+        'Dashboard' { Initialize-DashboardView }
         'Actions'   { <# Initialize-ActionsView when ready #> }
         'Logs'      { <# Initialize-LogsView when ready #> }
         'Settings'  { <# Initialize-SettingsView when ready #> }
@@ -247,6 +247,173 @@ $script:btnNavDashboard.Add_Click({ Switch-View -ViewName 'Dashboard' })
 $script:btnNavActions.Add_Click({   Switch-View -ViewName 'Actions' })
 $script:btnNavLogs.Add_Click({      Switch-View -ViewName 'Logs' })
 $script:btnNavSettings.Add_Click({  Switch-View -ViewName 'Settings' })
+
+# ── VM role display names ──────────────────────────────────────────────
+$script:VMRoles = @{
+    dc1  = 'Domain Controller'
+    svr1 = 'Member Server'
+    ws1  = 'Windows 11 Client'
+    lin1 = 'Ubuntu Linux'
+}
+
+# ── VM status colour mapping ──────────────────────────────────────────
+function Get-StatusColor {
+    <#
+    .SYNOPSIS
+        Maps a Hyper-V VM state string to a WPF SolidColorBrush.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$State
+    )
+
+    switch ($State) {
+        'Running' { [System.Windows.Media.Brushes]::LimeGreen }
+        'Off'     { [System.Windows.Media.Brushes]::Red }
+        'Paused'  { [System.Windows.Media.Brushes]::Yellow }
+        'Saved'   { [System.Windows.Media.Brushes]::Orange }
+        default   { [System.Windows.Media.Brushes]::Gray }
+    }
+}
+
+# ── Create a single VM card element from XAML ─────────────────────────
+function New-VMCardElement {
+    <#
+    .SYNOPSIS
+        Loads VMCard.xaml and sets the VM name and role labels.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$VMName
+    )
+
+    $cardPath = Join-Path $script:GuiRoot 'Components' 'VMCard.xaml'
+    $card     = Import-XamlFile -Path $cardPath
+
+    $card.FindName('txtVMName').Text = $VMName
+    $roleName = if ($script:VMRoles.ContainsKey($VMName.ToLowerInvariant())) {
+        $script:VMRoles[$VMName.ToLowerInvariant()]
+    } else {
+        'Virtual Machine'
+    }
+    $card.FindName('txtRole').Text = $roleName
+
+    return $card
+}
+
+# ── Update an existing card with live VM data ─────────────────────────
+function Update-VMCard {
+    <#
+    .SYNOPSIS
+        Refreshes a VM card's status dot, IP, CPU/memory text, and button states.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Windows.FrameworkElement]$Card,
+
+        [Parameter(Mandatory)]
+        [PSCustomObject]$VMData
+    )
+
+    $state = $VMData.State
+    $Card.FindName('statusDot').Fill = Get-StatusColor -State $state
+
+    # IP text — use NetworkStatus if available, otherwise '--'
+    $ipText = if ($VMData.NetworkStatus -and $VMData.NetworkStatus -ne 'N/A') {
+        "IP: $($VMData.NetworkStatus)"
+    } else {
+        'IP: --'
+    }
+    $Card.FindName('txtIP').Text = $ipText
+
+    # CPU and memory
+    $cpuText = if ($VMData.CPUUsage -and $VMData.CPUUsage -ne 'N/A') {
+        "CPU: $($VMData.CPUUsage)"
+    } else {
+        'CPU: --'
+    }
+    $memText = if ($VMData.MemoryGB -and $VMData.MemoryGB -ne 'N/A') {
+        "Mem: $($VMData.MemoryGB)"
+    } else {
+        'Mem: --'
+    }
+    $Card.FindName('txtCPU').Text    = $cpuText
+    $Card.FindName('txtMemory').Text = $memText
+
+    # Button enabled states
+    $isRunning = ($state -eq 'Running')
+    $Card.FindName('btnStart').IsEnabled   = -not $isRunning
+    $Card.FindName('btnStop').IsEnabled    = $isRunning
+    $Card.FindName('btnConnect').IsEnabled = $isRunning
+}
+
+# ── Dashboard initialisation ──────────────────────────────────────────
+function Initialize-DashboardView {
+    <#
+    .SYNOPSIS
+        Populates the Dashboard with VM cards and starts a polling timer.
+    #>
+    [CmdletBinding()]
+    param()
+
+    # Resolve the view element that was just loaded into contentArea
+    $viewElement = $script:contentArea.Children[0]
+
+    $vmContainer = $viewElement.FindName('vmCardContainer')
+    $txtNoVMs    = $viewElement.FindName('txtNoVMs')
+
+    # Determine VM names from lab config or use defaults
+    $vmNames = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Lab.CoreVMNames) {
+        @($GlobalLabConfig.Lab.CoreVMNames)
+    } else {
+        @('dc1', 'svr1', 'ws1')
+    }
+
+    # Build a card for each VM
+    $script:VMCards = @{}
+    foreach ($vmName in $vmNames) {
+        $card = New-VMCardElement -VMName $vmName
+
+        # Wire button handlers — use .GetNewClosure() to capture $vmName
+        $startBlock = { Start-VM -Name $vmName -ErrorAction SilentlyContinue }.GetNewClosure()
+        $stopBlock  = { Stop-VM -Name $vmName -Force -ErrorAction SilentlyContinue }.GetNewClosure()
+        $connBlock  = { & vmconnect.exe localhost $vmName }.GetNewClosure()
+
+        $card.FindName('btnStart').Add_Click($startBlock)
+        $card.FindName('btnStop').Add_Click($stopBlock)
+        $card.FindName('btnConnect').Add_Click($connBlock)
+
+        $vmContainer.Children.Add($card) | Out-Null
+        $script:VMCards[$vmName] = $card
+    }
+
+    # Hide placeholder if we have VMs
+    if ($vmNames.Count -gt 0) {
+        $txtNoVMs.Visibility = [System.Windows.Visibility]::Collapsed
+    }
+
+    # ── Polling timer (5-second interval) ─────────────────────────
+    $script:VMPollTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $script:VMPollTimer.Interval = [TimeSpan]::FromSeconds(5)
+    $script:VMPollTimer.Add_Tick({
+        try {
+            $statuses = Get-LabStatus
+            foreach ($vmData in $statuses) {
+                $name = $vmData.VMName
+                if ($script:VMCards.ContainsKey($name)) {
+                    Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
+                }
+            }
+        }
+        catch {
+            # Silently ignore polling errors to keep the GUI responsive
+        }
+    })
+    $script:VMPollTimer.Start()
+}
 
 # ── Default view ────────────────────────────────────────────────────────
 Switch-View -ViewName 'Dashboard'
