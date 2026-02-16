@@ -41,7 +41,7 @@ function Join-LabDomain {
         [string[]]$VMNames = @("svr1", "ws1"),
 
         [Parameter()]
-        [string]$GlobalLabConfig.Lab.DomainName,
+        [string]$DomainName,
 
         [Parameter()]
         [pscredential]$Credential,

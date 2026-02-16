@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
-    [string]$GlobalLabConfig.Credentials.AdminPassword
+    [string]$AdminPassword
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -19,7 +19,7 @@ if (Test-Path $CommonPath) { . $CommonPath }
 $ErrorActionPreference = 'Stop'
 
 # Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
-$GlobalLabConfig.Credentials.AdminPassword = Resolve-LabPassword -Password $GlobalLabConfig.Credentials.AdminPassword
+$AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
 if (-not (Import-OpenCodeLab -Name $GlobalLabConfig.Lab.Name)) {
     throw "Lab '$GlobalLabConfig.Lab.Name' is not imported. Run deploy first."
@@ -48,7 +48,7 @@ Copy-LabFileItem -Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRo
 
 $linUser = if ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.LinuxUser)) { 'anthonyscry' } else { $GlobalLabConfig.Credentials.LinuxUser }
 $linHome = "/home/$linUser"
-$escapedPassword = $GlobalLabConfig.Credentials.AdminPassword -replace "'", "'\\''"
+$escapedPassword = $AdminPassword -replace "'", "'\\''"
 
 $script = @'
 #!/bin/bash

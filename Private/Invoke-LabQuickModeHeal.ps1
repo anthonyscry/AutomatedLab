@@ -8,11 +8,11 @@ function Invoke-LabQuickModeHeal {
         [string]$SwitchName,
 
         [Parameter(Mandatory)]
-        [string]$GlobalLabConfig.Network.NatName,
+        [string]$NatName,
 
         [Parameter(Mandatory)]
         [ValidatePattern('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$')]
-        [string]$GlobalLabConfig.Network.AddressSpace,
+        [string]$AddressSpace,
 
         [string[]]$VMNames = @(),
 
@@ -69,7 +69,7 @@ function Invoke-LabQuickModeHeal {
 
     if ($needsNat -and ((Get-Date) - $healStart).TotalSeconds -lt $TimeoutSeconds) {
         try {
-            New-LabNAT -Name $GlobalLabConfig.Network.NatName -AddressSpace $GlobalLabConfig.Network.AddressSpace
+            New-LabNAT -Name $NatName -AddressSpace $AddressSpace
             $repairs.Add('nat_recreated')
         }
         catch {

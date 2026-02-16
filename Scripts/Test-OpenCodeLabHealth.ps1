@@ -89,6 +89,30 @@ foreach ($vmName in $ExpectedVMs) {
     }
 }
 
+# Infrastructure checks - vSwitch, NAT, gateway IP
+$sw = Get-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -ErrorAction SilentlyContinue
+if ($sw) {
+    Add-Ok "vSwitch '$($GlobalLabConfig.Network.SwitchName)' exists"
+} else {
+    Add-Issue "vSwitch '$($GlobalLabConfig.Network.SwitchName)' missing. Run: New-LabSwitch -SwitchName '$($GlobalLabConfig.Network.SwitchName)'"
+}
+
+$nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
+if ($nat) {
+    Add-Ok "NAT '$($GlobalLabConfig.Network.NatName)' exists"
+} else {
+    Add-Issue "NAT '$($GlobalLabConfig.Network.NatName)' missing. Run: New-LabNAT"
+}
+
+$ifAlias = "vEthernet ($($GlobalLabConfig.Network.SwitchName))"
+$gwIp = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -eq $GlobalLabConfig.Network.GatewayIp }
+if ($gwIp) {
+    Add-Ok "Host gateway IP $($GlobalLabConfig.Network.GatewayIp) on $ifAlias"
+} else {
+    Add-Issue "Host gateway IP $($GlobalLabConfig.Network.GatewayIp) missing on $ifAlias"
+}
+
 if (-not $issues.Count) {
     try {
         $dcChecks = Invoke-LabStructuredCheck -ComputerName 'DC1' -RequiredProperty 'NTDS' -Attempts 6 -DelaySeconds 10 -ScriptBlock {
@@ -110,6 +134,38 @@ if (-not $issues.Count) {
         if ($dcChecks.Share) { Add-Ok 'DC1 LabShare present' } else { Add-Issue 'DC1 LabShare missing' }
     } catch {
         Add-Issue "DC1 health checks failed: $($_.Exception.Message)"
+    }
+
+    # Test that DC1 can resolve external DNS (forwarders working)
+    try {
+        $dnsResult = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ScriptBlock {
+            $resolved = Resolve-DnsName -Name 'google.com' -QuickTimeout -ErrorAction SilentlyContinue
+            [bool]$resolved
+        } -ErrorAction SilentlyContinue
+        if ($dnsResult) {
+            Add-Ok 'DC1 DNS external resolution working'
+        } else {
+            Add-Issue 'DC1 cannot resolve external DNS. Check forwarders: Get-DnsServerForwarder on DC1'
+        }
+    } catch {
+        Add-Issue "DC1 DNS resolution check failed: $($_.Exception.Message)"
+    }
+
+    # Check domain join status for member servers (SVR1)
+    foreach ($memberVM in @($ExpectedVMs | Where-Object { $_ -notin @('DC1', 'LIN1') })) {
+        try {
+            $joinCheck = Invoke-LabStructuredCheck -ComputerName $memberVM -RequiredProperty 'Domain' -ScriptBlock {
+                $cs = Get-CimInstance Win32_ComputerSystem
+                [pscustomobject]@{ Domain = $cs.Domain; PartOfDomain = $cs.PartOfDomain }
+            } -ErrorAction SilentlyContinue
+            if ($joinCheck -and $joinCheck.PartOfDomain) {
+                Add-Ok "$memberVM joined to domain '$($joinCheck.Domain)'"
+            } else {
+                Add-Issue "$memberVM not joined to domain. Expected: '$($GlobalLabConfig.Lab.DomainName)'"
+            }
+        } catch {
+            Add-Issue "$memberVM domain join check failed: $($_.Exception.Message)"
+        }
     }
 
     try {

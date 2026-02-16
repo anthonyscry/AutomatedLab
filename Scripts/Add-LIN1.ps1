@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
-    [string]$GlobalLabConfig.Credentials.AdminPassword
+    [string]$AdminPassword
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -29,7 +29,7 @@ $GlobalLabConfig.Credentials.InstallUser = if ([string]::IsNullOrWhiteSpace($Glo
 $ErrorActionPreference = 'Stop'
 
 # Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
-$GlobalLabConfig.Credentials.AdminPassword = Resolve-LabPassword -Password $GlobalLabConfig.Credentials.AdminPassword
+$AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
@@ -98,7 +98,7 @@ $lin1CreateSucceeded = $false
 try {
     # Generate password hash for autoinstall identity
     Write-Host "  Generating password hash..." -ForegroundColor Gray
-    $lin1PwHash = Get-Sha512PasswordHash -Password $GlobalLabConfig.Credentials.AdminPassword
+    $lin1PwHash = Get-Sha512PasswordHash -Password $AdminPassword
 
     # Read SSH public key if available
     $lin1SshPubKey = ''
@@ -173,7 +173,7 @@ Copy-LabFileItem -Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRo
 
 $linUser = $GlobalLabConfig.Credentials.InstallUser
 $linHome = "/home/$linUser"
-$escapedPassword = $GlobalLabConfig.Credentials.AdminPassword -replace "'", "'\\''"
+$escapedPassword = $AdminPassword -replace "'", "'\\''"
 
 $script = @'
 #!/bin/bash

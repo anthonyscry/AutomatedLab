@@ -33,7 +33,7 @@ function Test-LabDomainJoin {
         [string]$VMName,
 
         [Parameter()]
-        [string]$GlobalLabConfig.Lab.DomainName,
+        [string]$DomainName,
 
         [Parameter()]
         [pscredential]$Credential
@@ -58,7 +58,7 @@ function Test-LabDomainJoin {
         # Get domain configuration
         $domainConfig = Get-LabDomainConfig
         $targetDomain = if ($PSBoundParameters.ContainsKey('DomainName')) {
-            $GlobalLabConfig.Lab.DomainName
+            $DomainName
         }
         else {
             $domainConfig.DomainName

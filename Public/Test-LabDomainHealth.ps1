@@ -29,7 +29,7 @@ function Test-LabDomainHealth {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$GlobalLabConfig.Lab.DomainName,
+        [string]$DomainName,
 
         [Parameter()]
         [pscredential]$Credential,

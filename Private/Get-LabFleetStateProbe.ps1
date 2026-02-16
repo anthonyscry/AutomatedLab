@@ -5,7 +5,7 @@ function Get-LabFleetStateProbe {
         [string[]]$HostNames,
 
         [Parameter()]
-        [string]$GlobalLabConfig.Lab.Name = 'SimpleLab',
+        [string]$LabName = 'SimpleLab',
 
         [Parameter()]
         [string[]]$VMNames = @(),
@@ -14,7 +14,7 @@ function Get-LabFleetStateProbe {
         [string]$SwitchName = 'LabSwitch',
 
         [Parameter()]
-        [string]$GlobalLabConfig.Network.NatName = 'LabNAT'
+        [string]$NatName = 'LabNAT'
     )
 
     $results = @()
@@ -99,7 +99,7 @@ function Get-LabFleetStateProbe {
 
     foreach ($hostName in $HostNames) {
         try {
-            $probe = Invoke-LabRemoteProbe -HostName $hostName -ScriptBlock $probeScriptBlock -ArgumentList @($GlobalLabConfig.Lab.Name, $VMNames, $SwitchName, $GlobalLabConfig.Network.NatName)
+            $probe = Invoke-LabRemoteProbe -HostName $hostName -ScriptBlock $probeScriptBlock -ArgumentList @($LabName, $VMNames, $SwitchName, $NatName)
             $results += [pscustomobject]@{
                 HostName = $hostName
                 Reachable = $true
