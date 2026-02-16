@@ -82,7 +82,7 @@ function Import-XamlFile {
 }
 
 # ── GUI settings persistence ───────────────────────────────────────────────
-$script:GuiSettingsPath = Join-Path $script:RepoRoot '.planning' 'gui-settings.json'
+$script:GuiSettingsPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'gui-settings.json'
 
 function Get-GuiSettings {
     <#
@@ -152,7 +152,7 @@ function Set-AppTheme {
         [string]$Theme
     )
 
-    $themePath = Join-Path $script:GuiRoot 'Themes' "$Theme.xaml"
+    $themePath = Join-Path (Join-Path $script:GuiRoot 'Themes') "$Theme.xaml"
     $themeDict = Import-XamlFile -Path $themePath
 
     # Ensure there is a WPF Application instance (needed for merged dictionaries).
@@ -185,7 +185,7 @@ function Switch-View {
 
     if ($script:CurrentView -eq $ViewName) { return }
 
-    $viewPath = Join-Path $script:GuiRoot 'Views' "${ViewName}View.xaml"
+    $viewPath = Join-Path (Join-Path $script:GuiRoot 'Views') "${ViewName}View.xaml"
 
     $script:contentArea.Children.Clear()
 
@@ -295,7 +295,7 @@ function New-VMCardElement {
         [string]$VMName
     )
 
-    $cardPath = Join-Path $script:GuiRoot 'Components' 'VMCard.xaml'
+    $cardPath = Join-Path (Join-Path $script:GuiRoot 'Components') 'VMCard.xaml'
     $card     = Import-XamlFile -Path $cardPath
 
     $card.FindName('txtVMName').Text = $VMName
@@ -889,7 +889,7 @@ function Initialize-SettingsView {
     }
 
     # ── Populate ISO paths from .planning/config.json ─────────────
-    $configJsonPath = Join-Path $script:RepoRoot '.planning' 'config.json'
+    $configJsonPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'config.json'
     if (Test-Path $configJsonPath) {
         try {
             $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
@@ -954,7 +954,7 @@ function Initialize-SettingsView {
         }
 
         # Update .planning/config.json ISO paths
-        $configJsonPath = Join-Path $script:RepoRoot '.planning' 'config.json'
+        $configJsonPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'config.json'
         try {
             if (Test-Path $configJsonPath) {
                 $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
