@@ -65,8 +65,9 @@ function Remove-LabVMs {
             return $result
         }
 
-        # Step 3: Find existing VMs
-        $removalOrder = @("ws1", "svr1", "dc1")
+        # Step 3: Find existing VMs (reverse order so DC is last)
+        $configVMs = if (Test-Path variable:GlobalLabConfig) { @($GlobalLabConfig.Lab.CoreVMNames) } else { @("dc1", "svr1", "ws1") }
+        $removalOrder = @($configVMs | Sort-Object -Descending)
         $existingVMs = @()
 
         foreach ($vmName in $removalOrder) {

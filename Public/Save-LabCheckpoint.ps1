@@ -71,7 +71,7 @@ function Save-LabCheckpoint {
         }
 
         # Checkpoint order: DC first, then servers, then clients (dynamic from config + auto-detect LIN1)
-        $checkpointOrder = @(if ($LabVMs) { $LabVMs } else { @('dc1','svr1','dsc','ws1') })
+        $checkpointOrder = @(if ($LabVMs) { $LabVMs } elseif (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Lab.CoreVMNames } else { @('dc1','svr1','ws1') })
         $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
         if ($lin1VM -and ('LIN1' -notin $checkpointOrder)) { $checkpointOrder += 'LIN1' }
 

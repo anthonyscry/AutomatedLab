@@ -59,7 +59,7 @@ function Reset-Lab {
         }
 
         # Step 2: Check what exists
-        $labVMs = @("dc1", "svr1", "ws1")
+        $labVMs = if (Test-Path variable:GlobalLabConfig) { @($GlobalLabConfig.Lab.CoreVMNames) } else { @("dc1", "svr1", "ws1") }
         $existingVMs = @()
         $totalCheckpoints = 0
 
@@ -75,11 +75,13 @@ function Reset-Lab {
             }
         }
 
-        $vSwitch = Get-VMSwitch -Name "SimpleLab" -ErrorAction SilentlyContinue
+        $switchName = if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Network.SwitchName } else { 'SimpleLab' }
+        $vSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
 
         # Step 3: Show what will be removed
         Write-Host ""
-        Write-Host "SimpleLab Clean Slate Reset" -ForegroundColor Cyan
+        $labDisplayName = if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Lab.Name } else { 'SimpleLab' }
+        Write-Host "$labDisplayName Clean Slate Reset" -ForegroundColor Cyan
         Write-Host ("=" * 60) -ForegroundColor Gray
         Write-Host ""
         Write-Host "This will completely reset the lab:" -ForegroundColor Yellow
@@ -101,7 +103,7 @@ function Reset-Lab {
         }
 
         if ($vSwitch) {
-            Write-Host "Virtual switch: SimpleLab (Type: $($vSwitch.SwitchType))" -ForegroundColor White
+            Write-Host "Virtual switch: $switchName (Type: $($vSwitch.SwitchType))" -ForegroundColor White
             Write-Host ""
         }
 
@@ -171,10 +173,10 @@ function Reset-Lab {
         $result.VSwitchRemoved = ($switchResult.OverallStatus -eq "OK" -and $switchResult.Message -notlike "*does not exist*")
 
         if ($result.VSwitchRemoved) {
-            Write-Host "  Removed virtual switch 'SimpleLab'" -ForegroundColor Green
+            Write-Host "  Removed virtual switch '$switchName'" -ForegroundColor Green
         }
         elseif ($switchResult.Message -like "*does not exist*") {
-            Write-Host "  Virtual switch 'SimpleLab' does not exist" -ForegroundColor Gray
+            Write-Host "  Virtual switch '$switchName' does not exist" -ForegroundColor Gray
         }
 
         # Step 8: Determine overall status

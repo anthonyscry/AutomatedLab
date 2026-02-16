@@ -44,7 +44,7 @@ function Get-LabStatus {
         }
 
         $results = New-Object System.Collections.Generic.List[object]
-        $labVMs = @("dc1", "svr1", "dsc", "ws1")
+        $labVMs = if (Test-Path variable:GlobalLabConfig) { @($GlobalLabConfig.Lab.CoreVMNames) } else { @("dc1", "svr1", "ws1") }
         if (Get-VM -Name "LIN1" -ErrorAction SilentlyContinue) {
             $labVMs += "LIN1"
         }
