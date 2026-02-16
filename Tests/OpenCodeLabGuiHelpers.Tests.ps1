@@ -2,6 +2,7 @@
 
 BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot
+    . (Join-Path $repoRoot 'Private/ConvertTo-LabTargetHostList.ps1')
     . (Join-Path $repoRoot 'Private/New-LabAppArgumentList.ps1')
     . (Join-Path $repoRoot 'Private/Get-LabRunArtifactSummary.ps1')
     . (Join-Path $repoRoot 'Private/Get-LabGuiDestructiveGuard.ps1')

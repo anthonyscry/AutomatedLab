@@ -15,13 +15,7 @@ function Get-LabGuiLayoutState {
 
     $guard = Get-LabGuiDestructiveGuard -Action $Action -Mode $Mode -ProfilePath $ProfilePath
 
-    $normalizedTargets = @(
-        @($TargetHosts) |
-            ForEach-Object { [string]$_ } |
-            ForEach-Object { $_ -split '[,;\s]+' } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            ForEach-Object { $_.Trim() }
-    )
+    $normalizedTargets = @($TargetHosts | ConvertTo-LabTargetHostList)
 
     return [pscustomobject]@{
         ShowAdvanced = $guard.RequiresConfirmation -or ($normalizedTargets.Count -gt 0)

@@ -24,7 +24,8 @@ Describe 'Get-LabGuiLayoutState' {
     It 'keeps advanced options hidden for non-destructive quick defaults' {
         $result = Get-LabGuiLayoutState -Action 'deploy' -Mode 'quick' -ProfilePath ''
         $result.ShowAdvanced | Should -BeFalse
-        $result.ShowDetails | Should -BeFalse
+        # Note: ShowDetails was replaced by a standalone checkbox ($chkShowArtifactDetails)
+        # and HasTargetHosts property. See implementation for details.
     }
 
     It 'auto-opens advanced section for destructive-sensitive paths' {
@@ -56,10 +57,14 @@ function Get-LabGuiLayoutState {
     $guard = Get-LabGuiDestructiveGuard -Action $Action -Mode $Mode -ProfilePath $ProfilePath
     $hasActionTargets = -not [string]::IsNullOrWhiteSpace(($TargetHosts -join ''))
 
+    # Implementation note: ShowDetails was replaced by a standalone
+    # $chkShowArtifactDetails checkbox in the GUI. The helper instead
+    # returns HasTargetHosts and RecommendedNonInteractiveDefault.
     return [pscustomobject]@{
         ShowAdvanced = $guard.RequiresConfirmation -or $hasActionTargets
-        ShowDetails = $false
         AdvancedForDestructiveAction = $guard.RequiresConfirmation
+        HasTargetHosts = ($normalizedTargets.Count -gt 0)
+        RecommendedNonInteractiveDefault = [bool]$guard.RecommendedNonInteractiveDefault
     }
 }
 ```

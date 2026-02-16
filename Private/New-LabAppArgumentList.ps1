@@ -67,13 +67,7 @@ function New-LabAppArgumentList {
     }
 
     if ($safeOptions.ContainsKey('TargetHosts') -and $null -ne $safeOptions.TargetHosts) {
-        $targetHosts = @(
-            $safeOptions.TargetHosts |
-                ForEach-Object { [string]$_ } |
-                ForEach-Object { $_ -split '[,;\s]+' } |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                ForEach-Object { $_.Trim() }
-        )
+        $targetHosts = @($safeOptions.TargetHosts | ConvertTo-LabTargetHostList)
         if ($targetHosts.Count -gt 0) {
             $argumentList.Add('-TargetHosts') | Out-Null
             foreach ($targetHost in $targetHosts) {

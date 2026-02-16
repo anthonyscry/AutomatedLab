@@ -11,6 +11,7 @@ $appScriptPath = Join-Path $scriptRoot 'OpenCodeLab-App.ps1'
 $argHelperPath = Join-Path $scriptRoot 'Private\New-LabAppArgumentList.ps1'
 $artifactHelperPath = Join-Path $scriptRoot 'Private\Get-LabRunArtifactSummary.ps1'
 $destructiveGuardHelperPath = Join-Path $scriptRoot 'Private\Get-LabGuiDestructiveGuard.ps1'
+$targetHostHelperPath = Join-Path $scriptRoot 'Private\ConvertTo-LabTargetHostList.ps1'
 $layoutStateHelperPath = Join-Path $scriptRoot 'Private\Get-LabGuiLayoutState.ps1'
 
 if (-not (Test-Path -Path $appScriptPath)) {
@@ -25,6 +26,9 @@ if (-not (Test-Path -Path $artifactHelperPath)) {
 if (-not (Test-Path -Path $destructiveGuardHelperPath)) {
     throw "Destructive guard helper not found at path: $destructiveGuardHelperPath"
 }
+if (-not (Test-Path -Path $targetHostHelperPath)) {
+    throw "Target host helper not found at path: $targetHostHelperPath"
+}
 if (-not (Test-Path -Path $layoutStateHelperPath)) {
     throw "Gui layout helper not found at path: $layoutStateHelperPath"
 }
@@ -32,6 +36,7 @@ if (-not (Test-Path -Path $layoutStateHelperPath)) {
 . $argHelperPath
 . $artifactHelperPath
 . $destructiveGuardHelperPath
+. $targetHostHelperPath
 . $layoutStateHelperPath
 
 function Get-PowerShellHostPath {
@@ -117,8 +122,9 @@ $btnToggleAdvanced.Height = 28
 
 $pnlAdvanced = New-Object System.Windows.Forms.Panel
 $pnlAdvanced.Dock = 'Fill'
+$pnlAdvanced.AutoSize = $true
+$pnlAdvanced.AutoSizeMode = [System.Windows.Forms.AutoSizeMode]::GrowAndShrink
 $pnlAdvanced.Visible = $false
-
 
 $lblProfilePath = New-Object System.Windows.Forms.Label
 $lblProfilePath.Text = 'ProfilePath'
@@ -284,11 +290,7 @@ function Get-ParsedTargetHosts {
         return @()
     }
 
-    return @(
-        $Text -split '[,;\s]+' |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-        ForEach-Object { $_.Trim() }
-    )
+    return @($Text | ConvertTo-LabTargetHostList)
 }
 
 function Update-CommandPreview {

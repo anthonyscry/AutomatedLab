@@ -4,6 +4,6 @@ param(
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$launcher = Join-Path $scriptDir 'Scripts/Run-OpenCodeLab.ps1'
+$launcher = Join-Path $scriptDir 'Scripts\Run-OpenCodeLab.ps1'
 
 & $launcher @AppArguments
