@@ -1,4 +1,47 @@
 function New-LabVM {
+    <#
+    .SYNOPSIS
+        Creates a single Hyper-V virtual machine for the lab.
+
+    .DESCRIPTION
+        Creates a Generation 2 Hyper-V VM with the specified memory, processor,
+        and VHD configuration. Validates disk space before creation, attaches
+        an ISO if provided, and sets the DVD as the first boot device. Cleans
+        up partially created VMs on failure.
+
+    .PARAMETER VMName
+        Name of the virtual machine to create.
+
+    .PARAMETER MemoryGB
+        Startup memory in gigabytes.
+
+    .PARAMETER VHDPath
+        Full path for the new virtual hard disk file (.vhdx).
+
+    .PARAMETER SwitchName
+        Virtual switch to connect the VM to (default: "SimpleLab").
+
+    .PARAMETER IsoPath
+        Path to an ISO file to attach as a DVD drive.
+
+    .PARAMETER ProcessorCount
+        Number of virtual processors (default: 2).
+
+    .PARAMETER Generation
+        Hyper-V VM generation (default: 2).
+
+    .PARAMETER Force
+        Remove and recreate the VM if it already exists.
+
+    .OUTPUTS
+        PSCustomObject with VMName, Created, Status, Message, VHDPath, MemoryGB, ProcessorCount.
+
+    .EXAMPLE
+        New-LabVM -VMName "dc1" -MemoryGB 4 -VHDPath "C:\Lab\VMs\dc1.vhdx"
+
+    .EXAMPLE
+        New-LabVM -VMName "ws1" -MemoryGB 4 -VHDPath "C:\Lab\VMs\ws1.vhdx" -IsoPath "C:\ISOs\win11.iso" -Force
+    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(

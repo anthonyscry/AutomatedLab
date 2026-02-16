@@ -1,4 +1,32 @@
 function Write-ValidationReport {
+    <#
+    .SYNOPSIS
+        Renders a formatted pre-flight validation report to the console.
+
+    .DESCRIPTION
+        Takes the results object from Test-LabPrereqs and displays a
+        color-coded summary of all checks. Shows pass/fail status for
+        each check, ISO path fix instructions for failures, and returns
+        an exit code (0 = pass, 2 = fail/error).
+
+    .PARAMETER Results
+        Validation results object from Test-LabPrereqs containing Checks,
+        OverallStatus, FailedChecks, Timestamp, and Duration.
+
+    .PARAMETER Quiet
+        Suppress console output and return only the exit code object.
+
+    .OUTPUTS
+        PSCustomObject with ExitCode and OverallStatus properties.
+
+    .EXAMPLE
+        $results = Test-LabPrereqs
+        Write-ValidationReport -Results $results
+
+    .EXAMPLE
+        $report = Write-ValidationReport -Results $results -Quiet
+        exit $report.ExitCode
+    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(

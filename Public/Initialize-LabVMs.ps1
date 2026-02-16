@@ -1,4 +1,36 @@
 function Initialize-LabVMs {
+    <#
+    .SYNOPSIS
+        Creates and configures all lab virtual machines.
+
+    .DESCRIPTION
+        Provisions the core lab VMs (dc1, svr1, ws1) in dependency order.
+        For each VM, creates the Hyper-V VM, attaches the ISO, and injects
+        an unattend.xml for automated OS installation. Uses GlobalLabConfig
+        for switch name, VHD path, and admin password when available.
+
+    .PARAMETER SwitchName
+        Name of the Hyper-V virtual switch to connect VMs to.
+        Defaults to $GlobalLabConfig.Network.SwitchName or "SimpleLab".
+
+    .PARAMETER VHDBasePath
+        Directory where VM virtual hard disks are created.
+        Defaults to $GlobalLabConfig.Paths.LabRoot\VMs or "C:\Lab\VMs".
+
+    .PARAMETER Force
+        Recreate VMs that already exist by removing them first.
+
+    .OUTPUTS
+        PSCustomObject with VMsCreated, FailedVMs, OverallStatus, Duration, and Message.
+
+    .EXAMPLE
+        Initialize-LabVMs
+        Creates all lab VMs using configuration defaults.
+
+    .EXAMPLE
+        Initialize-LabVMs -Force -Verbose
+        Recreates all lab VMs, replacing any that already exist.
+    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
