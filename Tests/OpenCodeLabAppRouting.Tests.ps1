@@ -36,7 +36,9 @@ BeforeAll {
 
             [Parameter()]
             [ValidateSet('off', 'canary', 'enforced')]
-            [string]$DispatchMode
+            [string]$DispatchMode,
+
+            [switch]$AutoHeal
         )
 
         $invokeSplat = @{
@@ -68,6 +70,8 @@ BeforeAll {
         if (-not [string]::IsNullOrWhiteSpace($DispatchMode)) {
             $invokeSplat.DispatchMode = $DispatchMode
         }
+
+        if ($AutoHeal) { $invokeSplat.AutoHeal = $true }
 
         & $appPath @invokeSplat
     }
@@ -413,5 +417,19 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
 
         $result.EffectiveMode | Should -Be 'full'
         $result.FallbackReason | Should -Be 'profile_mode_override'
+    }
+
+    It 'passes AutoHeal switch to app execution' {
+        $state = [pscustomobject]@{
+            LabRegistered = $true
+            MissingVMs = @()
+            LabReadyAvailable = $true
+            SwitchPresent = $true
+            NatPresent = $true
+        }
+
+        $result = Invoke-AppNoExecute -Action 'deploy' -Mode 'quick' -State $state -AutoHeal
+
+        $result | Should -Not -BeNullOrEmpty
     }
 }

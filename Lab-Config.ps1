@@ -163,6 +163,15 @@ $GlobalLabConfig = @{
         }
     }
 
+    AutoHeal = @{
+        # Changing Enabled toggles whether quick-mode auto-heal runs before fallback.
+        Enabled = $true
+        # Changing TimeoutSeconds caps total heal duration before aborting.
+        TimeoutSeconds = 120
+        # Changing HealthCheckTimeoutSeconds caps VM health verification for LabReady healing.
+        HealthCheckTimeoutSeconds = 60
+    }
+
     # Changing RequiredISOs changes which local ISO filenames are required.
     RequiredISOs = @('server2019.iso', 'windows11.iso')
 
