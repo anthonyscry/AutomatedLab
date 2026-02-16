@@ -69,10 +69,14 @@ Plans:
   7. All destructive actions require confirmation tokens before executing
   8. Error handling uses try-catch on critical operations with context-aware messages
   9. Network infrastructure (vSwitch, NAT, static IPs, DNS) configures correctly and validates connectivity
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
 
 Plans:
-- [ ] 03-01: [To be planned]
+- [ ] 03-01-PLAN.md -- Fix string interpolation, param syntax, legacy vars in Bootstrap/Deploy/Preflight/Health (LIFE-01, CLI-04)
+- [ ] 03-02-PLAN.md -- Add try-catch error handling to all critical Deploy.ps1 sections (CLI-08, LIFE-01)
+- [ ] 03-03-PLAN.md -- Fix hardcoded network values, enhance health check with full infrastructure coverage (NET-01..05, CLI-06)
+- [ ] 03-04-PLAN.md -- Harden teardown (SSH cleanup, NAT verify), confirmation tokens, bootstrap idempotency (LIFE-04, LIFE-05, CLI-07, CLI-03)
+- [ ] 03-05-PLAN.md -- CLI action routing cleanup, quick mode verification, end-to-end integration (LIFE-03, CLI-01, CLI-02, CLI-05, CLI-09)
 
 ### Phase 4: Role Provisioning
 **Goal**: All 11 Windows/Linux roles provision successfully with graceful error handling
@@ -131,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Cleanup & Config Foundation | 4/4 | Complete | 2026-02-16 |
 | 2. Security Hardening | 3/3 | Complete | 2026-02-16 |
-| 3. Core Lifecycle Integration | 0/0 | Not started | - |
+| 3. Core Lifecycle Integration | 0/5 | Planned | - |
 | 4. Role Provisioning | 0/0 | Not started | - |
 | 5. GUI Integration | 0/0 | Not started | - |
 | 6. Multi-Host Coordination | 0/0 | Not started | - |
