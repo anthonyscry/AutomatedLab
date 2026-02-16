@@ -628,6 +628,7 @@ try {
     $dhcpSectionStart = Get-Date
     Write-Host "`n[DC1] Enabling DHCP (Dynamic Host Configuration Protocol) for Linux installs..." -ForegroundColor Cyan
 
+    try {
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Install-DHCP-Role' -ScriptBlock {
         param($ScopeId, $StartRange, $EndRange, $Mask, $Router, $Dns, $DnsDomain)
 
@@ -656,8 +657,17 @@ try {
         "DHCP scope ready"
     } -ArgumentList $GlobalLabConfig.DHCP.ScopeId, $GlobalLabConfig.DHCP.Start, $GlobalLabConfig.DHCP.End, $GlobalLabConfig.DHCP.Mask, $GlobalLabConfig.Network.GatewayIp, $GlobalLabConfig.Network.DnsIp, $GlobalLabConfig.Lab.DomainName | Out-Null
 
-    Write-LabStatus -Status OK -Message "DHCP scope configured: $($GlobalLabConfig.DHCP.ScopeId) ($($GlobalLabConfig.DHCP.Start) - $GlobalLabConfig.DHCP.End)"
+        Write-LabStatus -Status OK -Message "DHCP scope configured: $($GlobalLabConfig.DHCP.ScopeId) ($($GlobalLabConfig.DHCP.Start) - $GlobalLabConfig.DHCP.End)"
+        $sectionResults += [pscustomobject]@{ Section = 'DHCP Configuration'; Status = 'OK'; Duration = (Get-Date) - $dhcpSectionStart }
+    } catch {
+        Write-LabStatus -Status WARN -Message "DHCP configuration failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "DHCP is non-critical for Windows-only deployments. Continuing."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check DC1 DHCP service status: Get-Service DHCPServer | Format-List"
+        $sectionResults += [pscustomobject]@{ Section = 'DHCP Configuration'; Status = 'WARN'; Duration = (Get-Date) - $dhcpSectionStart }
+    }
 
+
+    $dnsSectionStart = Get-Date
     # Configure DNS forwarders on DC1 so lab clients can resolve external hosts (GitHub, package feeds).
     try {
         $dnsForwarderResults = @(Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Configure-DNS-Forwarders' -ScriptBlock {
@@ -680,13 +690,18 @@ try {
         $dnsForwarderResult = @($dnsForwarderResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Ready' } | Select-Object -Last 1)
         if ($dnsForwarderResult.Count -gt 0 -and $dnsForwarderResult[0].Ready) {
             Write-LabStatus -Status OK -Message "$($dnsForwarderResult[0].Message)"
+            $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'OK'; Duration = (Get-Date) - $dnsSectionStart }
         } elseif ($dnsForwarderResult.Count -gt 0) {
             Write-LabStatus -Status WARN -Message "$($dnsForwarderResult[0].Message)"
+            $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'WARN'; Duration = (Get-Date) - $dnsSectionStart }
         } else {
             Write-LabStatus -Status WARN -Message "DNS forwarder step returned no structured result."
+            $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'WARN'; Duration = (Get-Date) - $dnsSectionStart }
         }
     } catch {
         Write-LabStatus -Status WARN -Message "DNS forwarder configuration failed: $($_.Exception.Message)"
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check DNS forwarders on DC1: Get-DnsServerForwarder"
+        $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'WARN'; Duration = (Get-Date) - $dnsSectionStart }
     }
     $sectionElapsed = (Get-Date) - $dhcpSectionStart
     Write-Host "  Section completed in $([int]$sectionElapsed.TotalMinutes)m $($sectionElapsed.Seconds)s" -ForegroundColor DarkGray
@@ -789,6 +804,9 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
     $postInstallSectionStart = Get-Date
     Write-Host "`n[POST] Configuring DC1 share + Git..." -ForegroundColor Cyan
 
+    $shareSectionStart = Get-Date
+    try {
+
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Create-LabShare' -ScriptBlock {
         param($SharePath, $ShareName, $GitRepoPath, $DomainName)
 
@@ -828,6 +846,15 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
 
         "Share ready"
     } -ArgumentList $GlobalLabConfig.Paths.SharePath, $GlobalLabConfig.Paths.ShareName, $GlobalLabConfig.Paths.GitRepoPath, $GlobalLabConfig.Lab.DomainName | Out-Null
+
+        Write-LabStatus -Status OK -Message "DC1 share created: \\\\DC1\\$($GlobalLabConfig.Paths.ShareName)"
+        $sectionResults += [pscustomobject]@{ Section = 'DC1 Share Creation'; Status = 'OK'; Duration = (Get-Date) - $shareSectionStart }
+    } catch {
+        Write-LabStatus -Status WARN -Message "DC1 share creation failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "File sharing may be unavailable. Continuing."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check share on DC1: Get-SmbShare -Name $($GlobalLabConfig.Paths.ShareName)"
+        $sectionResults += [pscustomobject]@{ Section = 'DC1 Share Creation'; Status = 'WARN'; Duration = (Get-Date) - $shareSectionStart }
+    }
 
     # Add domain members to share group (after join)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Add-Clients-To-ShareGroup' -ScriptBlock {
@@ -980,6 +1007,7 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
     # DC1: OpenSSH Server + allow key auth for admins (Host -> DC1)
     # ============================================================
     Write-Host "`n[POST] Configuring DC1 OpenSSH..." -ForegroundColor Cyan
+    $sshSectionStart = Get-Date
     $dc1SshReady = $false
     try {
         $dc1SshResult = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-OpenSSH-DC1' -ScriptBlock {
@@ -1010,6 +1038,7 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
         if ($dc1SshResult -and $dc1SshResult.Ready) {
             $dc1SshReady = $true
             Write-LabStatus -Status OK -Message "DC1 OpenSSH configured"
+            $sectionResults += [pscustomobject]@{ Section = 'DC1 OpenSSH'; Status = 'OK'; Duration = (Get-Date) - $sshSectionStart }
         } else {
             $msg = if ($dc1SshResult -and $dc1SshResult.Message) { $dc1SshResult.Message } else { 'Unknown OpenSSH configuration failure.' }
             Write-LabStatus -Status WARN -Message "$msg"
@@ -1018,6 +1047,8 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
     } catch {
         Write-LabStatus -Status WARN -Message "DC1 OpenSSH setup failed: $($_.Exception.Message)"
         Write-LabStatus -Status WARN -Message "Continuing deployment without DC1 SSH key bootstrap."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check OpenSSH service on DC1: Get-Service sshd | Format-List"
+        $sectionResults += [pscustomobject]@{ Section = 'DC1 OpenSSH'; Status = 'WARN'; Duration = (Get-Date) - $sshSectionStart }
     }
 
     if ($dc1SshReady) {
@@ -1063,6 +1094,7 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
     Write-Host "`n[POST] Configuring ws1..." -ForegroundColor Cyan
 
     # RSAT install: domain GP may redirect Windows Update through DC1 (no WSUS),
+    $rsatSectionStart = Get-Date
     # causing "Access is denied" COMException. Temporarily bypass the WSUS policy.
     try {
         Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Install-RSAT-ws1' -ScriptBlock {
@@ -1104,10 +1136,13 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
             }
         } | Out-Null
         Write-LabStatus -Status OK -Message "RSAT capabilities installed on ws1"
+        $sectionResults += [pscustomobject]@{ Section = 'RSAT Installation'; Status = 'OK'; Duration = (Get-Date) - $rsatSectionStart }
     }
     catch {
         Write-LabStatus -Status WARN -Message "RSAT installation failed: $($_.Exception.Message)"
         Write-LabStatus -Status WARN -Message "ws1 will work without RSAT. Install manually later if needed."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check RSAT capabilities on ws1: Get-WindowsCapability -Online | Where-Object Name -like 'Rsat*'"
+        $sectionResults += [pscustomobject]@{ Section = 'RSAT Installation'; Status = 'WARN'; Duration = (Get-Date) - $rsatSectionStart }
     }
 
     Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Map-LabShare' -ScriptBlock {
@@ -1196,11 +1231,50 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
     # SNAPSHOT
     # ============================================================
     Write-Host "`n[SNAPSHOT] Creating 'LabReady' checkpoint..." -ForegroundColor Cyan
+    $checkpointSectionStart = Get-Date
     Checkpoint-LabVM -All -SnapshotName 'LabReady' | Out-Null
     Write-Host "  Checkpoint created." -ForegroundColor Green
 
+    # Validate LabReady checkpoint was created on all VMs
+    Write-Host "  Validating LabReady checkpoint on all VMs..." -ForegroundColor Gray
+    $missingCheckpoints = @()
+    foreach ($vmName in @($GlobalLabConfig.Lab.CoreVMNames)) {
+        $snap = Get-VMSnapshot -VMName $vmName -Name 'LabReady' -ErrorAction SilentlyContinue
+        if (-not $snap) {
+            Write-LabStatus -Status WARN -Message "LabReady checkpoint missing for VM '$vmName'"
+            $missingCheckpoints += $vmName
+        } else {
+            Write-LabStatus -Status OK -Message "LabReady checkpoint exists for VM '$vmName'"
+        }
+    }
+    if ($missingCheckpoints.Count -eq 0) {
+        $sectionResults += [pscustomobject]@{ Section = 'LabReady Checkpoint'; Status = 'OK'; Duration = (Get-Date) - $checkpointSectionStart }
+    } else {
+        Write-LabStatus -Status WARN -Message "LabReady checkpoint incomplete. Missing on: $($missingCheckpoints -join ', ')"
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check snapshots: Get-VMSnapshot -VMName $($missingCheckpoints[0])"
+        $sectionResults += [pscustomobject]@{ Section = 'LabReady Checkpoint'; Status = 'WARN'; Duration = (Get-Date) - $checkpointSectionStart }
+    }
+
     $deployElapsed = (Get-Date) - $deployStartTime
     Write-Host "  Total deployment time: $([int]$deployElapsed.TotalMinutes)m $($deployElapsed.Seconds)s" -ForegroundColor Cyan
+
+    # Deployment summary table
+    if ($sectionResults.Count -gt 0) {
+        Write-Host ""
+        Write-Host "  Deployment Section Results:" -ForegroundColor Cyan
+        Write-Host "  " + ("-" * 70) -ForegroundColor DarkGray
+        $sectionResults | ForEach-Object {
+            $statusColor = switch ($_.Status) {
+                'OK' { 'Green' }
+                'WARN' { 'Yellow' }
+                'FAIL' { 'Red' }
+                default { 'Gray' }
+            }
+            $duration = "{0:D2}m {1:D2}s" -f [int]$_.Duration.TotalMinutes, $_.Duration.Seconds
+            Write-Host ("  {0,-40} {1,-6} {2,10}" -f $_.Section, $_.Status, $duration) -ForegroundColor $statusColor
+        }
+        Write-Host "  " + ("-" * 70) -ForegroundColor DarkGray
+    }
 
     # ============================================================
     # SUMMARY
