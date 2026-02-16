@@ -97,19 +97,24 @@ function Write-RunArtifact {
             HostInfo = Get-HostInfo
         }
 
-        # Add error information if present
+        # Add error information if present (scrub credentials from error messages)
         if ($ErrorRecord) {
             $artifact.Error = [ordered]@{
-                Message = $ErrorRecord.Exception.Message
+                Message = Protect-LabLogString -InputString $ErrorRecord.Exception.Message
                 Type = $ErrorRecord.Exception.GetType().FullName
                 ScriptStackTrace = $ErrorRecord.ScriptStackTrace
             }
         }
 
-        # Add custom data if present (e.g., validation results)
+        # Add custom data if present (scrub string values to prevent credential leakage)
         if ($CustomData) {
             foreach ($key in $CustomData.Keys) {
-                $artifact[$key] = $CustomData[$key]
+                $val = $CustomData[$key]
+                if ($val -is [string]) {
+                    $artifact[$key] = Protect-LabLogString -InputString $val
+                } else {
+                    $artifact[$key] = $val
+                }
             }
         }
 
