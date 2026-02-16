@@ -70,10 +70,10 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Configuration
 
-- [ ] **CFG-01**: GlobalLabConfig hashtable is single source of truth — legacy variables removed or deprecated
-- [ ] **CFG-02**: All entry points use consistent helper sourcing pattern (standardize on one approach)
-- [ ] **CFG-03**: Lab-Config.ps1 validates configuration on load (required fields, type checks)
-- [ ] **CFG-04**: Template system reads/writes JSON correctly with schema validation
+- [x] **CFG-01**: GlobalLabConfig hashtable is single source of truth — legacy variables removed or deprecated
+- [x] **CFG-02**: All entry points use consistent helper sourcing pattern (standardize on one approach)
+- [x] **CFG-03**: Lab-Config.ps1 validates configuration on load (required fields, type checks)
+- [x] **CFG-04**: Template system reads/writes JSON correctly with schema validation
 
 ### Security
 
@@ -84,11 +84,11 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Cleanup
 
-- [ ] **CLN-01**: .archive/ directory removed from main branch (preserved in git history)
-- [ ] **CLN-02**: Test coverage artifacts (coverage.xml) removed from tracked files
-- [ ] **CLN-03**: LSP tools removed from tracked files (already in .gitignore)
-- [ ] **CLN-04**: Leftover debug/test scripts (test-*.ps1, test.json) removed
-- [ ] **CLN-05**: Dead or unreachable code paths identified and removed
+- [x] **CLN-01**: .archive/ directory removed from main branch (preserved in git history)
+- [x] **CLN-02**: Test coverage artifacts (coverage.xml) removed from tracked files
+- [x] **CLN-03**: LSP tools removed from tracked files (already in .gitignore)
+- [x] **CLN-04**: Leftover debug/test scripts (test-*.ps1, test.json) removed
+- [x] **CLN-05**: Dead or unreachable code paths identified and removed
 
 ## v2 Requirements
 
@@ -120,15 +120,15 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLN-01 | Phase 1 | Pending |
-| CLN-02 | Phase 1 | Pending |
-| CLN-03 | Phase 1 | Pending |
-| CLN-04 | Phase 1 | Pending |
-| CLN-05 | Phase 1 | Pending |
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 1 | Pending |
-| CFG-04 | Phase 1 | Pending |
+| CLN-01 | Phase 1 | Done |
+| CLN-02 | Phase 1 | Done |
+| CLN-03 | Phase 1 | Done |
+| CLN-04 | Phase 1 | Done |
+| CLN-05 | Phase 1 | Done |
+| CFG-01 | Phase 1 | Done |
+| CFG-02 | Phase 1 | Done |
+| CFG-03 | Phase 1 | Done |
+| CFG-04 | Phase 1 | Done |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |
 | SEC-03 | Phase 2 | Pending |
