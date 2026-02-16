@@ -62,9 +62,9 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
             $ip = Get-LinuxIPForTerminal
             if (-not $ip) { return }
             Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
-            Open-NewTerminal -Title "LIN1 (1)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
+            Open-NewTerminal -Title "LIN1 (1)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=accept-new $LinuxUser@$ip"
             Start-Sleep -Milliseconds 500
-            Open-NewTerminal -Title "LIN1 (2)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
+            Open-NewTerminal -Title "LIN1 (2)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=accept-new $LinuxUser@$ip"
             Write-LabStatus -Status OK -Message "Opened 2 LIN1 sessions"
             return
         }
@@ -72,7 +72,7 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
             $ip = Get-LinuxIPForTerminal
             if (-not $ip) { return }
             Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
-            Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
+            Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=accept-new $LinuxUser@$ip"
             Start-Sleep -Milliseconds 500
             Open-NewTerminal -Title "DC1 (PS Direct)" -Command "Enter-PSSession -VMName DC1"
             Start-Sleep -Milliseconds 500
@@ -92,7 +92,7 @@ switch ($Target) {
         $ip = Get-LinuxIPForTerminal
         if (-not $ip) { return }
         Write-Host "  LIN1 IP: $ip" -ForegroundColor Gray
-        Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=no $LinuxUser@$ip"
+        Open-NewTerminal -Title "LIN1 (SSH)" -Command "ssh -i '$SSHKey' -o StrictHostKeyChecking=accept-new $LinuxUser@$ip"
         Write-LabStatus -Status OK -Message "Opened LIN1 SSH session"
     }
     'DC1' {
