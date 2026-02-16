@@ -172,6 +172,15 @@ $GlobalLabConfig = @{
         HealthCheckTimeoutSeconds = 60
     }
 
+    SoftwarePackages = @{
+        Git = @{
+            Version = '2.47.1.2'
+            InstallerFileName = 'Git-2.47.1.2-64-bit.exe'
+            DownloadUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe'
+            Sha256 = '0229E3ACB535D0DC5F0D4A7E33CD36E3E3BA5B67A44B507B4D5E6A63B0B8BBDE'
+        }
+    }
+
     # Changing RequiredISOs changes which local ISO filenames are required.
     RequiredISOs = @('server2019.iso', 'windows11.iso')
 
@@ -502,3 +511,5 @@ $LabTimeZone = $GlobalLabConfig.Lab.TimeZone
 
 # Expose Builder config as a first-class variable for LabBuilder loaders.
 $LabBuilderConfig = $GlobalLabConfig.Builder
+
+$GitPackageConfig = $GlobalLabConfig.SoftwarePackages.Git
