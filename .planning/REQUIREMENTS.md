@@ -120,13 +120,68 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be populated during roadmap creation) | | |
+| CLN-01 | Phase 1 | Pending |
+| CLN-02 | Phase 1 | Pending |
+| CLN-03 | Phase 1 | Pending |
+| CLN-04 | Phase 1 | Pending |
+| CLN-05 | Phase 1 | Pending |
+| CFG-01 | Phase 1 | Pending |
+| CFG-02 | Phase 1 | Pending |
+| CFG-03 | Phase 1 | Pending |
+| CFG-04 | Phase 1 | Pending |
+| SEC-01 | Phase 2 | Pending |
+| SEC-02 | Phase 2 | Pending |
+| SEC-03 | Phase 2 | Pending |
+| SEC-04 | Phase 2 | Pending |
+| LIFE-01 | Phase 3 | Pending |
+| LIFE-02 | Phase 3 | Pending |
+| LIFE-03 | Phase 3 | Pending |
+| LIFE-04 | Phase 3 | Pending |
+| LIFE-05 | Phase 3 | Pending |
+| CLI-01 | Phase 3 | Pending |
+| CLI-02 | Phase 3 | Pending |
+| CLI-03 | Phase 3 | Pending |
+| CLI-04 | Phase 3 | Pending |
+| CLI-05 | Phase 3 | Pending |
+| CLI-06 | Phase 3 | Pending |
+| CLI-07 | Phase 3 | Pending |
+| CLI-08 | Phase 3 | Pending |
+| CLI-09 | Phase 3 | Pending |
+| NET-01 | Phase 3 | Pending |
+| NET-02 | Phase 3 | Pending |
+| NET-03 | Phase 3 | Pending |
+| NET-04 | Phase 3 | Pending |
+| NET-05 | Phase 3 | Pending |
+| ROLE-01 | Phase 4 | Pending |
+| ROLE-02 | Phase 4 | Pending |
+| ROLE-03 | Phase 4 | Pending |
+| ROLE-04 | Phase 4 | Pending |
+| ROLE-05 | Phase 4 | Pending |
+| ROLE-06 | Phase 4 | Pending |
+| ROLE-07 | Phase 4 | Pending |
+| ROLE-08 | Phase 4 | Pending |
+| ROLE-09 | Phase 4 | Pending |
+| ROLE-10 | Phase 4 | Pending |
+| ROLE-11 | Phase 4 | Pending |
+| GUI-01 | Phase 5 | Pending |
+| GUI-02 | Phase 5 | Pending |
+| GUI-03 | Phase 5 | Pending |
+| GUI-04 | Phase 5 | Pending |
+| GUI-05 | Phase 5 | Pending |
+| GUI-06 | Phase 5 | Pending |
+| GUI-07 | Phase 5 | Pending |
+| GUI-08 | Phase 5 | Pending |
+| MH-01 | Phase 6 | Pending |
+| MH-02 | Phase 6 | Pending |
+| MH-03 | Phase 6 | Pending |
+| MH-04 | Phase 6 | Pending |
+| MH-05 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 42 total
-- Mapped to phases: 0
-- Unmapped: 42
+- v1 requirements: 56 total
+- Mapped to phases: 56
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-16*
-*Last updated: 2026-02-16 after initial definition*
+*Last updated: 2026-02-16 after roadmap creation*

@@ -1,8 +1,8 @@
-# Roadmap: SimpleLab
+# Roadmap: AutomatedLab Hardening & Integration
 
 ## Overview
 
-SimpleLab delivers a streamlined Windows domain lab experience through foundational infrastructure, validation, provisioning, domain configuration, lifecycle management, and user experience layers. Starting with project scaffolding and pre-flight checks, the roadmap progresses through network setup, VM provisioning, and domain creation before adding resilience features like snapshots and rollback, culminating in a polished menu-driven interface that makes lab automation accessible to non-PowerShell experts.
+This brownfield hardening milestone transforms a 107-function PowerShell lab automation codebase from "mostly working" to "reliably works end-to-end." We clean technical debt first (archive cleanup, config unification, security hardening), then systematically integrate-test and fix core lifecycle flows (bootstrap, deploy, teardown), role provisioning, GUI operations, and multi-host coordination. Every phase completes when observable user behaviors work without errors.
 
 ## Phases
 
@@ -12,172 +12,126 @@ SimpleLab delivers a streamlined Windows domain lab experience through foundatio
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Project Foundation** - Infrastructure scaffolding and error handling (Complete 2026-02-09)
-- [x] **Phase 2: Pre-flight Validation** - ISO and prerequisite verification (Complete 2026-02-09)
-- [x] **Phase 3: Network Infrastructure** - vSwitch and IP configuration (Complete 2026-02-10)
-- [x] **Phase 4: VM Provisioning** - Hyper-V VM creation and setup (Complete 2026-02-09)
-- [x] **Phase 5: Domain Configuration** - Active Directory deployment (Complete 2026-02-09)
-- [ ] **Phase 6: Lifecycle Operations** - Start, stop, restart, and status
-- [ ] **Phase 7: Teardown Operations** - VM removal and clean slate
-- [ ] **Phase 8: Snapshot Management** - Checkpoint creation and rollback
-- [ ] **Phase 9: User Experience** - Menu interface and CLI flags
+- [ ] **Phase 1: Cleanup & Config Foundation** - Remove dead code, unify config system, standardize helper sourcing
+- [ ] **Phase 2: Security Hardening** - Eliminate hardcoded passwords, validate checksums, secure SSH operations
+- [ ] **Phase 3: Core Lifecycle Integration** - Bootstrap → Deploy → Teardown works end-to-end with error handling
+- [ ] **Phase 4: Role Provisioning** - All 11 Windows/Linux roles provision correctly with error handling
+- [ ] **Phase 5: GUI Integration** - Dashboard, Actions, Customize, Settings, Logs work with CLI feature parity
+- [ ] **Phase 6: Multi-Host Coordination** - Dispatcher routes operations to remote hosts with scoped tokens
 
 ## Phase Details
 
-### Phase 1: Project Foundation
-**Goal**: Establish project infrastructure with structured error handling and run artifact generation
+### Phase 1: Cleanup & Config Foundation
+**Goal**: Codebase is clean, config system unified, helper sourcing consistent — foundation ready for integration testing
 **Depends on**: Nothing (first phase)
-**Requirements**: VAL-01, UX-01, UX-03
+**Requirements**: CLN-01, CLN-02, CLN-03, CLN-04, CLN-05, CFG-01, CFG-02, CFG-03, CFG-04
 **Success Criteria** (what must be TRUE):
-  1. User receives clear error message when Hyper-V is not enabled on their machine
-  2. Tool generates JSON report after each operation containing operation type, timestamp, and status
-  3. All operations use structured error handling that prevents silent failures
-**Plans**: 3 plans
+  1. Archive directory removed from main branch (preserved in git history)
+  2. Coverage artifacts and LSP tools removed from tracked files
+  3. GlobalLabConfig is single source of truth with validation on load
+  4. All entry points use consistent helper sourcing pattern (standardized)
+  5. Template system reads/writes JSON with schema validation
+**Plans**: TBD
 
 Plans:
-- [x] 01-01-PLAN.md — Project scaffolding and directory structure
-- [x] 01-02-PLAN.md — Hyper-V detection and validation
-- [x] 01-03-PLAN.md — Run artifact generation and error handling framework
+- [ ] 01-01: [To be planned]
 
-### Phase 2: Pre-flight Validation
-**Goal**: Verify all prerequisites and ISOs exist before attempting lab operations
+### Phase 2: Security Hardening
+**Goal**: Lab deployments use secure defaults with no hardcoded credentials or insecure downloads
 **Depends on**: Phase 1
-**Requirements**: BUILD-03, VAL-02
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04
 **Success Criteria** (what must be TRUE):
-  1. User receives specific error message listing missing ISOs before build attempt
-  2. Tool validates Windows Server 2019 and Windows 11 ISOs exist in configured location
-  3. User sees clear pass/fail status for all pre-flight checks
-**Plans**: 3 plans
-
-Plans:
-- [ ] 02-01-PLAN.md — ISO detection and validation logic
-- [ ] 02-02-PLAN.md — Pre-flight check orchestration
-- [ ] 02-03-PLAN.md — Validation error reporting UX
-
-### Phase 3: Network Infrastructure
-**Goal**: Create dedicated virtual switch with IP configuration for lab VMs
-**Depends on**: Phase 1
-**Requirements**: NET-01, NET-02
-**Success Criteria** (what must be TRUE):
-  1. Tool creates dedicated Internal vSwitch named "SimpleLab" that persists across lab rebuilds
-  2. VMs receive static IP assignments on lab network (DC: 10.0.0.1, Server: 10.0.0.2, Win11: 10.0.0.3)
-  3. Lab VMs can communicate with each other after network setup completes
-**Plans**: 3 plans
-
-Plans:
-- [ ] 03-01-PLAN.md — Internal vSwitch creation (Test-LabNetwork, New-LabSwitch)
-- [ ] 03-02-PLAN.md — IP configuration and assignment (Initialize-LabNetwork)
-- [ ] 03-03-PLAN.md — Network connectivity validation (Test-LabNetworkHealth)
-
-### Phase 4: VM Provisioning
-**Goal**: Provision Hyper-V VMs with appropriate hardware configuration
-**Depends on**: Phase 2, Phase 3
-**Requirements**: BUILD-01, BUILD-04
-**Success Criteria** (what must be TRUE):
-  1. User can run single command to build complete Windows domain lab (DC, Server 2019, Win 11)
-  2. Tool creates 3 VMs with appropriate RAM and disk allocation (DC: 2GB RAM, Server: 2GB, Win11: 4GB)
-  3. VMs are created with attached ISOs and bootable configuration
-  4. Provisioning completes in under 15 minutes for basic VM setup
-**Plans**: 4 plans
-
-Plans:
-- [x] 04-01-PLAN.md — VM configuration and detection infrastructure
-- [x] 04-02-PLAN.md — VM provisioning and removal functions
-- [x] 04-03-PLAN.md — Multi-VM orchestrator for complete lab setup
-- [x] 04-04-PLAN.md — Aggressive cleanup for reliable provisioning
-
-### Phase 5: Domain Configuration
-**Goal**: Deploy Active Directory domain controller with DNS and join member servers
-**Depends on**: Phase 4
-**Requirements**: BUILD-02
-**Success Criteria** (what must be TRUE):
-  1. DC promotes to domain controller with "simplelab.local" domain
-  2. DNS service is running and resolving on domain controller
-  3. Member servers (Server 2019, Win 11) are joined to the domain
-  4. Domain is functional after single build command completes
+  1. Default passwords removed from config — deployment fails if password not provided via environment variable or parameter
+  2. SSH operations use accept-new or known_hosts — never StrictHostKeyChecking=no
+  3. All external downloads validate SHA256 checksums before execution
+  4. Credentials never appear in plain text in log output or run artifacts
 **Plans**: TBD
 
 Plans:
-- [x] 05-01: DC promotion automation
-- [x] 05-02: DNS configuration
-- [x] 05-03: Domain join automation
-- [x] 05-04: Domain health validation
+- [ ] 02-01: [To be planned]
 
-### Phase 6: Lifecycle Operations
-**Goal**: Enable start, stop, restart, and status operations for lab VMs
-**Depends on**: Phase 4
-**Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04, NET-03
+### Phase 3: Core Lifecycle Integration
+**Goal**: Bootstrap → Deploy → Use → Teardown completes end-to-end on clean Windows host without errors
+**Depends on**: Phase 2
+**Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04, LIFE-05, CLI-01, CLI-02, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CLI-08, CLI-09, NET-01, NET-02, NET-03, NET-04, NET-05
 **Success Criteria** (what must be TRUE):
-  1. User can start all lab VMs with single command
-  2. User can stop all lab VMs with single command
-  3. User can restart individual VMs by name
-  4. User sees status table showing running/stopped/off state for all VMs
+  1. Bootstrap action installs prerequisites, creates directories, validates environment without errors
+  2. Deploy action provisions VMs with correct hardware specs, network config, and domain join
+  3. Quick mode restores LabReady snapshot and auto-heals infrastructure gaps reliably
+  4. Teardown removes all lab resources cleanly (VMs, checkpoints, vSwitch, NAT) with no orphans
+  5. Re-deploy after teardown succeeds (idempotent infrastructure creation)
+  6. Health check reports accurate status with actionable diagnostics
+  7. All destructive actions require confirmation tokens before executing
+  8. Error handling uses try-catch on critical operations with context-aware messages
+  9. Network infrastructure (vSwitch, NAT, static IPs, DNS) configures correctly and validates connectivity
 **Plans**: TBD
 
 Plans:
-- [x] 06-01: Individual VM restart
-- [x] 06-02: Enhanced VM operations
-- [x] 06-03: Lab control functions
-- [x] 06-04: Status display improvements
+- [ ] 03-01: [To be planned]
 
-### Phase 7: Teardown Operations
-**Goal**: Provide commands for VM removal and clean slate reset
-**Depends on**: Phase 4
-**Requirements**: LIFE-05, LIFE-06
+### Phase 4: Role Provisioning
+**Goal**: All 11 Windows/Linux roles provision successfully with graceful error handling
+**Depends on**: Phase 3
+**Requirements**: ROLE-01, ROLE-02, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07, ROLE-08, ROLE-09, ROLE-10, ROLE-11
 **Success Criteria** (what must be TRUE):
-  1. User can remove lab VMs while preserving ISOs and templates
-  2. User can run clean slate command to remove VMs, checkpoints, and vSwitch
-  3. User is prompted for confirmation before destructive operations
-  4. Teardown completes without leaving orphaned Hyper-V artifacts
+  1. DC role promotes domain controller with DNS and ADWS services running
+  2. SQL role installs SQL Server with configured SA account
+  3. IIS, WSUS, DHCP, FileServer, PrintServer, DSC, Jumpbox roles install and configure correctly
+  4. Client role joins domain as workstation
+  5. All roles handle missing prerequisites gracefully with clear error messages
 **Plans**: TBD
 
 Plans:
-- [x] 07-01: VM removal command (preserves templates)
-- [x] 07-02: Clean slate command (removes everything)
-- [x] 07-03: Teardown confirmation UX
-- [x] 07-04: Artifact cleanup validation
+- [ ] 04-01: [To be planned]
 
-### Phase 8: Snapshot Management
-**Goal**: Enable lab snapshots for quick rollback to known-good states
+### Phase 5: GUI Integration
+**Goal**: WPF GUI provides full feature parity with CLI — all actions accessible and functional from both interfaces
+**Depends on**: Phase 4
+**Requirements**: GUI-01, GUI-02, GUI-03, GUI-04, GUI-05, GUI-06, GUI-07, GUI-08
+**Success Criteria** (what must be TRUE):
+  1. Dashboard view loads and polls VM status every 5 seconds without crashes
+  2. Actions view populates dropdown and executes all 25+ actions correctly
+  3. Customize view loads template editor, creates/saves/applies templates without errors
+  4. Settings view persists theme, admin username, preferences to gui-settings.json
+  5. Logs view displays color-coded entries from in-memory log list
+  6. View switching works reliably between all views without state corruption
+  7. Script-scoped variable closures captured correctly in all event handlers
+  8. CLI and GUI achieve feature parity — no capability gaps between interfaces
+**Plans**: TBD
+
+Plans:
+- [ ] 05-01: [To be planned]
+
+### Phase 6: Multi-Host Coordination
+**Goal**: Coordinator dispatch routes operations to correct target hosts with scoped safety gates
 **Depends on**: Phase 5
-**Requirements**: LIFE-07, LIFE-08
+**Requirements**: MH-01, MH-02, MH-03, MH-04, MH-05
 **Success Criteria** (what must be TRUE):
-  1. User can create snapshot of lab at "LabReady" state after domain configuration
-  2. User can rollback lab to previous snapshot with single command
-  3. Rollback completes in under 2 minutes
-  4. User sees list of available snapshots before rollback selection
+  1. Host inventory file loads and validates remote host entries
+  2. Coordinator dispatch routes operations to correct target hosts
+  3. Dispatch modes (off/canary/enforced) behave as documented
+  4. Scoped confirmation tokens validate per-host safety gates
+  5. Remote operations handle connectivity failures gracefully with clear messages
 **Plans**: TBD
 
 Plans:
-- [x] 08-01: LabReady checkpoint automation
-
-### Phase 9: User Experience
-**Goal**: Deliver menu-driven interface and non-interactive CLI mode
-**Depends on**: Phase 6, Phase 7, Phase 8
-**Requirements**: UX-02, UX-04
-**Success Criteria** (what must be TRUE):
-  1. User sees interactive menu with numbered options for all operations (build, start, stop, status, snapshot, rollback, teardown)
-  2. User can run tool non-interactively with CLI flags (e.g., --build, --stop, --status)
-  3. Menu displays current lab status at top (VMs running/stopped)
-  4. Non-interactive mode returns appropriate exit codes for automation
-**Plans**: TBD
-
-Plans:
-- [x] 09-01: User Experience - Menu and CLI
+- [ ] 06-01: [To be planned]
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Project Foundation | 3/3 | Complete | 2026-02-09 |
-| 2. Pre-flight Validation | 3/3 | Complete | 2026-02-09 |
-| 3. Network Infrastructure | 3/3 | Complete | 2026-02-10 |
-| 4. VM Provisioning | 4/4 | Complete | 2026-02-09 |
-| 5. Domain Configuration | 4/4 | Complete | 2026-02-09 |
-| 6. Lifecycle Operations | 4/4 | Complete | 2026-02-10 |
-| 7. Teardown Operations | 4/4 | Complete | 2026-02-10 |
-| 8. Snapshot Management | 1/1 | Complete | 2026-02-10 |
-| 9. User Experience | 1/1 | Complete | 2026-02-10 |
+| 1. Cleanup & Config Foundation | 0/0 | Not started | - |
+| 2. Security Hardening | 0/0 | Not started | - |
+| 3. Core Lifecycle Integration | 0/0 | Not started | - |
+| 4. Role Provisioning | 0/0 | Not started | - |
+| 5. GUI Integration | 0/0 | Not started | - |
+| 6. Multi-Host Coordination | 0/0 | Not started | - |
+
+---
+*Roadmap created: 2026-02-16*
+*Depth: standard (6 phases)*
+*Coverage: 56/56 v1 requirements mapped*
