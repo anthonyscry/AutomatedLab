@@ -121,9 +121,6 @@ function Test-DCPromotionPrereqs {
                 Message = "ADDSDeployment module is available"
             }
 
-            # Only continue if we got this far successfully
-            $result.Duration = (New-TimeSpan -Start $startTime -End (Get-Date))
-            return $result
         }
         catch {
             $result.Status = "PowerShellDirectFailed"
