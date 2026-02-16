@@ -203,7 +203,7 @@ function Switch-View {
     # ── Post-load initialisation stubs ──────────────────────────────
     switch ($ViewName) {
         'Dashboard' { Initialize-DashboardView }
-        'Actions'   { <# Initialize-ActionsView when ready #> }
+        'Actions'   { Initialize-ActionsView }
         'Logs'      { <# Initialize-LogsView when ready #> }
         'Settings'  { <# Initialize-SettingsView when ready #> }
     }
@@ -584,6 +584,155 @@ function Initialize-DashboardView {
         }
     })
     $script:VMPollTimer.Start()
+}
+
+# ── Actions view initialisation ────────────────────────────────────────
+$script:ActionsInitialized = $false
+
+function Initialize-ActionsView {
+    <#
+    .SYNOPSIS
+        Wires up the Actions view controls: combo boxes, toggles, text boxes,
+        command preview, and the Run button with destructive-action safety gates.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($script:ActionsInitialized) { return }
+
+    $viewElement = $script:contentArea.Children[0]
+
+    # ── Resolve named controls ────────────────────────────────────
+    $cmbAction          = $viewElement.FindName('cmbAction')
+    $cmbMode            = $viewElement.FindName('cmbMode')
+    $tglNonInteractive  = $viewElement.FindName('tglNonInteractive')
+    $tglForce           = $viewElement.FindName('tglForce')
+    $tglDryRun          = $viewElement.FindName('tglDryRun')
+    $expAdvanced        = $viewElement.FindName('expAdvanced')
+    $tglRemoveNetwork   = $viewElement.FindName('tglRemoveNetwork')
+    $tglCoreOnly        = $viewElement.FindName('tglCoreOnly')
+    $txtProfilePath     = $viewElement.FindName('txtProfilePath')
+    $txtDefaultsFile    = $viewElement.FindName('txtDefaultsFile')
+    $txtTargetHosts     = $viewElement.FindName('txtTargetHosts')
+    $txtConfirmationToken = $viewElement.FindName('txtConfirmationToken')
+    $txtCommandPreview  = $viewElement.FindName('txtCommandPreview')
+    $btnRunAction       = $viewElement.FindName('btnRunAction')
+
+    # ── Populate combo boxes ──────────────────────────────────────
+    $actions = @('deploy', 'teardown', 'status', 'health', 'setup',
+                 'one-button-setup', 'one-button-reset', 'blow-away')
+    foreach ($a in $actions) { $cmbAction.Items.Add($a) | Out-Null }
+    $cmbAction.SelectedIndex = 0
+
+    $modes = @('quick', 'full')
+    foreach ($m in $modes) { $cmbMode.Items.Add($m) | Out-Null }
+    $cmbMode.SelectedIndex = 0
+
+    # ── Collect options from controls ─────────────────────────────
+    $getOptions = {
+        $opts = @{
+            Action            = $cmbAction.SelectedItem
+            Mode              = $cmbMode.SelectedItem
+            NonInteractive    = [bool]$tglNonInteractive.IsChecked
+            Force             = [bool]$tglForce.IsChecked
+            DryRun            = [bool]$tglDryRun.IsChecked
+            RemoveNetwork     = [bool]$tglRemoveNetwork.IsChecked
+            CoreOnly          = [bool]$tglCoreOnly.IsChecked
+            ProfilePath       = $txtProfilePath.Text
+            DefaultsFile      = $txtDefaultsFile.Text
+            TargetHosts       = $txtTargetHosts.Text
+            ConfirmationToken = $txtConfirmationToken.Text
+        }
+        return $opts
+    }.GetNewClosure()
+
+    # ── Update command preview ────────────────────────────────────
+    $appScriptPath = Join-Path $script:RepoRoot 'OpenCodeLab.ps1'
+
+    $updatePreview = {
+        $opts = & $getOptions
+        $preview = New-LabGuiCommandPreview -AppScriptPath $appScriptPath -Options $opts
+        $txtCommandPreview.Text = $preview
+    }.GetNewClosure()
+
+    # ── Update layout (auto-expand advanced for destructive) ──────
+    $updateLayout = {
+        $opts = & $getOptions
+        $layout = Get-LabGuiLayoutState -Action $opts.Action -Mode $opts.Mode `
+                      -ProfilePath $opts.ProfilePath -TargetHosts $opts.TargetHosts
+        if ($layout.ShowAdvanced) {
+            $expAdvanced.IsExpanded = $true
+        }
+    }.GetNewClosure()
+
+    # ── Wire events ───────────────────────────────────────────────
+    $onChanged = {
+        & $updatePreview
+        & $updateLayout
+    }.GetNewClosure()
+
+    $cmbAction.Add_SelectionChanged($onChanged)
+    $cmbMode.Add_SelectionChanged($onChanged)
+
+    $tglNonInteractive.Add_Click({ & $updatePreview }.GetNewClosure())
+    $tglForce.Add_Click({ & $updatePreview }.GetNewClosure())
+    $tglDryRun.Add_Click({ & $updatePreview }.GetNewClosure())
+    $tglRemoveNetwork.Add_Click({ & $updatePreview }.GetNewClosure())
+    $tglCoreOnly.Add_Click({ & $updatePreview }.GetNewClosure())
+
+    $txtProfilePath.Add_TextChanged($onChanged)
+    $txtDefaultsFile.Add_TextChanged({ & $updatePreview }.GetNewClosure())
+    $txtTargetHosts.Add_TextChanged($onChanged)
+    $txtConfirmationToken.Add_TextChanged({ & $updatePreview }.GetNewClosure())
+
+    # ── Run button handler ────────────────────────────────────────
+    $btnRunAction.Add_Click({
+        $opts = & $getOptions
+
+        # Safety gate for destructive actions
+        $guard = Get-LabGuiDestructiveGuard -Action $opts.Action -Mode $opts.Mode `
+                     -ProfilePath $opts.ProfilePath
+        if ($guard.RequiresConfirmation) {
+            $result = [System.Windows.MessageBox]::Show(
+                "This will perform: $($guard.ConfirmationLabel).`n`nAre you sure you want to continue?",
+                'Confirm Destructive Action',
+                [System.Windows.MessageBoxButton]::YesNo,
+                [System.Windows.MessageBoxImage]::Warning
+            )
+            if ($result -ne [System.Windows.MessageBoxResult]::Yes) { return }
+        }
+
+        # Build argument list and launch elevated
+        $argList = New-LabAppArgumentList -Options $opts
+        $scriptPath = Join-Path $script:RepoRoot 'OpenCodeLab.ps1'
+        $fullArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath) + $argList
+
+        try {
+            Start-Process powershell.exe -Verb RunAs -ArgumentList $fullArgs
+        }
+        catch {
+            [System.Windows.MessageBox]::Show(
+                "Failed to launch action: $_",
+                'Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Error
+            ) | Out-Null
+            return
+        }
+
+        # Log the action if Add-LogEntry is available
+        if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+            Add-LogEntry -Message "Launched: $($opts.Action) ($($opts.Mode))"
+        }
+
+        # Switch to Logs view
+        Switch-View -ViewName 'Logs'
+    }.GetNewClosure())
+
+    # ── Initial preview ───────────────────────────────────────────
+    & $updatePreview
+
+    $script:ActionsInitialized = $true
 }
 
 # ── Default view ────────────────────────────────────────────────────────
