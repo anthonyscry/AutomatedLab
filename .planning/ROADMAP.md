@@ -31,10 +31,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. GlobalLabConfig is single source of truth with validation on load
   4. All entry points use consistent helper sourcing pattern (standardized)
   5. Template system reads/writes JSON with schema validation
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: [To be planned]
+- [ ] 01-01-PLAN.md -- Delete .archive/, untrack artifacts, remove dead code
+- [ ] 01-02-PLAN.md -- Standardize helper sourcing with fail-fast error handling
+- [ ] 01-03-PLAN.md -- Unify config to $GlobalLabConfig, add validation, remove legacy vars
+- [ ] 01-04-PLAN.md -- Template JSON validation on read and write
 
 ### Phase 2: Security Hardening
 **Goal**: Lab deployments use secure defaults with no hardcoded credentials or insecure downloads
@@ -124,7 +127,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cleanup & Config Foundation | 0/0 | Not started | - |
+| 1. Cleanup & Config Foundation | 0/4 | Planning complete | - |
 | 2. Security Hardening | 0/0 | Not started | - |
 | 3. Core Lifecycle Integration | 0/0 | Not started | - |
 | 4. Role Provisioning | 0/0 | Not started | - |
