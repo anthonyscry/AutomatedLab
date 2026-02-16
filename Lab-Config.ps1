@@ -172,6 +172,12 @@ $GlobalLabConfig = @{
         HealthCheckTimeoutSeconds = 60
     }
 
+    SSH = @{
+        # Changing KnownHostsPath moves where lab SSH host keys are stored.
+        # This file is cleared on teardown so redeploy gets fresh keys.
+        KnownHostsPath = 'C:\LabSources\SSHKeys\lab_known_hosts'
+    }
+
     SoftwarePackages = @{
         Git = @{
             Version = '2.47.1.2'
