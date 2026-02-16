@@ -446,6 +446,9 @@ $LabInstallUser = $GlobalLabConfig.Credentials.InstallUser
 $AdminPassword = $GlobalLabConfig.Credentials.AdminPassword
 $SqlSaPassword = $GlobalLabConfig.Credentials.SqlSaPassword
 $LinuxUser = $GlobalLabConfig.Credentials.LinuxUser
+if ($AdminPassword -eq 'SimpleLab123!') {
+    Write-Warning "[Lab-Config] AdminPassword is set to the default value. Set the '$($GlobalLabConfig.Credentials.PasswordEnvVar)' environment variable or update Lab-Config.ps1 for production use."
+}
 $GitName = $GlobalLabConfig.Credentials.GitName
 $GitEmail = $GlobalLabConfig.Credentials.GitEmail
 
