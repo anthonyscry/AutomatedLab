@@ -127,7 +127,7 @@ function New-LabNAT {
     }
 
     if (-not $results.SwitchCreated) {
-        New-VMSwitch -Name $SwitchName -SwitchType Internal | Out-Null
+        $null = New-VMSwitch -Name $SwitchName -SwitchType Internal
         Write-LabStatus -Status OK -Message "Created VMSwitch: $SwitchName (Internal)" -Indent 0
         $results.SwitchCreated = $true
     }
@@ -143,7 +143,7 @@ function New-LabNAT {
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
 
         # Add gateway IP
-        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIP -PrefixLength $prefixLength | Out-Null
+        $null = New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIP -PrefixLength $prefixLength
         Write-LabStatus -Status OK -Message "Set host gateway IP: $GatewayIP on $ifAlias" -Indent 0
         $results.GatewayConfigured = $true
     } else {
@@ -156,7 +156,7 @@ function New-LabNAT {
     if ($existingNat) {
         if ($existingNat.InternalIPInterfaceAddressPrefix -ne $AddressSpace) {
             if ($Force) {
-                Remove-NetNat -Name $NatName -Confirm:$false | Out-Null
+                $null = Remove-NetNat -Name $NatName -Confirm:$false
                 $natRemovalDeadline = [datetime]::Now.AddSeconds(10)
                 while ([datetime]::Now -lt $natRemovalDeadline) {
                     $natCheck = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
@@ -182,7 +182,7 @@ function New-LabNAT {
     }
 
     if (-not $results.NATCreated) {
-        New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
+        $null = New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace
         Write-LabStatus -Status OK -Message "Created NAT: $NatName for $AddressSpace" -Indent 0
         $results.NATCreated = $true
     }

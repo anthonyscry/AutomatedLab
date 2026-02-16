@@ -11,7 +11,8 @@ function Ensure-VMRunning {
         if ($vm.State -ne 'Running') {
             if ($AutoStart) {
                 try {
-                    Start-VM -Name $n -ErrorAction Stop | Out-Null
+                    Start-VM -Name $n -ErrorAction Stop
+                    Write-Verbose "[Ensure-VMRunning] Started VM '$n'"
                 } catch {
                     # VM may have started between our check and this call
                     $refreshedVm = Get-VM -Name $n -ErrorAction SilentlyContinue
