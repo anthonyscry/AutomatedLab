@@ -211,7 +211,7 @@ function Switch-View {
         'Dashboard' { Initialize-DashboardView }
         'Actions'   { Initialize-ActionsView }
         'Logs'      { Initialize-LogsView }
-        'Settings'  { <# Initialize-SettingsView when ready #> }
+        'Settings'  { Initialize-SettingsView }
     }
 }
 
@@ -852,6 +852,149 @@ function Initialize-LogsView {
 
     # Render existing entries
     Render-LogEntries
+}
+
+# ── Settings view initialisation ─────────────────────────────────────────
+function Initialize-SettingsView {
+    <#
+    .SYNOPSIS
+        Populates the Settings view controls from GlobalLabConfig and config.json,
+        wires browse buttons, theme toggle, and save handler.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $viewElement = $script:contentArea.Children[0]
+
+    # ── Resolve named controls ────────────────────────────────────
+    $txtLabRoot       = $viewElement.FindName('txtLabRoot')
+    $txtIsoServer     = $viewElement.FindName('txtIsoServer')
+    $txtIsoWin11      = $viewElement.FindName('txtIsoWin11')
+    $btnBrowseServer  = $viewElement.FindName('btnBrowseServer')
+    $btnBrowseWin11   = $viewElement.FindName('btnBrowseWin11')
+    $txtSwitchName    = $viewElement.FindName('txtSwitchName')
+    $txtSubnet        = $viewElement.FindName('txtSubnet')
+    $txtGatewayIP     = $viewElement.FindName('txtGatewayIP')
+    $txtAdminPassword = $viewElement.FindName('txtAdminPassword')
+    $tglSettingsTheme = $viewElement.FindName('tglSettingsTheme')
+    $btnSaveSettings  = $viewElement.FindName('btnSaveSettings')
+
+    # ── Populate from GlobalLabConfig ─────────────────────────────
+    if (Test-Path variable:GlobalLabConfig) {
+        $txtLabRoot.Text    = $GlobalLabConfig.Paths.LabRoot
+        $txtSwitchName.Text = $GlobalLabConfig.Network.SwitchName
+        $txtSubnet.Text     = $GlobalLabConfig.Network.AddressSpace
+        $txtGatewayIP.Text  = $GlobalLabConfig.Network.GatewayIp
+        $txtAdminPassword.Password = $GlobalLabConfig.Credentials.AdminPassword
+    }
+
+    # ── Populate ISO paths from .planning/config.json ─────────────
+    $configJsonPath = Join-Path $script:RepoRoot '.planning' 'config.json'
+    if (Test-Path $configJsonPath) {
+        try {
+            $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
+            if ($configJson.IsoPaths) {
+                $txtIsoServer.Text = $configJson.IsoPaths.Server2019
+                $txtIsoWin11.Text  = $configJson.IsoPaths.Windows11
+            }
+        }
+        catch {
+            # Silently ignore parse errors
+        }
+    }
+
+    # ── Theme toggle ──────────────────────────────────────────────
+    $tglSettingsTheme.IsChecked = ($script:CurrentTheme -eq 'Dark')
+
+    $tglSettingsTheme.Add_Click({
+        $newTheme = if ($tglSettingsTheme.IsChecked) { 'Dark' } else { 'Light' }
+        Set-AppTheme -Theme $newTheme
+
+        $settings = Get-GuiSettings
+        $settings['Theme'] = $newTheme
+        Save-GuiSettings -Settings $settings
+
+        # Sync sidebar theme toggle
+        $script:btnThemeToggle.IsChecked = $tglSettingsTheme.IsChecked
+    }.GetNewClosure())
+
+    # ── Browse buttons (ISO file dialogs) ─────────────────────────
+    Add-Type -AssemblyName System.Windows.Forms
+
+    $btnBrowseServer.Add_Click({
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Title  = 'Select Server 2019 ISO'
+        $dlg.Filter = 'ISO Files (*.iso)|*.iso|All Files (*.*)|*.*'
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $txtIsoServer.Text = $dlg.FileName
+        }
+    }.GetNewClosure())
+
+    $btnBrowseWin11.Add_Click({
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Title  = 'Select Windows 11 ISO'
+        $dlg.Filter = 'ISO Files (*.iso)|*.iso|All Files (*.*)|*.*'
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $txtIsoWin11.Text = $dlg.FileName
+        }
+    }.GetNewClosure())
+
+    # ── Save button handler ───────────────────────────────────────
+    $btnSaveSettings.Add_Click({
+        # Validate gateway IP format
+        $gwIP = $txtGatewayIP.Text.Trim()
+        if ($gwIP -and $gwIP -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
+            [System.Windows.MessageBox]::Show(
+                "Invalid Gateway IP format. Please enter a valid IPv4 address (e.g. 10.0.0.1).",
+                'Validation Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
+        # Update .planning/config.json ISO paths
+        $configJsonPath = Join-Path $script:RepoRoot '.planning' 'config.json'
+        try {
+            if (Test-Path $configJsonPath) {
+                $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
+            } else {
+                $configJson = [PSCustomObject]@{ IsoPaths = [PSCustomObject]@{ Server2019 = ''; Windows11 = '' } }
+            }
+
+            $configJson.IsoPaths.Server2019 = $txtIsoServer.Text
+            $configJson.IsoPaths.Windows11  = $txtIsoWin11.Text
+
+            $parentDir = Split-Path -Parent $configJsonPath
+            if (-not (Test-Path $parentDir)) {
+                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            }
+            $configJson | ConvertTo-Json -Depth 10 | Set-Content -Path $configJsonPath -Encoding UTF8
+
+            [System.Windows.MessageBox]::Show(
+                'Settings saved successfully.',
+                'Settings',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Information
+            ) | Out-Null
+
+            if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+                Add-LogEntry -Message 'Settings saved' -Level 'Success'
+            }
+        }
+        catch {
+            [System.Windows.MessageBox]::Show(
+                "Failed to save settings: $_",
+                'Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Error
+            ) | Out-Null
+
+            if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+                Add-LogEntry -Message "Settings save failed: $_" -Level 'Error'
+            }
+        }
+    }.GetNewClosure())
 }
 
 # ── Default view ────────────────────────────────────────────────────────

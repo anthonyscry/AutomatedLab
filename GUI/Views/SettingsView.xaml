@@ -1,0 +1,173 @@
+<ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              VerticalScrollBarVisibility="Auto"
+              HorizontalScrollBarVisibility="Disabled">
+
+    <StackPanel MaxWidth="700" Margin="0,0,0,24">
+
+        <!-- ── Header ──────────────────────────────────────────── -->
+        <TextBlock Text="Settings"
+                   Style="{DynamicResource HeaderLabel}"
+                   Margin="0,0,0,16" />
+
+        <!-- ── PATHS section ───────────────────────────────────── -->
+        <TextBlock Text="PATHS"
+                   Foreground="{DynamicResource AccentBrush}"
+                   FontSize="12"
+                   FontWeight="Bold"
+                   Margin="0,0,0,8" />
+
+        <Border Style="{DynamicResource CardBorder}" Margin="0,0,0,16">
+            <StackPanel>
+                <!-- Lab Root -->
+                <TextBlock Text="Lab Root"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           Margin="0,0,0,4" />
+                <TextBox x:Name="txtLabRoot"
+                         Style="{DynamicResource ModernTextBox}"
+                         Margin="0,0,0,12" />
+
+                <!-- Server 2019 ISO -->
+                <TextBlock Text="Server 2019 ISO"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           Margin="0,0,0,4" />
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="txtIsoServer"
+                             Grid.Column="0"
+                             Style="{DynamicResource ModernTextBox}"
+                             Margin="0,0,8,0" />
+                    <Button x:Name="btnBrowseServer"
+                            Grid.Column="1"
+                            Content="Browse"
+                            Style="{DynamicResource ModernButton}"
+                            Padding="12,6" />
+                </Grid>
+
+                <!-- Windows 11 ISO -->
+                <TextBlock Text="Windows 11 ISO"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           Margin="0,0,0,4" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="txtIsoWin11"
+                             Grid.Column="0"
+                             Style="{DynamicResource ModernTextBox}"
+                             Margin="0,0,8,0" />
+                    <Button x:Name="btnBrowseWin11"
+                            Grid.Column="1"
+                            Content="Browse"
+                            Style="{DynamicResource ModernButton}"
+                            Padding="12,6" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ── NETWORK section ─────────────────────────────────── -->
+        <TextBlock Text="NETWORK"
+                   Foreground="{DynamicResource AccentBrush}"
+                   FontSize="12"
+                   FontWeight="Bold"
+                   Margin="0,0,0,8" />
+
+        <Border Style="{DynamicResource CardBorder}" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Switch Name"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12"
+                               Margin="0,0,0,4" />
+                    <TextBox x:Name="txtSwitchName"
+                             Style="{DynamicResource ModernTextBox}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Subnet"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12"
+                               Margin="0,0,0,4" />
+                    <TextBox x:Name="txtSubnet"
+                             Style="{DynamicResource ModernTextBox}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Gateway IP"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12"
+                               Margin="0,0,0,4" />
+                    <TextBox x:Name="txtGatewayIP"
+                             Style="{DynamicResource ModernTextBox}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── CREDENTIALS section ─────────────────────────────── -->
+        <TextBlock Text="CREDENTIALS"
+                   Foreground="{DynamicResource AccentBrush}"
+                   FontSize="12"
+                   FontWeight="Bold"
+                   Margin="0,0,0,8" />
+
+        <Border Style="{DynamicResource CardBorder}" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Admin Password"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           Margin="0,0,0,4" />
+                <PasswordBox x:Name="txtAdminPassword"
+                             Background="{DynamicResource InputBackgroundBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}"
+                             BorderThickness="1"
+                             Padding="8,6"
+                             FontSize="14" />
+            </StackPanel>
+        </Border>
+
+        <!-- ── APPEARANCE section ──────────────────────────────── -->
+        <TextBlock Text="APPEARANCE"
+                   Foreground="{DynamicResource AccentBrush}"
+                   FontSize="12"
+                   FontWeight="Bold"
+                   Margin="0,0,0,8" />
+
+        <Border Style="{DynamicResource CardBorder}" Margin="0,0,0,24">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <ToggleButton x:Name="tglSettingsTheme"
+                              Style="{DynamicResource ToggleSwitch}" />
+                <TextBlock Text="Dark Mode"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- ── Save button ─────────────────────────────────────── -->
+        <Button x:Name="btnSaveSettings"
+                Content="Save Settings"
+                Style="{DynamicResource ModernButton}"
+                Width="160"
+                Height="40"
+                FontSize="15"
+                HorizontalAlignment="Left" />
+
+    </StackPanel>
+</ScrollViewer>
