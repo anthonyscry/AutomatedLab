@@ -38,7 +38,7 @@ if ($Mode -eq 'quick') {
 # Config loaded from Lab-Config.ps1
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
-$LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
+$LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'labadmin' } else { $LinuxUser }
 # Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
 # Lab-Config.ps1 (dot-sourced above) sets $AdminPassword if our param was empty.
 $AdminPassword = Resolve-LabPassword -Password $AdminPassword
@@ -303,8 +303,8 @@ try {
         -Network $LabSwitch `
         -IpAddress $Win11_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
         -OperatingSystem 'Windows 11 Enterprise Evaluation' `
-        -Memory $CL_Memory -MinMemory $CL_MinMemory -MaxMemory $CL_MaxMemory `
-        -Processors $CL_Processors
+        -Memory $Client_Memory -MinMemory $Client_MinMemory -MaxMemory $Client_MaxMemory `
+        -Processors $Client_Processors
 
     # NOTE: LIN1 is NOT added to AutomatedLab machine definitions
     # It will be created manually after Install-Lab to work around
