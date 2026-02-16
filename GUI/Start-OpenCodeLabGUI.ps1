@@ -622,6 +622,7 @@ function Initialize-ActionsView {
     $txtTargetHosts     = $viewElement.FindName('txtTargetHosts')
     $txtConfirmationToken = $viewElement.FindName('txtConfirmationToken')
     $txtCommandPreview  = $viewElement.FindName('txtCommandPreview')
+    $txtDescription     = $viewElement.FindName('txtDescription')
     $btnRunAction       = $viewElement.FindName('btnRunAction')
 
     # ── Populate combo boxes ──────────────────────────────────────
@@ -633,6 +634,42 @@ function Initialize-ActionsView {
     $modes = @('quick', 'full')
     foreach ($m in $modes) { $cmbMode.Items.Add($m) | Out-Null }
     $cmbMode.SelectedIndex = 0
+
+    # ── Action/mode descriptions ─────────────────────────────────
+    $actionDescriptions = @{
+        'deploy'           = 'Create and configure lab VMs. Builds the virtual switch, provisions VMs from ISOs, joins them to the domain, and installs roles.'
+        'teardown'         = 'Remove lab VMs and clean up resources. Stops and deletes VMs, removes virtual disks, and optionally removes the virtual switch.'
+        'status'           = 'Show current state of all lab VMs. Displays power state, IP addresses, memory usage, and network connectivity.'
+        'health'           = 'Run health checks against the lab environment. Verifies domain connectivity, DNS resolution, service status, and network configuration.'
+        'setup'            = 'Install prerequisites and configure the host. Enables Hyper-V, creates directories, downloads ISOs, and validates the environment.'
+        'one-button-setup' = 'Full automated lab deployment from scratch. Runs setup, then deploy in sequence — zero interaction required.'
+        'one-button-reset' = 'Tear down and redeploy the entire lab. Destroys existing VMs, then runs a fresh one-button-setup.'
+        'blow-away'        = 'DESTRUCTIVE: Complete removal of all lab resources. Deletes VMs, virtual switch, NAT rules, and all lab files. Requires confirmation token.'
+    }
+    $modeDescriptions = @{
+        'quick' = 'Quick mode: Skip VMs that already exist and are running. Faster for incremental changes.'
+        'full'  = 'Full mode: Rebuild all VMs regardless of current state. Use when you need a clean environment.'
+    }
+    $toggleDescriptions = @{
+        'NonInteractive' = 'Suppress all confirmation prompts and run unattended.'
+        'Force'          = 'Override safety checks and force the operation to proceed.'
+        'DryRun'         = 'Preview what would happen without making any changes.'
+        'RemoveNetwork'  = 'Also remove the virtual switch and NAT configuration during teardown.'
+        'CoreOnly'       = 'Only deploy core VMs (dc1, svr1) — skip workstation and Linux VMs.'
+    }
+
+    $updateDescription = {
+        $action = $cmbAction.SelectedItem
+        $mode   = $cmbMode.SelectedItem
+        $parts  = @()
+        if ($action -and $actionDescriptions.ContainsKey($action)) {
+            $parts += $actionDescriptions[$action]
+        }
+        if ($mode -and $modeDescriptions.ContainsKey($mode)) {
+            $parts += $modeDescriptions[$mode]
+        }
+        $txtDescription.Text = ($parts -join "`n`n")
+    }.GetNewClosure()
 
     # ── Collect options from controls ─────────────────────────────
     $getOptions = {
@@ -681,6 +718,7 @@ function Initialize-ActionsView {
     $onChanged = {
         & $updatePreview
         & $updateLayout
+        & $updateDescription
     }.GetNewClosure()
 
     $cmbAction.Add_SelectionChanged($onChanged)
@@ -741,8 +779,9 @@ function Initialize-ActionsView {
         Switch-View -ViewName 'Logs'
     }.GetNewClosure())
 
-    # ── Initial preview ───────────────────────────────────────────
+    # ── Initial preview + description ────────────────────────────
     & $updatePreview
+    & $updateDescription
 
     $script:ActionsInitialized = $true
 }
