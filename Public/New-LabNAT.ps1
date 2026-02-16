@@ -21,6 +21,7 @@ function New-LabNAT {
         [string]$SwitchName,
 
         [Parameter()]
+        [ValidatePattern('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')]
         [string]$GatewayIP,
 
         [Parameter()]
