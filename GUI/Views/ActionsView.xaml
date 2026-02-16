@@ -11,7 +11,7 @@
                    Margin="0,0,0,16" />
 
         <!-- ── Action + Mode row ───────────────────────────────── -->
-        <Grid Margin="0,0,0,16">
+        <Grid Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="12" />
@@ -36,6 +36,20 @@
                           Style="{DynamicResource ModernComboBox}" />
             </StackPanel>
         </Grid>
+
+        <!-- ── Description box ───────────────────────────────── -->
+        <Border Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="12,10"
+                Margin="0,0,0,16">
+            <TextBlock x:Name="txtDescription"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       Text="Select an action and mode to see a description." />
+        </Border>
 
         <!-- ── Toggle switches card ────────────────────────────── -->
         <Border Style="{DynamicResource CardBorder}" Margin="0,0,0,16">
