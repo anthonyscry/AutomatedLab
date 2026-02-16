@@ -77,10 +77,10 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Security
 
-- [ ] **SEC-01**: Default passwords removed from config — environment variable or prompt required
-- [ ] **SEC-02**: SSH operations use secure host key checking (accept-new minimum, known_hosts preferred)
-- [ ] **SEC-03**: All external downloads validate SHA256 checksums before execution
-- [ ] **SEC-04**: Credentials never appear in plain text in log output or run artifacts
+- [x] **SEC-01**: Default passwords removed from config — environment variable or prompt required
+- [x] **SEC-02**: SSH operations use secure host key checking (accept-new minimum, known_hosts preferred)
+- [x] **SEC-03**: All external downloads validate SHA256 checksums before execution
+- [x] **SEC-04**: Credentials never appear in plain text in log output or run artifacts
 
 ### Cleanup
 
@@ -129,10 +129,10 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 | CFG-02 | Phase 1 | Done |
 | CFG-03 | Phase 1 | Done |
 | CFG-04 | Phase 1 | Done |
-| SEC-01 | Phase 2 | Pending |
-| SEC-02 | Phase 2 | Pending |
-| SEC-03 | Phase 2 | Pending |
-| SEC-04 | Phase 2 | Pending |
+| SEC-01 | Phase 2 | Done |
+| SEC-02 | Phase 2 | Done |
+| SEC-03 | Phase 2 | Done |
+| SEC-04 | Phase 2 | Done |
 | LIFE-01 | Phase 3 | Pending |
 | LIFE-02 | Phase 3 | Pending |
 | LIFE-03 | Phase 3 | Pending |

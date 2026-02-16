@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Every button, menu option, and CLI action works reliably from start to finish — bootstrap through teardown, in both GUI and CLI, on a single host or coordinated across multiple hosts.
-**Current focus:** Phase 2: Security Hardening
+**Current focus:** Phase 3: Core Lifecycle Integration
 
 ## Current Position
 
-Phase: 2 of 6 (Security Hardening)
-Plan: 3 of 3 in current phase
-Status: Complete (Phase 02 finished)
-Last activity: 2026-02-16 — Completed 02-03 (Checksum validation and credential scrubbing)
+Phase: 3 of 6 (Core Lifecycle Integration)
+Plan: 0 of 0 in current phase
+Status: Ready to plan
+Last activity: 2026-02-16 — Phase 2 complete (3/3 plans)
 
-Progress: [███░░░░░░░] 29%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -78,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-16 (execution)
-Stopped at: Completed 02-03-PLAN.md (Phase 02 complete)
+Last session: 2026-02-16 (phase transition)
+Stopped at: Phase 2 complete, ready to plan Phase 3
 Resume file: None

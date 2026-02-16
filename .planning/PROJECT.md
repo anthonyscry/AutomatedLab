@@ -31,6 +31,7 @@ Every button, menu option, and CLI action works reliably from start to finish �
 - [ ] Multi-host coordinator/dispatch system functions correctly
 - [ ] All 16 LabBuilder roles provision successfully
 - [ ] Error handling is consistent — no silent failures or unhandled exceptions
+- [x] Security hardened — password resolution chain, SSH known_hosts, checksum validation, log scrubbing — Phase 2
 - [x] Configuration system is unified (resolve dual hashtable/legacy variable pattern) — Phase 1
 - [x] Dead code and archive artifacts cleaned up — Phase 1
 - [ ] GUI and CLI feature parity — everything accessible from both interfaces
@@ -72,6 +73,10 @@ Every button, menu option, and CLI action works reliably from start to finish �
 | Unified config to $GlobalLabConfig | Eliminated dual config system, fail-fast validation | ✓ Phase 1 |
 | Standardized helper sourcing | Lab-Common.ps1 dynamic discovery, removed $OrchestrationHelperPaths | ✓ Phase 1 |
 | Template validation throws on invalid data | No soft errors, shared Test-LabTemplateData helper | ✓ Phase 1 |
+| Password resolution with interactive fallback | Keep default with warning, prompt when missing, hardcoded env var names | ✓ Phase 2 |
+| SSH accept-new with lab-specific known_hosts | Replaced UserKnownHostsFile=NUL, auto-clear on teardown | ✓ Phase 2 |
+| Mandatory download checksum validation | Removed conditional bypass, fail if no hash configured | ✓ Phase 2 |
+| Credential scrubbing in log output | Protect-LabLogString multi-layer scrubber wired into Write-RunArtifact | ✓ Phase 2 |
 
 ---
-*Last updated: 2026-02-16 after Phase 1*
+*Last updated: 2026-02-16 after Phase 2*

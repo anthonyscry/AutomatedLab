@@ -13,7 +13,7 @@ This brownfield hardening milestone transforms a 107-function PowerShell lab aut
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Cleanup & Config Foundation** - Remove dead code, unify config system, standardize helper sourcing (2026-02-16)
-- [ ] **Phase 2: Security Hardening** - Eliminate hardcoded passwords, validate checksums, secure SSH operations
+- [x] **Phase 2: Security Hardening** - Eliminate hardcoded passwords, validate checksums, secure SSH operations (2026-02-16)
 - [ ] **Phase 3: Core Lifecycle Integration** - Bootstrap → Deploy → Teardown works end-to-end with error handling
 - [ ] **Phase 4: Role Provisioning** - All 11 Windows/Linux roles provision correctly with error handling
 - [ ] **Phase 5: GUI Integration** - Dashboard, Actions, Customize, Settings, Logs work with CLI feature parity
@@ -130,7 +130,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Cleanup & Config Foundation | 4/4 | Complete | 2026-02-16 |
-| 2. Security Hardening | 0/3 | Planned | - |
+| 2. Security Hardening | 3/3 | Complete | 2026-02-16 |
 | 3. Core Lifecycle Integration | 0/0 | Not started | - |
 | 4. Role Provisioning | 0/0 | Not started | - |
 | 5. GUI Integration | 0/0 | Not started | - |
