@@ -652,19 +652,25 @@ function Initialize-ActionsView {
         return $opts
     }.GetNewClosure()
 
+    # ── Capture function references for closures ──────────────────
+    $fnCommandPreview    = Get-Command -Name New-LabGuiCommandPreview -ErrorAction Stop
+    $fnLayoutState       = Get-Command -Name Get-LabGuiLayoutState -ErrorAction Stop
+    $fnDestructiveGuard  = Get-Command -Name Get-LabGuiDestructiveGuard -ErrorAction Stop
+    $fnArgList           = Get-Command -Name New-LabAppArgumentList -ErrorAction Stop
+
     # ── Update command preview ────────────────────────────────────
     $appScriptPath = Join-Path $script:RepoRoot 'OpenCodeLab.ps1'
 
     $updatePreview = {
         $opts = & $getOptions
-        $preview = New-LabGuiCommandPreview -AppScriptPath $appScriptPath -Options $opts
+        $preview = & $fnCommandPreview -AppScriptPath $appScriptPath -Options $opts
         $txtCommandPreview.Text = $preview
     }.GetNewClosure()
 
     # ── Update layout (auto-expand advanced for destructive) ──────
     $updateLayout = {
         $opts = & $getOptions
-        $layout = Get-LabGuiLayoutState -Action $opts.Action -Mode $opts.Mode `
+        $layout = & $fnLayoutState -Action $opts.Action -Mode $opts.Mode `
                       -ProfilePath $opts.ProfilePath -TargetHosts $opts.TargetHosts
         if ($layout.ShowAdvanced) {
             $expAdvanced.IsExpanded = $true
@@ -696,7 +702,7 @@ function Initialize-ActionsView {
         $opts = & $getOptions
 
         # Safety gate for destructive actions
-        $guard = Get-LabGuiDestructiveGuard -Action $opts.Action -Mode $opts.Mode `
+        $guard = & $fnDestructiveGuard -Action $opts.Action -Mode $opts.Mode `
                      -ProfilePath $opts.ProfilePath
         if ($guard.RequiresConfirmation) {
             $result = [System.Windows.MessageBox]::Show(
@@ -709,7 +715,7 @@ function Initialize-ActionsView {
         }
 
         # Build argument list and launch elevated
-        $argList = New-LabAppArgumentList -Options $opts
+        $argList = & $fnArgList -Options $opts
         $scriptPath = Join-Path $script:RepoRoot 'OpenCodeLab.ps1'
         $fullArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath) + $argList
 
@@ -875,6 +881,7 @@ function Initialize-SettingsView {
     $txtSwitchName    = $viewElement.FindName('txtSwitchName')
     $txtSubnet        = $viewElement.FindName('txtSubnet')
     $txtGatewayIP     = $viewElement.FindName('txtGatewayIP')
+    $txtAdminUsername  = $viewElement.FindName('txtAdminUsername')
     $txtAdminPassword = $viewElement.FindName('txtAdminPassword')
     $tglSettingsTheme = $viewElement.FindName('tglSettingsTheme')
     $btnSaveSettings  = $viewElement.FindName('btnSaveSettings')
@@ -885,6 +892,7 @@ function Initialize-SettingsView {
         $txtSwitchName.Text = $GlobalLabConfig.Network.SwitchName
         $txtSubnet.Text     = $GlobalLabConfig.Network.AddressSpace
         $txtGatewayIP.Text  = $GlobalLabConfig.Network.GatewayIp
+        $txtAdminUsername.Text = $GlobalLabConfig.Credentials.InstallUser
         $txtAdminPassword.Password = $GlobalLabConfig.Credentials.AdminPassword
     }
 

@@ -43,7 +43,7 @@ if (-not $SkipBuild) {
         (Join-Path $repoRoot 'Bootstrap.ps1'),
         (Join-Path $repoRoot 'Deploy.ps1'),
         (Join-Path $repoRoot 'OpenCodeLab-GUI.ps1'),
-        (Join-Path $repoRoot 'GUI' 'Start-OpenCodeLabGUI.ps1')
+        (Join-Path (Join-Path $repoRoot 'GUI') 'Start-OpenCodeLabGUI.ps1')
     )
 
     foreach ($target in $buildTargets) {
@@ -58,7 +58,7 @@ if ($NoLaunch) {
 }
 
 if ($GUI) {
-    $guiScriptPath = Join-Path $repoRoot 'GUI' 'Start-OpenCodeLabGUI.ps1'
+    $guiScriptPath = Join-Path (Join-Path $repoRoot 'GUI') 'Start-OpenCodeLabGUI.ps1'
     if (-not (Test-Path -Path $guiScriptPath -PathType Leaf)) {
         throw "GUI entry point not found at path: $guiScriptPath"
     }
