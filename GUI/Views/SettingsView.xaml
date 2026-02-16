@@ -127,6 +127,14 @@
 
         <Border Style="{DynamicResource CardBorder}" Margin="0,0,0,16">
             <StackPanel>
+                <TextBlock Text="Admin Username"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           Margin="0,0,0,4" />
+                <TextBox x:Name="txtAdminUsername"
+                         Style="{DynamicResource ModernTextBox}"
+                         Margin="0,0,0,12" />
+
                 <TextBlock Text="Admin Password"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="12"
