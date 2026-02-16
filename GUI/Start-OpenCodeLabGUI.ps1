@@ -350,6 +350,175 @@ function Update-VMCard {
     $Card.FindName('btnConnect').IsEnabled = $isRunning
 }
 
+# ── Network topology canvas drawing ───────────────────────────────────
+function Update-TopologyCanvas {
+    <#
+    .SYNOPSIS
+        Draws a network diagram (NAT gateway, virtual switch, VM nodes) on a
+        WPF Canvas element using theme-aware brushes.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Windows.Controls.Canvas]$Canvas,
+
+        [Parameter()]
+        $VMStatuses
+    )
+
+    $Canvas.Children.Clear()
+
+    # ── Canvas dimensions (fall back if not yet laid out) ────────
+    $cw = if ($Canvas.ActualWidth  -gt 0) { $Canvas.ActualWidth  } else { 500 }
+    $ch = if ($Canvas.ActualHeight -gt 0) { $Canvas.ActualHeight } else { 400 }
+
+    # ── Theme brushes (inherited through the visual tree) ────────
+    $accentBrush  = $Canvas.FindResource('AccentBrush')
+    $cardBgBrush  = $Canvas.FindResource('CardBackgroundBrush')
+    $borderBrush  = $Canvas.FindResource('BorderBrush')
+    $textBrush    = $Canvas.FindResource('TextPrimaryBrush')
+    $subTextBrush = $Canvas.FindResource('TextSecondaryBrush')
+
+    # ── NAT Gateway box (top center) ────────────────────────────
+    $gwWidth  = 140
+    $gwHeight = 40
+    $gwX = ($cw - $gwWidth) / 2
+    $gwY = 20
+
+    $gwRect = New-Object System.Windows.Shapes.Rectangle
+    $gwRect.Width           = $gwWidth
+    $gwRect.Height          = $gwHeight
+    $gwRect.RadiusX         = 6
+    $gwRect.RadiusY         = 6
+    $gwRect.Stroke          = $accentBrush
+    $gwRect.StrokeThickness = 2
+    $gwRect.Fill            = $cardBgBrush
+    [System.Windows.Controls.Canvas]::SetLeft($gwRect, $gwX)
+    [System.Windows.Controls.Canvas]::SetTop($gwRect, $gwY)
+    $Canvas.Children.Add($gwRect) | Out-Null
+
+    $gatewayIP = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Network.GatewayIp) {
+        $GlobalLabConfig.Network.GatewayIp
+    } else {
+        '10.0.10.1'
+    }
+
+    $gwLabel = New-Object System.Windows.Controls.TextBlock
+    $gwLabel.Text                = "NAT Gateway`n$gatewayIP"
+    $gwLabel.Foreground          = $textBrush
+    $gwLabel.FontSize            = 11
+    $gwLabel.TextAlignment       = 'Center'
+    $gwLabel.HorizontalAlignment = 'Center'
+    $gwLabel.Width               = $gwWidth
+    [System.Windows.Controls.Canvas]::SetLeft($gwLabel, $gwX)
+    [System.Windows.Controls.Canvas]::SetTop($gwLabel, $gwY + 4)
+    $Canvas.Children.Add($gwLabel) | Out-Null
+
+    # ── Virtual Switch bar (middle) ─────────────────────────────
+    $swMargin = 30
+    $swWidth  = $cw - ($swMargin * 2)
+    $swHeight = 30
+    $swX = $swMargin
+    $swY = $gwY + $gwHeight + 40
+
+    $swRect = New-Object System.Windows.Shapes.Rectangle
+    $swRect.Width           = $swWidth
+    $swRect.Height          = $swHeight
+    $swRect.RadiusX         = 4
+    $swRect.RadiusY         = 4
+    $swRect.Fill            = $cardBgBrush
+    $swRect.Stroke          = $borderBrush
+    $swRect.StrokeThickness = 1
+    [System.Windows.Controls.Canvas]::SetLeft($swRect, $swX)
+    [System.Windows.Controls.Canvas]::SetTop($swRect, $swY)
+    $Canvas.Children.Add($swRect) | Out-Null
+
+    $switchName = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Network.SwitchName) {
+        $GlobalLabConfig.Network.SwitchName
+    } else {
+        'AutomatedLab'
+    }
+
+    $swLabel = New-Object System.Windows.Controls.TextBlock
+    $swLabel.Text                = "vSwitch: $switchName"
+    $swLabel.Foreground          = $subTextBrush
+    $swLabel.FontSize            = 11
+    $swLabel.TextAlignment       = 'Center'
+    $swLabel.HorizontalAlignment = 'Center'
+    $swLabel.Width               = $swWidth
+    $swLabel.Padding             = New-Object System.Windows.Thickness(0, 6, 0, 0)
+    [System.Windows.Controls.Canvas]::SetLeft($swLabel, $swX)
+    [System.Windows.Controls.Canvas]::SetTop($swLabel, $swY)
+    $Canvas.Children.Add($swLabel) | Out-Null
+
+    # ── Line from gateway to switch ─────────────────────────────
+    $gwLine = New-Object System.Windows.Shapes.Line
+    $gwLine.X1              = $cw / 2
+    $gwLine.Y1              = $gwY + $gwHeight
+    $gwLine.X2              = $cw / 2
+    $gwLine.Y2              = $swY
+    $gwLine.Stroke          = $borderBrush
+    $gwLine.StrokeThickness = 2
+    $Canvas.Children.Add($gwLine) | Out-Null
+
+    # ── VM nodes below the switch ───────────────────────────────
+    if (-not $VMStatuses -or $VMStatuses.Count -eq 0) { return }
+
+    $nodeWidth  = 120
+    $nodeHeight = 50
+    $nodeY      = $swY + $swHeight + 40
+    $vmCount    = @($VMStatuses).Count
+    $spacing    = $cw / ($vmCount + 1)
+
+    for ($i = 0; $i -lt $vmCount; $i++) {
+        $vm = @($VMStatuses)[$i]
+        $nodeX = ($spacing * ($i + 1)) - ($nodeWidth / 2)
+
+        $stateColor = Get-StatusColor -State ($vm.State)
+
+        # Line from switch to node
+        $vmLine = New-Object System.Windows.Shapes.Line
+        $vmLine.X1              = $spacing * ($i + 1)
+        $vmLine.Y1              = $swY + $swHeight
+        $vmLine.X2              = $spacing * ($i + 1)
+        $vmLine.Y2              = $nodeY
+        $vmLine.Stroke          = $stateColor
+        $vmLine.StrokeThickness = 2
+        $Canvas.Children.Add($vmLine) | Out-Null
+
+        # Node rectangle
+        $nodeRect = New-Object System.Windows.Shapes.Rectangle
+        $nodeRect.Width           = $nodeWidth
+        $nodeRect.Height          = $nodeHeight
+        $nodeRect.RadiusX         = 6
+        $nodeRect.RadiusY         = 6
+        $nodeRect.Fill            = $cardBgBrush
+        $nodeRect.Stroke          = $stateColor
+        $nodeRect.StrokeThickness = 2
+        [System.Windows.Controls.Canvas]::SetLeft($nodeRect, $nodeX)
+        [System.Windows.Controls.Canvas]::SetTop($nodeRect, $nodeY)
+        $Canvas.Children.Add($nodeRect) | Out-Null
+
+        # Node label (VM name + IP)
+        $ipText = if ($vm.NetworkStatus -and $vm.NetworkStatus -ne 'N/A') {
+            $vm.NetworkStatus
+        } else {
+            '--'
+        }
+        $nodeLabel = New-Object System.Windows.Controls.TextBlock
+        $nodeLabel.Text                = "$($vm.VMName.ToUpper())`n$ipText"
+        $nodeLabel.Foreground          = $textBrush
+        $nodeLabel.FontSize            = 10
+        $nodeLabel.TextAlignment       = 'Center'
+        $nodeLabel.HorizontalAlignment = 'Center'
+        $nodeLabel.Width               = $nodeWidth
+        $nodeLabel.Padding             = New-Object System.Windows.Thickness(0, 8, 0, 0)
+        [System.Windows.Controls.Canvas]::SetLeft($nodeLabel, $nodeX)
+        [System.Windows.Controls.Canvas]::SetTop($nodeLabel, $nodeY)
+        $Canvas.Children.Add($nodeLabel) | Out-Null
+    }
+}
+
 # ── Dashboard initialisation ──────────────────────────────────────────
 function Initialize-DashboardView {
     <#
@@ -362,8 +531,9 @@ function Initialize-DashboardView {
     # Resolve the view element that was just loaded into contentArea
     $viewElement = $script:contentArea.Children[0]
 
-    $vmContainer = $viewElement.FindName('vmCardContainer')
-    $txtNoVMs    = $viewElement.FindName('txtNoVMs')
+    $vmContainer          = $viewElement.FindName('vmCardContainer')
+    $txtNoVMs             = $viewElement.FindName('txtNoVMs')
+    $script:TopologyCanvas = $viewElement.FindName('topologyCanvas')
 
     # Determine VM names from lab config or use defaults
     $vmNames = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Lab.CoreVMNames) {
@@ -407,6 +577,7 @@ function Initialize-DashboardView {
                     Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
                 }
             }
+            Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
         }
         catch {
             # Silently ignore polling errors to keep the GUI responsive
