@@ -17,12 +17,7 @@ $subnetConflictHelperPath = Join-Path $RepoRoot 'Private\Test-LabVirtualSwitchSu
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $subnetConflictHelperPath) { . $subnetConflictHelperPath }
 
-# Defaults in case Lab-Config.ps1 is absent
-if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Paths.LabSourcesRoot = 'C:\LabSources' }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $GlobalLabConfig.Network.SwitchName = 'AutomatedLab' }
-if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $GlobalLabConfig.Network.NatName = 'AutomatedLabNAT' }
-if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $GlobalLabConfig.Network.AddressSpace = '10.0.10.0/24' }
-if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { @($GlobalLabConfig.RequiredISOs) = @('server2019.iso', 'win11.iso') }
+# Lab-Config.ps1 already loaded via dot-source above - no legacy variable fallbacks needed
 
 $IsoPath = Join-Path $GlobalLabConfig.Paths.LabSourcesRoot 'ISOs'
 $requiredIsoList = @(@($GlobalLabConfig.RequiredISOs))
@@ -99,7 +94,7 @@ try {
             Write-Warning "Conflicting vEthernet subnet assignments detected for $($GlobalLabConfig.Network.AddressSpace): $($conflictSummary -join '; '). Deploy preflight can auto-fix these conflicts when you continue with deployment."
         }
         else {
-            Add-Ok "No conflicting vEthernet adapters found for subnet $GlobalLabConfig.Network.AddressSpace"
+            Add-Ok "No conflicting vEthernet adapters found for subnet $($GlobalLabConfig.Network.AddressSpace)"
         }
     }
     else {
@@ -111,16 +106,16 @@ try {
 
 $switch = Get-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -ErrorAction SilentlyContinue
 if ($switch) {
-    Add-Ok "Switch exists: $GlobalLabConfig.Network.SwitchName"
+    Add-Ok "Switch exists: $($GlobalLabConfig.Network.SwitchName)"
 } else {
-    Write-Warning "Switch not found yet: $GlobalLabConfig.Network.SwitchName (bootstrap can create it)"
+    Write-Warning "Switch not found yet: $($GlobalLabConfig.Network.SwitchName) (bootstrap can create it)"
 }
 
 $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
 if ($nat) {
-    Add-Ok "NAT exists: $GlobalLabConfig.Network.NatName"
+    Add-Ok "NAT exists: $($GlobalLabConfig.Network.NatName)"
 } else {
-    Write-Warning "NAT not found yet: $GlobalLabConfig.Network.NatName (bootstrap can create it)"
+    Write-Warning "NAT not found yet: $($GlobalLabConfig.Network.NatName) (bootstrap can create it)"
 }
 
 $sshKey = Join-Path $GlobalLabConfig.Paths.LabSourcesRoot 'SSHKeys\id_ed25519'

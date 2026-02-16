@@ -17,15 +17,9 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 $CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $CommonPath) { . $CommonPath }
 
-# Defaults (overridden by Lab-Config.ps1 if present)
-if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Lab.Name = 'AutomatedLab' }
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { @($GlobalLabConfig.Lab.CoreVMNames) = @('dc1', 'svr1', 'dsc', 'ws1') }
-if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Credentials.LinuxUser = 'anthonyscry' }
-if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Paths.LabSourcesRoot = 'C:\LabSources' }
+# Lab-Config.ps1 already loaded via dot-source above - no legacy variable fallbacks needed
 
 $ExpectedVMs = if ($IncludeLIN1) { @(@($GlobalLabConfig.Lab.CoreVMNames) + 'LIN1' | Select-Object -Unique) } else { @(@($GlobalLabConfig.Lab.CoreVMNames) | Where-Object { $_ -ne 'LIN1' }) }
-if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Lab.DomainName = 'simplelab.local' }
-if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $GlobalLabConfig.IPPlan.LIN1 = '10.0.10.110' }
 $SSHKeyPath = Join-Path $GlobalLabConfig.Paths.LabSourcesRoot 'SSHKeys\id_ed25519'
 $issues = New-Object System.Collections.Generic.List[string]
 . (Join-Path $ScriptDir 'Helpers-TestReport.ps1')
@@ -77,9 +71,9 @@ if ($IncludeLIN1) {
 try {
     Import-Module AutomatedLab -ErrorAction Stop | Out-Null
     Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop | Out-Null
-    Add-Ok "Imported lab '$GlobalLabConfig.Lab.Name'"
+    Add-Ok "Imported lab '$($GlobalLabConfig.Lab.Name)'"
 } catch {
-    Add-Issue "Unable to import lab '$GlobalLabConfig.Lab.Name': $($_.Exception.Message)"
+    Add-Issue "Unable to import lab '$($GlobalLabConfig.Lab.Name)': $($_.Exception.Message)"
 }
 
 foreach ($vmName in $ExpectedVMs) {
@@ -217,7 +211,7 @@ if (-not $issues.Count) {
             $sshInfo = Get-LinuxSSHConnectionInfo -VMName 'LIN1'
             if ($sshInfo) {
                 $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
-                $sshBase = @('-o','StrictHostKeyChecking=accept-new','-o',"UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)",'-o',"ConnectTimeout=$GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout",'-i',$SSHKeyPath,"$GlobalLabConfig.Credentials.LinuxUser@$($sshInfo.IP)")
+                $sshBase = @('-o','StrictHostKeyChecking=accept-new','-o',"UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)",'-o',"ConnectTimeout=$($GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout)",'-i',$SSHKeyPath,"$($GlobalLabConfig.Credentials.LinuxUser)@$($sshInfo.IP)")
 
                 # Check SSH service
                 $sshdOut = & $sshExe @sshBase 'systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null' 2>&1
@@ -258,7 +252,7 @@ if (-not $issues.Count) {
                 if (-not (Test-Path $sshExe)) {
                     Add-Issue 'Host OpenSSH client (ssh.exe) not found'
                 } else {
-                    $sshOut = & $sshExe -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -i $SSHKeyPath "$GlobalLabConfig.Credentials.LinuxUser@$GlobalLabConfig.IPPlan.LIN1" 'echo ok' 2>&1
+                    $sshOut = & $sshExe -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -i $SSHKeyPath "$($GlobalLabConfig.Credentials.LinuxUser)@$($GlobalLabConfig.IPPlan.LIN1)" 'echo ok' 2>&1
                     if ($LASTEXITCODE -eq 0 -and ($sshOut | Out-String) -match 'ok') {
                         Add-Ok 'Host SSH to LIN1 verified'
                     } else {

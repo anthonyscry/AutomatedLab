@@ -35,25 +35,19 @@ $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath     = Join-Path $ScriptDir 'Lab-Config.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 
-# Defaults in case Lab-Config.ps1 is absent
-if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Paths.LabSourcesRoot = 'C:\LabSources' }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $GlobalLabConfig.Network.SwitchName = 'AutomatedLab' }
-if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $GlobalLabConfig.Network.AddressSpace = '10.0.10.0/24' }
-if (-not (Get-Variable -Name GatewayIp -ErrorAction SilentlyContinue))      { $GlobalLabConfig.Network.GatewayIp = '10.0.10.1' }
-if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $GlobalLabConfig.Network.NatName = "${LabSwitch}NAT" }
-if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { @($GlobalLabConfig.RequiredISOs) = @('server2019.iso', 'win11.iso') }
+# Lab-Config.ps1 already loaded via dot-source above - no legacy variable fallbacks needed
 
-$ISOPath        = "$GlobalLabConfig.Paths.LabSourcesRoot\ISOs"
+$ISOPath        = "$($GlobalLabConfig.Paths.LabSourcesRoot)\ISOs"
 $DeployScript   = (Join-Path $ScriptDir 'Deploy.ps1')
 
 $RequiredFolders = @(
     $GlobalLabConfig.Paths.LabSourcesRoot,
-    "$GlobalLabConfig.Paths.LabSourcesRoot\ISOs",
-    "$GlobalLabConfig.Paths.LabSourcesRoot\SoftwarePackages",
-    "$GlobalLabConfig.Paths.LabSourcesRoot\PostInstallationActivities",
-    "$GlobalLabConfig.Paths.LabSourcesRoot\Tools",
-    "$GlobalLabConfig.Paths.LabSourcesRoot\SSHKeys",
-    "$GlobalLabConfig.Paths.LabSourcesRoot\Logs"
+    "$($GlobalLabConfig.Paths.LabSourcesRoot)\ISOs",
+    "$($GlobalLabConfig.Paths.LabSourcesRoot)\SoftwarePackages",
+    "$($GlobalLabConfig.Paths.LabSourcesRoot)\PostInstallationActivities",
+    "$($GlobalLabConfig.Paths.LabSourcesRoot)\Tools",
+    "$($GlobalLabConfig.Paths.LabSourcesRoot)\SSHKeys",
+    "$($GlobalLabConfig.Paths.LabSourcesRoot)\Logs"
 )
 
 # ── Functions ──
@@ -210,13 +204,13 @@ try {
     $sw = Get-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -ErrorAction SilentlyContinue
     if (-not $sw) {
         New-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -SwitchType Internal | Out-Null
-        Write-OK "Created Hyper-V vSwitch: $GlobalLabConfig.Network.SwitchName (Internal)"
+        Write-OK "Created Hyper-V vSwitch: $($GlobalLabConfig.Network.SwitchName) (Internal)"
     } else {
-        Write-Skip "vSwitch exists: $GlobalLabConfig.Network.SwitchName"
+        Write-Skip "vSwitch exists: $($GlobalLabConfig.Network.SwitchName)"
     }
 
     # Assign host vNIC IP (gateway)
-    $ifAlias = "vEthernet ($GlobalLabConfig.Network.SwitchName)"
+    $ifAlias = "vEthernet ($($GlobalLabConfig.Network.SwitchName))"
     $ip = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
           Where-Object { $_.IPAddress -eq $GlobalLabConfig.Network.GatewayIp }
 
@@ -226,27 +220,27 @@ try {
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
 
         New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GlobalLabConfig.Network.GatewayIp -PrefixLength 24 | Out-Null
-        Write-OK "Assigned host gateway IP: $GlobalLabConfig.Network.GatewayIp on $ifAlias"
+        Write-OK "Assigned host gateway IP: $($GlobalLabConfig.Network.GatewayIp) on $ifAlias"
     } else {
-        Write-Skip "Host gateway IP already set: $GlobalLabConfig.Network.GatewayIp on $ifAlias"
+        Write-Skip "Host gateway IP already set: $($GlobalLabConfig.Network.GatewayIp) on $ifAlias"
     }
 
     # Create/reuse NAT
     $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
     if (-not $nat) {
         New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace | Out-Null
-        Write-OK "Created NAT: $GlobalLabConfig.Network.NatName for $GlobalLabConfig.Network.AddressSpace"
+        Write-OK "Created NAT: $($GlobalLabConfig.Network.NatName) for $($GlobalLabConfig.Network.AddressSpace)"
     } else {
-        Write-Skip "NAT exists: $GlobalLabConfig.Network.NatName"
+        Write-Skip "NAT exists: $($GlobalLabConfig.Network.NatName)"
     }
 
 } catch {
     Write-Warn "Could not create vSwitch/NAT automatically: $($_.Exception.Message)"
     Write-Host "  You can still continue, but deployment may fail if the lab uses 'Default Switch'." -ForegroundColor Yellow
     Write-Host "  Recommended manual commands:" -ForegroundColor Yellow
-    Write-Host "    New-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -SwitchType Internal" -ForegroundColor Yellow
-    Write-Host "    New-NetIPAddress -InterfaceAlias 'vEthernet ($GlobalLabConfig.Network.SwitchName)' -IPAddress $GlobalLabConfig.Network.GatewayIp -PrefixLength 24" -ForegroundColor Yellow
-    Write-Host "    New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace" -ForegroundColor Yellow
+    Write-Host "    New-VMSwitch -Name $($GlobalLabConfig.Network.SwitchName) -SwitchType Internal" -ForegroundColor Yellow
+    Write-Host "    New-NetIPAddress -InterfaceAlias 'vEthernet ($($GlobalLabConfig.Network.SwitchName))' -IPAddress $($GlobalLabConfig.Network.GatewayIp) -PrefixLength 24" -ForegroundColor Yellow
+    Write-Host "    New-NetNat -Name $($GlobalLabConfig.Network.NatName) -InternalIPInterfaceAddressPrefix $($GlobalLabConfig.Network.AddressSpace)" -ForegroundColor Yellow
     if (-not $NonInteractive) {
         Read-Host "  Press Enter to continue anyway, or Ctrl+C to abort"
     }
