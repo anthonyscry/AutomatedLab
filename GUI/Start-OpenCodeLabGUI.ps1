@@ -134,3 +134,122 @@ function Save-GuiSettings {
 
     $Settings | ConvertTo-Json -Depth 10 | Set-Content -Path $script:GuiSettingsPath -Encoding UTF8
 }
+
+# ── Theme switching ──────────────────────────────────────────────────────
+$script:CurrentTheme = $null
+
+function Set-AppTheme {
+    <#
+    .SYNOPSIS
+        Loads a theme ResourceDictionary and applies it to the WPF Application.
+    .PARAMETER Theme
+        'Dark' or 'Light'.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('Dark','Light')]
+        [string]$Theme
+    )
+
+    $themePath = Join-Path $script:GuiRoot 'Themes' "$Theme.xaml"
+    $themeDict = Import-XamlFile -Path $themePath
+
+    # Ensure there is a WPF Application instance (needed for merged dictionaries).
+    if (-not [System.Windows.Application]::Current) {
+        [void][System.Windows.Application]::new()
+    }
+
+    $app = [System.Windows.Application]::Current
+    $app.Resources.MergedDictionaries.Clear()
+    $app.Resources.MergedDictionaries.Add($themeDict)
+
+    $script:CurrentTheme = $Theme
+}
+
+# ── View switching ───────────────────────────────────────────────────────
+$script:CurrentView = $null
+
+function Switch-View {
+    <#
+    .SYNOPSIS
+        Loads a view XAML into the content area, replacing the current content.
+    .PARAMETER ViewName
+        The view name (e.g. 'Dashboard'), maps to GUI/Views/{ViewName}View.xaml.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ViewName
+    )
+
+    if ($script:CurrentView -eq $ViewName) { return }
+
+    $viewPath = Join-Path $script:GuiRoot 'Views' "${ViewName}View.xaml"
+
+    $script:contentArea.Children.Clear()
+
+    if (Test-Path $viewPath) {
+        $viewElement = Import-XamlFile -Path $viewPath
+        $script:contentArea.Children.Add($viewElement) | Out-Null
+    }
+    else {
+        $script:txtPlaceholder.Text = "$ViewName view coming soon..."
+        $script:contentArea.Children.Add($script:txtPlaceholder) | Out-Null
+    }
+
+    $script:CurrentView = $ViewName
+
+    # ── Post-load initialisation stubs ──────────────────────────────
+    switch ($ViewName) {
+        'Dashboard' { <# Initialize-DashboardView when ready #> }
+        'Actions'   { <# Initialize-ActionsView when ready #> }
+        'Logs'      { <# Initialize-LogsView when ready #> }
+        'Settings'  { <# Initialize-SettingsView when ready #> }
+    }
+}
+
+# ── Load main window ────────────────────────────────────────────────────
+$mainWindowPath = Join-Path $script:GuiRoot 'MainWindow.xaml'
+
+# Apply saved theme (or default to Dark) BEFORE loading the window so that
+# DynamicResource references pick up the correct brushes immediately.
+$guiSettings  = Get-GuiSettings
+$initialTheme = if ($guiSettings['Theme']) { $guiSettings['Theme'] } else { 'Dark' }
+Set-AppTheme -Theme $initialTheme
+
+$mainWindow = Import-XamlFile -Path $mainWindowPath
+
+# ── Resolve named elements ──────────────────────────────────────────────
+$script:btnNavDashboard = $mainWindow.FindName('btnNavDashboard')
+$script:btnNavActions   = $mainWindow.FindName('btnNavActions')
+$script:btnNavLogs      = $mainWindow.FindName('btnNavLogs')
+$script:btnNavSettings  = $mainWindow.FindName('btnNavSettings')
+$script:btnThemeToggle  = $mainWindow.FindName('btnThemeToggle')
+$script:contentArea     = $mainWindow.FindName('contentArea')
+$script:txtPlaceholder  = $mainWindow.FindName('txtPlaceholder')
+
+# ── Set initial toggle state (Checked = Dark) ───────────────────────────
+$script:btnThemeToggle.IsChecked = ($initialTheme -eq 'Dark')
+
+# ── Theme toggle handler ────────────────────────────────────────────────
+$script:btnThemeToggle.Add_Click({
+    $newTheme = if ($script:btnThemeToggle.IsChecked) { 'Dark' } else { 'Light' }
+    Set-AppTheme -Theme $newTheme
+
+    $settings = Get-GuiSettings
+    $settings['Theme'] = $newTheme
+    Save-GuiSettings -Settings $settings
+})
+
+# ── Wire navigation buttons ─────────────────────────────────────────────
+$script:btnNavDashboard.Add_Click({ Switch-View -ViewName 'Dashboard' })
+$script:btnNavActions.Add_Click({   Switch-View -ViewName 'Actions' })
+$script:btnNavLogs.Add_Click({      Switch-View -ViewName 'Logs' })
+$script:btnNavSettings.Add_Click({  Switch-View -ViewName 'Settings' })
+
+# ── Default view ────────────────────────────────────────────────────────
+Switch-View -ViewName 'Dashboard'
+
+# ── Show window (blocks until closed) ───────────────────────────────────
+$mainWindow.ShowDialog() | Out-Null
