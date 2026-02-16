@@ -217,7 +217,7 @@ if (-not $issues.Count) {
             $sshInfo = Get-LinuxSSHConnectionInfo -VMName 'LIN1'
             if ($sshInfo) {
                 $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
-                $sshBase = @('-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=NUL','-o',"ConnectTimeout=$GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout",'-i',$SSHKeyPath,"$GlobalLabConfig.Credentials.LinuxUser@$($sshInfo.IP)")
+                $sshBase = @('-o','StrictHostKeyChecking=accept-new','-o',"UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)",'-o',"ConnectTimeout=$GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout",'-i',$SSHKeyPath,"$GlobalLabConfig.Credentials.LinuxUser@$($sshInfo.IP)")
 
                 # Check SSH service
                 $sshdOut = & $sshExe @sshBase 'systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null' 2>&1

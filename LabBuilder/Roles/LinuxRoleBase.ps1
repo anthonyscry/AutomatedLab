@@ -116,7 +116,7 @@ function Invoke-LinuxRolePostInstall {
     if (-not (Test-Path $sshExe)) { Write-Warning 'OpenSSH client not found. Skipping post-install.'; return }
 
     $sshArgs = @(
-        '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=NUL',
+        '-o', 'StrictHostKeyChecking=accept-new', '-o', "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)",
         '-o', "ConnectTimeout=$($LabConfig.Timeouts.SSHConnectTimeout)",
         '-i', $sshKey, "$linuxUser@$vmIp"
     )
@@ -128,7 +128,7 @@ function Invoke-LinuxRolePostInstall {
 
     try {
         $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
-        & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i $sshKey $tempScript "${linuxUser}@${vmIp}:/tmp/postinstall.sh" 2>&1 | Out-Null
+        & $scpExe -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)" -i $sshKey $tempScript "${linuxUser}@${vmIp}:/tmp/postinstall.sh" 2>&1 | Out-Null
         & $sshExe @sshArgs "chmod +x /tmp/postinstall.sh && bash /tmp/postinstall.sh && rm -f /tmp/postinstall.sh" 2>&1 | ForEach-Object {
             Write-Host "      $_" -ForegroundColor Gray
         }

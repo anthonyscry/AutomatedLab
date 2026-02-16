@@ -18,7 +18,13 @@ function Copy-LinuxFile {
         throw "OpenSSH scp not found at $scpExe."
     }
 
-    & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i $KeyPath $LocalPath "${User}@${IP}:${RemotePath}" 2>&1 | Out-Null
+    # Ensure known_hosts directory exists
+    $knownHostsDir = Split-Path -Parent $GlobalLabConfig.SSH.KnownHostsPath
+    if (-not (Test-Path $knownHostsDir)) {
+        New-Item -ItemType Directory -Path $knownHostsDir -Force | Out-Null
+    }
+
+    & $scpExe -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)" -i $KeyPath $LocalPath "${User}@${IP}:${RemotePath}" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "SCP failed with exit code $LASTEXITCODE copying '$LocalPath' to '${User}@${IP}:${RemotePath}'"
     }
