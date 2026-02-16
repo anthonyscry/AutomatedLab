@@ -25,8 +25,15 @@ $script:RepoRoot = Split-Path -Parent $script:GuiRoot
 foreach ($subDir in @('Private', 'Public')) {
     $dirPath = Join-Path $script:RepoRoot $subDir
     if (Test-Path $dirPath) {
-        Get-ChildItem -Path $dirPath -Filter '*.ps1' -Recurse |
-            ForEach-Object { . $_.FullName }
+        $helperFiles = Get-ChildItem -Path $dirPath -Filter '*.ps1' -Recurse
+        foreach ($file in $helperFiles) {
+            try {
+                . $file.FullName
+            }
+            catch {
+                throw "Failed to load $subDir helper '$($file.FullName)': $($_.Exception.Message)"
+            }
+        }
     }
 }
 
