@@ -129,6 +129,36 @@ Describe 'Resolve-LabModeDecision' {
         $result.FallbackReason | Should -Be 'missing_labready'
     }
 
+    It 'quick deploy stays quick after healed infra drift' {
+        $healedState = [pscustomobject]@{
+            LabRegistered = $true
+            MissingVMs = @()
+            LabReadyAvailable = $true
+            SwitchPresent = $true
+            NatPresent = $true
+        }
+
+        $result = Resolve-LabModeDecision -Operation deploy -RequestedMode quick -State $healedState
+
+        $result.EffectiveMode | Should -Be 'quick'
+        $result.FallbackReason | Should -BeNullOrEmpty
+    }
+
+    It 'quick deploy falls back after failed heal leaves missing LabReady' {
+        $partialHealState = [pscustomobject]@{
+            LabRegistered = $true
+            MissingVMs = @()
+            LabReadyAvailable = $false
+            SwitchPresent = $true
+            NatPresent = $true
+        }
+
+        $result = Resolve-LabModeDecision -Operation deploy -RequestedMode quick -State $partialHealState
+
+        $result.EffectiveMode | Should -Be 'full'
+        $result.FallbackReason | Should -Be 'missing_labready'
+    }
+
     It 'quick teardown stays quick regardless of probe state' {
         $state = [pscustomobject]@{
             LabRegistered = $false

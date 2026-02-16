@@ -43,6 +43,7 @@ param(
     [switch]$RemoveNetwork,
     [switch]$NonInteractive,
     [switch]$AutoFixSubnetConflict,
+    [switch]$AutoHeal = $true,
     [switch]$CoreOnly = $true,
     [string]$DefaultsFile,
     [switch]$DryRun,
@@ -76,6 +77,7 @@ $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Resolve-LabDispatchPlan.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabExecutionProfile.ps1'),
     (Join-Path $ScriptDir 'Private\Get-LabStateProbe.ps1'),
+    (Join-Path $ScriptDir 'Private\Invoke-LabQuickModeHeal.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabModeDecision.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabOrchestrationIntent.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabDispatchMode.ps1'),
@@ -170,6 +172,7 @@ function Write-RunArtifacts {
         force = [bool]$Force
         remove_network = [bool]$RemoveNetwork
         dry_run = [bool]$DryRun
+        auto_heal = if ((Test-Path variable:healResult) -and $null -ne $healResult) { $healResult } else { $null }
         defaults_file = $DefaultsFile
         started_utc = $RunStart.ToUniversalTime().ToString('o')
         ended_utc = $ended.ToUniversalTime().ToString('o')
@@ -1513,6 +1516,52 @@ $skipLegacyOrchestration = $false
 
         if (-not ($stateProbe.PSObject.Properties.Name -contains 'MissingVMs')) {
             $stateProbe | Add-Member -NotePropertyName 'MissingVMs' -NotePropertyValue @()
+        }
+
+        $healResult = $null
+        $hasGlobalLabConfig = (Test-Path variable:GlobalLabConfig) -and $null -ne $GlobalLabConfig
+        $autoHealEnabled = if ($hasGlobalLabConfig -and $GlobalLabConfig.ContainsKey('AutoHeal')) {
+            [bool]$GlobalLabConfig.AutoHeal.Enabled -and [bool]$AutoHeal
+        } else { [bool]$AutoHeal }
+        $hasHealInfraVars = (Test-Path variable:SwitchName) -and (Test-Path variable:NatName) -and (Test-Path variable:AddressSpace)
+        if ($autoHealEnabled -and $RequestedMode -eq 'quick' -and (-not $NoExecute) -and $hasHealInfraVars) {
+            $healSplat = @{
+                StateProbe = $stateProbe
+                SwitchName = $SwitchName
+                NatName = $NatName
+                AddressSpace = $AddressSpace
+                VMNames = @(Get-ExpectedVMs)
+            }
+            if ($hasGlobalLabConfig -and $GlobalLabConfig.ContainsKey('AutoHeal')) {
+                if ($GlobalLabConfig.AutoHeal.ContainsKey('TimeoutSeconds')) {
+                    $healSplat.TimeoutSeconds = $GlobalLabConfig.AutoHeal.TimeoutSeconds
+                }
+                if ($GlobalLabConfig.AutoHeal.ContainsKey('HealthCheckTimeoutSeconds')) {
+                    $healSplat.HealthCheckTimeoutSeconds = $GlobalLabConfig.AutoHeal.HealthCheckTimeoutSeconds
+                }
+            }
+            $healResult = Invoke-LabQuickModeHeal @healSplat
+
+            if ($healResult.HealAttempted) {
+                foreach ($repair in $healResult.RepairsApplied) {
+                    Write-Host "[AutoHeal] Repaired: $repair" -ForegroundColor Green
+                    Add-RunEvent -Step 'auto_heal' -Status 'ok' -Message "repaired: $repair"
+                }
+                foreach ($issue in $healResult.RemainingIssues) {
+                    Write-Host "[AutoHeal] Unresolved: $issue" -ForegroundColor Yellow
+                    Add-RunEvent -Step 'auto_heal' -Status 'warn' -Message "unresolved: $issue"
+                }
+                if ($healResult.HealSucceeded) {
+                    Write-Host "[AutoHeal] All issues healed. Continuing with quick mode." -ForegroundColor Green
+                }
+                elseif ($healResult.RepairsApplied.Count -gt 0) {
+                    Write-Host "[AutoHeal] Some issues could not be healed. Falling back to full mode." -ForegroundColor Yellow
+                }
+                else {
+                    Write-Host "[AutoHeal] No repairs possible. Falling back to full mode." -ForegroundColor Yellow
+                }
+                $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
+            }
         }
 
         $modeDecision = Resolve-LabModeDecision -Operation $orchestrationAction -RequestedMode $RequestedMode -State $stateProbe
