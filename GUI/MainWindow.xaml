@@ -51,6 +51,9 @@
                     <Button x:Name="btnNavActions"
                             Content="&#x25B6;  Actions"
                             Style="{DynamicResource SidebarButton}" />
+                    <Button x:Name="btnNavCustomize"
+                            Content="&#x270E;  Customize"
+                            Style="{DynamicResource SidebarButton}" />
                     <Button x:Name="btnNavLogs"
                             Content="&#x2261;  Logs"
                             Style="{DynamicResource SidebarButton}" />

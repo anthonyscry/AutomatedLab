@@ -82,7 +82,9 @@ $OrchestrationHelperPaths = @(
     (Join-Path $ScriptDir 'Private\Resolve-LabOrchestrationIntent.ps1'),
     (Join-Path $ScriptDir 'Private\Resolve-LabDispatchMode.ps1'),
     (Join-Path $ScriptDir 'Private\Test-LabTransientTransportFailure.ps1'),
-    (Join-Path $ScriptDir 'Private\Invoke-LabCoordinatorDispatch.ps1')
+    (Join-Path $ScriptDir 'Private\Invoke-LabCoordinatorDispatch.ps1'),
+    (Join-Path $ScriptDir 'Private\Get-ActiveTemplateConfig.ps1'),
+    (Join-Path $ScriptDir 'Private\Save-LabTemplate.ps1')
 )
 
 foreach ($helperPath in $OrchestrationHelperPaths) {

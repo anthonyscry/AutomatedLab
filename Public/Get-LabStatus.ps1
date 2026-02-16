@@ -45,11 +45,13 @@ function Get-LabStatus {
 
         $results = New-Object System.Collections.Generic.List[object]
         $labVMs = if (Test-Path variable:GlobalLabConfig) { @($GlobalLabConfig.Lab.CoreVMNames) } else { @("dc1", "svr1", "ws1") }
-        if (Get-VM -Name "LIN1" -ErrorAction SilentlyContinue) {
-            $labVMs += "LIN1"
+        $lin1Exists = $false
+        try { $lin1Exists = [bool](Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue) } catch {}
+        if ($lin1Exists) {
+            $labVMs += 'LIN1'
         }
 
-        $knownVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.Name -in $labVMs }
+        $knownVMs = @(Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.Name -in $labVMs })
         $vmMap = @{}
         foreach ($vm in $knownVMs) {
             $vmMap[$vm.Name.ToLowerInvariant()] = $vm

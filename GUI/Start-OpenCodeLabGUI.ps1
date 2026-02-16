@@ -203,15 +203,19 @@ function Switch-View {
         $script:LogOutputElement  = $null
         $script:LogScrollerElement = $null
     }
+    if ($script:CurrentView -eq 'Actions') {
+        $script:ActionsInitialized = $false
+    }
 
     $script:CurrentView = $ViewName
 
     # ── Post-load initialisation stubs ──────────────────────────────
     switch ($ViewName) {
-        'Dashboard' { Initialize-DashboardView }
-        'Actions'   { Initialize-ActionsView }
-        'Logs'      { Initialize-LogsView }
-        'Settings'  { Initialize-SettingsView }
+        'Dashboard'  { Initialize-DashboardView }
+        'Actions'    { Initialize-ActionsView }
+        'Customize'  { Initialize-CustomizeView }
+        'Logs'       { Initialize-LogsView }
+        'Settings'   { Initialize-SettingsView }
     }
 }
 
@@ -227,10 +231,11 @@ Set-AppTheme -Theme $initialTheme
 $mainWindow = Import-XamlFile -Path $mainWindowPath
 
 # ── Resolve named elements ──────────────────────────────────────────────
-$script:btnNavDashboard = $mainWindow.FindName('btnNavDashboard')
-$script:btnNavActions   = $mainWindow.FindName('btnNavActions')
-$script:btnNavLogs      = $mainWindow.FindName('btnNavLogs')
-$script:btnNavSettings  = $mainWindow.FindName('btnNavSettings')
+$script:btnNavDashboard  = $mainWindow.FindName('btnNavDashboard')
+$script:btnNavActions    = $mainWindow.FindName('btnNavActions')
+$script:btnNavCustomize  = $mainWindow.FindName('btnNavCustomize')
+$script:btnNavLogs       = $mainWindow.FindName('btnNavLogs')
+$script:btnNavSettings   = $mainWindow.FindName('btnNavSettings')
 $script:btnThemeToggle  = $mainWindow.FindName('btnThemeToggle')
 $script:contentArea     = $mainWindow.FindName('contentArea')
 $script:txtPlaceholder  = $mainWindow.FindName('txtPlaceholder')
@@ -249,10 +254,11 @@ $script:btnThemeToggle.Add_Click({
 })
 
 # ── Wire navigation buttons ─────────────────────────────────────────────
-$script:btnNavDashboard.Add_Click({ Switch-View -ViewName 'Dashboard' })
-$script:btnNavActions.Add_Click({   Switch-View -ViewName 'Actions' })
-$script:btnNavLogs.Add_Click({      Switch-View -ViewName 'Logs' })
-$script:btnNavSettings.Add_Click({  Switch-View -ViewName 'Settings' })
+$script:btnNavDashboard.Add_Click({  Switch-View -ViewName 'Dashboard' })
+$script:btnNavActions.Add_Click({    Switch-View -ViewName 'Actions' })
+$script:btnNavCustomize.Add_Click({  Switch-View -ViewName 'Customize' })
+$script:btnNavLogs.Add_Click({       Switch-View -ViewName 'Logs' })
+$script:btnNavSettings.Add_Click({   Switch-View -ViewName 'Settings' })
 
 # ── VM role display names ──────────────────────────────────────────────
 $script:VMRoles = @{
@@ -327,7 +333,7 @@ function Update-VMCard {
     $state = $VMData.State
     $Card.FindName('statusDot').Fill = Get-StatusColor -State $state
 
-    # IP text — use NetworkStatus if available, otherwise '--'
+    # IP text - use NetworkStatus if available, otherwise '--'
     $ipText = if ($VMData.NetworkStatus -and $VMData.NetworkStatus -ne 'N/A') {
         "IP: $($VMData.NetworkStatus)"
     } else {
@@ -553,7 +559,7 @@ function Initialize-DashboardView {
     foreach ($vmName in $vmNames) {
         $card = New-VMCardElement -VMName $vmName
 
-        # Wire button handlers — use .GetNewClosure() to capture $vmName
+        # Wire button handlers - use .GetNewClosure() to capture $vmName
         $startBlock = { Start-VM -Name $vmName -ErrorAction SilentlyContinue }.GetNewClosure()
         $stopBlock  = { Stop-VM -Name $vmName -Force -ErrorAction SilentlyContinue }.GetNewClosure()
         $connBlock  = { & vmconnect.exe localhost $vmName }.GetNewClosure()
@@ -590,6 +596,483 @@ function Initialize-DashboardView {
         }
     })
     $script:VMPollTimer.Start()
+}
+
+# ── Customize view initialisation ──────────────────────────────────────
+function Initialize-CustomizeView {
+    <#
+    .SYNOPSIS
+        Wires up the Customize view controls: template selection, VM editor rows,
+        save/apply/new/delete template buttons.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $viewElement = $script:contentArea.Children[0]
+
+    # ── Resolve named controls ────────────────────────────────────
+    $cmbTemplate          = $viewElement.FindName('cmbTemplate')
+    $btnNewTemplate       = $viewElement.FindName('btnNewTemplate')
+    $btnDeleteTemplate    = $viewElement.FindName('btnDeleteTemplate')
+    $txtTemplateDescription = $viewElement.FindName('txtTemplateDescription')
+    $pnlNewTemplate       = $viewElement.FindName('pnlNewTemplate')
+    $txtNewTemplateName   = $viewElement.FindName('txtNewTemplateName')
+    $btnCreateTemplate    = $viewElement.FindName('btnCreateTemplate')
+    $btnCancelNew         = $viewElement.FindName('btnCancelNew')
+    $vmEditorContainer    = $viewElement.FindName('vmEditorContainer')
+    $btnAddVM             = $viewElement.FindName('btnAddVM')
+    $txtEditDescription   = $viewElement.FindName('txtEditDescription')
+    $btnSaveTemplate      = $viewElement.FindName('btnSaveTemplate')
+    $btnApplyTemplate     = $viewElement.FindName('btnApplyTemplate')
+
+    # ── Available roles ───────────────────────────────────────────
+    $roles = @('DC', 'Server', 'Client', 'DSC', 'IIS', 'SQL', 'WSUS', 'DHCP',
+               'FileServer', 'PrintServer', 'Jumpbox', 'Ubuntu')
+
+    # ── Capture function references and paths for closures ───────
+    $fnSaveTemplate = Get-Command -Name Save-LabTemplate -ErrorAction Stop
+    $repoRoot = $script:RepoRoot
+
+    # ── Templates directory ───────────────────────────────────────
+    $templatesDir = Join-Path (Join-Path $repoRoot '.planning') 'templates'
+
+    # ── Helper: create a VM editor row ────────────────────────────
+    $newVMEditorRow = {
+        param(
+            [string]$VMName = '',
+            [string]$VMRole = 'Server',
+            [string]$VMIP = '',
+            [int]$VMMemory = 4,
+            [int]$VMProcessors = 4
+        )
+
+        $rowBorder = New-Object System.Windows.Controls.Border
+        $rowBorder.Background      = $viewElement.FindResource('CardBackgroundBrush')
+        $rowBorder.BorderBrush     = $viewElement.FindResource('BorderBrush')
+        $rowBorder.BorderThickness = New-Object System.Windows.Thickness(1)
+        $rowBorder.CornerRadius    = New-Object System.Windows.CornerRadius(4)
+        $rowBorder.Padding         = New-Object System.Windows.Thickness(8)
+        $rowBorder.Margin          = New-Object System.Windows.Thickness(0, 0, 0, 4)
+
+        $rowGrid = New-Object System.Windows.Controls.Grid
+        $colWidths = @(120, 100, 120, 70, 70, 50)
+        foreach ($w in $colWidths) {
+            $colDef = New-Object System.Windows.Controls.ColumnDefinition
+            $colDef.Width = New-Object System.Windows.GridLength($w)
+            $rowGrid.ColumnDefinitions.Add($colDef)
+        }
+
+        # Name TextBox
+        $txtName = New-Object System.Windows.Controls.TextBox
+        $txtName.Text = $VMName
+        $txtName.Tag  = 'vmName'
+        $txtName.Style = $viewElement.FindResource('ModernTextBox')
+        $txtName.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+        [System.Windows.Controls.Grid]::SetColumn($txtName, 0)
+        $rowGrid.Children.Add($txtName) | Out-Null
+
+        # Role ComboBox
+        $cmbRole = New-Object System.Windows.Controls.ComboBox
+        $cmbRole.Tag = 'vmRole'
+        $cmbRole.Style = $viewElement.FindResource('ModernComboBox')
+        $cmbRole.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+        foreach ($r in $roles) { $cmbRole.Items.Add($r) | Out-Null }
+        $roleIdx = $roles.IndexOf($VMRole)
+        $cmbRole.SelectedIndex = if ($roleIdx -ge 0) { $roleIdx } else { 1 }
+        [System.Windows.Controls.Grid]::SetColumn($cmbRole, 1)
+        $rowGrid.Children.Add($cmbRole) | Out-Null
+
+        # IP TextBox
+        $txtIP = New-Object System.Windows.Controls.TextBox
+        $txtIP.Text = $VMIP
+        $txtIP.Tag  = 'vmIP'
+        $txtIP.Style = $viewElement.FindResource('ModernTextBox')
+        $txtIP.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+        [System.Windows.Controls.Grid]::SetColumn($txtIP, 2)
+        $rowGrid.Children.Add($txtIP) | Out-Null
+
+        # Memory TextBox
+        $txtMem = New-Object System.Windows.Controls.TextBox
+        $txtMem.Text = $VMMemory.ToString()
+        $txtMem.Tag  = 'vmMemory'
+        $txtMem.Style = $viewElement.FindResource('ModernTextBox')
+        $txtMem.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+        [System.Windows.Controls.Grid]::SetColumn($txtMem, 3)
+        $rowGrid.Children.Add($txtMem) | Out-Null
+
+        # Processors TextBox
+        $txtProc = New-Object System.Windows.Controls.TextBox
+        $txtProc.Text = $VMProcessors.ToString()
+        $txtProc.Tag  = 'vmProcessors'
+        $txtProc.Style = $viewElement.FindResource('ModernTextBox')
+        $txtProc.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+        [System.Windows.Controls.Grid]::SetColumn($txtProc, 4)
+        $rowGrid.Children.Add($txtProc) | Out-Null
+
+        # Remove button
+        $btnRemove = New-Object System.Windows.Controls.Button
+        $btnRemove.Content = 'X'
+        $btnRemove.Style   = $viewElement.FindResource('ModernButton')
+        $btnRemove.Padding = New-Object System.Windows.Thickness(6, 2, 6, 2)
+        [System.Windows.Controls.Grid]::SetColumn($btnRemove, 5)
+        $btnRemove.Add_Click({
+            $row = $this.Parent.Parent
+            $vmEditorContainer.Children.Remove($row)
+        }.GetNewClosure())
+        $rowGrid.Children.Add($btnRemove) | Out-Null
+
+        $rowBorder.Child = $rowGrid
+        return $rowBorder
+    }.GetNewClosure()
+
+    # ── Helper: read VM data from editor rows ─────────────────────
+    $getVMsFromEditor = {
+        $vmList = @()
+        foreach ($row in $vmEditorContainer.Children) {
+            $grid = $row.Child
+            $vmName = ''; $vmRole = 'Server'; $vmIP = ''; $vmMem = 4; $vmProc = 4
+            foreach ($child in $grid.Children) {
+                $tag = $child.Tag
+                if (-not $tag) { continue }
+                switch ($tag) {
+                    'vmName'       { $vmName = $child.Text }
+                    'vmRole'       {
+                        if ($child.SelectedItem) { $vmRole = $child.SelectedItem.ToString() }
+                    }
+                    'vmIP'         { $vmIP = $child.Text }
+                    'vmMemory'     {
+                        $parsed = 0
+                        if ([int]::TryParse($child.Text, [ref]$parsed)) { $vmMem = $parsed }
+                    }
+                    'vmProcessors' {
+                        $parsed = 0
+                        if ([int]::TryParse($child.Text, [ref]$parsed)) { $vmProc = $parsed }
+                    }
+                }
+            }
+            $vmList += [pscustomobject]@{
+                name       = $vmName
+                role       = $vmRole
+                ip         = $vmIP
+                memoryGB   = $vmMem
+                processors = $vmProc
+            }
+        }
+        return $vmList
+    }.GetNewClosure()
+
+    # ── Helper: load a template into the editor ───────────────────
+    $loadTemplate = {
+        param([string]$TemplateName)
+
+        $vmEditorContainer.Children.Clear()
+
+        $templatePath = Join-Path $templatesDir "$TemplateName.json"
+        if (-not (Test-Path $templatePath)) { return }
+
+        try {
+            $template = Get-Content -Path $templatePath -Raw | ConvertFrom-Json
+        }
+        catch { return }
+
+        $txtTemplateDescription.Text = $template.description
+        $txtEditDescription.Text     = $template.description
+
+        foreach ($vm in $template.vms) {
+            $row = & $newVMEditorRow -VMName $vm.name -VMRole $vm.role `
+                       -VMIP $vm.ip -VMMemory ([int]$vm.memoryGB) -VMProcessors ([int]$vm.processors)
+            $vmEditorContainer.Children.Add($row) | Out-Null
+        }
+    }.GetNewClosure()
+
+    # ── Helper: compute auto-incremented IP ───────────────────────
+    $getNextIP = {
+        $lastOctet = 10
+        foreach ($row in $vmEditorContainer.Children) {
+            $grid = $row.Child
+            foreach ($child in $grid.Children) {
+                if ($child.Tag -eq 'vmIP' -and $child.Text -match '\.(\d+)$') {
+                    $octet = [int]$matches[1]
+                    if ($octet -ge $lastOctet) { $lastOctet = $octet }
+                }
+            }
+        }
+        $newOctet = $lastOctet + 10
+        return "10.0.10.$newOctet"
+    }.GetNewClosure()
+
+    # ── Populate template ComboBox ────────────────────────────────
+    $refreshTemplateList = {
+        param([string]$SelectName = '')
+
+        $cmbTemplate.Items.Clear()
+
+        if (-not (Test-Path $templatesDir)) { return }
+
+        $templateFiles = Get-ChildItem -Path $templatesDir -Filter '*.json' -File
+        foreach ($f in $templateFiles) {
+            $tName = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+            $cmbTemplate.Items.Add($tName) | Out-Null
+        }
+
+        if ($SelectName -and $cmbTemplate.Items.Contains($SelectName)) {
+            $cmbTemplate.SelectedItem = $SelectName
+        }
+        elseif ($cmbTemplate.Items.Count -gt 0) {
+            $cmbTemplate.SelectedIndex = 0
+        }
+    }.GetNewClosure()
+
+    # ── Wire template selection ───────────────────────────────────
+    $cmbTemplate.Add_SelectionChanged({
+        $selected = $cmbTemplate.SelectedItem
+        if ($selected) {
+            & $loadTemplate -TemplateName $selected.ToString()
+        }
+    }.GetNewClosure())
+
+    # ── New template button ───────────────────────────────────────
+    $btnNewTemplate.Add_Click({
+        $pnlNewTemplate.Visibility = [System.Windows.Visibility]::Visible
+        $txtNewTemplateName.Text = ''
+        $txtNewTemplateName.Focus() | Out-Null
+    }.GetNewClosure())
+
+    $btnCancelNew.Add_Click({
+        $pnlNewTemplate.Visibility = [System.Windows.Visibility]::Collapsed
+    }.GetNewClosure())
+
+    $btnCreateTemplate.Add_Click({
+        $newName = $txtNewTemplateName.Text.Trim()
+        if (-not $newName) {
+            [System.Windows.MessageBox]::Show(
+                'Please enter a template name.',
+                'Validation Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
+        if ($newName -notmatch '^[a-zA-Z0-9_-]+$') {
+            [System.Windows.MessageBox]::Show(
+                'Template name must contain only letters, numbers, hyphens, and underscores.',
+                'Validation Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
+        # Create a new template with one default VM
+        $defaultVM = @([pscustomobject]@{
+            name       = 'vm1'
+            role       = 'Server'
+            ip         = '10.0.10.10'
+            memoryGB   = 4
+            processors = 4
+        })
+
+        $result = & $fnSaveTemplate -RepoRoot $repoRoot -Name $newName `
+                      -Description '' -VMs $defaultVM
+        if ($result.Success) {
+            $pnlNewTemplate.Visibility = [System.Windows.Visibility]::Collapsed
+            & $refreshTemplateList -SelectName $newName
+            if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+                Add-LogEntry -Message "Created template: $newName" -Level 'Success'
+            }
+        }
+        else {
+            [System.Windows.MessageBox]::Show(
+                $result.Message,
+                'Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Error
+            ) | Out-Null
+        }
+    }.GetNewClosure())
+
+    # ── Delete template button ────────────────────────────────────
+    $btnDeleteTemplate.Add_Click({
+        $selected = $cmbTemplate.SelectedItem
+        if (-not $selected) { return }
+
+        $selectedName = $selected.ToString()
+        if ($selectedName -eq 'default') {
+            [System.Windows.MessageBox]::Show(
+                'The default template cannot be deleted.',
+                'Delete Template',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
+        $confirm = [System.Windows.MessageBox]::Show(
+            "Delete template '$selectedName'?",
+            'Confirm Delete',
+            [System.Windows.MessageBoxButton]::YesNo,
+            [System.Windows.MessageBoxImage]::Question
+        )
+
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            $templatePath = Join-Path $templatesDir "$selectedName.json"
+            if (Test-Path $templatePath) {
+                Remove-Item -Path $templatePath -Force
+            }
+            & $refreshTemplateList
+            if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+                Add-LogEntry -Message "Deleted template: $selectedName" -Level 'Info'
+            }
+        }
+    }.GetNewClosure())
+
+    # ── Add VM button ─────────────────────────────────────────────
+    $btnAddVM.Add_Click({
+        $nextIP = & $getNextIP
+        $row = & $newVMEditorRow -VMName '' -VMRole 'Server' `
+                   -VMIP $nextIP -VMMemory 4 -VMProcessors 4
+        $vmEditorContainer.Children.Add($row) | Out-Null
+    }.GetNewClosure())
+
+    # ── Save template button ──────────────────────────────────────
+    $btnSaveTemplate.Add_Click({
+        $selected = $cmbTemplate.SelectedItem
+        if (-not $selected) {
+            [System.Windows.MessageBox]::Show(
+                'No template selected.',
+                'Save Template',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
+        $templateName = $selected.ToString()
+        $vms = & $getVMsFromEditor
+        $description = $txtEditDescription.Text
+
+        $result = & $fnSaveTemplate -RepoRoot $repoRoot -Name $templateName `
+                      -Description $description -VMs $vms
+        if ($result.Success) {
+            [System.Windows.MessageBox]::Show(
+                $result.Message,
+                'Save Template',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Information
+            ) | Out-Null
+            if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+                Add-LogEntry -Message "Saved template: $templateName" -Level 'Success'
+            }
+        }
+        else {
+            [System.Windows.MessageBox]::Show(
+                $result.Message,
+                'Validation Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+        }
+    }.GetNewClosure())
+
+    # ── Apply to Lab button ───────────────────────────────────────
+    $btnApplyTemplate.Add_Click({
+        $selected = $cmbTemplate.SelectedItem
+        if (-not $selected) {
+            [System.Windows.MessageBox]::Show(
+                'No template selected.',
+                'Apply Template',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
+        try {
+            $templateName = $selected.ToString()
+            $vms = & $getVMsFromEditor
+
+            # First save the current state
+            $description = $txtEditDescription.Text
+            $saveResult = & $fnSaveTemplate -RepoRoot $repoRoot -Name $templateName `
+                              -Description $description -VMs $vms
+            if (-not $saveResult.Success) {
+                [System.Windows.MessageBox]::Show(
+                    $saveResult.Message,
+                    'Validation Error',
+                    [System.Windows.MessageBoxButton]::OK,
+                    [System.Windows.MessageBoxImage]::Warning
+                ) | Out-Null
+                return
+            }
+
+            # Update config.json with ActiveTemplate and VMConfiguration
+            $configPath = Join-Path (Join-Path $repoRoot '.planning') 'config.json'
+            $configObj = $null
+            if (Test-Path $configPath) {
+                $configObj = Get-Content -Path $configPath -Raw | ConvertFrom-Json
+            }
+            if (-not $configObj) {
+                $configObj = [PSCustomObject]@{}
+            }
+
+            # Set or update ActiveTemplate
+            $existingProps = @($configObj.PSObject.Properties | ForEach-Object { $_.Name })
+            if ($existingProps -contains 'ActiveTemplate') {
+                $configObj.ActiveTemplate = $templateName
+            }
+            else {
+                $configObj | Add-Member -MemberType NoteProperty -Name 'ActiveTemplate' -Value $templateName
+            }
+
+            # Build VMConfiguration from template VMs
+            $vmConfig = [ordered]@{}
+            foreach ($vm in $vms) {
+                $vmName = [string]$vm.name
+                $vmConfig[$vmName] = [ordered]@{
+                    Role           = [string]$vm.role
+                    MemoryGB       = [int]$vm.memoryGB
+                    ProcessorCount = [int]$vm.processors
+                    IP             = [string]$vm.ip
+                }
+            }
+
+            if ($existingProps -contains 'VMConfiguration') {
+                $configObj.VMConfiguration = $vmConfig
+            }
+            else {
+                $configObj | Add-Member -MemberType NoteProperty -Name 'VMConfiguration' -Value $vmConfig
+            }
+
+            $parentDir = Split-Path -Parent $configPath
+            if (-not (Test-Path $parentDir)) {
+                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            }
+            $configObj | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath -Encoding UTF8
+
+            [System.Windows.MessageBox]::Show(
+                "Template '$templateName' applied to lab configuration.`nThe next deploy will use these VM definitions.",
+                'Apply Template',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Information
+            ) | Out-Null
+
+            if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+                Add-LogEntry -Message "Applied template '$templateName' to lab config" -Level 'Success'
+            }
+        }
+        catch {
+            [System.Windows.MessageBox]::Show(
+                "Failed to apply template: $_",
+                'Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Error
+            ) | Out-Null
+        }
+    }.GetNewClosure())
+
+    # ── Initial load ──────────────────────────────────────────────
+    & $refreshTemplateList -SelectName 'default'
 }
 
 # ── Actions view initialisation ────────────────────────────────────────
@@ -642,7 +1125,7 @@ function Initialize-ActionsView {
         'status'           = 'Show current state of all lab VMs. Displays power state, IP addresses, memory usage, and network connectivity.'
         'health'           = 'Run health checks against the lab environment. Verifies domain connectivity, DNS resolution, service status, and network configuration.'
         'setup'            = 'Install prerequisites and configure the host. Enables Hyper-V, creates directories, downloads ISOs, and validates the environment.'
-        'one-button-setup' = 'Full automated lab deployment from scratch. Runs setup, then deploy in sequence — zero interaction required.'
+        'one-button-setup' = 'Full automated lab deployment from scratch. Runs setup, then deploy in sequence - zero interaction required.'
         'one-button-reset' = 'Tear down and redeploy the entire lab. Destroys existing VMs, then runs a fresh one-button-setup.'
         'blow-away'        = 'DESTRUCTIVE: Complete removal of all lab resources. Deletes VMs, virtual switch, NAT rules, and all lab files. Requires confirmation token.'
     }
@@ -655,7 +1138,7 @@ function Initialize-ActionsView {
         'Force'          = 'Override safety checks and force the operation to proceed.'
         'DryRun'         = 'Preview what would happen without making any changes.'
         'RemoveNetwork'  = 'Also remove the virtual switch and NAT configuration during teardown.'
-        'CoreOnly'       = 'Only deploy core VMs (dc1, svr1) — skip workstation and Linux VMs.'
+        'CoreOnly'       = 'Only deploy core VMs (dc1, svr1) - skip workstation and Linux VMs.'
     }
 
     $updateDescription = {

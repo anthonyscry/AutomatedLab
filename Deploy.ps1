@@ -19,9 +19,11 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath = Join-Path $ScriptDir 'Lab-Config.ps1'
 $CommonPath = Join-Path $ScriptDir 'Lab-Common.ps1'
 $switchSubnetConflictHelperPath = Join-Path $ScriptDir 'Private\Test-LabVirtualSwitchSubnetConflict.ps1'
+$templateHelperPath = Join-Path $ScriptDir 'Private\Get-ActiveTemplateConfig.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 if (Test-Path $switchSubnetConflictHelperPath) { . $switchSubnetConflictHelperPath }
+if (Test-Path $templateHelperPath) { . $templateHelperPath }
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -272,39 +274,104 @@ try {
     Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
 
     # ============================================================
-    # MACHINE DEFINITIONS (Simple 3-VM topology)
+    # MACHINE DEFINITIONS (template-aware or hardcoded fallback)
     # ============================================================
-    if ($IncludeLIN1) {
-        Write-Host "`n[LAB] Defining all machines (dc1 + svr1 + ws1 + LIN1)..." -ForegroundColor Cyan
-    } else {
-        Write-Host "`n[LAB] Defining Windows machines (dc1 + svr1 + ws1)..." -ForegroundColor Cyan
-        Write-LabStatus -Status INFO -Message "Linux VM nodes are disabled for this run. Use -IncludeLIN1 to include Ubuntu."
+    $templateConfig = $null
+    if (Get-Command -Name 'Get-ActiveTemplateConfig' -ErrorAction SilentlyContinue) {
+        $templateConfig = Get-ActiveTemplateConfig -RepoRoot $ScriptDir
     }
 
-    Add-LabMachineDefinition -Name 'dc1' `
-        -Roles RootDC, CaRoot `
-        -DomainName $DomainName `
-        -Network $LabSwitch `
-        -IpAddress $DC1_Ip -Gateway $GatewayIp -DnsServer1 $DC1_Ip `
-        -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
-        -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
-        -Processors $DC_Processors
+    if ($templateConfig) {
+        # ── Template-driven VM definitions ────────────────────────
+        $templateVMNames = @($templateConfig | ForEach-Object { $_.Name })
+        Write-Host "`n[LAB] Defining machines from active template ($($templateVMNames -join ' + '))..." -ForegroundColor Cyan
 
-    Add-LabMachineDefinition -Name 'svr1' `
-        -DomainName $DomainName `
-        -Network $LabSwitch `
-        -IpAddress $Server1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
-        -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
-        -Memory $Server_Memory -MinMemory $Server_MinMemory -MaxMemory $Server_MaxMemory `
-        -Processors $Server_Processors
+        # Role-to-AutomatedLab role tag mapping
+        $roleTagMap = @{
+            'DC'         = @('RootDC', 'CaRoot')
+            'DSC'        = @('DSCPullServer')
+            'IIS'        = @('WebServer')
+            'DHCP'       = @('DHCPServer')
+        }
 
-    Add-LabMachineDefinition -Name 'ws1' `
-        -DomainName $DomainName `
-        -Network $LabSwitch `
-        -IpAddress $Win11_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
-        -OperatingSystem 'Windows 11 Enterprise Evaluation' `
-        -Memory $Client_Memory -MinMemory $Client_MinMemory -MaxMemory $Client_MaxMemory `
-        -Processors $Client_Processors
+        # Role-to-OS mapping
+        $roleOSMap = @{
+            'Client'     = 'Windows 11 Enterprise Evaluation'
+            'Ubuntu'     = $null  # Handled separately via New-LinuxVM
+        }
+        $defaultOS = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
+
+        # Find the DC VM's IP for DNS references
+        $dcVM = $templateConfig | Where-Object { $_.Role -eq 'DC' } | Select-Object -First 1
+        $templateDnsIp = if ($dcVM) { $dcVM.Ip } else { $DnsIp }
+
+        foreach ($vmDef in $templateConfig) {
+            # Skip Ubuntu VMs - they use New-LinuxVM path
+            if ($vmDef.Role -eq 'Ubuntu') {
+                Write-LabStatus -Status INFO -Message "Skipping '$($vmDef.Name)' from AutomatedLab definitions (Linux VM created separately)."
+                continue
+            }
+
+            $memoryBytes = [int64]$vmDef.MemoryGB * 1GB
+            $os = if ($roleOSMap.ContainsKey($vmDef.Role)) { $roleOSMap[$vmDef.Role] } else { $defaultOS }
+
+            $machineParams = @{
+                Name              = $vmDef.Name
+                DomainName        = $DomainName
+                Network           = $LabSwitch
+                IpAddress         = $vmDef.Ip
+                Gateway           = $GatewayIp
+                DnsServer1        = if ($vmDef.Role -eq 'DC') { $vmDef.Ip } else { $templateDnsIp }
+                OperatingSystem   = $os
+                Memory            = $memoryBytes
+                MinMemory         = [int64]([math]::Floor($vmDef.MemoryGB / 2)) * 1GB
+                MaxMemory         = [int64]([math]::Ceiling($vmDef.MemoryGB * 1.5)) * 1GB
+                Processors        = $vmDef.Processors
+            }
+
+            # Add role tags if mapped
+            if ($roleTagMap.ContainsKey($vmDef.Role)) {
+                $machineParams['Roles'] = $roleTagMap[$vmDef.Role]
+            }
+
+            Add-LabMachineDefinition @machineParams
+            Write-LabStatus -Status OK -Message "Defined VM: $($vmDef.Name) [Role=$($vmDef.Role), IP=$($vmDef.Ip), Mem=$($vmDef.MemoryGB)GB, CPUs=$($vmDef.Processors)]"
+        }
+    }
+    else {
+        # ── Hardcoded fallback (original 3-VM topology) ───────────
+        if ($IncludeLIN1) {
+            Write-Host "`n[LAB] Defining all machines (dc1 + svr1 + ws1 + LIN1)..." -ForegroundColor Cyan
+        } else {
+            Write-Host "`n[LAB] Defining Windows machines (dc1 + svr1 + ws1)..." -ForegroundColor Cyan
+            Write-LabStatus -Status INFO -Message "Linux VM nodes are disabled for this run. Use -IncludeLIN1 to include Ubuntu."
+        }
+
+        Add-LabMachineDefinition -Name 'dc1' `
+            -Roles RootDC, CaRoot `
+            -DomainName $DomainName `
+            -Network $LabSwitch `
+            -IpAddress $DC1_Ip -Gateway $GatewayIp -DnsServer1 $DC1_Ip `
+            -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
+            -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
+            -Processors $DC_Processors
+
+        Add-LabMachineDefinition -Name 'svr1' `
+            -DomainName $DomainName `
+            -Network $LabSwitch `
+            -IpAddress $Server1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+            -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
+            -Memory $Server_Memory -MinMemory $Server_MinMemory -MaxMemory $Server_MaxMemory `
+            -Processors $Server_Processors
+
+        Add-LabMachineDefinition -Name 'ws1' `
+            -DomainName $DomainName `
+            -Network $LabSwitch `
+            -IpAddress $Win11_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+            -OperatingSystem 'Windows 11 Enterprise Evaluation' `
+            -Memory $Client_Memory -MinMemory $Client_MinMemory -MaxMemory $Client_MaxMemory `
+            -Processors $Client_Processors
+    }
 
     # NOTE: LIN1 is NOT added to AutomatedLab machine definitions
     # It will be created manually after Install-Lab to work around
