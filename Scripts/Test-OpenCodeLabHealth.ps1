@@ -18,15 +18,15 @@ $CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $CommonPath) { . $CommonPath }
 
 # Defaults (overridden by Lab-Config.ps1 if present)
-if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'AutomatedLab' }
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('dc1', 'svr1', 'dsc', 'ws1') }
-if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $LinuxUser = 'anthonyscry' }
-if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
+if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Lab.Name = 'AutomatedLab' }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { @($GlobalLabConfig.Lab.CoreVMNames) = @('dc1', 'svr1', 'dsc', 'ws1') }
+if (-not (Get-Variable -Name LinuxUser -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Credentials.LinuxUser = 'anthonyscry' }
+if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Paths.LabSourcesRoot = 'C:\LabSources' }
 
-$ExpectedVMs = if ($IncludeLIN1) { @($LabVMs + 'LIN1' | Select-Object -Unique) } else { @($LabVMs | Where-Object { $_ -ne 'LIN1' }) }
-if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $DomainName = 'simplelab.local' }
-if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $LIN1_Ip = '10.0.10.110' }
-$SSHKeyPath = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
+$ExpectedVMs = if ($IncludeLIN1) { @(@($GlobalLabConfig.Lab.CoreVMNames) + 'LIN1' | Select-Object -Unique) } else { @(@($GlobalLabConfig.Lab.CoreVMNames) | Where-Object { $_ -ne 'LIN1' }) }
+if (-not (Get-Variable -Name DomainName -ErrorAction SilentlyContinue)) { $GlobalLabConfig.Lab.DomainName = 'simplelab.local' }
+if (-not (Get-Variable -Name LIN1_Ip -ErrorAction SilentlyContinue))   { $GlobalLabConfig.IPPlan.LIN1 = '10.0.10.110' }
+$SSHKeyPath = Join-Path $GlobalLabConfig.Paths.LabSourcesRoot 'SSHKeys\id_ed25519'
 $issues = New-Object System.Collections.Generic.List[string]
 . (Join-Path $ScriptDir 'Helpers-TestReport.ps1')
 
@@ -76,10 +76,10 @@ if ($IncludeLIN1) {
 
 try {
     Import-Module AutomatedLab -ErrorAction Stop | Out-Null
-    Import-Lab -Name $LabName -ErrorAction Stop | Out-Null
-    Add-Ok "Imported lab '$LabName'"
+    Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop | Out-Null
+    Add-Ok "Imported lab '$GlobalLabConfig.Lab.Name'"
 } catch {
-    Add-Issue "Unable to import lab '$LabName': $($_.Exception.Message)"
+    Add-Issue "Unable to import lab '$GlobalLabConfig.Lab.Name': $($_.Exception.Message)"
 }
 
 foreach ($vmName in $ExpectedVMs) {
@@ -133,7 +133,7 @@ if (-not $issues.Count) {
                 Domain = $cs.Domain
                 DnsOk = [bool]$dns
             }
-        } -ArgumentList $DomainName
+        } -ArgumentList $GlobalLabConfig.Lab.DomainName
 
         if (-not $wsChecks) {
             throw 'WS1 check returned no structured data.'
@@ -147,7 +147,7 @@ if (-not $issues.Count) {
         } else {
             Add-Issue 'WS1 LabShare not reachable (L: and UNC both unavailable)'
         }
-        if ($wsChecks.PartOfDomain -and $wsChecks.Domain -ieq $DomainName) { Add-Ok 'WS1 domain join healthy' } else { Add-Issue "WS1 domain join invalid ($($wsChecks.Domain))" }
+        if ($wsChecks.PartOfDomain -and $wsChecks.Domain -ieq $GlobalLabConfig.Lab.DomainName) { Add-Ok 'WS1 domain join healthy' } else { Add-Issue "WS1 domain join invalid ($($wsChecks.Domain))" }
         if ($wsChecks.DnsOk) { Add-Ok 'WS1 DNS resolution works for DC1' } else { Add-Issue 'WS1 DNS resolution for DC1 failed' }
     } catch {
         Add-Issue "WS1 health checks failed: $($_.Exception.Message)"
@@ -166,13 +166,13 @@ if (-not $issues.Count) {
                     WinRM = (Get-Service WinRM -ErrorAction SilentlyContinue).Status
                     LanmanServer = (Get-Service LanmanServer -ErrorAction SilentlyContinue).Status
                 }
-            } -ArgumentList $DomainName
+            } -ArgumentList $GlobalLabConfig.Lab.DomainName
 
             if (-not $wsusChecks) {
                 throw 'WSUS1 check returned no structured data.'
             }
 
-            if ($wsusChecks.PartOfDomain -and $wsusChecks.Domain -ieq $DomainName) { Add-Ok 'WSUS1 domain join healthy' } else { Add-Issue "WSUS1 domain join invalid ($($wsusChecks.Domain))" }
+            if ($wsusChecks.PartOfDomain -and $wsusChecks.Domain -ieq $GlobalLabConfig.Lab.DomainName) { Add-Ok 'WSUS1 domain join healthy' } else { Add-Issue "WSUS1 domain join invalid ($($wsusChecks.Domain))" }
             if ($wsusChecks.DnsOk) { Add-Ok 'WSUS1 DNS resolution works for DC1' } else { Add-Issue 'WSUS1 DNS resolution for DC1 failed' }
             if ($wsusChecks.WinRM -eq 'Running') { Add-Ok 'WSUS1 WinRM running' } else { Add-Issue 'WSUS1 WinRM not running' }
             if ($wsusChecks.LanmanServer -eq 'Running') { Add-Ok 'WSUS1 Server service running' } else { Add-Issue 'WSUS1 Server service not running' }
@@ -195,7 +195,7 @@ if (-not $issues.Count) {
         }
 
         try {
-            $linDnsCmd = 'if getent hosts dc1.' + $DomainName + ' >/dev/null 2>&1; then echo yes; else echo no; fi'
+            $linDnsCmd = 'if getent hosts dc1.' + $GlobalLabConfig.Lab.DomainName + ' >/dev/null 2>&1; then echo yes; else echo no; fi'
             $linChecks = Invoke-LabCommand -ComputerName 'LIN1' -PassThru -ScriptBlock {
                 param($DnsCmd)
                 $result = @{}
@@ -217,7 +217,7 @@ if (-not $issues.Count) {
             $sshInfo = Get-LinuxSSHConnectionInfo -VMName 'LIN1'
             if ($sshInfo) {
                 $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
-                $sshBase = @('-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=NUL','-o',"ConnectTimeout=$SSH_ConnectTimeout",'-i',$SSHKeyPath,"$LinuxUser@$($sshInfo.IP)")
+                $sshBase = @('-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=NUL','-o',"ConnectTimeout=$GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout",'-i',$SSHKeyPath,"$GlobalLabConfig.Credentials.LinuxUser@$($sshInfo.IP)")
 
                 # Check SSH service
                 $sshdOut = & $sshExe @sshBase 'systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null' 2>&1
@@ -258,7 +258,7 @@ if (-not $issues.Count) {
                 if (-not (Test-Path $sshExe)) {
                     Add-Issue 'Host OpenSSH client (ssh.exe) not found'
                 } else {
-                    $sshOut = & $sshExe -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -i $SSHKeyPath "$LinuxUser@$LIN1_Ip" 'echo ok' 2>&1
+                    $sshOut = & $sshExe -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -i $SSHKeyPath "$GlobalLabConfig.Credentials.LinuxUser@$GlobalLabConfig.IPPlan.LIN1" 'echo ok' 2>&1
                     if ($LASTEXITCODE -eq 0 -and ($sshOut | Out-String) -match 'ok') {
                         Add-Ok 'Host SSH to LIN1 verified'
                     } else {

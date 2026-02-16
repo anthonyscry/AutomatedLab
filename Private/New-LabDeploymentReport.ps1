@@ -18,8 +18,8 @@ function New-LabDeploymentReport {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][array]$Machines,
-        [string]$LabName = 'AutomatedLab',
-        [string]$OutputPath = $LabPath,
+        [string]$GlobalLabConfig.Lab.Name = 'AutomatedLab',
+        [string]$OutputPath = (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name),
         [datetime]$StartTime = [datetime]::Now
     )
 
@@ -33,7 +33,7 @@ function New-LabDeploymentReport {
     Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
     Write-Host '  |           DEPLOYMENT RECAP REPORT            |' -ForegroundColor Cyan
     Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
-    Write-Host ('  Lab:       {0}' -f $LabName) -ForegroundColor White
+    Write-Host ('  Lab:       {0}' -f $GlobalLabConfig.Lab.Name) -ForegroundColor White
     Write-Host ('  Completed: {0}' -f $timestamp) -ForegroundColor White
     Write-Host ('  Duration:  {0}' -f $durationStr) -ForegroundColor White
     Write-Host ('  Machines:  {0}' -f $Machines.Count) -ForegroundColor White
@@ -55,10 +55,10 @@ function New-LabDeploymentReport {
     Write-Host '  CONNECTION INFO:' -ForegroundColor Yellow
     foreach ($m in $Machines) {
         if ($m.OSTag -eq '[LIN]') {
-            Write-Host ('    {0}: ssh -i $SSHPrivateKey {1}@{2}' -f $m.VMName, $LinuxUser, $m.IP) -ForegroundColor Gray
+            Write-Host ('    {0}: ssh -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) {1}@{2}' -f $m.VMName, $GlobalLabConfig.Credentials.LinuxUser, $m.IP) -ForegroundColor Gray
         }
         else {
-            $rdpUser = '{0}\{1}' -f $DomainName, $LabInstallUser
+            $rdpUser = '{0}\{1}' -f $GlobalLabConfig.Lab.DomainName, $GlobalLabConfig.Credentials.InstallUser
             Write-Host ('    {0}: RDP to {1} ({2})' -f $m.VMName, $m.IP, $rdpUser) -ForegroundColor Gray
         }
     }
@@ -79,7 +79,7 @@ function New-LabDeploymentReport {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Lab Deployment Report - $LabName</title>
+<title>Lab Deployment Report - $GlobalLabConfig.Lab.Name</title>
 <style>
   body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 40px; background: #1e1e2e; color: #cdd6f4; }
   h1 { color: #89b4fa; border-bottom: 2px solid #45475a; padding-bottom: 10px; }
@@ -97,7 +97,7 @@ function New-LabDeploymentReport {
 <body>
   <h1>Lab Deployment Report</h1>
   <div class="meta">
-    <span>Lab: <strong>$LabName</strong></span>
+    <span>Lab: <strong>$GlobalLabConfig.Lab.Name</strong></span>
     <span>Date: <strong>$timestamp</strong></span>
     <span>Duration: <strong>$durationStr</strong></span>
     <span>Machines: <strong>$($Machines.Count)</strong></span>

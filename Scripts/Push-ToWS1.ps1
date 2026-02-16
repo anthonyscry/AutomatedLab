@@ -26,13 +26,13 @@ Write-Host "`n=== PUSH TO WS1 ===" -ForegroundColor Cyan
 Ensure-VMsReady -VMNames @('DC1','LIN1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
 # List available projects on LIN1
-Import-Lab -Name $LabName -ErrorAction Stop
+Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
 
 Write-Host "  Scanning projects on LIN1..." -ForegroundColor Yellow
 $projects = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
     param($ProjectsRoot)
     bash -lc "ls -1 '$ProjectsRoot/' 2>/dev/null"
-} -ArgumentList $LinuxProjectsRoot -PassThru -ErrorAction SilentlyContinue
+} -ArgumentList $GlobalLabConfig.Paths.LinuxProjectsRoot -PassThru -ErrorAction SilentlyContinue
 
 if ($projects) {
     Write-Host "  Available projects:" -ForegroundColor Gray
@@ -93,9 +93,9 @@ echo "Copied $(find "$DEST" -type f | wc -l) files to $DEST"
 '@
 
 $pushVars = @{
-    PROJECTS_ROOT = $LinuxProjectsRoot
+    PROJECTS_ROOT = $GlobalLabConfig.Paths.LinuxProjectsRoot
     PROJECT_NAME = $ProjectName
-    MOUNT_PATH = $LinuxLabShareMount
+    MOUNT_PATH = $GlobalLabConfig.Paths.LinuxLabShareMount
 }
 
 Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $pushScript -ActivityName "Push-$ProjectName" -Variables $pushVars | Out-Null

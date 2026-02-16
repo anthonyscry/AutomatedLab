@@ -2,7 +2,7 @@ function Get-LabStateProbe {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [string]$LabName = 'SimpleLab',
+        [string]$GlobalLabConfig.Lab.Name = 'SimpleLab',
 
         [Parameter()]
         [string[]]$VMNames = @(),
@@ -11,7 +11,7 @@ function Get-LabStateProbe {
         [string]$SwitchName = 'LabSwitch',
 
         [Parameter()]
-        [string]$NatName = 'LabNAT'
+        [string]$GlobalLabConfig.Network.NatName = 'LabNAT'
     )
 
     $probe = [ordered]@{
@@ -24,7 +24,7 @@ function Get-LabStateProbe {
 
     if (Get-Command -Name 'Get-Lab' -ErrorAction SilentlyContinue) {
         try {
-            $lab = Get-Lab -Name $LabName -ErrorAction Stop
+            $lab = Get-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
             $probe.LabRegistered = ($null -ne $lab)
         }
         catch {
@@ -75,7 +75,7 @@ function Get-LabStateProbe {
 
     if (Get-Command -Name 'Get-NetNat' -ErrorAction SilentlyContinue) {
         try {
-            $nat = Get-NetNat -Name $NatName -ErrorAction Stop
+            $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction Stop
             $probe.NatPresent = ($null -ne $nat)
         }
         catch {

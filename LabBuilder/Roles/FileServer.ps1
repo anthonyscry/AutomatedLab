@@ -32,7 +32,7 @@ function Get-LabRole_FileServer {
             param([hashtable]$LabConfig)
 
             Invoke-LabCommand -ComputerName $LabConfig.VMNames.FileServer -ActivityName 'FileServer-Configure' -ScriptBlock {
-                param($DomainName)
+                param($GlobalLabConfig.Lab.DomainName)
 
                 # Install File Services (idempotent)
                 $feat = Get-WindowsFeature FS-FileServer -ErrorAction SilentlyContinue
@@ -61,7 +61,7 @@ function Get-LabRole_FileServer {
                 # Create SMB share (idempotent)
                 $shareName = 'LabShare'
                 if (-not (Get-SmbShare -Name $shareName -ErrorAction SilentlyContinue)) {
-                    $netbios = ($DomainName -split '\.')[0].ToUpper()
+                    $netbios = ($GlobalLabConfig.Lab.DomainName -split '\.')[0].ToUpper()
                     New-SmbShare -Name $shareName -Path $sharePath `
                         -FullAccess "$netbios\Domain Admins" `
                         -ChangeAccess "$netbios\Domain Users" `

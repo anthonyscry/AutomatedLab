@@ -41,7 +41,7 @@ function Join-LabDomain {
         [string[]]$VMNames = @("svr1", "ws1"),
 
         [Parameter()]
-        [string]$DomainName,
+        [string]$GlobalLabConfig.Lab.DomainName,
 
         [Parameter()]
         [pscredential]$Credential,
@@ -76,7 +76,7 @@ function Join-LabDomain {
         # Step 1: Get domain configuration
         $domainConfig = Get-LabDomainConfig
         $targetDomain = if ($PSBoundParameters.ContainsKey('DomainName')) {
-            $DomainName
+            $GlobalLabConfig.Lab.DomainName
         }
         else {
             $domainConfig.DomainName

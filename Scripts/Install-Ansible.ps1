@@ -33,7 +33,7 @@ if (-not $ip) {
 
 $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
 $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
-$sshArgs = @('-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=NUL','-o',"ConnectTimeout=$SSH_ConnectTimeout",'-i',$SSHPrivateKey,"$LinuxUser@$ip")
+$sshArgs = @('-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=NUL','-o',"ConnectTimeout=$GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout",'-i',(Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519),"$GlobalLabConfig.Credentials.LinuxUser@$ip")
 
 # Install Ansible via pip (more current than apt)
 Write-Host "  Installing Ansible on $VMName..." -ForegroundColor Yellow
@@ -71,7 +71,7 @@ $tempScript = Join-Path $env:TEMP "install-ansible-$VMName.sh"
 $installScript | Set-Content -Path $tempScript -Encoding ASCII -Force
 
 try {
-    & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i $SSHPrivateKey $tempScript "${LinuxUser}@${ip}:/tmp/install-ansible.sh" 2>&1 | Out-Null
+    & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) $tempScript "${LinuxUser}@${ip}:/tmp/install-ansible.sh" 2>&1 | Out-Null
     & $sshExe @sshArgs 'chmod +x /tmp/install-ansible.sh && bash /tmp/install-ansible.sh && rm -f /tmp/install-ansible.sh' 2>&1 | ForEach-Object {
         Write-Host "    $_" -ForegroundColor Gray
     }
@@ -89,16 +89,16 @@ $inventoryTemplate = Join-Path $ansibleDir 'inventory.yml.template'
 if (Test-Path $inventoryTemplate) {
     # Generate actual inventory from template
     $inventoryContent = (Get-Content $inventoryTemplate -Raw)
-    $inventoryContent = $inventoryContent -replace '__DC1_IP__', $dc1_Ip
-    $inventoryContent = $inventoryContent -replace '__LIN1_IP__', $lin1_Ip
-    $inventoryContent = $inventoryContent -replace '__DOMAIN__', $DomainName
-    $inventoryContent = $inventoryContent -replace '__LINUX_USER__', $LinuxUser
-    $inventoryContent = $inventoryContent -replace '__ADMIN_USER__', $LabInstallUser
+    $inventoryContent = $inventoryContent -replace '__DC1_IP__', $GlobalLabConfig.IPPlan.DC1
+    $inventoryContent = $inventoryContent -replace '__LIN1_IP__', $GlobalLabConfig.IPPlan.LIN1
+    $inventoryContent = $inventoryContent -replace '__DOMAIN__', $GlobalLabConfig.Lab.DomainName
+    $inventoryContent = $inventoryContent -replace '__LINUX_USER__', $GlobalLabConfig.Credentials.LinuxUser
+    $inventoryContent = $inventoryContent -replace '__ADMIN_USER__', $GlobalLabConfig.Credentials.InstallUser
 
     $inventoryPath = Join-Path $env:TEMP "lab-inventory-$VMName.yml"
     $inventoryContent | Set-Content -Path $inventoryPath -Encoding ASCII -Force
 
-    & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i $SSHPrivateKey $inventoryPath "${LinuxUser}@${ip}:~/ansible/inventory/lab.yml" 2>&1 | Out-Null
+    & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) $inventoryPath "${LinuxUser}@${ip}:~/ansible/inventory/lab.yml" 2>&1 | Out-Null
     Remove-Item $inventoryPath -Force -ErrorAction SilentlyContinue
     Write-LabStatus -Status OK -Message "Inventory deployed to ~/ansible/inventory/lab.yml"
 }
@@ -108,7 +108,7 @@ $playbooksDir = Join-Path $ansibleDir 'playbooks'
 if (Test-Path $playbooksDir) {
     $playbooks = Get-ChildItem $playbooksDir -Filter '*.yml' -ErrorAction SilentlyContinue
     foreach ($pb in $playbooks) {
-        & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i $SSHPrivateKey $pb.FullName "${LinuxUser}@${ip}:~/ansible/playbooks/$($pb.Name)" 2>&1 | Out-Null
+        & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) $pb.FullName "${LinuxUser}@${ip}:~/ansible/playbooks/$($pb.Name)" 2>&1 | Out-Null
     }
     Write-LabStatus -Status OK -Message "$($playbooks.Count) playbook(s) deployed"
 }

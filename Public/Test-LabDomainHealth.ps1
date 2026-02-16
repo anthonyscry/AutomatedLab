@@ -29,7 +29,7 @@ function Test-LabDomainHealth {
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string]$DomainName,
+        [string]$GlobalLabConfig.Lab.DomainName,
 
         [Parameter()]
         [pscredential]$Credential,
@@ -57,7 +57,7 @@ function Test-LabDomainHealth {
         # Get domain configuration
         $domainConfig = Get-LabDomainConfig
         $targetDomain = if ($PSBoundParameters.ContainsKey('DomainName')) {
-            $DomainName
+            $GlobalLabConfig.Lab.DomainName
         }
         else {
             $domainConfig.DomainName

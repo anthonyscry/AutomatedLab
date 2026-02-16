@@ -31,7 +31,7 @@ function Get-LabRole_Client {
             param([hashtable]$LabConfig)
 
             Invoke-LabCommand -ComputerName $LabConfig.VMNames.Client -ActivityName 'Client-Baseline-Config' -ScriptBlock {
-                param($DomainName, $FileServerName, $FileServerSelected)
+                param($GlobalLabConfig.Lab.DomainName, $FileServerName, $FileServerSelected)
 
                 # Map drive to file share if File Server was selected (idempotent)
                 if ($FileServerSelected -and $FileServerName) {

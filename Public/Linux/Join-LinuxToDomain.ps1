@@ -12,12 +12,12 @@ function Join-LinuxToDomain {
     param(
         [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
-        [string]$DomainName = $(if ($DomainName) { $DomainName } else { 'simplelab.local' }),
-        [string]$DomainAdmin = $(if ($LabInstallUser) { $LabInstallUser } else { 'Administrator' }),
-        [string]$DomainPassword = $(if ($AdminPassword) { $AdminPassword } else { 'SimpleLab123!' }),
-        [string]$User = $(if ($LinuxUser) { $LinuxUser } else { 'labadmin' }),
-        [string]$KeyPath = $(if ($SSHPrivateKey) { $SSHPrivateKey } else { 'C:\LabSources\SSHKeys\id_ed25519' }),
-        [int]$SSHTimeout = $(if ($SSH_ConnectTimeout) { $SSH_ConnectTimeout } else { 8 })
+        [string]$GlobalLabConfig.Lab.DomainName = $(if ($GlobalLabConfig.Lab.DomainName) { $GlobalLabConfig.Lab.DomainName } else { 'simplelab.local' }),
+        [string]$DomainAdmin = $(if ($GlobalLabConfig.Credentials.InstallUser) { $GlobalLabConfig.Credentials.InstallUser } else { 'Administrator' }),
+        [string]$DomainPassword = $(if ($GlobalLabConfig.Credentials.AdminPassword) { $GlobalLabConfig.Credentials.AdminPassword } else { 'SimpleLab123!' }),
+        [string]$User = $(if ($GlobalLabConfig.Credentials.LinuxUser) { $GlobalLabConfig.Credentials.LinuxUser } else { 'labadmin' }),
+        [string]$KeyPath = $(if ((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)) { (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) } else { 'C:\LabSources\SSHKeys\id_ed25519' }),
+        [int]$SSHTimeout = $(if ($GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout) { $GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout } else { 8 })
     )
 
     $ip = Get-LinuxVMIPv4 -VMName $VMName
@@ -38,28 +38,28 @@ echo "[SSSD] Installing required packages..."
 `$SUDO apt-get update -qq
 `$SUDO apt-get install -y -qq realmd sssd sssd-tools adcli packagekit samba-common-bin krb5-user
 
-echo "[SSSD] Discovering domain $DomainName..."
-`$SUDO realm discover $DomainName
+echo "[SSSD] Discovering domain $GlobalLabConfig.Lab.DomainName..."
+`$SUDO realm discover $GlobalLabConfig.Lab.DomainName
 
-echo "[SSSD] Joining domain $DomainName..."
-echo '$DomainPassword' | `$SUDO realm join -U $DomainAdmin $DomainName --install=/
+echo "[SSSD] Joining domain $GlobalLabConfig.Lab.DomainName..."
+echo '$DomainPassword' | `$SUDO realm join -U $DomainAdmin $GlobalLabConfig.Lab.DomainName --install=/
 
 echo "[SSSD] Configuring SSSD..."
 `$SUDO bash -c 'cat > /etc/sssd/sssd.conf << SSSDEOF
 [sssd]
-domains = $DomainName
+domains = $GlobalLabConfig.Lab.DomainName
 config_file_version = 2
 services = nss, pam
 
-[$('domain/' + $DomainName)]
+[$('domain/' + $GlobalLabConfig.Lab.DomainName)]
 default_shell = /bin/bash
 krb5_store_password_if_offline = True
 cache_credentials = True
-krb5_realm = $($DomainName.ToUpperInvariant())
+krb5_realm = $($GlobalLabConfig.Lab.DomainName.ToUpperInvariant())
 realmd_tags = manages-system joined-with-adcli
 id_provider = ad
 fallback_homedir = /home/%u@%d
-ad_domain = $DomainName
+ad_domain = $GlobalLabConfig.Lab.DomainName
 use_fully_qualified_names = True
 ldap_id_mapping = True
 access_provider = ad
@@ -80,10 +80,10 @@ echo "[SSSD] Domain join complete."
     try {
         Copy-LinuxFile -IP $ip -LocalPath $tempScript -RemotePath '/tmp/domainjoin.sh' -User $User -KeyPath $KeyPath
 
-        Write-Host "    Joining $VMName to domain $DomainName via SSSD..." -ForegroundColor Cyan
+        Write-Host "    Joining $VMName to domain $GlobalLabConfig.Lab.DomainName via SSSD..." -ForegroundColor Cyan
         Invoke-LinuxSSH -IP $ip -Command 'chmod +x /tmp/domainjoin.sh && bash /tmp/domainjoin.sh && rm -f /tmp/domainjoin.sh' -User $User -KeyPath $KeyPath -ConnectTimeout $SSHTimeout
 
-        Write-LabStatus -Status OK -Message "$VMName joined to $DomainName" -Indent 2
+        Write-LabStatus -Status OK -Message "$VMName joined to $GlobalLabConfig.Lab.DomainName" -Indent 2
         return $true
     }
     catch {

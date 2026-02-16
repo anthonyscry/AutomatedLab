@@ -43,7 +43,7 @@ function Initialize-LabDomain {
         [securestring]$SafeModePassword,
 
         [Parameter()]
-        [string]$DomainName,
+        [string]$GlobalLabConfig.Lab.DomainName,
 
         [Parameter()]
         [switch]$Force,
@@ -73,7 +73,7 @@ function Initialize-LabDomain {
 
         # Override with parameters if provided
         $targetDomainName = if ($PSBoundParameters.ContainsKey('DomainName')) {
-            $DomainName
+            $GlobalLabConfig.Lab.DomainName
         }
         else {
             $domainConfig.DomainName

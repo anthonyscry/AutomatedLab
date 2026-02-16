@@ -79,13 +79,7 @@ if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap)) {
 # Alias for backward compatibility with existing code
 Set-Alias -Name Remove-VMHardSafe -Value Remove-HyperVVMStale -Scope Script
 
-if (-not (Get-Variable -Name LabName -ErrorAction SilentlyContinue)) { $LabName = 'AutomatedLab' }
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('dc1', 'svr1', 'dsc', 'ws1') }
-if (-not (Get-Variable -Name LabPath -ErrorAction SilentlyContinue)) { $LabPath = "C:\AutomatedLab\$LabName" }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue)) { $LabSwitch = 'AutomatedLab' }
-if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue)) { $NatName = 'AutomatedLabNAT' }
-
-$SwitchName = $LabSwitch
+$SwitchName = $GlobalLabConfig.Network.SwitchName
 $RunStart = Get-Date
 $RunId = (Get-Date -Format 'yyyyMMdd-HHmmss')
 $RunLogRoot = if ([string]::IsNullOrWhiteSpace($env:OPENCODELAB_RUN_LOG_ROOT)) { 'C:\LabSources\Logs' } else { [string]$env:OPENCODELAB_RUN_LOG_ROOT }
@@ -231,7 +225,7 @@ function Test-LabReadySnapshot {
         } elseif (Get-Command Get-ExpectedVMs -ErrorAction SilentlyContinue) {
             $targets = @(Get-ExpectedVMs)
         } else {
-            $targets = @($LabVMs)
+            $targets = @(@($GlobalLabConfig.Lab.CoreVMNames))
         }
 
         foreach ($vmName in $targets) {
@@ -321,7 +315,7 @@ function Invoke-RepoScript {
 }
 
 function Get-ExpectedVMs {
-    return @($LabVMs)
+    return @(@($GlobalLabConfig.Lab.CoreVMNames))
 }
 
 function Get-PreflightArgs {
@@ -495,7 +489,7 @@ function Ensure-LabImported {
         # Module already loaded; just ensure lab is imported
         try {
             $lab = Get-Lab -ErrorAction SilentlyContinue
-            if ($lab -and $lab.Name -eq $LabName) { return }
+            if ($lab -and $lab.Name -eq $GlobalLabConfig.Lab.Name) { return }
         } catch {
             Write-Verbose "Lab query failed (expected if lab not yet created): $_"
         }
@@ -508,9 +502,9 @@ function Ensure-LabImported {
     }
 
     try {
-        Import-Lab -Name $LabName -ErrorAction Stop | Out-Null
+        Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop | Out-Null
     } catch {
-        throw "Lab '$LabName' is not registered. Run setup first."
+        throw "Lab '$GlobalLabConfig.Lab.Name' is not registered. Run setup first."
     }
 }
 
@@ -520,7 +514,7 @@ function Stop-LabVMsSafe {
         Stop-LabVM -All -ErrorAction SilentlyContinue | Out-Null
     } catch {
         Get-VM -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -in $LabVMs -and $_.State -eq 'Running' } |
+            Where-Object { $_.Name -in @($GlobalLabConfig.Lab.CoreVMNames) -and $_.State -eq 'Running' } |
             Stop-VM -Force -ErrorAction SilentlyContinue
     }
 }
@@ -534,11 +528,11 @@ function Invoke-BlowAway {
 
     if ($Simulate) {
         Write-Host "`n=== DRY RUN: BLOW AWAY LAB ===" -ForegroundColor Yellow
-        Write-Host "  Would stop lab VMs: $($LabVMs -join ', ')" -ForegroundColor DarkGray
-        Write-Host "  Would remove lab definition: $LabName" -ForegroundColor DarkGray
-        Write-Host "  Would remove lab files: $LabPath" -ForegroundColor DarkGray
+        Write-Host "  Would stop lab VMs: $(@($GlobalLabConfig.Lab.CoreVMNames) -join ', ')" -ForegroundColor DarkGray
+        Write-Host "  Would remove lab definition: $GlobalLabConfig.Lab.Name" -ForegroundColor DarkGray
+        Write-Host "  Would remove lab files: (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor DarkGray
         if ($DropNetwork) {
-            Write-Host "  Would remove network: $SwitchName / $NatName" -ForegroundColor DarkGray
+            Write-Host "  Would remove network: $SwitchName / $GlobalLabConfig.Network.NatName" -ForegroundColor DarkGray
         }
         Add-RunEvent -Step 'blow-away' -Status 'dry-run' -Message 'No changes made'
         return
@@ -547,7 +541,7 @@ function Invoke-BlowAway {
     Write-Host "`n=== BLOW AWAY LAB ===" -ForegroundColor Red
     Write-Host "  This will stop VMs, remove lab definition, and delete local lab files." -ForegroundColor Yellow
     if ($DropNetwork) {
-        Write-Host "  Network objects ($SwitchName / $NatName) will also be removed." -ForegroundColor Yellow
+        Write-Host "  Network objects ($SwitchName / $GlobalLabConfig.Network.NatName) will also be removed." -ForegroundColor Yellow
     }
 
     if (-not $BypassPrompt) {
@@ -568,13 +562,13 @@ function Invoke-BlowAway {
         # Remove-Lab can emit noisy non-terminating errors for already-missing
         # metadata files (for example Network_<switch>.xml). Those are benign
         # during blow-away, so suppress raw error stream and continue cleanup.
-        Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 2>$null
+        Remove-Lab -Name $GlobalLabConfig.Lab.Name -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 2>$null
     } catch {
         Write-LabStatus -Status WARN -Message "Remove-Lab returned: $($_.Exception.Message)"
     }
 
     Write-Host "  [3/5] Removing Hyper-V VMs/checkpoints if present..." -ForegroundColor Cyan
-    $allLabVMs = @($LabVMs) + @('LIN1')
+    $allLabVMs = @(@($GlobalLabConfig.Lab.CoreVMNames)) + @('LIN1')
     foreach ($vmName in $allLabVMs) {
         if (Remove-VMHardSafe -VMName $vmName) {
             Write-Host "    removed VM $vmName" -ForegroundColor Gray
@@ -615,17 +609,17 @@ function Invoke-BlowAway {
     }
 
     Write-Host "  [4/5] Removing lab files..." -ForegroundColor Cyan
-    if (Test-Path $LabPath) {
-        Remove-Item -Path $LabPath -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "    removed $LabPath" -ForegroundColor Gray
+    if (Test-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)) {
+        Remove-Item -Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "    removed (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor Gray
     }
 
     Write-Host "  [5/5] Cleaning network artifacts (optional)..." -ForegroundColor Cyan
     if ($DropNetwork) {
-        $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+        $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
         if ($nat) {
-            Remove-NetNat -Name $NatName -Confirm:$false -ErrorAction SilentlyContinue
-            Write-Host "    removed NAT $NatName" -ForegroundColor Gray
+            Remove-NetNat -Name $GlobalLabConfig.Network.NatName -Confirm:$false -ErrorAction SilentlyContinue
+            Write-Host "    removed NAT $GlobalLabConfig.Network.NatName" -ForegroundColor Gray
         }
 
         $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
@@ -794,7 +788,7 @@ function Get-MenuVmSelection {
     try {
         $vmNames = @(Hyper-V\Get-VM -ErrorAction Stop | Select-Object -ExpandProperty Name)
     } catch {
-        $vmNames = @($LabVMs) + @('LIN1')
+        $vmNames = @(@($GlobalLabConfig.Lab.CoreVMNames)) + @('LIN1')
     }
 
     $vmNames = @($vmNames | Sort-Object -Unique)
@@ -934,7 +928,7 @@ function Invoke-AddVMWizard {
 
     $isoPath = (Read-Host '  ISO path (optional, leave blank for none)').Trim()
 
-    $diskRoot = Join-Path $LabPath 'Disks'
+    $diskRoot = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'Disks'
     if (-not (Test-Path $diskRoot)) {
         New-Item -Path $diskRoot -ItemType Directory -Force | Out-Null
     }
@@ -946,7 +940,7 @@ function Invoke-AddVMWizard {
     Write-Host ("    Name: {0}" -f $vmName) -ForegroundColor Gray
     Write-Host ("    MemoryGB: {0}" -f $memoryGB) -ForegroundColor Gray
     Write-Host ("    CPU: {0}" -f $cpuCount) -ForegroundColor Gray
-    Write-Host ("    Switch: {0}" -f $LabSwitch) -ForegroundColor Gray
+    Write-Host ("    Switch: {0}" -f $GlobalLabConfig.Network.SwitchName) -ForegroundColor Gray
     Write-Host ("    VHD: {0}" -f $vhdPath) -ForegroundColor Gray
     if (-not [string]::IsNullOrWhiteSpace($isoPath)) {
         Write-Host ("    ISO: {0}" -f $isoPath) -ForegroundColor Gray
@@ -966,9 +960,9 @@ function Invoke-AddVMWizard {
 
     $vmResult = $null
     if ([string]::IsNullOrWhiteSpace($isoPath)) {
-        $vmResult = New-LabVM -VMName $vmName -MemoryGB $memoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $cpuCount
+        $vmResult = New-LabVM -VMName $vmName -MemoryGB $memoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $cpuCount
     } else {
-        $vmResult = New-LabVM -VMName $vmName -MemoryGB $memoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $cpuCount -IsoPath $isoPath
+        $vmResult = New-LabVM -VMName $vmName -MemoryGB $memoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $cpuCount -IsoPath $isoPath
     }
 
     if ($vmResult.Status -eq 'OK' -or $vmResult.Status -eq 'AlreadyExists') {
@@ -1032,7 +1026,7 @@ function Invoke-BulkAdditionalVMProvision {
     $serverCpu = [int]$Server_Processors
     $workstationCpu = [int]$Client_Processors
 
-    $diskRoot = Join-Path $LabPath 'Disks'
+    $diskRoot = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'Disks'
     if (-not (Test-Path $diskRoot)) {
         New-Item -Path $diskRoot -ItemType Directory -Force | Out-Null
     }
@@ -1057,9 +1051,9 @@ function Invoke-BulkAdditionalVMProvision {
         $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
 
         if ([string]::IsNullOrWhiteSpace($ServerIsoPath)) {
-            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $serverCpu
+            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $serverCpu
         } else {
-            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $serverCpu -IsoPath $ServerIsoPath
+            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $serverCpu -IsoPath $ServerIsoPath
         }
 
         if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
@@ -1079,9 +1073,9 @@ function Invoke-BulkAdditionalVMProvision {
         $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
 
         if ([string]::IsNullOrWhiteSpace($WorkstationIsoPath)) {
-            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $workstationCpu
+            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $workstationCpu
         } else {
-            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $LabSwitch -ProcessorCount $workstationCpu -IsoPath $WorkstationIsoPath
+            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $workstationCpu -IsoPath $WorkstationIsoPath
         }
 
         if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
@@ -1314,7 +1308,7 @@ $skipLegacyOrchestration = $false
             $stateProbe = Resolve-RuntimeStateOverride
         }
         if ($null -eq $stateProbe) {
-            $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName)
+            $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $GlobalLabConfig.Network.NatName)
         }
         elseif ($stateProbe -is [System.Array]) {
             $fleetProbe = @($stateProbe)
@@ -1513,8 +1507,8 @@ $skipLegacyOrchestration = $false
             $healSplat = @{
                 StateProbe = $stateProbe
                 SwitchName = $SwitchName
-                NatName = $NatName
-                AddressSpace = $AddressSpace
+                NatName = $GlobalLabConfig.Network.NatName
+                AddressSpace = $GlobalLabConfig.Network.AddressSpace
                 VMNames = @(Get-ExpectedVMs)
             }
             if ($hasGlobalLabConfig -and $GlobalLabConfig.ContainsKey('AutoHeal')) {
@@ -1545,7 +1539,7 @@ $skipLegacyOrchestration = $false
                 else {
                     Write-Host "[AutoHeal] No repairs possible. Falling back to full mode." -ForegroundColor Yellow
                 }
-                $stateProbe = Get-LabStateProbe -LabName $LabName -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $NatName
+                $stateProbe = Get-LabStateProbe -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $GlobalLabConfig.Network.NatName
             }
         }
 

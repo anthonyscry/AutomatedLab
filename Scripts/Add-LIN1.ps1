@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
-    [string]$AdminPassword
+    [string]$GlobalLabConfig.Credentials.AdminPassword
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -24,12 +24,12 @@ if (-not (Test-Path $CommonPath)) {
 . $ConfigPath
 . $CommonPath
 
-$LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
+$GlobalLabConfig.Credentials.InstallUser = if ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.LinuxUser)) { 'anthonyscry' } else { $GlobalLabConfig.Credentials.LinuxUser }
 
 $ErrorActionPreference = 'Stop'
 
 # Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
-$AdminPassword = Resolve-LabPassword -Password $AdminPassword
+$GlobalLabConfig.Credentials.AdminPassword = Resolve-LabPassword -Password $GlobalLabConfig.Credentials.AdminPassword
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
@@ -38,8 +38,8 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 
 # Check if lab exists
-if (-not (Import-OpenCodeLab -Name $LabName)) {
-    throw "Lab '$LabName' is not imported. Run Deploy.ps1 first to create DC1/WS1."
+if (-not (Import-OpenCodeLab -Name $GlobalLabConfig.Lab.Name)) {
+    throw "Lab '$GlobalLabConfig.Lab.Name' is not imported. Run Deploy.ps1 first to create DC1/WS1."
 }
 
 # Check if DC1 and WS1 exist
@@ -68,7 +68,7 @@ if ($existingLin1) {
 }
 
 # Check for Ubuntu ISO
-$IsoPath = "$LabSourcesRoot\ISOs"
+$IsoPath = "$GlobalLabConfig.Paths.LabSourcesRoot\ISOs"
 $ubuntuIso = Get-ChildItem -Path $IsoPath -Filter 'ubuntu-24.04*.iso' -ErrorAction SilentlyContinue | 
     Sort-Object LastWriteTime -Descending | 
     Select-Object -First 1 -ExpandProperty FullName
@@ -98,21 +98,21 @@ $lin1CreateSucceeded = $false
 try {
     # Generate password hash for autoinstall identity
     Write-Host "  Generating password hash..." -ForegroundColor Gray
-    $lin1PwHash = Get-Sha512PasswordHash -Password $AdminPassword
+    $lin1PwHash = Get-Sha512PasswordHash -Password $GlobalLabConfig.Credentials.AdminPassword
 
     # Read SSH public key if available
     $lin1SshPubKey = ''
-    if (Test-Path $SSHPublicKey) {
-        $lin1SshPubKey = (Get-Content $SSHPublicKey -Raw).Trim()
+    if (Test-Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub)) {
+        $lin1SshPubKey = (Get-Content (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub) -Raw).Trim()
         Write-Host "  SSH public key found" -ForegroundColor Gray
     }
 
     # Create CIDATA VHDX seed disk with autoinstall user-data
-    $cidataPath = Join-Path $LabPath 'LIN1-cidata.vhdx'
+    $cidataPath = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'LIN1-cidata.vhdx'
     Write-Host "  Creating CIDATA seed disk with autoinstall config..." -ForegroundColor Gray
     New-CidataVhdx -OutputPath $cidataPath `
         -Hostname 'LIN1' `
-        -Username $LabInstallUser `
+        -Username $GlobalLabConfig.Credentials.InstallUser `
         -PasswordHash $lin1PwHash `
         -SSHPublicKey $lin1SshPubKey
 
@@ -133,8 +133,8 @@ finally {
     if (-not $lin1CreateSucceeded) {
         Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
         Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
-        Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
-        Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -144,7 +144,7 @@ Write-Host "[LIN1] Waiting for SSH reachability (up to 30 min)..." -ForegroundCo
 Write-Host "  Ubuntu autoinstall typically takes 10-15 minutes" -ForegroundColor Gray
 Write-Host ""
 
-$lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $LIN1_WaitMinutes -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+$lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes -DhcpServer 'DC1' -ScopeId $GlobalLabConfig.DHCP.ScopeId
 $lin1Ready = $lin1WaitResult.Ready
 $lin1DhcpIp = if ($lin1WaitResult.IP) { $lin1WaitResult.IP } else { $lin1WaitResult.LeaseIP }
 
@@ -168,12 +168,12 @@ if (-not $lin1Ready) {
 Write-Host ""
 Write-Host "[LIN1] Running post-install configuration..." -ForegroundColor Cyan
 
-$HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
-Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
+$HostPublicKeyFileName = [System.IO.Path]::GetFileName((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub))
+Copy-LabFileItem -Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub) -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
-$linUser = $LabInstallUser
+$linUser = $GlobalLabConfig.Credentials.InstallUser
 $linHome = "/home/$linUser"
-$escapedPassword = $AdminPassword -replace "'", "'\\''"
+$escapedPassword = $GlobalLabConfig.Credentials.AdminPassword -replace "'", "'\\''"
 
 $script = @'
 #!/bin/bash

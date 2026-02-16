@@ -5,7 +5,7 @@ function Test-LabVirtualSwitchSubnetConflict {
         [string]$SwitchName,
 
         [Parameter(Mandatory = $true)]
-        [string]$AddressSpace,
+        [string]$GlobalLabConfig.Network.AddressSpace,
 
         [switch]$AutoFix
     )
@@ -70,7 +70,7 @@ function Test-LabVirtualSwitchSubnetConflict {
     if ($null -eq $cmd) {
         return [pscustomobject]@{
             SwitchName = $SwitchName
-            AddressSpace = $AddressSpace
+            AddressSpace = $GlobalLabConfig.Network.AddressSpace
             HasConflict = $false
             AutoFixAttempted = $false
             AutoFixApplied = $false
@@ -82,7 +82,7 @@ function Test-LabVirtualSwitchSubnetConflict {
     }
 
     $targetAlias = "vEthernet ($SwitchName)"
-    $targetRange = Get-CidrRange -Cidr $AddressSpace
+    $targetRange = Get-CidrRange -Cidr $GlobalLabConfig.Network.AddressSpace
 
     $ipRows = @(
         Get-NetIPAddress |
@@ -183,18 +183,18 @@ function Test-LabVirtualSwitchSubnetConflict {
 
     $autoFixApplied = $autoFixAttempted -and ($unresolvedAdapters.Count -eq 0)
     $message = if ($hasConflict) {
-        "Detected $($conflicts.Count) conflicting vEthernet adapter(s) in subnet $AddressSpace."
+        "Detected $($conflicts.Count) conflicting vEthernet adapter(s) in subnet $GlobalLabConfig.Network.AddressSpace."
     }
     elseif ($autoFixApplied) {
-        "Detected and auto-fixed $($fixedAdapters.Count) conflicting vEthernet adapter(s) in subnet $AddressSpace."
+        "Detected and auto-fixed $($fixedAdapters.Count) conflicting vEthernet adapter(s) in subnet $GlobalLabConfig.Network.AddressSpace."
     }
     else {
-        "No conflicting vEthernet adapters detected in subnet $AddressSpace."
+        "No conflicting vEthernet adapters detected in subnet $GlobalLabConfig.Network.AddressSpace."
     }
 
     return [pscustomobject]@{
         SwitchName = $SwitchName
-        AddressSpace = $AddressSpace
+        AddressSpace = $GlobalLabConfig.Network.AddressSpace
         HasConflict = $hasConflict
         AutoFixAttempted = $autoFixAttempted
         AutoFixApplied = $autoFixApplied
