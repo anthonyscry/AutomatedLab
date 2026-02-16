@@ -4,6 +4,7 @@
 param(
     [switch]$SkipBuild,
     [switch]$NoLaunch,
+    [switch]$GUI,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$AppArguments
 )
@@ -41,7 +42,8 @@ if (-not $SkipBuild) {
         $appScriptPath,
         (Join-Path $repoRoot 'Bootstrap.ps1'),
         (Join-Path $repoRoot 'Deploy.ps1'),
-        (Join-Path $repoRoot 'OpenCodeLab-GUI.ps1')
+        (Join-Path $repoRoot 'OpenCodeLab-GUI.ps1'),
+        (Join-Path $repoRoot 'GUI' 'Start-OpenCodeLabGUI.ps1')
     )
 
     foreach ($target in $buildTargets) {
@@ -52,6 +54,15 @@ if (-not $SkipBuild) {
 }
 
 if ($NoLaunch) {
+    return
+}
+
+if ($GUI) {
+    $guiScriptPath = Join-Path $repoRoot 'GUI' 'Start-OpenCodeLabGUI.ps1'
+    if (-not (Test-Path -Path $guiScriptPath -PathType Leaf)) {
+        throw "GUI entry point not found at path: $guiScriptPath"
+    }
+    & $guiScriptPath
     return
 }
 
