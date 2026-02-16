@@ -9,7 +9,14 @@ function Test-LabNetworkHealth {
         using ping from within the VMs.
 
     .PARAMETER VMNames
-        Array of VM names to test (default: all SimpleLab VMs).
+        Array of VM names to test. Defaults to the core VMs from
+        $GlobalLabConfig.Lab.CoreVMNames, or @("dc1", "svr1", "ws1") if
+        config is not available.
+
+    .PARAMETER SwitchName
+        Name of the virtual switch to test. Defaults to the switch name
+        from $GlobalLabConfig.Network.SwitchName, or "SimpleLab" if config
+        is not available.
 
     .OUTPUTS
         PSCustomObject with OverallStatus, ConnectivityTests array,
@@ -20,12 +27,30 @@ function Test-LabNetworkHealth {
 
     .EXAMPLE
         Test-LabNetworkHealth -VMNames @("dc1", "svr1")
+
+    .EXAMPLE
+        Test-LabNetworkHealth -SwitchName "MyLabSwitch" -VMNames @("dc1", "ws1")
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
-        [string[]]$VMNames = @("dc1", "svr1", "ws1")
+        [string[]]$VMNames = $(
+            if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Lab.CoreVMNames) {
+                $GlobalLabConfig.Lab.CoreVMNames
+            } else {
+                @("dc1", "svr1", "ws1")
+            }
+        ),
+
+        [Parameter()]
+        [string]$SwitchName = $(
+            if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Network.SwitchName) {
+                $GlobalLabConfig.Network.SwitchName
+            } else {
+                "SimpleLab"
+            }
+        )
     )
 
     # Start timing
@@ -41,11 +66,11 @@ function Test-LabNetworkHealth {
     }
 
     # Step 1: Check vSwitch exists using Test-LabNetwork
-    $vSwitchCheck = Test-LabNetwork
+    $vSwitchCheck = Test-LabNetwork -SwitchName $SwitchName
 
     if ($null -eq $vSwitchCheck -or $vSwitchCheck.Exists -eq $false) {
         $result.OverallStatus = "Failed"
-        $result.Message = "SimpleLab vSwitch not found. Run New-LabSwitch first."
+        $result.Message = "$SwitchName vSwitch not found. Run New-LabSwitch first."
         $result.Duration = New-TimeSpan -Start $startTime -End (Get-Date)
         return $result
     }
