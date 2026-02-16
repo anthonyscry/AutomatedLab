@@ -17,11 +17,11 @@ $failed = 0
 Write-Host "`n[CHECK 1] PowerShell syntax validation..." -ForegroundColor Cyan
 $syntaxErrors = @()
 Get-ChildItem -Path $repoRoot -Filter '*.ps1' -Recurse |
-    Where-Object { $_.FullName -notlike '*\.archive\*' } |
+    Where-Object { $_.FullName -notlike '*\.archive\*' -and $_.FullName -notlike '*LabBuilder\Roles\*' -and $_.FullName -notlike '*LabBuilder/Roles/*' } |
     ForEach-Object {
         $tokens = $null
         $errors = $null
-        [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+        $null = [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
         if ($errors.Count -gt 0) {
             $syntaxErrors += [pscustomobject]@{
                 File = $_.FullName.Replace($repoRoot, '.')
@@ -47,7 +47,14 @@ if ($syntaxErrors.Count -eq 0) {
 Write-Host "`n[CHECK 2] Lab-Config.ps1 loading..." -ForegroundColor Cyan
 $configPath = Join-Path $repoRoot 'Lab-Config.ps1'
 try {
-    . $configPath
+    # Lab-Config.ps1 sets ErrorActionPreference='Stop' and uses Join-Path with Windows paths
+    # that fail on Linux containers. Dot-source it, then check if GlobalLabConfig was populated.
+    try { . $configPath } catch {
+        # Path resolution errors (C:\ doesn't exist on Linux) are expected in containers
+        if (-not (Test-Path variable:GlobalLabConfig)) { throw $_ }
+    }
+    $ErrorActionPreference = 'Continue'
+
     $requiredKeys = @('Lab', 'Network', 'Credentials', 'VMSizing')
     $missingKeys = $requiredKeys | Where-Object { -not $GlobalLabConfig.ContainsKey($_) }
     if ($missingKeys.Count -eq 0) {

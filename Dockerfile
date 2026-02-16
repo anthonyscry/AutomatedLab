@@ -5,5 +5,5 @@ RUN pwsh -NoProfile -Command "Install-Module -Name Pester -MinimumVersion 5.0.0 
 
 WORKDIR /app
 
-# Default: run Pester test suite
-CMD ["pwsh", "-NoProfile", "-Command", "Invoke-Pester -Path ./Tests -OutputFormat JUnitXml -OutputPath ./Tests/results/testResults.xml -Output Detailed; exit $LASTEXITCODE"]
+# Default: run Pester test suite with JUnit XML output
+CMD ["pwsh", "-NoProfile", "-Command", "$c = New-PesterConfiguration; $c.Run.Path = './Tests'; $c.TestResult.Enabled = $true; $c.TestResult.OutputPath = './Tests/results/testResults.xml'; $c.TestResult.OutputFormat = 'JUnitXml'; $c.Output.Verbosity = 'Detailed'; Invoke-Pester -Configuration $c; exit $LASTEXITCODE"]
