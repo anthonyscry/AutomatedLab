@@ -10,7 +10,9 @@ BeforeAll {
     # Dot-source all role files except DSCPullServer (Configuration keyword can't parse on Linux)
     $script:RoleFilesToSource = @(
         'DC.ps1', 'SQL.ps1', 'IIS.ps1', 'WSUS.ps1', 'DHCP.ps1',
-        'FileServer.ps1', 'PrintServer.ps1', 'Jumpbox.ps1', 'Client.ps1'
+        'FileServer.ps1', 'PrintServer.ps1', 'Jumpbox.ps1', 'Client.ps1',
+        'Ubuntu.ps1', 'WebServer.Ubuntu.ps1', 'Database.Ubuntu.ps1',
+        'Docker.Ubuntu.ps1', 'K8s.Ubuntu.ps1'
     )
     foreach ($file in $script:RoleFilesToSource) {
         $filePath = Join-Path $script:RolesDir $file
@@ -199,5 +201,72 @@ Describe 'DSC Prerequisite Validation' {
         $content = Get-Content $filePath -Raw
         # Verify the prereq block has a return statement after the warning
         $content | Should -Match 'Write-Warning.*DSC.*prereq[\s\S]{0,200}return' -Because "DSCPullServer should return early when prereqs fail"
+    }
+}
+
+Describe 'Linux Role Script Syntax Validation' {
+    It 'parses <File> without syntax errors' -ForEach @(
+        @{ File = 'Ubuntu.ps1' }
+        @{ File = 'WebServer.Ubuntu.ps1' }
+        @{ File = 'Database.Ubuntu.ps1' }
+        @{ File = 'Docker.Ubuntu.ps1' }
+        @{ File = 'K8s.Ubuntu.ps1' }
+        @{ File = 'LinuxRoleBase.ps1' }
+    ) {
+        $filePath = Join-Path $script:RolesDir $File
+        $filePath | Should -Exist
+
+        $errors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile($filePath, [ref]$null, [ref]$errors)
+        $errors.Count | Should -Be 0 -Because "File $File should have no parse errors"
+    }
+}
+
+Describe 'Linux Role Null-Safety' {
+    It '<Function> returns stub role when LinuxVM config is missing' -ForEach @(
+        @{ Function = 'Get-LabRole_Ubuntu';          Tag = 'Ubuntu' }
+        @{ Function = 'Get-LabRole_WebServerUbuntu'; Tag = 'WebServerUbuntu' }
+        @{ Function = 'Get-LabRole_DatabaseUbuntu';  Tag = 'DatabaseUbuntu' }
+        @{ Function = 'Get-LabRole_DockerUbuntu';    Tag = 'DockerUbuntu' }
+        @{ Function = 'Get-LabRole_K8sUbuntu';       Tag = 'K8sUbuntu' }
+    ) {
+        # Config without LinuxVM section
+        $minimalConfig = @{
+            VMNames = $script:MockConfig.VMNames
+            IPPlan = $script:MockConfig.IPPlan
+            Network = $script:MockConfig.Network
+            DomainName = 'lab.local'
+        }
+
+        # Should not throw — call directly and capture result
+        $result = & $Function -Config $minimalConfig -WarningAction SilentlyContinue
+
+        # Should return stub with SkipInstallLab
+        $result | Should -Not -BeNullOrEmpty
+        $result.Tag | Should -Be $Tag
+        $result.SkipInstallLab | Should -Be $true
+        $result.IsLinux | Should -Be $true
+    }
+}
+
+Describe 'LinuxRoleBase Null-Safety' {
+    It 'LinuxRoleBase.ps1 has null-guard for VMNameKey' {
+        $content = Get-Content (Join-Path $script:RolesDir 'LinuxRoleBase.ps1') -Raw
+        $content | Should -Match 'VMNameKey.*not found.*Skipping' -Because "Should warn when VM name key missing"
+    }
+
+    It 'LinuxRoleBase.ps1 has null-guard for Linux config section' {
+        $content = Get-Content (Join-Path $script:RolesDir 'LinuxRoleBase.ps1') -Raw
+        $content | Should -Match 'Linux config section not found' -Because "Should warn when Linux config missing"
+    }
+
+    It 'LinuxRoleBase.ps1 has null-guard for LabSourcesRoot' {
+        $content = Get-Content (Join-Path $script:RolesDir 'LinuxRoleBase.ps1') -Raw
+        $content | Should -Match 'LabSourcesRoot not configured' -Because "Should warn when LabSourcesRoot missing"
+    }
+
+    It 'LinuxRoleBase.ps1 has timeout defaults' {
+        $content = Get-Content (Join-Path $script:RolesDir 'LinuxRoleBase.ps1') -Raw
+        $content | Should -Match 'waitMinutes = 10' -Because "Should have default timeout values"
     }
 }

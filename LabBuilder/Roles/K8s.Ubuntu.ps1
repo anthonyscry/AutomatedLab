@@ -5,6 +5,12 @@ function Get-LabRole_K8sUbuntu {
         [hashtable]$Config
     )
 
+    # Null-guard: LinuxVM config required
+    if (-not $Config.ContainsKey('LinuxVM') -or -not $Config.LinuxVM) {
+        Write-Warning "Linux VM configuration not found. Skipping role definition for K8sUbuntu."
+        return @{ Tag = 'K8sUbuntu'; VMName = ''; SkipInstallLab = $true; IsLinux = $true; Roles = @(); OS = ''; IP = ''; Gateway = ''; DnsServer1 = ''; PostInstall = $null; CreateVM = $null }
+    }
+
     $labCommonPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lab-Common.ps1'
     if (Test-Path $labCommonPath) { . $labCommonPath }
 
