@@ -32,13 +32,8 @@ BeforeAll {
     . (Join-Path $repoRoot 'Private/Invoke-LabOneButtonReset.ps1')
     . (Join-Path $repoRoot 'Private/Invoke-LabSetup.ps1')
     . (Join-Path $repoRoot 'Private/Invoke-LabBulkVMProvision.ps1')
+    . (Join-Path $repoRoot 'Private/Read-LabMenuCount.ps1')
     . (Join-Path $repoRoot 'Private/Invoke-LabSetupMenu.ps1')
-
-    # Stub Read-MenuCount (still inline in App.ps1; extracted in Batch 4)
-    function Global:Read-MenuCount {
-        param([Parameter(Mandatory)][string]$Prompt, [int]$DefaultValue = 0)
-        return $DefaultValue
-    }
 
     # Create a fake Hyper-V module so module-qualified Hyper-V\Get-VM calls work
     if (-not (Get-Module -Name 'Hyper-V' -ErrorAction SilentlyContinue)) {
@@ -551,7 +546,7 @@ Describe 'Invoke-LabSetupMenu' {
 
     It 'calls Invoke-LabOneButtonSetup with correct params' {
         Mock Read-Host { return '0' }
-        Mock Read-MenuCount { return 0 }
+        Mock Read-LabMenuCount { return 0 }
         Mock Invoke-LabOneButtonSetup { }
 
         Invoke-LabSetupMenu `
@@ -566,7 +561,7 @@ Describe 'Invoke-LabSetupMenu' {
 
     It 'does not call Invoke-LabBulkVMProvision when counts are 0' {
         Mock Read-Host { return '0' }
-        Mock Read-MenuCount { return 0 }
+        Mock Read-LabMenuCount { return 0 }
         Mock Invoke-LabOneButtonSetup { }
         Mock Invoke-LabBulkVMProvision { }
 
@@ -582,7 +577,7 @@ Describe 'Invoke-LabSetupMenu' {
 
     It 'calls Invoke-LabBulkVMProvision when server count is greater than 0' {
         $script:callCount = 0
-        Mock Read-MenuCount {
+        Mock Read-LabMenuCount {
             $script:callCount++
             if ($script:callCount -eq 1) { return 1 }  # ServerCount = 1
             return 0
@@ -602,7 +597,7 @@ Describe 'Invoke-LabSetupMenu' {
     }
 
     It 'adds setup-plan event with server and workstation counts' {
-        Mock Read-MenuCount { return 0 }
+        Mock Read-LabMenuCount { return 0 }
         Mock Invoke-LabOneButtonSetup { }
 
         Invoke-LabSetupMenu `
