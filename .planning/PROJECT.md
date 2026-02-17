@@ -36,10 +36,12 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 - ✓ GUI-CLI feature parity — v1.0
 - ✓ Multi-host coordination (dispatch, scoped tokens, transient failure classification) — v1.0
 - ✓ 542 Pester tests passing — v1.0
+- ✓ Security gaps S1-S4 closed with regression tests (24 tests) — Phase 7
+- ✓ Reliability gaps R1-R4 closed with regression tests (24 tests) — Phase 7
+- ✓ 566 Pester tests passing — Phase 7
 
 ### Active
 
-- [ ] All 10 documented production gaps closed (S1-S4, R1-R4, M1-M2)
 - [ ] 31 inline functions extracted from OpenCodeLab-App.ps1 to Private/ helpers
 - [ ] All 39 functions without try-catch get explicit error handling
 - [ ] Module export list reconciled between .psd1 and .psm1
@@ -77,7 +79,7 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Extract inline functions before adding error handling | Can't properly test inline functions; extraction enables unit testing | — Pending |
-| Fix all 10 production gaps, not just security | Reliability gaps (exit 0, missing validation) affect daily use | — Pending |
+| Fix all 10 production gaps, not just security | Reliability gaps (exit 0, missing validation) affect daily use | ✓ 8/10 closed in Phase 7 (S1-S4, R1-R4); M1-M2 in Phases 9-10 |
 | Replace Out-Null with Write-Verbose | Suppressed output hides diagnostics; Verbose is opt-in | — Pending |
 | Clean up dead code and archive | Reduce repo noise and search pollution | ✓ v1.0 |
 | Unified config to $GlobalLabConfig | Eliminated dual config system, fail-fast validation | ✓ v1.0 |
@@ -86,4 +88,4 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 | Credential scrubbing in log output | Multi-layer scrubber wired into Write-RunArtifact | ✓ v1.0 |
 
 ---
-*Last updated: 2026-02-17 after v1.1 milestone start*
+*Last updated: 2026-02-17 after Phase 7*
