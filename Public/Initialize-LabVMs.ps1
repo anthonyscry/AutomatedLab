@@ -88,7 +88,8 @@ function Initialize-LabVMs {
     # Ensure VHDBasePath exists
     if (-not (Test-Path $VHDBasePath)) {
         try {
-            New-Item -Path $VHDBasePath -ItemType Directory -Force | Out-Null
+            $null = New-Item -Path $VHDBasePath -ItemType Directory -Force
+            Write-Verbose "Created directory: $VHDBasePath"
         }
         catch {
             $result.Message = "Failed to create VHD base path '$VHDBasePath': $($_.Exception.Message)"

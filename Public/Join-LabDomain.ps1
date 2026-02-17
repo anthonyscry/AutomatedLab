@@ -164,7 +164,8 @@ function Join-LabDomain {
                 }
 
                 # Execute domain join via PowerShell Direct
-                Invoke-Command -VMName $vmName -ScriptBlock {
+                Write-Verbose "Joining '$vmName' to domain '$targetDomain'..."
+                $null = Invoke-Command -VMName $vmName -ScriptBlock {
                     param($domainName, $credential, $ouPath, $force)
 
                     $joinParams = @{
@@ -181,7 +182,7 @@ function Join-LabDomain {
                     Add-Computer @joinParams -ErrorAction Stop
 
                     return $true
-                } -ArgumentList $targetDomain, $targetCredential, $OUPath, $true -ErrorAction Stop | Out-Null
+                } -ArgumentList $targetDomain, $targetCredential, $OUPath, $true -ErrorAction Stop
 
                 Write-Verbose "Domain join command executed for '$vmName', waiting for reboot..."
 

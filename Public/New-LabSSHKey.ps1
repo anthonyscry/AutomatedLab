@@ -51,7 +51,8 @@ function New-LabSSHKey {
 
         # Ensure directory exists
         if (-not (Test-Path $sshKeyDir)) {
-            New-Item -ItemType Directory -Force -Path $sshKeyDir | Out-Null
+            $null = New-Item -ItemType Directory -Force -Path $sshKeyDir
+            Write-Verbose "Created directory: $sshKeyDir"
         }
 
         # Find ssh-keygen.exe

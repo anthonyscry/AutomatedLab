@@ -169,7 +169,8 @@ local-hostname: $Hostname
 
     # Staging folder for the two files
     $staging = Join-Path $env:TEMP ("cidata-" + [guid]::NewGuid().ToString().Substring(0,8))
-    New-Item -ItemType Directory -Path $staging -Force | Out-Null
+    $null = New-Item -ItemType Directory -Path $staging -Force
+    Write-Verbose "Created staging directory: $staging"
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
     try {
@@ -179,17 +180,23 @@ local-hostname: $Hostname
 
         # Create parent directory for the VHDX
         $dir = Split-Path $OutputPath -Parent
-        if ($dir) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        if ($dir) {
+            $null = New-Item -ItemType Directory -Path $dir -Force
+            Write-Verbose "Created directory: $dir"
+        }
         if (Test-Path $OutputPath) { Remove-Item $OutputPath -Force }
 
         # Create a small dynamic VHDX, partition, format FAT32 with label CIDATA
-        New-VHD -Path $OutputPath -SizeBytes 64MB -Dynamic | Out-Null
+        Write-Verbose "Creating VHDX: $OutputPath"
+        $null = New-VHD -Path $OutputPath -SizeBytes 64MB -Dynamic
         $mounted = Mount-VHD -Path $OutputPath -PassThru
         $diskNum = $mounted.DiskNumber
 
-        Initialize-Disk -Number $diskNum -PartitionStyle GPT -PassThru | Out-Null
+        Write-Verbose "Initializing disk $diskNum with GPT partition style"
+        $null = Initialize-Disk -Number $diskNum -PartitionStyle GPT -PassThru
         $part = New-Partition -DiskNumber $diskNum -UseMaximumSize -AssignDriveLetter
-        Format-Volume -Partition $part -FileSystem FAT32 -NewFileSystemLabel 'CIDATA' -Force | Out-Null
+        Write-Verbose "Formatting partition as FAT32 with label CIDATA"
+        $null = Format-Volume -Partition $part -FileSystem FAT32 -NewFileSystemLabel 'CIDATA' -Force
 
         $driveLetter = ($part | Get-Volume).DriveLetter
         $driveRoot = "${driveLetter}:\"

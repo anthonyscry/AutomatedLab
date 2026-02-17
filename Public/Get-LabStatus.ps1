@@ -66,7 +66,7 @@ function Get-LabStatus {
                 if (-not $adapterMap.ContainsKey($adapterKey)) {
                     $adapterMap[$adapterKey] = New-Object System.Collections.Generic.List[object]
                 }
-                $adapterMap[$adapterKey].Add($adapter) | Out-Null
+                [void]$adapterMap[$adapterKey].Add($adapter)
             }
         }
 
@@ -75,14 +75,14 @@ function Get-LabStatus {
 
             if ($null -eq $vm) {
                 if ($Compact) {
-                    $results.Add([PSCustomObject]@{
+                    [void]$results.Add([PSCustomObject]@{
                         VMName = $vmName
                         State = "NotCreated"
                         Heartbeat = "N/A"
-                    }) | Out-Null
+                    })
                 }
                 else {
-                    $results.Add([PSCustomObject]@{
+                    [void]$results.Add([PSCustomObject]@{
                         VMName = $vmName
                         State = "NotCreated"
                         Status = "VM does not exist"
@@ -91,7 +91,7 @@ function Get-LabStatus {
                         Uptime = "N/A"
                         NetworkStatus = "N/A"
                         Heartbeat = "N/A"
-                    }) | Out-Null
+                    })
                 }
                 continue
             }
@@ -105,11 +105,11 @@ function Get-LabStatus {
             }
 
             if ($Compact) {
-                $results.Add([PSCustomObject]@{
+                [void]$results.Add([PSCustomObject]@{
                     VMName = $vmName
                     State = [string]$vm.State
                     Heartbeat = $heartbeat
-                }) | Out-Null
+                })
             }
             else {
                 # Calculate uptime if running
@@ -152,7 +152,7 @@ function Get-LabStatus {
                     }
                 }
 
-                $results.Add([PSCustomObject]@{
+                [void]$results.Add([PSCustomObject]@{
                     VMName = $vmName
                     State = [string]$vm.State
                     Status = if ($vm.State -eq "Running") { "Running" } else { "Stopped" }
@@ -161,7 +161,7 @@ function Get-LabStatus {
                     Uptime = $uptime
                     NetworkStatus = $netStatus
                     Heartbeat = $heartbeat
-                }) | Out-Null
+                })
             }
         }
 
