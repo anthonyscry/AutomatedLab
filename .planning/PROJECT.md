@@ -42,10 +42,12 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 - ✓ 34 inline functions extracted from OpenCodeLab-App.ps1 to Private/ (App.ps1: 2,012 → 977 lines) — Phase 8
 - ✓ Orchestrator is modular — each extracted helper independently testable with 133 new tests — Phase 8
 - ✓ 699 Pester tests passing — Phase 8
+- ✓ 40 functions now have structured try-catch with function-name-prefixed actionable errors — Phase 9
+- ✓ ErrorHandling-Audit.Tests.ps1 regression guard ensures no function ships without error handling — Phase 9
+- ✓ 837 Pester tests passing — Phase 9
 
 ### Active
 
-- [ ] All 39 functions without try-catch get explicit error handling
 - [ ] Module export list reconciled between .psd1 and .psm1
 - [ ] Out-Null replaced with Write-Verbose across codebase
 
@@ -89,4 +91,4 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 | Credential scrubbing in log output | Multi-layer scrubber wired into Write-RunArtifact | ✓ v1.0 |
 
 ---
-*Last updated: 2026-02-17 after Phase 8*
+*Last updated: 2026-02-17 after Phase 9*
