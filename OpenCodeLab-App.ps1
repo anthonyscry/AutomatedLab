@@ -298,23 +298,13 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
 }
 
-function Resolve-ScriptPath {
-    param([Parameter(Mandatory)][string]$BaseName)
-    # Search root first, then Scripts/ subfolder
-    $path = Join-Path $ScriptDir "$BaseName.ps1"
-    if (Test-Path $path) { return $path }
-    $altPath = Join-Path $ScriptDir "Scripts\$BaseName.ps1"
-    if (Test-Path $altPath) { return $altPath }
-    throw "Script not found: $path (also checked Scripts\$BaseName.ps1)"
-}
-
 function Invoke-RepoScript {
     param(
         [Parameter(Mandatory)][string]$BaseName,
         [string[]]$Arguments
     )
 
-    $path = Resolve-ScriptPath -BaseName $BaseName
+    $path = Resolve-LabScriptPath -BaseName $BaseName -ScriptDir $ScriptDir
     $argText = if ($Arguments -and $Arguments.Count -gt 0) { $Arguments -join ' ' } else { '' }
     Add-RunEvent -Step $BaseName -Status 'start' -Message $argText
     Write-Host "  Running: $([System.IO.Path]::GetFileName($path))" -ForegroundColor Gray
