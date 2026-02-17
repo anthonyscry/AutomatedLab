@@ -8,6 +8,9 @@ BeforeAll {
     $OpenCodeLabAppPath = Join-Path $ProjectRoot 'OpenCodeLab-App.ps1'
     $BlowAwayPath = Join-Path $ProjectRoot 'Private/Invoke-LabBlowAway.ps1'
     $BootstrapPath = Join-Path $ProjectRoot 'Bootstrap.ps1'
+
+    # Extracted in Batch 3 - now lives in Private/
+    $OneButtonResetPath = Join-Path $ProjectRoot 'Private/Invoke-LabOneButtonReset.ps1'
 }
 
 Describe 'Invoke-LabBlowAway teardown completeness' {
@@ -71,12 +74,14 @@ Describe 'Bootstrap.ps1 idempotency' {
     }
 }
 
-Describe 'Invoke-OneButtonReset confirmation gates' {
+Describe 'Invoke-LabOneButtonReset confirmation gates' {
     It 'requires confirmation unless Force or NonInteractive is set' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
+        # Function extracted to Private/Invoke-LabOneButtonReset.ps1 in Batch 3
+        $content = Get-Content $OneButtonResetPath -Raw
         # Should use Force/NonInteractive flags to control BypassPrompt
-        $content | Should -Match 'function Invoke-OneButtonReset'
-        $content | Should -Match '\$Force.*\$NonInteractive'
+        $content | Should -Match 'function Invoke-LabOneButtonReset'
+        $content | Should -Match '\$Force'
+        $content | Should -Match '\$NonInteractive'
         $content | Should -Match 'BypassPrompt.*shouldBypassPrompt'
     }
 }

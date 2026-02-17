@@ -7,6 +7,10 @@ Set-StrictMode -Version Latest
 BeforeAll {
     $ScriptPath = Join-Path $PSScriptRoot '..' 'OpenCodeLab-App.ps1'
     $ScriptContent = Get-Content $ScriptPath -Raw
+
+    # Extracted functions (Batch 3) now live in Private/
+    $BulkVMProvisionPath = Join-Path $PSScriptRoot '..' 'Private' 'Invoke-LabBulkVMProvision.ps1'
+    $BulkVMProvisionContent = Get-Content $BulkVMProvisionPath -Raw
 }
 
 Describe 'CLI Action Routing' {
@@ -82,30 +86,34 @@ Describe 'CLI Action Routing' {
     }
 
     Context 'Legacy Variable References' {
-        It 'Invoke-BulkAdditionalVMProvision does not reference $Server_Memory' {
-            $bulkProvisionMatch = [regex]::Match($ScriptContent, '(?s)function Invoke-BulkAdditionalVMProvision\s*\{(.*?)\n\}')
+        It 'Invoke-LabBulkVMProvision does not reference $Server_Memory' {
+            # Function extracted to Private/Invoke-LabBulkVMProvision.ps1 in Batch 3
+            $bulkProvisionMatch = [regex]::Match($BulkVMProvisionContent, '(?s)function Invoke-LabBulkVMProvision\s*\{(.*?)\n\}')
             $bulkProvisionMatch.Success | Should -Be $true
 
             $functionBody = $bulkProvisionMatch.Groups[1].Value
-            $functionBody | Should -Not -Match '\$Server_Memory' -Because 'Should use $GlobalLabConfig.VMSizing.Server.Memory'
+            $functionBody | Should -Not -Match '\$Server_Memory' -Because 'Should use $LabConfig.VMSizing.Server.Memory'
         }
 
-        It 'Invoke-BulkAdditionalVMProvision does not reference $Client_Memory' {
-            $bulkProvisionMatch = [regex]::Match($ScriptContent, '(?s)function Invoke-BulkAdditionalVMProvision\s*\{(.*?)\n\}')
+        It 'Invoke-LabBulkVMProvision does not reference $Client_Memory' {
+            # Function extracted to Private/Invoke-LabBulkVMProvision.ps1 in Batch 3
+            $bulkProvisionMatch = [regex]::Match($BulkVMProvisionContent, '(?s)function Invoke-LabBulkVMProvision\s*\{(.*?)\n\}')
             $functionBody = $bulkProvisionMatch.Groups[1].Value
-            $functionBody | Should -Not -Match '\$Client_Memory' -Because 'Should use $GlobalLabConfig.VMSizing.Client.Memory'
+            $functionBody | Should -Not -Match '\$Client_Memory' -Because 'Should use $LabConfig.VMSizing.Client.Memory'
         }
 
-        It 'Invoke-BulkAdditionalVMProvision does not reference $Server_Processors' {
-            $bulkProvisionMatch = [regex]::Match($ScriptContent, '(?s)function Invoke-BulkAdditionalVMProvision\s*\{(.*?)\n\}')
+        It 'Invoke-LabBulkVMProvision does not reference $Server_Processors' {
+            # Function extracted to Private/Invoke-LabBulkVMProvision.ps1 in Batch 3
+            $bulkProvisionMatch = [regex]::Match($BulkVMProvisionContent, '(?s)function Invoke-LabBulkVMProvision\s*\{(.*?)\n\}')
             $functionBody = $bulkProvisionMatch.Groups[1].Value
-            $functionBody | Should -Not -Match '\$Server_Processors' -Because 'Should use $GlobalLabConfig.VMSizing.Server.Processors'
+            $functionBody | Should -Not -Match '\$Server_Processors' -Because 'Should use $LabConfig.VMSizing.Server.Processors'
         }
 
-        It 'Invoke-BulkAdditionalVMProvision does not reference $Client_Processors' {
-            $bulkProvisionMatch = [regex]::Match($ScriptContent, '(?s)function Invoke-BulkAdditionalVMProvision\s*\{(.*?)\n\}')
+        It 'Invoke-LabBulkVMProvision does not reference $Client_Processors' {
+            # Function extracted to Private/Invoke-LabBulkVMProvision.ps1 in Batch 3
+            $bulkProvisionMatch = [regex]::Match($BulkVMProvisionContent, '(?s)function Invoke-LabBulkVMProvision\s*\{(.*?)\n\}')
             $functionBody = $bulkProvisionMatch.Groups[1].Value
-            $functionBody | Should -Not -Match '\$Client_Processors' -Because 'Should use $GlobalLabConfig.VMSizing.Client.Processors'
+            $functionBody | Should -Not -Match '\$Client_Processors' -Because 'Should use $LabConfig.VMSizing.Client.Processors'
         }
 
         It 'No bare $LabName references outside strings and comments' {
