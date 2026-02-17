@@ -108,4 +108,25 @@ Describe 'Invoke-LabCoordinatorDispatch' {
         $hostOutcome.LastFailureMessage | Should -BeNullOrEmpty
         $result.ExecutionOutcome | Should -Be 'succeeded'
     }
+
+    It 'throws when target hosts array is empty' {
+        {
+            Invoke-LabCoordinatorDispatch -Action 'deploy' -EffectiveMode 'quick' -DispatchMode 'enforced' -TargetHosts @()
+        } | Should -Throw
+    }
+
+    It 'throws when target hosts contain only whitespace' {
+        {
+            Invoke-LabCoordinatorDispatch -Action 'deploy' -EffectiveMode 'quick' -DispatchMode 'enforced' -TargetHosts @('', '  ')
+        } | Should -Throw
+    }
+
+    It 'handles runner returning string truthy value' {
+        $result = Invoke-LabCoordinatorDispatch -Action 'deploy' -EffectiveMode 'quick' -DispatchMode 'enforced' -TargetHosts @('host-a') -HostStepRunner {
+            param($HostName, $Action, $EffectiveMode, $Attempt)
+            return 'completed'
+        }
+
+        $result.HostOutcomes[0].DispatchStatus | Should -Be 'succeeded'
+    }
 }
