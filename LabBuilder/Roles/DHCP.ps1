@@ -31,6 +31,26 @@ function Get-LabRole_DHCP {
         PostInstall = {
             param([hashtable]$LabConfig)
 
+            # Prerequisite validation: DHCP config section required
+            if (-not $LabConfig.ContainsKey('DHCP') -or -not $LabConfig.DHCP) {
+                Write-Warning "DHCP role prereq check failed: `$LabConfig.DHCP section not found. Add DHCP config (ScopeId, Start, End, Mask) to Lab-Config.ps1."
+                return
+            }
+            $dhcpRequiredKeys = @('ScopeId', 'Start', 'End', 'Mask')
+            $dhcpMissing = @($dhcpRequiredKeys | Where-Object { -not $LabConfig.DHCP.ContainsKey($_) -or [string]::IsNullOrWhiteSpace([string]$LabConfig.DHCP[$_]) })
+            if ($dhcpMissing.Count -gt 0) {
+                Write-Warning "DHCP role prereq check failed: Missing config keys in `$LabConfig.DHCP: $($dhcpMissing -join ', '). Add these to Lab-Config.ps1."
+                return
+            }
+            if (-not $LabConfig.ContainsKey('Network') -or -not $LabConfig.Network -or [string]::IsNullOrWhiteSpace($LabConfig.Network.Gateway)) {
+                Write-Warning "DHCP role prereq check failed: `$LabConfig.Network.Gateway not configured."
+                return
+            }
+            if (-not $LabConfig.ContainsKey('IPPlan') -or -not $LabConfig.IPPlan -or [string]::IsNullOrWhiteSpace($LabConfig.IPPlan.DC)) {
+                Write-Warning "DHCP role prereq check failed: `$LabConfig.IPPlan.DC not configured."
+                return
+            }
+
             Install-LabWindowsFeature -ComputerName $LabConfig.VMNames.DHCP -FeatureName DHCP -IncludeManagementTools
 
             Invoke-LabCommand -ComputerName $LabConfig.VMNames.DHCP -ActivityName 'DHCP-Configure-Scope' -ScriptBlock {
