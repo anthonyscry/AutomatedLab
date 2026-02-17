@@ -38,20 +38,16 @@ Export-ModuleMember -Function @(
     # VM management
     'Connect-LabVM', 'Get-LabCheckpoint', 'Get-LabStatus',
     'Initialize-LabDNS', 'Initialize-LabDomain', 'Initialize-LabNetwork', 'Initialize-LabVMs',
-    'Join-LabDomain', 'New-LabSwitch', 'New-LabVM', 'New-LabNAT',
+    'Join-LabDomain', 'New-LabNAT', 'New-LabSSHKey', 'New-LabSwitch', 'New-LabVM',
     'Remove-LabSwitch', 'Remove-LabVM', 'Remove-LabVMs', 'Reset-Lab',
     'Restart-LabVM', 'Restart-LabVMs', 'Restore-LabCheckpoint', 'Resume-LabVM',
     'Save-LabCheckpoint', 'Save-LabReadyCheckpoint', 'Show-LabStatus',
     'Start-LabVMs', 'Stop-LabVMs', 'Suspend-LabVM', 'Suspend-LabVMs',
-    'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
-    'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs',
-    'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey',
+    'Test-HyperVEnabled', 'Test-LabDomainHealth', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
+    'Wait-LabVMReady', 'Write-LabStatus', 'Write-RunArtifact',
     # Linux VM helpers (Public/Linux)
-    'Invoke-BashOnLinuxVM', 'New-LinuxVM', 'New-CidataVhdx',
-    'Get-Sha512PasswordHash', 'Get-LinuxVMIPv4', 'Finalize-LinuxInstallMedia',
-    'Wait-LinuxVMReady', 'Get-LinuxSSHConnectionInfo',
-    'Add-LinuxDhcpReservation', 'Join-LinuxToDomain',
-    'New-LinuxGoldenVhdx', 'Remove-HyperVVMStale',
-    # UX helpers
-    'Write-LabStatus'
+    'Add-LinuxDhcpReservation', 'Finalize-LinuxInstallMedia', 'Get-LinuxSSHConnectionInfo',
+    'Get-LinuxVMIPv4', 'Get-Sha512PasswordHash', 'Invoke-BashOnLinuxVM',
+    'Join-LinuxToDomain', 'New-CidataVhdx', 'New-LinuxGoldenVhdx', 'New-LinuxVM',
+    'Remove-HyperVVMStale', 'Wait-LinuxVMReady'
 )
