@@ -76,10 +76,55 @@ if ((-not $NoExecute) -and (-not $SkipRuntimeBootstrap)) {
     . $CommonPath
 }
 
+# When bootstrap is skipped (test mode or NoExecute), create minimal config and load required helpers
+if ($SkipRuntimeBootstrap -or $NoExecute) {
+    $script:GlobalLabConfig = @{
+        Lab = @{
+            Name = 'TestLab'
+            CoreVMNames = @('dc1', 'svr1', 'ws1')
+            DomainName = 'test.local'
+            TimeZone = 'Pacific Standard Time'
+        }
+        Paths = @{
+            LabRoot = 'C:\TestLabRoot'
+            LabSourcesRoot = 'C:\TestLabSources'
+        }
+        Network = @{
+            SwitchName = 'TestSwitch'
+            NatName = 'TestNat'
+            AddressSpace = '172.16.0.0/24'
+        }
+        VMSizing = @{
+            Server = @{ Memory = 2GB; Processors = 2 }
+            Client = @{ Memory = 2GB; Processors = 2 }
+        }
+        AutoHeal = @{
+            Enabled = $true
+            TimeoutSeconds = 60
+            HealthCheckTimeoutSeconds = 10
+        }
+    }
+
+    # Load all Private/ helpers (same as Lab-Common.ps1)
+    $importHelperPath = Join-Path $ScriptDir 'Private/Import-LabScriptTree.ps1'
+    if (Test-Path $importHelperPath) {
+        . $importHelperPath
+        $privateFiles = Get-LabScriptFiles -RootPath $ScriptDir -RelativePaths @('Private') -ExcludeFileNames @('Import-LabScriptTree.ps1')
+        foreach ($file in $privateFiles) {
+            . $file.FullName
+        }
+    }
+}
+
 # Alias for backward compatibility with existing code
 Set-Alias -Name Remove-VMHardSafe -Value Remove-HyperVVMStale -Scope Script
 
-$SwitchName = $GlobalLabConfig.Network.SwitchName
+if ($SkipRuntimeBootstrap -or $NoExecute) {
+    $SwitchName = 'TestSwitch'
+}
+else {
+    $SwitchName = $GlobalLabConfig.Network.SwitchName
+}
 $RunStart = Get-Date
 $RunId = (Get-Date -Format 'yyyyMMdd-HHmmss')
 $RunLogRoot = if ([string]::IsNullOrWhiteSpace($env:OPENCODELAB_RUN_LOG_ROOT)) { 'C:\LabSources\Logs' } else { [string]$env:OPENCODELAB_RUN_LOG_ROOT }
