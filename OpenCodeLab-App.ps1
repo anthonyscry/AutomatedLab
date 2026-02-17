@@ -248,7 +248,7 @@ function Test-LabReadySnapshot {
     param([string[]]$VMNames)
 
     try {
-        Ensure-LabImported
+        Import-LabModule -LabName $GlobalLabConfig.Lab.Name
         $targets = @()
         if ($VMNames -and $VMNames.Count -gt 0) {
             $targets = @($VMNames)
@@ -413,33 +413,9 @@ function Resolve-RuntimeStateOverride {
     return $state
 }
 
-function Ensure-LabImported {
-    if (Get-Module -Name AutomatedLab -ErrorAction SilentlyContinue) {
-        # Module already loaded; just ensure lab is imported
-        try {
-            $lab = Get-Lab -ErrorAction SilentlyContinue
-            if ($lab -and $lab.Name -eq $GlobalLabConfig.Lab.Name) { return }
-        } catch {
-            Write-Verbose "Lab query failed (expected if lab not yet created): $_"
-        }
-    }
-
-    try {
-        Import-Module AutomatedLab -ErrorAction Stop | Out-Null
-    } catch {
-        throw "AutomatedLab module is not installed. Run setup first."
-    }
-
-    try {
-        Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop | Out-Null
-    } catch {
-        throw "Lab '$($GlobalLabConfig.Lab.Name)' is not registered. Run setup first."
-    }
-}
-
 function Stop-LabVMsSafe {
     try {
-        Ensure-LabImported
+        Import-LabModule -LabName $GlobalLabConfig.Lab.Name
         Stop-LabVM -All -ErrorAction SilentlyContinue | Out-Null
     } catch {
         Get-VM -ErrorAction SilentlyContinue |
@@ -611,7 +587,7 @@ function Invoke-OneButtonSetup {
         Write-LabStatus -Status FAIL -Message "Post-deploy health gate failed"
         Write-Host "  Attempting automatic rollback to LabReady..." -ForegroundColor Yellow
         try {
-            Ensure-LabImported
+            Import-LabModule -LabName $GlobalLabConfig.Lab.Name
             if (-not (Test-LabReadySnapshot)) {
                 Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message 'LabReady snapshot missing' -RunEvents $RunEvents
                 Write-LabStatus -Status WARN -Message "LabReady snapshot missing. Cannot auto-rollback."
@@ -687,7 +663,7 @@ function Invoke-QuickTeardown {
     Stop-LabVMsSafe
 
     try {
-        Ensure-LabImported
+        Import-LabModule -LabName $GlobalLabConfig.Lab.Name
         if (Test-LabReadySnapshot -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig)) {
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
             Add-LabRunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
@@ -1116,7 +1092,7 @@ function Invoke-InteractiveMenu {
             '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '4' {
                 Invoke-MenuCommand -Name 'rollback' -Command {
-                    Ensure-LabImported
+                    Import-LabModule -LabName $GlobalLabConfig.Lab.Name
                     if (-not (Test-LabReadySnapshot)) {
                         Write-LabStatus -Status WARN -Message "LabReady snapshot not found"
                         return
@@ -1814,7 +1790,7 @@ $skipLegacyOrchestration = $false
         }
         'rollback' {
             Add-LabRunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady' -RunEvents $RunEvents
-            Ensure-LabImported
+            Import-LabModule -LabName $GlobalLabConfig.Lab.Name
             if (-not (Test-LabReadySnapshot)) {
                 throw "LabReady snapshot not found on one or more VMs. Re-run deploy to recreate baseline."
             }
