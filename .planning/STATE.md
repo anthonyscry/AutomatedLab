@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 Phase: 5 of 6 (GUI Integration)
 Plan: 2 of 4 in current phase
 Status: Executing
-Last activity: 2026-02-17 — Completed 05-01 (CLI-GUI action parity and timer lifecycle)
+Last activity: 2026-02-17 — Completed 05-02 (GUI reliability hardening)
 
-Progress: [███████░░░] 72%
+Progress: [███████░░░] 73%
 
 ## Performance Metrics
 
@@ -79,7 +79,8 @@ Recent decisions affecting current work:
 - [Phase 04-02]: All 6 core Windows roles get try-catch error handling with post-install service verification
 - [Phase 04-03]: DC failure is fatal (aborts build), post-install summary table, 15-role scriptMap in orchestrator
 - [Phase 04-04]: Linux roles return safe stubs when config missing, LinuxRoleBase validates before property access
-- [Phase 05-gui-integration]: Timer lifecycle managed in Switch-View for clean resource cleanup and WPF dispatcher safety
+- [Phase 05-01]: Timer lifecycle managed in Switch-View for clean resource cleanup and WPF dispatcher safety
+- [Phase 05-02]: Log buffer capped at 2000 entries with FIFO trimming, Application.Current.FindResource for theme-safe color resolution, network settings and admin username persist to both config.json and gui-settings.json
 
 ### Pending Todos
 
@@ -97,5 +98,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 05-01-PLAN.md (CLI-GUI action parity and timer lifecycle)
+Stopped at: Completed 05-02-PLAN.md (GUI reliability hardening)
 Resume file: None
