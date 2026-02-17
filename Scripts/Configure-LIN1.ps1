@@ -21,8 +21,8 @@ $ErrorActionPreference = 'Stop'
 # Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
 $AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
-if (-not (Import-OpenCodeLab -Name $LabName)) {
-    throw "Lab '$LabName' is not imported. Run deploy first."
+if (-not (Import-OpenCodeLab -Name $GlobalLabConfig.Lab.Name)) {
+    throw "Lab '$GlobalLabConfig.Lab.Name' is not imported. Run deploy first."
 }
 
 $lin1Vm = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
@@ -34,7 +34,7 @@ if ($lin1Vm.State -ne 'Running') {
 }
 
 Write-Host "[LIN1] Waiting for SSH reachability (up to 30 min)..." -ForegroundColor Cyan
-$lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $LIN1_WaitMinutes -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+$lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes -DhcpServer 'DC1' -ScopeId $GlobalLabConfig.DHCP.ScopeId
 $lin1Ready = $lin1WaitResult.Ready
 if (-not $lin1Ready) {
     if ($lin1WaitResult.LeaseIP) {
@@ -43,10 +43,10 @@ if (-not $lin1Ready) {
     throw "LIN1 is not SSH reachable yet. Finish Ubuntu install/reboot, then run Configure-LIN1.ps1 again."
 }
 
-$HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
-Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
+$HostPublicKeyFileName = [System.IO.Path]::GetFileName((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub))
+Copy-LabFileItem -Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub) -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
-$linUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'anthonyscry' } else { $LinuxUser }
+$linUser = if ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.LinuxUser)) { 'anthonyscry' } else { $GlobalLabConfig.Credentials.LinuxUser }
 $linHome = "/home/$linUser"
 $escapedPassword = $AdminPassword -replace "'", "'\\''"
 

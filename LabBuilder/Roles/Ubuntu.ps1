@@ -13,6 +13,12 @@ function Get-LabRole_Ubuntu {
         [hashtable]$Config
     )
 
+    # Null-guard: LinuxVM config required
+    if (-not $Config.ContainsKey('LinuxVM') -or -not $Config.LinuxVM) {
+        Write-Warning "Linux VM configuration not found. Skipping role definition for Ubuntu."
+        return @{ Tag = 'Ubuntu'; VMName = ''; SkipInstallLab = $true; IsLinux = $true; Roles = @(); OS = ''; IP = ''; Gateway = ''; DnsServer1 = ''; PostInstall = $null; CreateVM = $null }
+    }
+
     # Dot-source Lab-Common.ps1 for Linux helper functions
     $labCommonPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Lab-Common.ps1'
     if (Test-Path $labCommonPath) { . $labCommonPath }

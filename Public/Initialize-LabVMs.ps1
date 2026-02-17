@@ -106,7 +106,7 @@ function Initialize-LabVMs {
     $vmOrder = @("dc1", "svr1", "ws1")
 
     # Default admin password for unattended install
-    $defaultPassword = if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Credentials.AdminPassword } else { 'SimpleLab123!' }
+    $defaultPassword = if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Credentials.AdminPassword } else { '' }
 
     # Create each VM
     foreach ($vmName in $vmOrder) {

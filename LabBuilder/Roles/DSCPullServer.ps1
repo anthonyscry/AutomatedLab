@@ -32,6 +32,18 @@ function Get-LabRole_DSC {
         PostInstall = {
             param([hashtable]$LabConfig)
 
+            # Prerequisite validation: DSCPullServer config section required
+            if (-not $LabConfig.ContainsKey('DSCPullServer') -or -not $LabConfig.DSCPullServer) {
+                Write-Warning "DSC role prereq check failed: `$LabConfig.DSCPullServer section not found. Add DSCPullServer config (PullPort, CompliancePort, RegistrationKeyDir, RegistrationKeyFile) to Lab-Config.ps1."
+                return
+            }
+            $dscRequiredKeys = @('PullPort', 'CompliancePort', 'RegistrationKeyDir', 'RegistrationKeyFile')
+            $dscMissing = @($dscRequiredKeys | Where-Object { -not $LabConfig.DSCPullServer.ContainsKey($_) -or [string]::IsNullOrWhiteSpace([string]$LabConfig.DSCPullServer[$_]) })
+            if ($dscMissing.Count -gt 0) {
+                Write-Warning "DSC role prereq check failed: Missing config keys in `$LabConfig.DSCPullServer: $($dscMissing -join ', '). Add these to Lab-Config.ps1."
+                return
+            }
+
             $dscVMName   = $LabConfig.VMNames.DSC
             $pullPort    = $LabConfig.DSCPullServer.PullPort
             $compPort    = $LabConfig.DSCPullServer.CompliancePort

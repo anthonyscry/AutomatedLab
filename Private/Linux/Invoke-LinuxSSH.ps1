@@ -19,9 +19,15 @@ function Invoke-LinuxSSH {
         throw "OpenSSH client not found at $sshExe. Install Windows optional feature: OpenSSH Client."
     }
 
+    # Ensure known_hosts directory exists
+    $knownHostsDir = Split-Path -Parent $GlobalLabConfig.SSH.KnownHostsPath
+    if (-not (Test-Path $knownHostsDir)) {
+        New-Item -ItemType Directory -Path $knownHostsDir -Force | Out-Null
+    }
+
     $sshArgs = @(
         '-o', 'StrictHostKeyChecking=accept-new',
-        '-o', 'UserKnownHostsFile=NUL',
+        '-o', "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)",
         '-o', "ConnectTimeout=$ConnectTimeout",
         '-i', $KeyPath,
         "$User@$IP",

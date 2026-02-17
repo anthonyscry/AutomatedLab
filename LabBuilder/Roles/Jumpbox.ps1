@@ -30,41 +30,68 @@ function Get-LabRole_Jumpbox {
         PostInstall = {
             param([hashtable]$LabConfig)
 
-            Invoke-LabCommand -ComputerName $LabConfig.VMNames.Jumpbox -ActivityName 'Jumpbox-Install-RSAT' -ScriptBlock {
-                # Install RSAT tools via Add-WindowsCapability (idempotent, PS5.1 on Win11)
-                $rsatCapabilities = @(
-                    'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'
-                    'Rsat.Dns.Tools~~~~0.0.1.0'
-                    'Rsat.DHCP.Tools~~~~0.0.1.0'
-                    'Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0'
-                    'Rsat.ServerManager.Tools~~~~0.0.1.0'
-                )
+            $jumpVMName = $LabConfig.VMNames.Jumpbox
 
-                foreach ($cap in $rsatCapabilities) {
-                    $installed = Get-WindowsCapability -Online -Name $cap -ErrorAction SilentlyContinue
-                    if ($installed -and $installed.State -ne 'Installed') {
-                        try {
-                            Add-WindowsCapability -Online -Name $cap -ErrorAction Stop | Out-Null
-                            Write-Host "    [OK] Installed: $cap" -ForegroundColor Green
+            try {
+                Invoke-LabCommand -ComputerName $jumpVMName -ActivityName 'Jumpbox-Install-RSAT' -ScriptBlock {
+                    # Install RSAT tools via Add-WindowsCapability (idempotent, PS5.1 on Win11)
+                    $rsatCapabilities = @(
+                        'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'
+                        'Rsat.Dns.Tools~~~~0.0.1.0'
+                        'Rsat.DHCP.Tools~~~~0.0.1.0'
+                        'Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0'
+                        'Rsat.ServerManager.Tools~~~~0.0.1.0'
+                    )
+
+                    $successCount = 0
+                    $failCount = 0
+                    foreach ($cap in $rsatCapabilities) {
+                        $installed = Get-WindowsCapability -Online -Name $cap -ErrorAction SilentlyContinue
+                        if ($installed -and $installed.State -ne 'Installed') {
+                            try {
+                                Add-WindowsCapability -Online -Name $cap -ErrorAction Stop | Out-Null
+                                Write-Host "    [OK] Installed: $cap" -ForegroundColor Green
+                                $successCount++
+                            }
+                            catch {
+                                Write-Warning "    Failed to install ${cap}: $($_.Exception.Message)"
+                                $failCount++
+                            }
                         }
-                        catch {
-                            Write-Warning "    Failed to install ${cap}: $($_.Exception.Message)"
+                        elseif ($installed -and $installed.State -eq 'Installed') {
+                            Write-Host "    [OK] Already installed: $cap" -ForegroundColor Green
+                            $successCount++
                         }
                     }
-                    elseif ($installed -and $installed.State -eq 'Installed') {
-                        Write-Host "    [OK] Already installed: $cap" -ForegroundColor Green
-                    }
-                }
 
-                # Enable Remote Desktop (idempotent)
-                $rdpKey = 'HKLM:\System\CurrentControlSet\Control\Terminal Server'
-                $current = (Get-ItemProperty -Path $rdpKey -Name 'fDenyTSConnections' -ErrorAction SilentlyContinue).fDenyTSConnections
-                if ($current -ne 0) {
-                    Set-ItemProperty -Path $rdpKey -Name 'fDenyTSConnections' -Value 0
-                    Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
-                    Write-Host '    [OK] Remote Desktop enabled.' -ForegroundColor Green
+                    Write-Host "    RSAT Summary: $successCount succeeded, $failCount failed out of $($rsatCapabilities.Count) capabilities." -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Green' })
+
+                    # Enable Remote Desktop (idempotent)
+                    $rdpKey = 'HKLM:\System\CurrentControlSet\Control\Terminal Server'
+                    $current = (Get-ItemProperty -Path $rdpKey -Name 'fDenyTSConnections' -ErrorAction SilentlyContinue).fDenyTSConnections
+                    if ($current -ne 0) {
+                        Set-ItemProperty -Path $rdpKey -Name 'fDenyTSConnections' -Value 0
+                        Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
+                        Write-Host '    [OK] Remote Desktop enabled.' -ForegroundColor Green
+                    }
+                } -Retries 2 -RetryIntervalInSeconds 15
+
+                # Verify RDP is enabled
+                $rdpVerify = Invoke-LabCommand -ComputerName $jumpVMName -ActivityName 'Jumpbox-Verify-RDP' -PassThru -ScriptBlock {
+                    $rdpKey = 'HKLM:\System\CurrentControlSet\Control\Terminal Server'
+                    $val = (Get-ItemProperty -Path $rdpKey -Name 'fDenyTSConnections' -ErrorAction SilentlyContinue).fDenyTSConnections
+                    @{ RDPEnabled = ($val -eq 0) }
                 }
-            } -Retries 2 -RetryIntervalInSeconds 15
+                if (-not $rdpVerify.RDPEnabled) {
+                    Write-Warning "Jumpbox role: Remote Desktop is not enabled on $jumpVMName. Run on Jumpbox: Get-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections"
+                }
+                else {
+                    Write-Host '    [OK] Remote Desktop verified enabled on Jumpbox.' -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Warning "Jumpbox role post-install failed on ${jumpVMName}: $($_.Exception.Message). Check: Windows capability service running, internet connectivity for RSAT download."
+            }
         }
     }
 }

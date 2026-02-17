@@ -31,19 +31,19 @@ Write-Host "`n=== SAVE WORK ===" -ForegroundColor Cyan
 
 Ensure-VMsReady -VMNames @('LIN1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
-if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GitName) -or [string]::IsNullOrWhiteSpace($GitEmail))) {
+if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.GitName) -or [string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.GitEmail))) {
     throw "NonInteractive mode requires GitName and GitEmail in Lab-Config.ps1."
 }
 
-$git = Get-GitIdentity -DefaultName $GitName -DefaultEmail $GitEmail
-$GitName = $git.Name
-$GitEmail = $git.Email
+$git = Get-GitIdentity -DefaultName $GlobalLabConfig.Credentials.GitName -DefaultEmail $GlobalLabConfig.Credentials.GitEmail
+$GlobalLabConfig.Credentials.GitName = $git.Name
+$GlobalLabConfig.Credentials.GitEmail = $git.Email
 
-Import-Lab -Name $LabName -ErrorAction Stop
+Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
 
 # List projects
 Write-Host "  Scanning projects on LIN1..." -ForegroundColor Yellow
-$scanCmd = 'for d in ' + $LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then basename "$d"; fi; done'
+$scanCmd = 'for d in ' + $GlobalLabConfig.Paths.LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then basename "$d"; fi; done'
 $projects = Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
     param($BashCmd)
     bash -lc $BashCmd
@@ -115,10 +115,10 @@ fi
 
     $saveVars = @{
         LIN_HOME = $LinuxHome
-        PROJECTS_ROOT = $LinuxProjectsRoot
+        PROJECTS_ROOT = $GlobalLabConfig.Paths.LinuxProjectsRoot
         PROJ_NAME = $proj
-        GIT_NAME = $GitName
-        GIT_EMAIL = $GitEmail
+        GIT_NAME = $GlobalLabConfig.Credentials.GitName
+        GIT_EMAIL = $GlobalLabConfig.Credentials.GitEmail
         COMMIT_MSG = $CommitMsg
     }
 

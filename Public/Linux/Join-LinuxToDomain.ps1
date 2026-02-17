@@ -12,12 +12,12 @@ function Join-LinuxToDomain {
     param(
         [ValidateNotNullOrEmpty()]
         [string]$VMName = 'LIN1',
-        [string]$DomainName = $(if ($DomainName) { $DomainName } else { 'simplelab.local' }),
-        [string]$DomainAdmin = $(if ($LabInstallUser) { $LabInstallUser } else { 'Administrator' }),
-        [string]$DomainPassword = $(if ($AdminPassword) { $AdminPassword } else { 'SimpleLab123!' }),
-        [string]$User = $(if ($LinuxUser) { $LinuxUser } else { 'labadmin' }),
-        [string]$KeyPath = $(if ($SSHPrivateKey) { $SSHPrivateKey } else { 'C:\LabSources\SSHKeys\id_ed25519' }),
-        [int]$SSHTimeout = $(if ($SSH_ConnectTimeout) { $SSH_ConnectTimeout } else { 8 })
+        [string]$DomainName = 'simplelab.local',
+        [string]$DomainAdmin = $(if ($GlobalLabConfig.Credentials.InstallUser) { $GlobalLabConfig.Credentials.InstallUser } else { 'Administrator' }),
+        [string]$DomainPassword = $(if (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Credentials.AdminPassword } else { '' }),
+        [string]$User = $(if ($GlobalLabConfig.Credentials.LinuxUser) { $GlobalLabConfig.Credentials.LinuxUser } else { 'labadmin' }),
+        [string]$KeyPath = $(if ((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)) { (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) } else { 'C:\LabSources\SSHKeys\id_ed25519' }),
+        [int]$SSHTimeout = $(if ($GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout) { $GlobalLabConfig.Timeouts.Linux.SSHConnectTimeout } else { 8 })
     )
 
     $ip = Get-LinuxVMIPv4 -VMName $VMName

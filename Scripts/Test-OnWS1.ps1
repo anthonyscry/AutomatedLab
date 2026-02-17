@@ -28,7 +28,7 @@ Write-Host "`n=== TEST ON WS1 ===" -ForegroundColor Cyan
 
 Ensure-VMsReady -VMNames @('DC1','WS1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
-Import-Lab -Name $LabName -ErrorAction Stop
+Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
 
 # List what's in the Transfer folder on DC1
 Write-Host "  Scanning L:\Transfer\ ..." -ForegroundColor Yellow

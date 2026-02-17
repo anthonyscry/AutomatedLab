@@ -76,7 +76,7 @@ function Join-LabDomain {
         # Step 1: Get domain configuration
         $domainConfig = Get-LabDomainConfig
         $targetDomain = if ($PSBoundParameters.ContainsKey('DomainName')) {
-            $DomainName
+            $GlobalLabConfig.Lab.DomainName
         }
         else {
             $domainConfig.DomainName

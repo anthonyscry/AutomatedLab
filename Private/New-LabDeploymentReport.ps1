@@ -19,7 +19,7 @@ function New-LabDeploymentReport {
     param(
         [Parameter(Mandatory)][array]$Machines,
         [string]$LabName = 'AutomatedLab',
-        [string]$OutputPath = $LabPath,
+        [string]$OutputPath = (Join-Path 'C:\AutomatedLab' 'AutomatedLab'),
         [datetime]$StartTime = [datetime]::Now
     )
 
@@ -55,10 +55,10 @@ function New-LabDeploymentReport {
     Write-Host '  CONNECTION INFO:' -ForegroundColor Yellow
     foreach ($m in $Machines) {
         if ($m.OSTag -eq '[LIN]') {
-            Write-Host ('    {0}: ssh -i $SSHPrivateKey {1}@{2}' -f $m.VMName, $LinuxUser, $m.IP) -ForegroundColor Gray
+            Write-Host ('    {0}: ssh -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) {1}@{2}' -f $m.VMName, $GlobalLabConfig.Credentials.LinuxUser, $m.IP) -ForegroundColor Gray
         }
         else {
-            $rdpUser = '{0}\{1}' -f $DomainName, $LabInstallUser
+            $rdpUser = '{0}\{1}' -f $GlobalLabConfig.Lab.DomainName, $GlobalLabConfig.Credentials.InstallUser
             Write-Host ('    {0}: RDP to {1} ({2})' -f $m.VMName, $m.IP, $rdpUser) -ForegroundColor Gray
         }
     }

@@ -11,11 +11,11 @@ $CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 
-if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { $LabVMs = @('dc1','svr1','dsc','ws1') }
+if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { @($GlobalLabConfig.Lab.CoreVMNames) = @('dc1','svr1','dsc','ws1') }
 
 # Include Linux VMs if present
 $lin1Exists = Hyper-V\Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
-$allLabVMs = if ($lin1Exists) { @($LabVMs) + @('LIN1') | Select-Object -Unique } else { @($LabVMs) }
+$allLabVMs = if ($lin1Exists) { @(@($GlobalLabConfig.Lab.CoreVMNames)) + @('LIN1') | Select-Object -Unique } else { @(@($GlobalLabConfig.Lab.CoreVMNames)) }
 
 
 
@@ -60,7 +60,7 @@ if ($snaps) {
 
 # -- Disk Usage --
 Write-Host "`n  DISK:" -ForegroundColor Yellow
-$labPath = $LabPath
+$labPath = (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)
 if (Test-Path $labPath) {
     $vhdxFiles = Get-ChildItem $labPath -Filter '*.vhdx' -Recurse -ErrorAction SilentlyContinue
     foreach ($vhd in $vhdxFiles) {
@@ -72,13 +72,13 @@ if (Test-Path $labPath) {
 }
 
 # Try to import lab for Invoke-LabCommand (non-fatal)
-$labImported = Import-OpenCodeLab -Name $LabName
+$labImported = Import-OpenCodeLab -Name $GlobalLabConfig.Lab.Name
 
 # -- Live checks (only if VMs are running) --
 $running = $labVMObjects | Where-Object { $_.State -eq 'Running' }
 if ($labImported -and ($running.Name -contains 'DC1')) {
     try {
-        Import-Lab -Name $LabName -ErrorAction Stop 2>$null
+        Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop 2>$null
 
         Write-Host "`n  SERVICES (DC1):" -ForegroundColor Yellow
         $svcCheck = Invoke-LabCommand -ComputerName 'DC1' -ScriptBlock {
@@ -132,24 +132,24 @@ if ($labImported -and ($running.Name -contains 'WSUS1')) {
 if ($labImported -and ($running.Name -contains 'LIN1')) {
     try {
         # Launch git and mount checks in parallel
-        $bashCmd = 'for d in ' + $LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then name=$(basename "$d"); cd "$d"; branch=$(git branch --show-current 2>/dev/null); changes=$(git status --porcelain 2>/dev/null | wc -l); remote=$(git remote get-url origin 2>/dev/null || echo "(no remote)"); echo "  $name [$branch] $changes uncommitted | $remote"; fi; done'
-        $mountCmd = 'if mountpoint -q "' + $LinuxLabShareMount + '" 2>/dev/null; then echo "  ' + $LinuxLabShareMount + ': MOUNTED"; else echo "  ' + $LinuxLabShareMount + ': NOT MOUNTED"; fi'
+        $bashCmd = 'for d in ' + $GlobalLabConfig.Paths.LinuxProjectsRoot + '/*/; do if [ -d "$d/.git" ]; then name=$(basename "$d"); cd "$d"; branch=$(git branch --show-current 2>/dev/null); changes=$(git status --porcelain 2>/dev/null | wc -l); remote=$(git remote get-url origin 2>/dev/null || echo "(no remote)"); echo "  $name [$branch] $changes uncommitted | $remote"; fi; done'
+        $mountCmd = 'if mountpoint -q "' + $GlobalLabConfig.Paths.LinuxLabShareMount + '" 2>/dev/null; then echo "  ' + $GlobalLabConfig.Paths.LinuxLabShareMount + ': MOUNTED"; else echo "  ' + $GlobalLabConfig.Paths.LinuxLabShareMount + ': NOT MOUNTED"; fi'
 
         $gitJob = Start-Job -ScriptBlock {
-            param($LabName, $Cmd)
-            Import-Lab -Name $LabName -ErrorAction Stop 2>$null
+            param($GlobalLabConfig.Lab.Name, $Cmd)
+            Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop 2>$null
             Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
                 param($C); bash -lc $C
             } -ArgumentList $Cmd -PassThru -ErrorAction SilentlyContinue
-        } -ArgumentList $LabName, $bashCmd
+        } -ArgumentList $GlobalLabConfig.Lab.Name, $bashCmd
 
         $mountJob = Start-Job -ScriptBlock {
-            param($LabName, $Cmd)
-            Import-Lab -Name $LabName -ErrorAction Stop 2>$null
+            param($GlobalLabConfig.Lab.Name, $Cmd)
+            Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop 2>$null
             Invoke-LabCommand -ComputerName 'LIN1' -ScriptBlock {
                 param($C); bash -lc $C
             } -ArgumentList $Cmd -PassThru -ErrorAction SilentlyContinue
-        } -ArgumentList $LabName, $mountCmd
+        } -ArgumentList $GlobalLabConfig.Lab.Name, $mountCmd
 
         # Wait with 30s timeout
         $null = Wait-Job -Job $gitJob, $mountJob -Timeout 30

@@ -67,8 +67,8 @@ $builderConfig = Resolve-AssetReportBuilderConfig -Path $LabBuilderConfigPath
 
 try {
     Import-Module AutomatedLab -ErrorAction SilentlyContinue | Out-Null
-    if ($LabName) {
-        Import-Lab -Name $LabName -ErrorAction SilentlyContinue | Out-Null
+    if ($GlobalLabConfig.Lab.Name) {
+        Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction SilentlyContinue | Out-Null
     }
 } catch {
 }
@@ -96,8 +96,8 @@ if ($builderConfig) {
     }
 }
 
-if ($LabVMs) {
-    foreach ($vm in $LabVMs) {
+if (@($GlobalLabConfig.Lab.CoreVMNames)) {
+    foreach ($vm in @($GlobalLabConfig.Lab.CoreVMNames)) {
         $upper = $vm.ToUpperInvariant()
         if (-not $roleByVm.ContainsKey($upper)) {
             $roleByVm[$upper] = New-Object System.Collections.Generic.List[string]
@@ -109,8 +109,8 @@ if ($LabVMs) {
 $candidateNames = @()
 $candidateNames += @($roleByVm.Keys)
 
-if ($LabVMs) {
-    foreach ($name in $LabVMs) {
+if (@($GlobalLabConfig.Lab.CoreVMNames)) {
+    foreach ($name in @($GlobalLabConfig.Lab.CoreVMNames)) {
         $candidateNames += $name
         $candidateNames += $name.ToUpperInvariant()
     }
@@ -202,10 +202,10 @@ foreach ($vmName in $candidateNames) {
     }
 }
 
-$networkAddress = if ($builderConfig) { $builderConfig.Network.AddressSpace } elseif ($AddressSpace) { $AddressSpace } else { '' }
-$networkGateway = if ($builderConfig) { $builderConfig.Network.Gateway } elseif ($GatewayIp) { $GatewayIp } else { '' }
-$networkSwitch = if ($builderConfig) { $builderConfig.Network.SwitchName } elseif ($LabSwitch) { $LabSwitch } else { '' }
-$networkNat = if ($builderConfig) { $builderConfig.Network.NatName } elseif ($NatName) { $NatName } else { '' }
+$networkAddress = if ($builderConfig) { $builderConfig.Network.AddressSpace } elseif ($GlobalLabConfig.Network.AddressSpace) { $GlobalLabConfig.Network.AddressSpace } else { '' }
+$networkGateway = if ($builderConfig) { $builderConfig.Network.Gateway } elseif ($GlobalLabConfig.Network.GatewayIp) { $GlobalLabConfig.Network.GatewayIp } else { '' }
+$networkSwitch = if ($builderConfig) { $builderConfig.Network.SwitchName } elseif ($GlobalLabConfig.Network.SwitchName) { $GlobalLabConfig.Network.SwitchName } else { '' }
+$networkNat = if ($builderConfig) { $builderConfig.Network.NatName } elseif ($GlobalLabConfig.Network.NatName) { $GlobalLabConfig.Network.NatName } else { '' }
 
 $jsonPath = Join-Path $OutputRoot ("AssetReport-{0}.json" -f $timestamp)
 $csvPath = Join-Path $OutputRoot ("AssetReport-{0}.csv" -f $timestamp)
@@ -214,8 +214,8 @@ $mmdPath = Join-Path $OutputRoot ("AssetReport-{0}.mmd" -f $timestamp)
 
 $summary = [pscustomobject]@{
     GeneratedAt = (Get-Date).ToString('o')
-    LabName = if ($builderConfig) { $builderConfig.LabName } elseif ($LabName) { $LabName } else { 'AutomatedLab' }
-    DomainName = if ($builderConfig) { $builderConfig.DomainName } elseif ($DomainName) { $DomainName } else { '' }
+    LabName = if ($builderConfig) { $builderConfig.LabName } elseif ($GlobalLabConfig.Lab.Name) { $GlobalLabConfig.Lab.Name } else { 'AutomatedLab' }
+    DomainName = if ($builderConfig) { $builderConfig.DomainName } elseif ($GlobalLabConfig.Lab.DomainName) { $GlobalLabConfig.Lab.DomainName } else { '' }
     Network = [pscustomobject]@{
         SwitchName = $networkSwitch
         AddressSpace = $networkAddress

@@ -75,8 +75,8 @@ FunctionsToExport = @(
     'Save-LabCheckpoint', 'Save-LabReadyCheckpoint', 'Show-LabStatus',
     'Start-LabVMs', 'Stop-LabVMs', 'Suspend-LabVM', 'Suspend-LabVMs',
     'Test-HyperVEnabled', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
-    'Test-LabCleanup', 'Test-LabDomainHealth', 'Test-LabPrereqs',
-    'Wait-LabVMReady', 'Write-RunArtifact', 'Write-ValidationReport', 'New-LabSSHKey',
+    'Test-LabDomainHealth',
+    'Wait-LabVMReady', 'Write-RunArtifact', 'New-LabSSHKey',
     # Linux VM helpers (Public/Linux)
     'Invoke-BashOnLinuxVM', 'New-LinuxVM', 'New-CidataVhdx',
     'Get-Sha512PasswordHash', 'Get-LinuxVMIPv4', 'Finalize-LinuxInstallMedia',

@@ -31,8 +31,9 @@ Every button, menu option, and CLI action works reliably from start to finish �
 - [ ] Multi-host coordinator/dispatch system functions correctly
 - [ ] All 16 LabBuilder roles provision successfully
 - [ ] Error handling is consistent — no silent failures or unhandled exceptions
-- [ ] Configuration system is unified (resolve dual hashtable/legacy variable pattern)
-- [ ] Dead code and archive artifacts cleaned up
+- [x] Security hardened — password resolution chain, SSH known_hosts, checksum validation, log scrubbing — Phase 2
+- [x] Configuration system is unified (resolve dual hashtable/legacy variable pattern) — Phase 1
+- [x] Dead code and archive artifacts cleaned up — Phase 1
 - [ ] GUI and CLI feature parity — everything accessible from both interfaces
 
 ### Out of Scope
@@ -45,9 +46,10 @@ Every button, menu option, and CLI action works reliably from start to finish �
 
 ## Context
 
-- Codebase has 107 functions but hasn't been tested end-to-end recently
-- Codebase mapping (2026-02-16) identified: hardcoded passwords, error handling gaps, large orchestration scripts (1500-2000 lines), dual config systems, disconnected helper sourcing patterns
-- Three different function sourcing patterns exist (hardcoded array, Import-LabScriptTree, Get-ChildItem)
+- Codebase has 104 functions (3 dead functions removed in Phase 1) but hasn't been tested end-to-end recently
+- Codebase mapping (2026-02-16) identified: hardcoded passwords, error handling gaps, large orchestration scripts (1500-2000 lines)
+- Helper sourcing standardized to Lab-Common.ps1 dynamic discovery with fail-fast (Phase 1)
+- $GlobalLabConfig is now single source of truth with validation on load (Phase 1)
 - GUI crash logs indicate runtime issues in view switching and template application
 - Multi-host coordinator infrastructure exists but hasn't been integration-tested
 - `.archive/` directory contains deprecated code inflating repository size
@@ -67,7 +69,14 @@ Every button, menu option, and CLI action works reliably from start to finish �
 | Include multi-host coordinator | User wants it working, infrastructure already exists | — Pending |
 | Linux VMs deprioritized | Keep code but don't actively test — Windows flows first | — Pending |
 | Brownfield hardening, not new features | 107 functions exist but need integration testing and wiring | — Pending |
-| Clean up dead code and archive | Reduce repo noise and search pollution | — Pending |
+| Clean up dead code and archive | Reduce repo noise and search pollution | ✓ Phase 1 |
+| Unified config to $GlobalLabConfig | Eliminated dual config system, fail-fast validation | ✓ Phase 1 |
+| Standardized helper sourcing | Lab-Common.ps1 dynamic discovery, removed $OrchestrationHelperPaths | ✓ Phase 1 |
+| Template validation throws on invalid data | No soft errors, shared Test-LabTemplateData helper | ✓ Phase 1 |
+| Password resolution with interactive fallback | Keep default with warning, prompt when missing, hardcoded env var names | ✓ Phase 2 |
+| SSH accept-new with lab-specific known_hosts | Replaced UserKnownHostsFile=NUL, auto-clear on teardown | ✓ Phase 2 |
+| Mandatory download checksum validation | Removed conditional bypass, fail if no hash configured | ✓ Phase 2 |
+| Credential scrubbing in log output | Protect-LabLogString multi-layer scrubber wired into Write-RunArtifact | ✓ Phase 2 |
 
 ---
-*Last updated: 2026-02-16 after initialization*
+*Last updated: 2026-02-16 after Phase 2*

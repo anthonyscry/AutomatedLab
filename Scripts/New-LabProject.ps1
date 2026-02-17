@@ -31,13 +31,13 @@ Write-Host "`n=== NEW PROJECT ===" -ForegroundColor Cyan
 
 Ensure-VMsReady -VMNames @('LIN1') -NonInteractive:$NonInteractive -AutoStart:$AutoStart
 
-if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GitName) -or [string]::IsNullOrWhiteSpace($GitEmail))) {
+if ($NonInteractive -and ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.GitName) -or [string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.GitEmail))) {
     throw "NonInteractive mode requires GitName and GitEmail in Lab-Config.ps1."
 }
 
-$git = Get-GitIdentity -DefaultName $GitName -DefaultEmail $GitEmail
-$GitName = $git.Name
-$GitEmail = $git.Email
+$git = Get-GitIdentity -DefaultName $GlobalLabConfig.Credentials.GitName -DefaultEmail $GlobalLabConfig.Credentials.GitEmail
+$GlobalLabConfig.Credentials.GitName = $git.Name
+$GlobalLabConfig.Credentials.GitEmail = $git.Email
 
 # Prompt for project name
 if ([string]::IsNullOrWhiteSpace($ProjectName) -and -not $NonInteractive) {
@@ -72,7 +72,7 @@ Write-Host "`n  Summary:" -ForegroundColor Yellow
 Write-Host "    Name:        $ProjectName"
 Write-Host "    Visibility:  $Visibility"
 Write-Host "    Description: $(if ($Description) { $Description } else { '(none)' })"
-Write-Host "    Git user:    $GitName <$GitEmail>"
+Write-Host "    Git user:    $GlobalLabConfig.Credentials.GitName <$GlobalLabConfig.Credentials.GitEmail>"
 if (-not ($NonInteractive -or $Force)) {
     $confirm = Read-Host "`n  Proceed? (y/n)"
     if ($confirm -ne 'y') {
@@ -82,7 +82,7 @@ if (-not ($NonInteractive -or $Force)) {
 }
 
 # Import lab
-Import-Lab -Name $LabName -ErrorAction Stop
+Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
 
 # Build the bash commands
 $descFlag = if ($Description) { "--description `"$Description`"" } else { "" }
@@ -135,10 +135,10 @@ fi
 '@
 
 $scriptVars = @{
-    LIN_USER = $LinuxUser
+    LIN_USER = $GlobalLabConfig.Credentials.LinuxUser
     LIN_HOME = $LinuxHome
-    GIT_NAME = $GitName
-    GIT_EMAIL = $GitEmail
+    GIT_NAME = $GlobalLabConfig.Credentials.GitName
+    GIT_EMAIL = $GlobalLabConfig.Credentials.GitEmail
     PROJECT_NAME = $ProjectName
     VISIBILITY = $Visibility
     DESCRIPTION = $Description
@@ -155,7 +155,7 @@ $lin1IP = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IP
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green
 if ($lin1IP) {
-    Write-Host "  SSH in:  ssh -i $SSHKey $LinuxUser@$lin1IP" -ForegroundColor Gray
+    Write-Host "  SSH in:  ssh -i $SSHKey $GlobalLabConfig.Credentials.LinuxUser@$lin1IP" -ForegroundColor Gray
 } else {
     Write-Host "  Connect: Use Open-LabTerminal.ps1 to SSH into LIN1" -ForegroundColor Gray
 }

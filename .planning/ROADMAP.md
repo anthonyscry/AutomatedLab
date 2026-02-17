@@ -12,10 +12,10 @@ This brownfield hardening milestone transforms a 107-function PowerShell lab aut
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Cleanup & Config Foundation** - Remove dead code, unify config system, standardize helper sourcing
-- [ ] **Phase 2: Security Hardening** - Eliminate hardcoded passwords, validate checksums, secure SSH operations
-- [ ] **Phase 3: Core Lifecycle Integration** - Bootstrap → Deploy → Teardown works end-to-end with error handling
-- [ ] **Phase 4: Role Provisioning** - All 11 Windows/Linux roles provision correctly with error handling
+- [x] **Phase 1: Cleanup & Config Foundation** - Remove dead code, unify config system, standardize helper sourcing (2026-02-16)
+- [x] **Phase 2: Security Hardening** - Eliminate hardcoded passwords, validate checksums, secure SSH operations (2026-02-16)
+- [x] **Phase 3: Core Lifecycle Integration** - Bootstrap → Deploy → Teardown works end-to-end with error handling (2026-02-17)
+- [x] **Phase 4: Role Provisioning** - All 11 Windows/Linux roles provision correctly with error handling (2026-02-17)
 - [ ] **Phase 5: GUI Integration** - Dashboard, Actions, Customize, Settings, Logs work with CLI feature parity
 - [ ] **Phase 6: Multi-Host Coordination** - Dispatcher routes operations to remote hosts with scoped tokens
 
@@ -48,10 +48,12 @@ Plans:
   2. SSH operations use accept-new or known_hosts — never StrictHostKeyChecking=no
   3. All external downloads validate SHA256 checksums before execution
   4. Credentials never appear in plain text in log output or run artifacts
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: [To be planned]
+- [ ] 02-01-PLAN.md -- Credential resolution chain with warning-on-default and interactive fallback (SEC-01)
+- [ ] 02-02-PLAN.md -- Replace SSH UserKnownHostsFile=NUL with lab-specific known_hosts (SEC-02)
+- [ ] 02-03-PLAN.md -- Mandatory download checksums and credential scrubbing for logs (SEC-03, SEC-04)
 
 ### Phase 3: Core Lifecycle Integration
 **Goal**: Bootstrap → Deploy → Use → Teardown completes end-to-end on clean Windows host without errors
@@ -67,10 +69,14 @@ Plans:
   7. All destructive actions require confirmation tokens before executing
   8. Error handling uses try-catch on critical operations with context-aware messages
   9. Network infrastructure (vSwitch, NAT, static IPs, DNS) configures correctly and validates connectivity
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
 
 Plans:
-- [ ] 03-01: [To be planned]
+- [ ] 03-01-PLAN.md -- Fix string interpolation, param syntax, legacy vars in Bootstrap/Deploy/Preflight/Health (LIFE-01, CLI-04)
+- [ ] 03-02-PLAN.md -- Add try-catch error handling to all critical Deploy.ps1 sections (CLI-08, LIFE-01)
+- [ ] 03-03-PLAN.md -- Fix hardcoded network values, enhance health check with full infrastructure coverage (NET-01..05, CLI-06)
+- [ ] 03-04-PLAN.md -- Harden teardown (SSH cleanup, NAT verify), confirmation tokens, bootstrap idempotency (LIFE-04, LIFE-05, CLI-07, CLI-03)
+- [ ] 03-05-PLAN.md -- CLI action routing cleanup, quick mode verification, end-to-end integration (LIFE-03, CLI-01, CLI-02, CLI-05, CLI-09)
 
 ### Phase 4: Role Provisioning
 **Goal**: All 11 Windows/Linux roles provision successfully with graceful error handling
@@ -82,10 +88,13 @@ Plans:
   3. IIS, WSUS, DHCP, FileServer, PrintServer, DSC, Jumpbox roles install and configure correctly
   4. Client role joins domain as workstation
   5. All roles handle missing prerequisites gracefully with clear error messages
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
 
 Plans:
-- [ ] 04-01: [To be planned]
+- [ ] 04-01-PLAN.md -- Fix param syntax bugs, add prerequisite validation to DHCP/DSC, create role tests (ROLE-05, ROLE-06, ROLE-08, ROLE-10, ROLE-11)
+- [ ] 04-02-PLAN.md -- Add error handling and post-install verification to DC/SQL/IIS/WSUS/PrintServer/Jumpbox (ROLE-01, ROLE-02, ROLE-03, ROLE-04, ROLE-07, ROLE-09, ROLE-11)
+- [ ] 04-03-PLAN.md -- Harden Build-LabFromSelection orchestrator with enhanced reporting and DC-fatal logic (ROLE-11)
+- [ ] 04-04-PLAN.md -- Add null-guards to Linux role scripts for graceful degradation (ROLE-11)
 
 ### Phase 5: GUI Integration
 **Goal**: WPF GUI provides full feature parity with CLI — all actions accessible and functional from both interfaces
@@ -127,10 +136,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cleanup & Config Foundation | 0/4 | Planning complete | - |
-| 2. Security Hardening | 0/0 | Not started | - |
-| 3. Core Lifecycle Integration | 0/0 | Not started | - |
-| 4. Role Provisioning | 0/0 | Not started | - |
+| 1. Cleanup & Config Foundation | 4/4 | Complete | 2026-02-16 |
+| 2. Security Hardening | 3/3 | Complete | 2026-02-16 |
+| 3. Core Lifecycle Integration | 5/5 | Complete | 2026-02-17 |
+| 4. Role Provisioning | 4/4 | Complete | 2026-02-17 |
 | 5. GUI Integration | 0/0 | Not started | - |
 | 6. Multi-Host Coordination | 0/0 | Not started | - |
 

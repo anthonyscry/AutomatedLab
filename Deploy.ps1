@@ -40,26 +40,13 @@ if ($Mode -eq 'quick') {
 # Config loaded from Lab-Config.ps1
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
-$LabInstallUser = if ([string]::IsNullOrWhiteSpace($LinuxUser)) { 'labadmin' } else { $LinuxUser }
+$GlobalLabConfig.Credentials.InstallUser = if ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.LinuxUser)) { 'labadmin' } else { $GlobalLabConfig.Credentials.LinuxUser }
 # Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
-# Lab-Config.ps1 (dot-sourced above) sets $AdminPassword if our param was empty.
-$AdminPassword = Resolve-LabPassword -Password $AdminPassword
+# Lab-Config.ps1 (dot-sourced above) sets $GlobalLabConfig.Credentials.AdminPassword if our param was empty.
+$GlobalLabConfig.Credentials.AdminPassword = Resolve-LabPassword -Password $(if ($PSBoundParameters.ContainsKey('AdminPassword')) { $AdminPassword } else { $GlobalLabConfig.Credentials.AdminPassword })
 
-$IsoPath        = "$LabSourcesRoot\ISOs"
-$HostPublicKeyFileName = [System.IO.Path]::GetFileName($SSHPublicKey)
-
-# Backward-compatible defaults for Server1 topology if Lab-Config.ps1 is older.
-if (-not (Get-Variable -Name Server1_Ip -ErrorAction SilentlyContinue)) { $Server1_Ip = '10.0.10.20' }
-if (-not (Get-Variable -Name Server_Memory -ErrorAction SilentlyContinue)) { $Server_Memory = $DC_Memory }
-if (-not (Get-Variable -Name Server_MinMemory -ErrorAction SilentlyContinue)) { $Server_MinMemory = $DC_MinMemory }
-if (-not (Get-Variable -Name Server_MaxMemory -ErrorAction SilentlyContinue)) { $Server_MaxMemory = $DC_MaxMemory }
-if (-not (Get-Variable -Name Server_Processors -ErrorAction SilentlyContinue)) { $Server_Processors = $DC_Processors }
-
-# Legacy aliases (for backward compatibility)
-if (-not (Get-Variable -Name WSUS_Memory -ErrorAction SilentlyContinue)) { $WSUS_Memory = $Server_Memory }
-if (-not (Get-Variable -Name WSUS_MinMemory -ErrorAction SilentlyContinue)) { $WSUS_MinMemory = $Server_MinMemory }
-if (-not (Get-Variable -Name WSUS_MaxMemory -ErrorAction SilentlyContinue)) { $WSUS_MaxMemory = $Server_MaxMemory }
-if (-not (Get-Variable -Name WSUS_Processors -ErrorAction SilentlyContinue)) { $WSUS_Processors = $Server_Processors }
+$IsoPath        = "$($GlobalLabConfig.Paths.LabSourcesRoot)\ISOs"
+$HostPublicKeyFileName = [System.IO.Path]::GetFileName((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub))
 
 # Remove-HyperVVMStale is provided by Lab-Common.ps1 (dot-sourced at line 19)
 
@@ -96,7 +83,7 @@ function Invoke-WindowsSshKeygen {
 # ============================================================
 # LOGGING
 # ============================================================
-$logDir  = "$LabSourcesRoot\Logs"
+$logDir  = "$($GlobalLabConfig.Paths.LabSourcesRoot)\Logs"
 if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
 $logFile = "$logDir\Deploy-SimpleLab_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').log"
 Start-Transcript -Path $logFile -Append
@@ -108,9 +95,10 @@ try {
     Write-LabStatus -Status INFO -Message "Deploy mode handoff: requested=$RequestedMode effective=$EffectiveMode"
 
     $deployStartTime = Get-Date
+    $sectionResults = @()
     Write-Host "`n[PRE-FLIGHT] Checking ISOs..." -ForegroundColor Cyan
     $missing = @()
-    foreach ($iso in $RequiredISOs) {
+    foreach ($iso in @($GlobalLabConfig.RequiredISOs)) {
         $p = Join-Path $IsoPath $iso
         if (Test-Path $p) { Write-LabStatus -Status OK -Message "$iso" }
         else { Write-Host "  [MISSING] $iso" -ForegroundColor Red; $missing += $iso }
@@ -120,20 +108,20 @@ try {
     }
 
     if (Get-Command -Name 'Test-LabVirtualSwitchSubnetConflict' -ErrorAction SilentlyContinue) {
-        $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $LabSwitch -AddressSpace $AddressSpace
+        $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $GlobalLabConfig.Network.SwitchName -AddressSpace $GlobalLabConfig.Network.AddressSpace
         if ($subnetConflict.HasConflict) {
             $conflictSummary = @(
                 $subnetConflict.ConflictingAdapters |
                     ForEach-Object { "$($_.InterfaceAlias) [$($_.IPAddress)]" }
             )
-            Write-LabStatus -Status WARN -Message "Detected conflicting vEthernet subnet assignments for $($AddressSpace): $($conflictSummary -join '; ')." -Indent 0
+            Write-LabStatus -Status WARN -Message "Detected conflicting vEthernet subnet assignments for $($GlobalLabConfig.Network.AddressSpace): $($conflictSummary -join '; ')." -Indent 0
 
             $allowSubnetAutoFix = $AutoFixSubnetConflict
 
             if ($allowSubnetAutoFix) {
-                $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $LabSwitch -AddressSpace $AddressSpace -AutoFix
+                $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $GlobalLabConfig.Network.SwitchName -AddressSpace $GlobalLabConfig.Network.AddressSpace -AutoFix
                 if ($subnetConflict.AutoFixApplied) {
-                    Write-LabStatus -Status WARN -Message "Auto-fixed $($subnetConflict.FixedAdapters.Count) vEthernet subnet conflict(s) for $AddressSpace." -Indent 0
+                    Write-LabStatus -Status WARN -Message "Auto-fixed $($subnetConflict.FixedAdapters.Count) vEthernet subnet conflict(s) for $($GlobalLabConfig.Network.AddressSpace)." -Indent 0
                 }
             }
 
@@ -154,11 +142,11 @@ try {
                         }
                 )
 
-                throw "Found conflicting Hyper-V vEthernet adapters in subnet '$AddressSpace': $($unresolvedSummary -join '; '). Resolve the conflicts or change Lab-Config network settings before rerunning deploy. Use -AutoFixSubnetConflict to opt in to automatic remediation."
+                throw "Found conflicting Hyper-V vEthernet adapters in subnet '$($GlobalLabConfig.Network.AddressSpace)': $($unresolvedSummary -join '; '). Resolve the conflicts or change Lab-Config network settings before rerunning deploy. Use -AutoFixSubnetConflict to opt in to automatic remediation."
             }
         }
         else {
-            Write-LabStatus -Status OK -Message "No conflicting vEthernet adapters found for subnet $AddressSpace." -Indent 0
+            Write-LabStatus -Status OK -Message "No conflicting vEthernet adapters found for subnet $($GlobalLabConfig.Network.AddressSpace)." -Indent 0
         }
     }
     else {
@@ -166,23 +154,23 @@ try {
     }
 
     # Remove existing lab if present
-    if (Get-Lab -List | Where-Object { $_ -eq $LabName }) {
-        Write-Host "  Lab '$LabName' already exists." -ForegroundColor Yellow
+    if (Get-Lab -List | Where-Object { $_ -eq $GlobalLabConfig.Lab.Name }) {
+        Write-Host "  Lab '$($GlobalLabConfig.Lab.Name)' already exists." -ForegroundColor Yellow
         $allowRebuild = $false
         if ($ForceRebuild -or $NonInteractive) {
             $allowRebuild = $true
         } else {
-            $response = Read-Host "  Remove lab '$LabName' and rebuild? Type 'yes' to confirm"
+            $response = Read-Host "  Remove lab '$($GlobalLabConfig.Lab.Name)' and rebuild? Type 'yes' to confirm"
             if ($response -eq 'yes') { $allowRebuild = $true }
         }
 
         if ($allowRebuild) {
             Write-Host "  Removing existing lab..." -ForegroundColor Yellow
-            $labMetaPath = Join-Path 'C:\ProgramData\AutomatedLab\Labs' $LabName
-            Remove-Lab -Name $LabName -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+            $labMetaPath = Join-Path 'C:\ProgramData\AutomatedLab\Labs' $GlobalLabConfig.Lab.Name
+            Remove-Lab -Name $GlobalLabConfig.Lab.Name -Confirm:$false -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 
-            if (Get-Lab -List | Where-Object { $_ -eq $LabName }) {
-                Write-LabStatus -Status WARN -Message "AutomatedLab still reports '$LabName' after removal attempt."
+            if (Get-Lab -List | Where-Object { $_ -eq $GlobalLabConfig.Lab.Name }) {
+                Write-LabStatus -Status WARN -Message "AutomatedLab still reports '$($GlobalLabConfig.Lab.Name)' after removal attempt."
                 if (Test-Path $labMetaPath) {
                     Remove-Item -Path $labMetaPath -Recurse -Force -ErrorAction SilentlyContinue
                     Write-LabStatus -Status WARN -Message "Removed stale lab metadata folder: $labMetaPath"
@@ -196,82 +184,82 @@ try {
     }
 
     # Ensure SSH keypair exists
-    if (-not (Test-Path $SSHPrivateKey) -or -not (Test-Path $SSHPublicKey)) {
+    if (-not (Test-Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)) -or -not (Test-Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub))) {
         Write-Host "  Generating host SSH keypair..." -ForegroundColor Yellow
-        Invoke-WindowsSshKeygen -PrivateKeyPath $SSHPrivateKey -Comment "lab-opencode"
-        Write-Host "  SSH keypair ready at $SSHKeyDir" -ForegroundColor Green
+        Invoke-WindowsSshKeygen -PrivateKeyPath (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) -Comment "lab-opencode"
+        Write-Host "  SSH keypair ready at (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys)" -ForegroundColor Green
     } else {
-        Write-Host "  SSH keypair found: $SSHPrivateKey" -ForegroundColor Green
+        Write-Host "  SSH keypair found: (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)" -ForegroundColor Green
     }
 
     # ============================================================
     # LAB DEFINITION
     # ============================================================
-    Write-Host "`n[LAB] Defining lab '$LabName' (creating VM specifications)..." -ForegroundColor Cyan
+    Write-Host "`n[LAB] Defining lab '$($GlobalLabConfig.Lab.Name)' (creating VM specifications)..." -ForegroundColor Cyan
 
     # Increase AutomatedLab timeouts for resource-constrained hosts
     # Values MUST be TimeSpan objects -- passing plain integers is interpreted as
     # ticks (nanoseconds), which effectively sets the timeout to zero.
     Write-Host "  Applying AutomatedLab timeout overrides..." -ForegroundColor Yellow
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionRestartAfterDcpromo -Value $AL_Timeout_DcRestart
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionAdwsReady -Value $AL_Timeout_AdwsReady
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_StartLabMachine_Online -Value $AL_Timeout_StartVM
-    Set-PSFConfig -Module AutomatedLab -Name Timeout_WaitLabMachine_Online -Value $AL_Timeout_WaitVM
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionRestartAfterDcpromo -Value $GlobalLabConfig.Timeouts.AutomatedLab.DcRestart
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_DcPromotionAdwsReady -Value $GlobalLabConfig.Timeouts.AutomatedLab.AdwsReady
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_StartLabMachine_Online -Value $GlobalLabConfig.Timeouts.AutomatedLab.StartVM
+    Set-PSFConfig -Module AutomatedLab -Name Timeout_WaitLabMachine_Online -Value $GlobalLabConfig.Timeouts.AutomatedLab.WaitVM
     Write-Host "    DC restart: ${AL_Timeout_DcRestart}m, ADWS ready: ${AL_Timeout_AdwsReady}m, VM start/wait: ${AL_Timeout_StartVM}m" -ForegroundColor Gray
 
-    New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $LabPath
+    New-LabDefinition -Name $GlobalLabConfig.Lab.Name -DefaultVirtualizationEngine HyperV -VmPath (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)
 
 
     # Remove stale/conflicting VMs from previous failed runs.
     # This avoids "machine already exists" and broken-notes XML errors during Install-Lab.
     Write-Host "  Checking for stale lab VMs from prior runs..." -ForegroundColor Yellow
-    foreach ($vmName in $LabVMs) {
+    foreach ($vmName in @($GlobalLabConfig.Lab.CoreVMNames)) {
         if (-not (Remove-HyperVVMStale -VMName $vmName -Context 'initial cleanup')) {
             throw "Failed to remove stale VM '$vmName'. Remove it manually in Hyper-V Manager, then re-run deploy."
         }
     }
 
     # Ensure vSwitch + NAT exist (idempotent)
-    Write-Host "  Ensuring Hyper-V lab switch + NAT ($LabSwitch / $AddressSpace)..." -ForegroundColor Yellow
+    Write-Host "  Ensuring Hyper-V lab switch + NAT ($($GlobalLabConfig.Network.SwitchName) / $GlobalLabConfig.Network.AddressSpace)..." -ForegroundColor Yellow
 
-    if (-not (Get-VMSwitch -Name $LabSwitch -ErrorAction SilentlyContinue)) {
-        New-VMSwitch -Name $LabSwitch -SwitchType Internal | Out-Null
-        Write-LabStatus -Status OK -Message "Created VMSwitch: $LabSwitch (Internal)" -Indent 2
+    if (-not (Get-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -ErrorAction SilentlyContinue)) {
+        New-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -SwitchType Internal | Out-Null
+        Write-LabStatus -Status OK -Message "Created VMSwitch: $($GlobalLabConfig.Network.SwitchName) (Internal)" -Indent 2
     } else {
-        Write-LabStatus -Status OK -Message "VMSwitch exists: $LabSwitch" -Indent 2
+        Write-LabStatus -Status OK -Message "VMSwitch exists: $($GlobalLabConfig.Network.SwitchName)" -Indent 2
     }
 
-    $ifAlias = "vEthernet ($LabSwitch)"
+    $ifAlias = "vEthernet ($GlobalLabConfig.Network.SwitchName)"
     $hasGw = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-             Where-Object { $_.IPAddress -eq $GatewayIp }
+             Where-Object { $_.IPAddress -eq $GlobalLabConfig.Network.GatewayIp }
     if (-not $hasGw) {
         Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIp -PrefixLength 24 | Out-Null
-        Write-LabStatus -Status OK -Message "Set host gateway IP: $GatewayIp on $ifAlias" -Indent 2
+        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GlobalLabConfig.Network.GatewayIp -PrefixLength 24 | Out-Null
+        Write-LabStatus -Status OK -Message "Set host gateway IP: $($GlobalLabConfig.Network.GatewayIp) on $ifAlias" -Indent 2
     } else {
-        Write-LabStatus -Status OK -Message "Host gateway IP already set: $GatewayIp" -Indent 2
+        Write-LabStatus -Status OK -Message "Host gateway IP already set: $($GlobalLabConfig.Network.GatewayIp)" -Indent 2
     }
 
-    $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+    $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
     if (-not $nat) {
-        New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-LabStatus -Status OK -Message "Created NAT: $NatName for $AddressSpace" -Indent 2
-    } elseif ($nat.InternalIPInterfaceAddressPrefix -ne $AddressSpace) {
-        Write-LabStatus -Status WARN -Message "NAT '$NatName' exists with prefix '$($nat.InternalIPInterfaceAddressPrefix)'. Recreating..." -Indent 2
-        Remove-NetNat -Name $NatName -Confirm:$false | Out-Null
-        New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-LabStatus -Status OK -Message "Recreated NAT: $NatName for $AddressSpace" -Indent 2
+        New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace | Out-Null
+        Write-LabStatus -Status OK -Message "Created NAT: $($GlobalLabConfig.Network.NatName) for $($GlobalLabConfig.Network.AddressSpace)" -Indent 2
+    } elseif ($nat.InternalIPInterfaceAddressPrefix -ne $GlobalLabConfig.Network.AddressSpace) {
+        Write-LabStatus -Status WARN -Message "NAT '$($GlobalLabConfig.Network.NatName)' exists with prefix '$($nat.InternalIPInterfaceAddressPrefix)'. Recreating..." -Indent 2
+        Remove-NetNat -Name $GlobalLabConfig.Network.NatName -Confirm:$false | Out-Null
+        New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace | Out-Null
+        Write-LabStatus -Status OK -Message "Recreated NAT: $($GlobalLabConfig.Network.NatName) for $($GlobalLabConfig.Network.AddressSpace)" -Indent 2
     } else {
-        Write-LabStatus -Status OK -Message "NAT exists: $NatName" -Indent 2
+        Write-LabStatus -Status OK -Message "NAT exists: $($GlobalLabConfig.Network.NatName)" -Indent 2
     }
 
     # Register network with AutomatedLab
-    Add-LabVirtualNetworkDefinition -Name $LabSwitch -AddressSpace $AddressSpace -HyperVProperties @{ SwitchType = 'Internal' }
+    Add-LabVirtualNetworkDefinition -Name $GlobalLabConfig.Network.SwitchName -AddressSpace $GlobalLabConfig.Network.AddressSpace -HyperVProperties @{ SwitchType = 'Internal' }
 
     # Use the deterministic install credential everywhere
-    Set-LabInstallationCredential -Username $LabInstallUser -Password $AdminPassword
-    Add-LabDomainDefinition -Name $DomainName -AdminUser $LabInstallUser -AdminPassword $AdminPassword
+    Set-LabInstallationCredential -Username $GlobalLabConfig.Credentials.InstallUser -Password $GlobalLabConfig.Credentials.AdminPassword
+    Add-LabDomainDefinition -Name $GlobalLabConfig.Lab.DomainName -AdminUser $GlobalLabConfig.Credentials.InstallUser -AdminPassword $GlobalLabConfig.Credentials.AdminPassword
 
     # ============================================================
     # MACHINE DEFINITIONS (template-aware or hardcoded fallback)
@@ -303,7 +291,7 @@ try {
 
         # Find the DC VM's IP for DNS references
         $dcVM = $templateConfig | Where-Object { $_.Role -eq 'DC' } | Select-Object -First 1
-        $templateDnsIp = if ($dcVM) { $dcVM.Ip } else { $DnsIp }
+        $templateDnsIp = if ($dcVM) { $dcVM.Ip } else { $GlobalLabConfig.Network.DnsIp }
 
         foreach ($vmDef in $templateConfig) {
             # Skip Ubuntu VMs - they use New-LinuxVM path
@@ -317,10 +305,10 @@ try {
 
             $machineParams = @{
                 Name              = $vmDef.Name
-                DomainName        = $DomainName
-                Network           = $LabSwitch
+                DomainName        = $GlobalLabConfig.Lab.DomainName
+                Network           = $GlobalLabConfig.Network.SwitchName
                 IpAddress         = $vmDef.Ip
-                Gateway           = $GatewayIp
+                Gateway           = $GlobalLabConfig.Network.GatewayIp
                 DnsServer1        = if ($vmDef.Role -eq 'DC') { $vmDef.Ip } else { $templateDnsIp }
                 OperatingSystem   = $os
                 Memory            = $memoryBytes
@@ -349,28 +337,28 @@ try {
 
         Add-LabMachineDefinition -Name 'dc1' `
             -Roles RootDC, CaRoot `
-            -DomainName $DomainName `
-            -Network $LabSwitch `
-            -IpAddress $DC1_Ip -Gateway $GatewayIp -DnsServer1 $DC1_Ip `
+            -DomainName $GlobalLabConfig.Lab.DomainName `
+            -Network $GlobalLabConfig.Network.SwitchName `
+            -IpAddress $GlobalLabConfig.IPPlan.DC1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.IPPlan.DC1 `
             -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
-            -Memory $DC_Memory -MinMemory $DC_MinMemory -MaxMemory $DC_MaxMemory `
-            -Processors $DC_Processors
+            -Memory $GlobalLabConfig.VMSizing.DC.Memory -MinMemory $GlobalLabConfig.VMSizing.DC.MinMemory -MaxMemory $GlobalLabConfig.VMSizing.DC.MaxMemory `
+            -Processors $GlobalLabConfig.VMSizing.DC.Processors
 
         Add-LabMachineDefinition -Name 'svr1' `
-            -DomainName $DomainName `
-            -Network $LabSwitch `
-            -IpAddress $Server1_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+            -DomainName $GlobalLabConfig.Lab.DomainName `
+            -Network $GlobalLabConfig.Network.SwitchName `
+            -IpAddress $GlobalLabConfig.IPPlan.SVR1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.Network.DnsIp `
             -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
-            -Memory $Server_Memory -MinMemory $Server_MinMemory -MaxMemory $Server_MaxMemory `
-            -Processors $Server_Processors
+            -Memory $GlobalLabConfig.VMSizing.Server.Memory -MinMemory $GlobalLabConfig.VMSizing.Server.MinMemory -MaxMemory $GlobalLabConfig.VMSizing.Server.MaxMemory `
+            -Processors $GlobalLabConfig.VMSizing.Server.Processors
 
         Add-LabMachineDefinition -Name 'ws1' `
-            -DomainName $DomainName `
-            -Network $LabSwitch `
-            -IpAddress $Win11_Ip -Gateway $GatewayIp -DnsServer1 $DnsIp `
+            -DomainName $GlobalLabConfig.Lab.DomainName `
+            -Network $GlobalLabConfig.Network.SwitchName `
+            -IpAddress $GlobalLabConfig.IPPlan.WS1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.Network.DnsIp `
             -OperatingSystem 'Windows 11 Enterprise Evaluation' `
-            -Memory $Client_Memory -MinMemory $Client_MinMemory -MaxMemory $Client_MaxMemory `
-            -Processors $Client_Processors
+            -Memory $GlobalLabConfig.VMSizing.Client.Memory -MinMemory $GlobalLabConfig.VMSizing.Client.MinMemory -MaxMemory $GlobalLabConfig.VMSizing.Client.MaxMemory `
+            -Processors $GlobalLabConfig.VMSizing.Client.Processors
     }
 
     # NOTE: LIN1 is NOT added to AutomatedLab machine definitions
@@ -389,7 +377,7 @@ try {
     # Final guard: stale VMs can occasionally survive prior cleanup and cause
     # AutomatedLab errors like "machine already exists" or malformed LIN1 notes XML.
     Write-Host "  Final stale-VM check before Install-Lab..." -ForegroundColor Yellow
-    foreach ($vmName in $LabVMs) {
+    foreach ($vmName in @($GlobalLabConfig.Lab.CoreVMNames)) {
         if (-not (Remove-HyperVVMStale -VMName $vmName -Context 'final pre-install guard')) {
             throw "VM '$vmName' still exists before Install-Lab. Remove it manually in Hyper-V Manager and re-run."
         }
@@ -437,13 +425,13 @@ try {
     Write-Host "  Waiting for WinRM (Windows Remote Management, port 5985) on DC1..." -ForegroundColor Gray
     $winrmReady = $false
     for ($w = 1; $w -le 12; $w++) {
-        $wrmCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        $wrmCheck = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         if ($wrmCheck.TcpTestSucceeded) { $winrmReady = $true; break }
         Write-Host "    WinRM attempt $w/12..." -ForegroundColor Gray
         Start-Sleep -Seconds 15
     }
     if (-not $winrmReady) {
-        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation.`nTroubleshooting:`n  1. Check DC1 VM is running in Hyper-V Manager`n  2. Verify DC1 IP ($DC1_Ip) is pingable: Test-Connection $DC1_Ip`n  3. Check Windows Firewall on DC1 allows WinRM (port 5985)"
+        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation.`nTroubleshooting:`n  1. Check DC1 VM is running in Hyper-V Manager`n  2. Verify DC1 IP ($GlobalLabConfig.IPPlan.DC1) is pingable: Test-Connection $($GlobalLabConfig.IPPlan.DC1)`n  3. Check Windows Firewall on DC1 allows WinRM (port 5985)"
     }
 
     # Check AD DS status on DC1
@@ -468,14 +456,14 @@ try {
         $r
     }
 
-    if ($adStatus.NTDSRunning -and $adStatus.ADWorking -and $adStatus.CurrentDomain -eq $DomainName) {
+    if ($adStatus.NTDSRunning -and $adStatus.ADWorking -and $adStatus.CurrentDomain -eq $GlobalLabConfig.Lab.DomainName) {
         Write-LabStatus -Status OK -Message "DC1 is a domain controller for '$($adStatus.ForestName)'"
     } else {
         Write-LabStatus -Status WARN -Message "AD DS is NOT operational on DC1 after Install-Lab."
         Write-Host "    AD DS feature installed: $($adStatus.FeatureInstalled)" -ForegroundColor Yellow
         Write-Host "    NTDS service running:    $($adStatus.NTDSRunning)" -ForegroundColor Yellow
         Write-Host "    AD cmdlets working:      $($adStatus.ADWorking)" -ForegroundColor Yellow
-        Write-Host "    Current domain:          '$($adStatus.CurrentDomain)' (expected: '$DomainName')" -ForegroundColor Yellow
+        Write-Host "    Current domain:          '$($adStatus.CurrentDomain)' (expected: '$($GlobalLabConfig.Lab.DomainName)')" -ForegroundColor Yellow
 
         Write-Host "`n  [RECOVERY] Attempting manual AD DS promotion on DC1..." -ForegroundColor Yellow
 
@@ -489,8 +477,8 @@ try {
         }
 
         # Step 2: Run Install-ADDSForest
-        $netbiosDomain = ($DomainName -split '\.')[0].ToUpper()
-        Write-Host "    Promoting DC1 to domain controller for '$DomainName' (NetBIOS: $netbiosDomain)..." -ForegroundColor Yellow
+        $netbiosDomain = ($GlobalLabConfig.Lab.DomainName -split '\.')[0].ToUpper()
+        Write-Host "    Promoting DC1 to domain controller for '$($GlobalLabConfig.Lab.DomainName)' (NetBIOS: $netbiosDomain)..." -ForegroundColor Yellow
 
         Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Recovery-ADDSForest' -ScriptBlock {
             param($Domain, $Netbios, $SafeModePassword)
@@ -503,7 +491,7 @@ try {
                 -NoRebootOnCompletion:$false `
                 -Force `
                 -WarningAction SilentlyContinue
-        } -ArgumentList $DomainName, $netbiosDomain, $AdminPassword | Out-Null
+        } -ArgumentList $GlobalLabConfig.Lab.DomainName, $netbiosDomain, $GlobalLabConfig.Credentials.AdminPassword | Out-Null
 
         Write-LabStatus -Status OK -Message "Install-ADDSForest initiated. Waiting for DC1 to restart..." -Indent 2
 
@@ -511,7 +499,7 @@ try {
         # Wait for DC1 to go offline (restart initiated)
         $offlineDeadline = [datetime]::Now.AddSeconds(90)
         while ([datetime]::Now -lt $offlineDeadline) {
-            $dc1Check = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $dc1Check = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if (-not $dc1Check.TcpTestSucceeded) { break }
             Start-Sleep -Seconds 5
         }
@@ -519,7 +507,7 @@ try {
         $dc1Back = $false
         $restartDeadline = [datetime]::Now.AddMinutes(15)
         while ([datetime]::Now -lt $restartDeadline) {
-            $rCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $rCheck = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if ($rCheck.TcpTestSucceeded) { $dc1Back = $true; break }
             Write-Host "    Waiting for DC1 to come back online..." -ForegroundColor Gray
             Start-Sleep -Seconds 15
@@ -533,7 +521,7 @@ try {
         # Wait for WinRM to become reachable before checking services
         $warmupDeadline = [datetime]::Now.AddSeconds(90)
         while ([datetime]::Now -lt $warmupDeadline) {
-            $warmupCheck = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $warmupCheck = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if ($warmupCheck.TcpTestSucceeded) { break }
             Write-Host "    Waiting for WinRM after AD promotion..." -ForegroundColor Gray
             Start-Sleep -Seconds 10
@@ -571,7 +559,7 @@ try {
                 @{ ADWorking = $false; ForestName = ''; Domain = (Get-CimInstance Win32_ComputerSystem).Domain }
             }
         }
-        if ($finalAd.ADWorking -and $finalAd.Domain -eq $DomainName) {
+        if ($finalAd.ADWorking -and $finalAd.Domain -eq $GlobalLabConfig.Lab.DomainName) {
             Write-LabStatus -Status OK -Message "Recovery successful! DC1 is domain controller for '$($finalAd.ForestName)'"
         } else {
             throw "AD DS recovery failed. DC1 domain: '$($finalAd.Domain)', AD working: $($finalAd.ADWorking). Check DC1 event logs."
@@ -584,54 +572,54 @@ try {
     Write-Host "`n[VALIDATE] Verifying host-to-DC1 network connectivity..." -ForegroundColor Cyan
 
     # 1. Ensure host adapter still has the gateway IP (Install-Lab may have interfered)
-    $ifAlias = "vEthernet ($LabSwitch)"
+    $ifAlias = "vEthernet ($GlobalLabConfig.Network.SwitchName)"
     $hostIp = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-              Where-Object { $_.IPAddress -eq $GatewayIp }
+              Where-Object { $_.IPAddress -eq $GlobalLabConfig.Network.GatewayIp }
     if (-not $hostIp) {
-        Write-LabStatus -Status WARN -Message "Host gateway IP $GatewayIp missing on $ifAlias after Install-Lab. Re-applying..."
+        Write-LabStatus -Status WARN -Message "Host gateway IP $($GlobalLabConfig.Network.GatewayIp) missing on $ifAlias after Install-Lab. Re-applying..."
         Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIp -PrefixLength 24 | Out-Null
-        Write-LabStatus -Status OK -Message "Re-applied host gateway IP: $GatewayIp"
+        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GlobalLabConfig.Network.GatewayIp -PrefixLength 24 | Out-Null
+        Write-LabStatus -Status OK -Message "Re-applied host gateway IP: $($GlobalLabConfig.Network.GatewayIp)"
     } else {
-        Write-LabStatus -Status OK -Message "Host gateway IP intact: $GatewayIp"
+        Write-LabStatus -Status OK -Message "Host gateway IP intact: $($GlobalLabConfig.Network.GatewayIp)"
     }
 
     # 2. Verify NAT still exists
-    $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+    $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
     if (-not $nat) {
-        Write-LabStatus -Status WARN -Message "NAT '$NatName' missing after Install-Lab. Recreating..."
-        New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace | Out-Null
-        Write-LabStatus -Status OK -Message "Recreated NAT: $NatName"
+        Write-LabStatus -Status WARN -Message "NAT '$($GlobalLabConfig.Network.NatName)' missing after Install-Lab. Recreating..."
+        New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace | Out-Null
+        Write-LabStatus -Status OK -Message "Recreated NAT: $($GlobalLabConfig.Network.NatName)"
     } else {
-        Write-LabStatus -Status OK -Message "NAT intact: $NatName"
+        Write-LabStatus -Status OK -Message "NAT intact: $($GlobalLabConfig.Network.NatName)"
     }
 
     # 3. Ping DC1 to verify L3 connectivity
-    $pingOk = Test-Connection -ComputerName $DC1_Ip -Count 3 -Quiet -ErrorAction SilentlyContinue
+    $pingOk = Test-Connection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Count 3 -Quiet -ErrorAction SilentlyContinue
     if (-not $pingOk) {
-        throw "Cannot ping DC1 ($DC1_Ip) from host after Stage 1. Check vSwitch '$LabSwitch' and host adapter '$ifAlias'. Aborting before Stage 2."
+        throw "Cannot ping DC1 ($GlobalLabConfig.IPPlan.DC1) from host after Stage 1. Check vSwitch '$($GlobalLabConfig.Network.SwitchName)' and host adapter '$ifAlias'. Aborting before Stage 2."
     }
-    Write-LabStatus -Status OK -Message "DC1 ($DC1_Ip) responds to ping"
+    Write-LabStatus -Status OK -Message "DC1 ($GlobalLabConfig.IPPlan.DC1) responds to ping"
 
     # 4. Verify WinRM connectivity (this is what AutomatedLab uses internally)
-    $winrmOk = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    $winrmOk = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
     if (-not $winrmOk.TcpTestSucceeded) {
-        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($DC1_Ip). AD may still be starting."
+        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($GlobalLabConfig.IPPlan.DC1). AD may still be starting."
         Write-Host "  Waiting 60s for WinRM to become available..." -ForegroundColor Yellow
         $retries = 6
         $winrmUp = $false
         for ($i = 1; $i -le $retries; $i++) {
             Start-Sleep -Seconds 10
-            $check = Test-NetConnection -ComputerName $DC1_Ip -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $check = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if ($check.TcpTestSucceeded) { $winrmUp = $true; break }
             Write-Host "    Retry $i/$retries..." -ForegroundColor Gray
         }
         if (-not $winrmUp) {
-            throw "WinRM (port 5985) on DC1 ($DC1_Ip) is unreachable after 60s. Cannot proceed to Stage 2."
+            throw "WinRM (port 5985) on DC1 ($GlobalLabConfig.IPPlan.DC1) is unreachable after 60s. Cannot proceed to Stage 2."
         }
     }
-    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($DC1_Ip):5985"
+    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($GlobalLabConfig.IPPlan.DC1):5985"
     Write-LabStatus -Status OK -Message "Stage 1 validation passed - proceeding to DHCP + Stage 2"
 
     # ============================================================
@@ -640,6 +628,7 @@ try {
     $dhcpSectionStart = Get-Date
     Write-Host "`n[DC1] Enabling DHCP (Dynamic Host Configuration Protocol) for Linux installs..." -ForegroundColor Cyan
 
+    try {
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Install-DHCP-Role' -ScriptBlock {
         param($ScopeId, $StartRange, $EndRange, $Mask, $Router, $Dns, $DnsDomain)
 
@@ -666,10 +655,19 @@ try {
         Set-Service DHCPServer -StartupType Automatic
 
         "DHCP scope ready"
-    } -ArgumentList $DhcpScopeId, $DhcpStart, $DhcpEnd, $DhcpMask, $GatewayIp, $DnsIp, $DomainName | Out-Null
+    } -ArgumentList $GlobalLabConfig.DHCP.ScopeId, $GlobalLabConfig.DHCP.Start, $GlobalLabConfig.DHCP.End, $GlobalLabConfig.DHCP.Mask, $GlobalLabConfig.Network.GatewayIp, $GlobalLabConfig.Network.DnsIp, $GlobalLabConfig.Lab.DomainName | Out-Null
 
-    Write-LabStatus -Status OK -Message "DHCP scope configured: $DhcpScopeId ($DhcpStart - $DhcpEnd)"
+        Write-LabStatus -Status OK -Message "DHCP scope configured: $($GlobalLabConfig.DHCP.ScopeId) ($($GlobalLabConfig.DHCP.Start) - $GlobalLabConfig.DHCP.End)"
+        $sectionResults += [pscustomobject]@{ Section = 'DHCP Configuration'; Status = 'OK'; Duration = (Get-Date) - $dhcpSectionStart }
+    } catch {
+        Write-LabStatus -Status WARN -Message "DHCP configuration failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "DHCP is non-critical for Windows-only deployments. Continuing."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check DC1 DHCP service status: Get-Service DHCPServer | Format-List"
+        $sectionResults += [pscustomobject]@{ Section = 'DHCP Configuration'; Status = 'WARN'; Duration = (Get-Date) - $dhcpSectionStart }
+    }
 
+
+    $dnsSectionStart = Get-Date
     # Configure DNS forwarders on DC1 so lab clients can resolve external hosts (GitHub, package feeds).
     try {
         $dnsForwarderResults = @(Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Configure-DNS-Forwarders' -ScriptBlock {
@@ -692,13 +690,18 @@ try {
         $dnsForwarderResult = @($dnsForwarderResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Ready' } | Select-Object -Last 1)
         if ($dnsForwarderResult.Count -gt 0 -and $dnsForwarderResult[0].Ready) {
             Write-LabStatus -Status OK -Message "$($dnsForwarderResult[0].Message)"
+            $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'OK'; Duration = (Get-Date) - $dnsSectionStart }
         } elseif ($dnsForwarderResult.Count -gt 0) {
             Write-LabStatus -Status WARN -Message "$($dnsForwarderResult[0].Message)"
+            $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'WARN'; Duration = (Get-Date) - $dnsSectionStart }
         } else {
             Write-LabStatus -Status WARN -Message "DNS forwarder step returned no structured result."
+            $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'WARN'; Duration = (Get-Date) - $dnsSectionStart }
         }
     } catch {
         Write-LabStatus -Status WARN -Message "DNS forwarder configuration failed: $($_.Exception.Message)"
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check DNS forwarders on DC1: Get-DnsServerForwarder"
+        $sectionResults += [pscustomobject]@{ Section = 'DNS Forwarders'; Status = 'WARN'; Duration = (Get-Date) - $dnsSectionStart }
     }
     $sectionElapsed = (Get-Date) - $dhcpSectionStart
     Write-Host "  Section completed in $([int]$sectionElapsed.TotalMinutes)m $($sectionElapsed.Seconds)s" -ForegroundColor DarkGray
@@ -722,20 +725,20 @@ try {
 
                 # Generate password hash for autoinstall identity
                 Write-Host "  Generating password hash..." -ForegroundColor Gray
-                $lin1PwHash = Get-Sha512PasswordHash -Password $AdminPassword
+                $lin1PwHash = Get-Sha512PasswordHash -Password $GlobalLabConfig.Credentials.AdminPassword
 
                 # Read SSH public key if available
                 $lin1SshPubKey = ''
-                if (Test-Path $SSHPublicKey) {
-                    $lin1SshPubKey = (Get-Content $SSHPublicKey -Raw).Trim()
+                if (Test-Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub)) {
+                    $lin1SshPubKey = (Get-Content (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub) -Raw).Trim()
                 }
 
                 # Create CIDATA VHDX seed disk with autoinstall user-data
-                $cidataPath = Join-Path $LabPath 'LIN1-cidata.vhdx'
+                $cidataPath = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'LIN1-cidata.vhdx'
                 Write-Host "  Creating CIDATA seed disk with autoinstall config..." -ForegroundColor Gray
                 New-CidataVhdx -OutputPath $cidataPath `
                     -Hostname 'LIN1' `
-                    -Username $LabInstallUser `
+                    -Username $GlobalLabConfig.Credentials.InstallUser `
                     -PasswordHash $lin1PwHash `
                     -SSHPublicKey $lin1SshPubKey
 
@@ -755,8 +758,8 @@ try {
                 if (-not $lin1CreateSucceeded) {
                     Write-Host "  Cleaning up partial LIN1 artifacts..." -ForegroundColor Gray
                     Remove-VM -Name 'LIN1' -Force -ErrorAction SilentlyContinue
-                    Remove-Item (Join-Path $LabPath 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
-                    Remove-Item (Join-Path $LabPath 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
+                    Remove-Item (Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'LIN1.vhdx') -Force -ErrorAction SilentlyContinue
+                    Remove-Item (Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'LIN1-cidata.vhdx') -Force -ErrorAction SilentlyContinue
 
                     Write-LabStatus -Status WARN -Message "Continuing without LIN1. Create it manually later with Configure-LIN1.ps1"
                 }
@@ -776,9 +779,9 @@ try {
                 Start-VM -Name 'LIN1'
             }
 
-$lin1WaitMinutes = $LIN1_WaitMinutes
+$lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
             Write-Host "`n[LIN1] Waiting for unattended Ubuntu install + SSH (up to $lin1WaitMinutes min)..." -ForegroundColor Cyan
-            $lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $lin1WaitMinutes -DhcpServer 'DC1' -ScopeId $DhcpScopeId
+            $lin1WaitResult = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes $lin1WaitMinutes -DhcpServer 'DC1' -ScopeId $GlobalLabConfig.DHCP.ScopeId
             $lin1Ready = $lin1WaitResult.Ready
             if (-not $lin1Ready) {
                 Write-Host "  This usually means Ubuntu autoinstall did not complete. Check LIN1 console boot menu/autoinstall logs." -ForegroundColor Yellow
@@ -800,6 +803,9 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     # ============================================================
     $postInstallSectionStart = Get-Date
     Write-Host "`n[POST] Configuring DC1 share + Git..." -ForegroundColor Cyan
+
+    $shareSectionStart = Get-Date
+    try {
 
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Create-LabShare' -ScriptBlock {
         param($SharePath, $ShareName, $GitRepoPath, $DomainName)
@@ -839,7 +845,16 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         Set-Acl $SharePath $acl
 
         "Share ready"
-    } -ArgumentList $SharePath, $ShareName, $GitRepoPath, $DomainName | Out-Null
+    } -ArgumentList $GlobalLabConfig.Paths.SharePath, $GlobalLabConfig.Paths.ShareName, $GlobalLabConfig.Paths.GitRepoPath, $GlobalLabConfig.Lab.DomainName | Out-Null
+
+        Write-LabStatus -Status OK -Message "DC1 share created: \\\\DC1\\$($GlobalLabConfig.Paths.ShareName)"
+        $sectionResults += [pscustomobject]@{ Section = 'DC1 Share Creation'; Status = 'OK'; Duration = (Get-Date) - $shareSectionStart }
+    } catch {
+        Write-LabStatus -Status WARN -Message "DC1 share creation failed: $($_.Exception.Message)"
+        Write-LabStatus -Status WARN -Message "File sharing may be unavailable. Continuing."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check share on DC1: Get-SmbShare -Name $($GlobalLabConfig.Paths.ShareName)"
+        $sectionResults += [pscustomobject]@{ Section = 'DC1 Share Creation'; Status = 'WARN'; Duration = (Get-Date) - $shareSectionStart }
+    }
 
     # Add domain members to share group (after join)
     Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Add-Clients-To-ShareGroup' -ScriptBlock {
@@ -933,14 +948,18 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
             try {
                 Invoke-WebRequest -Uri $GitDownloadUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 25
 
-                # Validate download integrity
-                if ($ExpectedSha256) {
-                    $actualHash = (Get-FileHash -Path $gitInstaller -Algorithm SHA256).Hash
-                    if ($actualHash -ne $ExpectedSha256) {
-                        Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
-                        $result.Message = "Git installer checksum mismatch (expected $ExpectedSha256, got $actualHash)"
-                        return $result
-                    }
+                # Validate download integrity (mandatory - reject if no checksum provided)
+                if ([string]::IsNullOrWhiteSpace($ExpectedSha256)) {
+                    Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+                    $result.Message = "Git installer download rejected: no checksum provided. Set SoftwarePackages.Git.Sha256 in Lab-Config.ps1."
+                    return $result
+                }
+
+                $actualHash = (Get-FileHash -Path $gitInstaller -Algorithm SHA256).Hash
+                if ($actualHash -ne $ExpectedSha256) {
+                    Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+                    $result.Message = "Git installer checksum mismatch (expected $ExpectedSha256, got $actualHash)"
+                    return $result
                 }
 
                 $webExit = Invoke-ProcessWithTimeout -FilePath $gitInstaller -Arguments '/VERYSILENT /NORESTART /COMPONENTS="gitlfs"' -TimeoutSeconds 600
@@ -965,7 +984,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     # Install Git on DC1 (winget preferred, with offline/web fallback)
     try {
-        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe', '0229E3ACB535D0DC5F0D4A7E33CD36E3E3BA5B67A44B507B4D5E6A63B0B8BBDE')
+        $dc1GitResults = @(Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-Git-DC1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList $GlobalLabConfig.SoftwarePackages.Git.LocalPath, $GlobalLabConfig.SoftwarePackages.Git.Url, $GlobalLabConfig.SoftwarePackages.Git.Sha256)
 
         $dc1GitResult = @($dc1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
@@ -988,6 +1007,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     # DC1: OpenSSH Server + allow key auth for admins (Host -> DC1)
     # ============================================================
     Write-Host "`n[POST] Configuring DC1 OpenSSH..." -ForegroundColor Cyan
+    $sshSectionStart = Get-Date
     $dc1SshReady = $false
     try {
         $dc1SshResult = Invoke-LabCommand -ComputerName 'DC1' -PassThru -ActivityName 'Install-OpenSSH-DC1' -ScriptBlock {
@@ -1018,6 +1038,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
         if ($dc1SshResult -and $dc1SshResult.Ready) {
             $dc1SshReady = $true
             Write-LabStatus -Status OK -Message "DC1 OpenSSH configured"
+            $sectionResults += [pscustomobject]@{ Section = 'DC1 OpenSSH'; Status = 'OK'; Duration = (Get-Date) - $sshSectionStart }
         } else {
             $msg = if ($dc1SshResult -and $dc1SshResult.Message) { $dc1SshResult.Message } else { 'Unknown OpenSSH configuration failure.' }
             Write-LabStatus -Status WARN -Message "$msg"
@@ -1026,10 +1047,12 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     } catch {
         Write-LabStatus -Status WARN -Message "DC1 OpenSSH setup failed: $($_.Exception.Message)"
         Write-LabStatus -Status WARN -Message "Continuing deployment without DC1 SSH key bootstrap."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check OpenSSH service on DC1: Get-Service sshd | Format-List"
+        $sectionResults += [pscustomobject]@{ Section = 'DC1 OpenSSH'; Status = 'WARN'; Duration = (Get-Date) - $sshSectionStart }
     }
 
     if ($dc1SshReady) {
-        Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
+        Copy-LabFileItem -Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub) -ComputerName 'DC1' -DestinationFolderPath 'C:\ProgramData\ssh'
 
         Invoke-LabCommand -ComputerName 'DC1' -ActivityName 'Authorize-HostKey-DC1' -ScriptBlock {
             param($PubKeyFileName)
@@ -1071,6 +1094,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     Write-Host "`n[POST] Configuring ws1..." -ForegroundColor Cyan
 
     # RSAT install: domain GP may redirect Windows Update through DC1 (no WSUS),
+    $rsatSectionStart = Get-Date
     # causing "Access is denied" COMException. Temporarily bypass the WSUS policy.
     try {
         Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Install-RSAT-ws1' -ScriptBlock {
@@ -1112,16 +1136,19 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
             }
         } | Out-Null
         Write-LabStatus -Status OK -Message "RSAT capabilities installed on ws1"
+        $sectionResults += [pscustomobject]@{ Section = 'RSAT Installation'; Status = 'OK'; Duration = (Get-Date) - $rsatSectionStart }
     }
     catch {
         Write-LabStatus -Status WARN -Message "RSAT installation failed: $($_.Exception.Message)"
         Write-LabStatus -Status WARN -Message "ws1 will work without RSAT. Install manually later if needed."
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check RSAT capabilities on ws1: Get-WindowsCapability -Online | Where-Object Name -like 'Rsat*'"
+        $sectionResults += [pscustomobject]@{ Section = 'RSAT Installation'; Status = 'WARN'; Duration = (Get-Date) - $rsatSectionStart }
     }
 
     Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Map-LabShare' -ScriptBlock {
         param($ShareName)
         net use L: "\\DC1\$ShareName" /persistent:yes 2>$null
-    } -ArgumentList $ShareName | Out-Null
+    } -ArgumentList $GlobalLabConfig.Paths.ShareName | Out-Null
 
     # ws1: WinRM HTTPS + ICMP
     Invoke-LabCommand -ComputerName 'ws1' -ActivityName 'Configure-WinRM-HTTPS-ws1' -ScriptBlock {
@@ -1139,7 +1166,7 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
 
     # ws1: Git (winget preferred, with offline/web fallback)
     try {
-        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'ws1' -PassThru -ActivityName 'Install-Git-ws1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList 'C:\LabSources\SoftwarePackages\Git\Git-2.47.1.2-64-bit.exe', 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe', '0229E3ACB535D0DC5F0D4A7E33CD36E3E3BA5B67A44B507B4D5E6A63B0B8BBDE')
+        $ws1GitResults = @(Invoke-LabCommand -ComputerName 'ws1' -PassThru -ActivityName 'Install-Git-ws1' -ScriptBlock $gitInstallerScriptBlock -ArgumentList $GlobalLabConfig.SoftwarePackages.Git.LocalPath, $GlobalLabConfig.SoftwarePackages.Git.Url, $GlobalLabConfig.SoftwarePackages.Git.Sha256)
 
         $ws1GitResult = @($ws1GitResults | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Installed' } | Select-Object -Last 1)
 
@@ -1165,26 +1192,26 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     if ($IncludeLIN1 -and $lin1Ready) {
     Write-Host "`n[POST] Configuring LIN1 (Ubuntu dev host)..." -ForegroundColor Cyan
 
-    $netbios = ($DomainName -split '\.')[0].ToUpper()
-    $linUser = $LabInstallUser
+    $netbios = ($GlobalLabConfig.Lab.DomainName -split '\.')[0].ToUpper()
+    $linUser = $GlobalLabConfig.Credentials.InstallUser
     $linHome = "/home/$linUser"
 
 
-    $escapedPassword = $AdminPassword -replace "'", "'\\''"
+    $escapedPassword = $GlobalLabConfig.Credentials.AdminPassword -replace "'", "'\\''"
 
     $lin1ScriptContent = Get-Content (Join-Path $ScriptDir 'Scripts\Configure-LIN1.sh') -Raw
-    Copy-LabFileItem -Path $SSHPublicKey -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
+    Copy-LabFileItem -Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub) -ComputerName 'LIN1' -DestinationFolderPath '/tmp'
 
     $lin1Vars = @{
         LIN_USER = $linUser
         LIN_HOME = $linHome
-        DOMAIN = $DomainName
+        DOMAIN = $GlobalLabConfig.Lab.DomainName
         NETBIOS = $netbios
-        SHARE = $ShareName
+        SHARE = $GlobalLabConfig.Paths.ShareName
         PASS = $escapedPassword
-        GATEWAY = $GatewayIp
-        DNS = $DnsIp
-        STATIC_IP = $LIN1_Ip
+        GATEWAY = $GlobalLabConfig.Network.GatewayIp
+        DNS = $GlobalLabConfig.Network.DnsIp
+        STATIC_IP = $GlobalLabConfig.IPPlan.LIN1
         HOST_PUBKEY = $HostPublicKeyFileName
     }
 
@@ -1204,27 +1231,66 @@ $lin1WaitMinutes = $LIN1_WaitMinutes
     # SNAPSHOT
     # ============================================================
     Write-Host "`n[SNAPSHOT] Creating 'LabReady' checkpoint..." -ForegroundColor Cyan
+    $checkpointSectionStart = Get-Date
     Checkpoint-LabVM -All -SnapshotName 'LabReady' | Out-Null
     Write-Host "  Checkpoint created." -ForegroundColor Green
 
+    # Validate LabReady checkpoint was created on all VMs
+    Write-Host "  Validating LabReady checkpoint on all VMs..." -ForegroundColor Gray
+    $missingCheckpoints = @()
+    foreach ($vmName in @($GlobalLabConfig.Lab.CoreVMNames)) {
+        $snap = Get-VMSnapshot -VMName $vmName -Name 'LabReady' -ErrorAction SilentlyContinue
+        if (-not $snap) {
+            Write-LabStatus -Status WARN -Message "LabReady checkpoint missing for VM '$vmName'"
+            $missingCheckpoints += $vmName
+        } else {
+            Write-LabStatus -Status OK -Message "LabReady checkpoint exists for VM '$vmName'"
+        }
+    }
+    if ($missingCheckpoints.Count -eq 0) {
+        $sectionResults += [pscustomobject]@{ Section = 'LabReady Checkpoint'; Status = 'OK'; Duration = (Get-Date) - $checkpointSectionStart }
+    } else {
+        Write-LabStatus -Status WARN -Message "LabReady checkpoint incomplete. Missing on: $($missingCheckpoints -join ', ')"
+        Write-LabStatus -Status INFO -Message "Troubleshooting: Check snapshots: Get-VMSnapshot -VMName $($missingCheckpoints[0])"
+        $sectionResults += [pscustomobject]@{ Section = 'LabReady Checkpoint'; Status = 'WARN'; Duration = (Get-Date) - $checkpointSectionStart }
+    }
+
     $deployElapsed = (Get-Date) - $deployStartTime
     Write-Host "  Total deployment time: $([int]$deployElapsed.TotalMinutes)m $($deployElapsed.Seconds)s" -ForegroundColor Cyan
+
+    # Deployment summary table
+    if ($sectionResults.Count -gt 0) {
+        Write-Host ""
+        Write-Host "  Deployment Section Results:" -ForegroundColor Cyan
+        Write-Host "  " + ("-" * 70) -ForegroundColor DarkGray
+        $sectionResults | ForEach-Object {
+            $statusColor = switch ($_.Status) {
+                'OK' { 'Green' }
+                'WARN' { 'Yellow' }
+                'FAIL' { 'Red' }
+                default { 'Gray' }
+            }
+            $duration = "{0:D2}m {1:D2}s" -f [int]$_.Duration.TotalMinutes, $_.Duration.Seconds
+            Write-Host ("  {0,-40} {1,-6} {2,10}" -f $_.Section, $_.Status, $duration) -ForegroundColor $statusColor
+        }
+        Write-Host "  " + ("-" * 70) -ForegroundColor DarkGray
+    }
 
     # ============================================================
     # SUMMARY
     # ============================================================
     Write-Host "`n[SUMMARY]" -ForegroundColor Cyan
-    Write-Host "  DC1:  $DC1_Ip" -ForegroundColor Gray
-    Write-Host "  svr1:  $Server1_Ip" -ForegroundColor Gray
-    Write-Host "  ws1:   $Win11_Ip" -ForegroundColor Gray
+    Write-Host "  DC1:  $($GlobalLabConfig.IPPlan.DC1)" -ForegroundColor Gray
+    Write-Host "  svr1:  $($GlobalLabConfig.IPPlan.SVR1)" -ForegroundColor Gray
+    Write-Host "  ws1:   $($GlobalLabConfig.IPPlan.WS1)" -ForegroundColor Gray
     if ($IncludeLIN1 -and $lin1Ready) {
-        Write-Host "  LIN1: $LIN1_Ip (static configured by script)" -ForegroundColor Gray
+        Write-Host "  LIN1: $($GlobalLabConfig.IPPlan.LIN1) (static configured by script)" -ForegroundColor Gray
         Write-Host ""
         Write-Host "  Host -> LIN1 SSH:" -ForegroundColor Cyan
-        Write-Host "    ssh -o IdentitiesOnly=yes -i $SSHPrivateKey $LabInstallUser@$LIN1_Ip" -ForegroundColor Yellow
+        Write-Host "    ssh -o IdentitiesOnly=yes -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) $($GlobalLabConfig.Credentials.InstallUser)@$($GlobalLabConfig.IPPlan.LIN1)" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "  If you see the 'REMOTE HOST IDENTIFICATION HAS CHANGED' warning after a rebuild:" -ForegroundColor Cyan
-        Write-Host "    ssh-keygen -R $LIN1_Ip" -ForegroundColor Yellow
+        Write-Host "    ssh-keygen -R $($GlobalLabConfig.IPPlan.LIN1)" -ForegroundColor Yellow
     } else {
         Write-Host "  Linux nodes: not included in this topology" -ForegroundColor DarkGray
     }

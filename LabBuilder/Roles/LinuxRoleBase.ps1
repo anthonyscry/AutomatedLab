@@ -6,6 +6,20 @@ function Invoke-LinuxRoleCreateVM {
         [string]$ISOPattern = 'ubuntu-24.04*.iso'
     )
 
+    # Null-guards: validate config before accessing properties
+    if (-not $LabConfig.VMNames -or -not $LabConfig.VMNames.ContainsKey($VMNameKey)) {
+        Write-Warning "VM name key '$VMNameKey' not found in config VMNames. Skipping Linux VM creation."
+        return
+    }
+    if (-not $LabConfig.LabSourcesRoot) {
+        Write-Warning "LabSourcesRoot not configured. Skipping Linux VM creation."
+        return
+    }
+    if (-not $LabConfig.ContainsKey('Linux') -or -not $LabConfig.Linux) {
+        Write-Warning "Linux config section not found. Skipping Linux VM creation."
+        return
+    }
+
     $vmName = $LabConfig.VMNames[$VMNameKey]
     $labPath = $LabConfig.LabPath
     $isoDir = Join-Path $LabConfig.LabSourcesRoot 'ISOs'
@@ -48,14 +62,20 @@ function Invoke-LinuxRoleCreateVM {
     Write-Host "    [OK] $vmName started. Autoinstall in progress..." -ForegroundColor Green
 
     # Wait for SSH
-    $waitMinutes = $LabConfig.Timeouts.LinuxSSHWait
+    # Timeout defaults if section missing
+    $waitMinutes = 10
+    $pollInterval = 15
+    $pollMax = 60
+    if ($LabConfig.ContainsKey('Timeouts') -and $LabConfig.Timeouts) {
+        if ($LabConfig.Timeouts.ContainsKey('LinuxSSHWait')) { $waitMinutes = $LabConfig.Timeouts.LinuxSSHWait }
+        if ($LabConfig.Timeouts.ContainsKey('SSHPollInitialSec')) { $pollInterval = $LabConfig.Timeouts.SSHPollInitialSec }
+        if ($LabConfig.Timeouts.ContainsKey('SSHPollMaxSec')) { $pollMax = $LabConfig.Timeouts.SSHPollMaxSec }
+    }
     Write-Host "    Waiting for SSH (up to $waitMinutes min)..." -ForegroundColor Cyan
 
     $deadline = [datetime]::Now.AddMinutes($waitMinutes)
     $lastKnownIp = ''
     $sshReady = $false
-    $pollInterval = $LabConfig.Timeouts.SSHPollInitialSec
-    $pollMax = $LabConfig.Timeouts.SSHPollMaxSec
 
     while ([datetime]::Now -lt $deadline) {
         $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -99,6 +119,16 @@ function Invoke-LinuxRolePostInstall {
         [string]$SuccessMessage = 'Post-install complete'
     )
 
+    # Null-guards for PostInstall
+    if (-not $LabConfig.VMNames -or -not $LabConfig.VMNames.ContainsKey($VMNameKey)) {
+        Write-Warning "VM name key '$VMNameKey' not found in config VMNames. Skipping Linux post-install."
+        return
+    }
+    if (-not $LabConfig.ContainsKey('Linux') -or -not $LabConfig.Linux -or -not $LabConfig.Linux.User) {
+        Write-Warning "Linux config section or Linux.User not found. Skipping Linux post-install."
+        return
+    }
+
     $vmName = $LabConfig.VMNames[$VMNameKey]
     $linuxUser = $LabConfig.Linux.User
 
@@ -116,7 +146,7 @@ function Invoke-LinuxRolePostInstall {
     if (-not (Test-Path $sshExe)) { Write-Warning 'OpenSSH client not found. Skipping post-install.'; return }
 
     $sshArgs = @(
-        '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=NUL',
+        '-o', 'StrictHostKeyChecking=accept-new', '-o', "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)",
         '-o', "ConnectTimeout=$($LabConfig.Timeouts.SSHConnectTimeout)",
         '-i', $sshKey, "$linuxUser@$vmIp"
     )
@@ -128,7 +158,7 @@ function Invoke-LinuxRolePostInstall {
 
     try {
         $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
-        & $scpExe -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=NUL -i $sshKey $tempScript "${linuxUser}@${vmIp}:/tmp/postinstall.sh" 2>&1 | Out-Null
+        & $scpExe -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)" -i $sshKey $tempScript "${linuxUser}@${vmIp}:/tmp/postinstall.sh" 2>&1 | Out-Null
         & $sshExe @sshArgs "chmod +x /tmp/postinstall.sh && bash /tmp/postinstall.sh && rm -f /tmp/postinstall.sh" 2>&1 | ForEach-Object {
             Write-Host "      $_" -ForegroundColor Gray
         }

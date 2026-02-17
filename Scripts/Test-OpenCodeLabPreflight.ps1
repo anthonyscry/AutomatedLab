@@ -17,15 +17,10 @@ $subnetConflictHelperPath = Join-Path $RepoRoot 'Private\Test-LabVirtualSwitchSu
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $subnetConflictHelperPath) { . $subnetConflictHelperPath }
 
-# Defaults in case Lab-Config.ps1 is absent
-if (-not (Get-Variable -Name LabSourcesRoot -ErrorAction SilentlyContinue)) { $LabSourcesRoot = 'C:\LabSources' }
-if (-not (Get-Variable -Name LabSwitch -ErrorAction SilentlyContinue))      { $LabSwitch = 'AutomatedLab' }
-if (-not (Get-Variable -Name NatName -ErrorAction SilentlyContinue))        { $NatName = 'AutomatedLabNAT' }
-if (-not (Get-Variable -Name AddressSpace -ErrorAction SilentlyContinue))   { $AddressSpace = '10.0.10.0/24' }
-if (-not (Get-Variable -Name RequiredISOs -ErrorAction SilentlyContinue))   { $RequiredISOs = @('server2019.iso', 'win11.iso') }
+# Lab-Config.ps1 already loaded via dot-source above - no legacy variable fallbacks needed
 
-$IsoPath = Join-Path $LabSourcesRoot 'ISOs'
-$requiredIsoList = @($RequiredISOs)
+$IsoPath = Join-Path $GlobalLabConfig.Paths.LabSourcesRoot 'ISOs'
+$requiredIsoList = @(@($GlobalLabConfig.RequiredISOs))
 if ($IncludeLIN1) {
     if (-not ($requiredIsoList -contains 'ubuntu-24.04.3.iso')) {
         $requiredIsoList += 'ubuntu-24.04.3.iso'
@@ -90,16 +85,16 @@ foreach ($iso in $requiredIsoList) {
 
 try {
     if (Get-Command -Name 'Test-LabVirtualSwitchSubnetConflict' -ErrorAction SilentlyContinue) {
-        $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $LabSwitch -AddressSpace $AddressSpace
+        $subnetConflict = Test-LabVirtualSwitchSubnetConflict -SwitchName $GlobalLabConfig.Network.SwitchName -AddressSpace $GlobalLabConfig.Network.AddressSpace
         if ($subnetConflict.HasConflict) {
             $conflictSummary = @(
                 $subnetConflict.ConflictingAdapters |
                     ForEach-Object { "$($_.InterfaceAlias) [$($_.IPAddress)]" }
             )
-            Write-Warning "Conflicting vEthernet subnet assignments detected for $($AddressSpace): $($conflictSummary -join '; '). Deploy preflight can auto-fix these conflicts when you continue with deployment."
+            Write-Warning "Conflicting vEthernet subnet assignments detected for $($GlobalLabConfig.Network.AddressSpace): $($conflictSummary -join '; '). Deploy preflight can auto-fix these conflicts when you continue with deployment."
         }
         else {
-            Add-Ok "No conflicting vEthernet adapters found for subnet $AddressSpace"
+            Add-Ok "No conflicting vEthernet adapters found for subnet $($GlobalLabConfig.Network.AddressSpace)"
         }
     }
     else {
@@ -109,21 +104,21 @@ try {
     Add-Issue "Failed vEthernet subnet conflict check: $($_.Exception.Message)"
 }
 
-$switch = Get-VMSwitch -Name $LabSwitch -ErrorAction SilentlyContinue
+$switch = Get-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -ErrorAction SilentlyContinue
 if ($switch) {
-    Add-Ok "Switch exists: $LabSwitch"
+    Add-Ok "Switch exists: $($GlobalLabConfig.Network.SwitchName)"
 } else {
-    Write-Warning "Switch not found yet: $LabSwitch (bootstrap can create it)"
+    Write-Warning "Switch not found yet: $($GlobalLabConfig.Network.SwitchName) (bootstrap can create it)"
 }
 
-$nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+$nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
 if ($nat) {
-    Add-Ok "NAT exists: $NatName"
+    Add-Ok "NAT exists: $($GlobalLabConfig.Network.NatName)"
 } else {
-    Write-Warning "NAT not found yet: $NatName (bootstrap can create it)"
+    Write-Warning "NAT not found yet: $($GlobalLabConfig.Network.NatName) (bootstrap can create it)"
 }
 
-$sshKey = Join-Path $LabSourcesRoot 'SSHKeys\id_ed25519'
+$sshKey = Join-Path $GlobalLabConfig.Paths.LabSourcesRoot 'SSHKeys\id_ed25519'
 $sshPub = "$sshKey.pub"
 if ((Test-Path $sshKey) -and (Test-Path $sshPub)) {
     Add-Ok 'Host SSH keypair exists (id_ed25519)'

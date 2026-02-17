@@ -17,22 +17,22 @@ function New-LinuxVM {
     Name for the virtual machine (default: LIN1).
 
     .PARAMETER VhdxPath
-    Path for the OS VHDX file (default: auto-generated under $LabPath).
+    Path for the OS VHDX file (default: auto-generated under (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)).
 
     .PARAMETER SwitchName
-    Hyper-V switch name (default: from Lab-Config.ps1 $LabSwitch).
+    Hyper-V switch name (default: from Lab-Config.ps1 $GlobalLabConfig.Network.SwitchName).
 
     .PARAMETER Memory
-    Startup memory (default: from Lab-Config.ps1 $UBU_Memory).
+    Startup memory (default: from Lab-Config.ps1 $GlobalLabConfig.VMSizing.Ubuntu.Memory).
 
     .PARAMETER MinMemory
-    Minimum memory (default: from Lab-Config.ps1 $UBU_MinMemory).
+    Minimum memory (default: from Lab-Config.ps1 $GlobalLabConfig.VMSizing.Ubuntu.MinMemory).
 
     .PARAMETER MaxMemory
-    Maximum memory (default: from Lab-Config.ps1 $UBU_MaxMemory).
+    Maximum memory (default: from Lab-Config.ps1 $GlobalLabConfig.VMSizing.Ubuntu.MaxMemory).
 
     .PARAMETER Processors
-    Processor count (default: from Lab-Config.ps1 $UBU_Processors).
+    Processor count (default: from Lab-Config.ps1 $GlobalLabConfig.VMSizing.Ubuntu.Processors).
 
     .PARAMETER DiskSize
     OS disk size (default: 60GB).
@@ -46,11 +46,11 @@ function New-LinuxVM {
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$CidataVhdxPath,
         [string]$VMName = 'LIN1',
         [string]$VhdxPath = '',
-        [string]$SwitchName = $(if ($LabSwitch) { $LabSwitch } else { 'AutomatedLab' }),
-        [long]$Memory = $(if ($UBU_Memory) { $UBU_Memory } else { 2GB }),
-        [long]$MinMemory = $(if ($UBU_MinMemory) { $UBU_MinMemory } else { 1GB }),
-        [long]$MaxMemory = $(if ($UBU_MaxMemory) { $UBU_MaxMemory } else { 4GB }),
-        [int]$Processors = $(if ($UBU_Processors) { $UBU_Processors } else { 2 }),
+        [string]$SwitchName = $(if ($GlobalLabConfig.Network.SwitchName) { $GlobalLabConfig.Network.SwitchName } else { 'AutomatedLab' }),
+        [long]$Memory = $(if ($GlobalLabConfig.VMSizing.Ubuntu.Memory) { $GlobalLabConfig.VMSizing.Ubuntu.Memory } else { 2GB }),
+        [long]$MinMemory = $(if ($GlobalLabConfig.VMSizing.Ubuntu.MinMemory) { $GlobalLabConfig.VMSizing.Ubuntu.MinMemory } else { 1GB }),
+        [long]$MaxMemory = $(if ($GlobalLabConfig.VMSizing.Ubuntu.MaxMemory) { $GlobalLabConfig.VMSizing.Ubuntu.MaxMemory } else { 4GB }),
+        [int]$Processors = $(if ($GlobalLabConfig.VMSizing.Ubuntu.Processors) { $GlobalLabConfig.VMSizing.Ubuntu.Processors } else { 2 }),
         [long]$DiskSize = 60GB
     )
 
@@ -58,7 +58,7 @@ function New-LinuxVM {
     if (-not (Test-Path $CidataVhdxPath)) { throw "CIDATA VHDX not found: $CidataVhdxPath" }
 
     if (-not $VhdxPath) {
-        $VhdxPath = Join-Path $LabPath "$VMName\$VMName.vhdx"
+        $VhdxPath = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) "$VMName\$VMName.vhdx"
     }
     $vhdxDir = Split-Path $VhdxPath -Parent
     if ($vhdxDir) { New-Item -ItemType Directory -Path $vhdxDir -Force | Out-Null }

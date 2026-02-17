@@ -30,66 +30,10 @@ function Save-LabTemplate {
 
     # Validate template name is filesystem-safe
     if ($Name -notmatch '^[a-zA-Z0-9_-]+$') {
-        return [pscustomobject]@{
-            Success = $false
-            Message = "Template name '$Name' contains invalid characters. Use only letters, numbers, hyphens, and underscores."
-        }
+        throw "Template validation failed: Template name '$Name' contains invalid characters. Use only letters, numbers, hyphens, and underscores."
     }
 
-    # Validate at least one VM
-    if ($VMs.Count -eq 0) {
-        return [pscustomobject]@{
-            Success = $false
-            Message = 'At least one VM is required.'
-        }
-    }
-
-    # Validate each VM
-    $vmNames = @()
-    foreach ($vm in $VMs) {
-        # NetBIOS name validation
-        if ($vm.name -notmatch '^[a-zA-Z0-9-]{1,15}$') {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "VM name '$($vm.name)' is invalid. Use 1-15 alphanumeric characters and hyphens."
-            }
-        }
-
-        # Unique name check
-        if ($vmNames -contains $vm.name.ToLowerInvariant()) {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Duplicate VM name: '$($vm.name)'."
-            }
-        }
-        $vmNames += $vm.name.ToLowerInvariant()
-
-        # IP validation
-        if ($vm.ip -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Invalid IP address for VM '$($vm.name)': '$($vm.ip)'."
-            }
-        }
-
-        # Memory validation
-        if ([int]$vm.memoryGB -lt 1) {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Memory for VM '$($vm.name)' must be at least 1 GB."
-            }
-        }
-
-        # Processor validation
-        if ([int]$vm.processors -lt 1 -or [int]$vm.processors -gt 8) {
-            return [pscustomobject]@{
-                Success = $false
-                Message = "Processors for VM '$($vm.name)' must be between 1 and 8."
-            }
-        }
-    }
-
-    # Build template object
+    # Build template object from input VMs
     $template = [ordered]@{
         name        = $Name
         description = $Description
@@ -105,6 +49,10 @@ function Save-LabTemplate {
             processors = [int]$vm.processors
         }
     }
+
+    # Validate template data using shared validation helper
+    # This will throw if any VM data is invalid
+    Test-LabTemplateData -Template $template
 
     # Ensure directory exists
     $templatesDir = Join-Path (Join-Path $RepoRoot '.planning') 'templates'
@@ -122,9 +70,6 @@ function Save-LabTemplate {
         }
     }
     catch {
-        return [pscustomobject]@{
-            Success = $false
-            Message = "Failed to save template: $_"
-        }
+        throw "Failed to save template to '$templatePath': $_"
     }
 }

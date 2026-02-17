@@ -18,7 +18,7 @@ Write-Host "  $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n" -ForegroundColor Gray
 
 # Import lab
 try {
-    Import-Lab -Name $LabName -ErrorAction Stop
+    Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
     Write-LabStatus -Status OK -Message "Lab definition loaded"
 } catch {
     Write-LabStatus -Status FAIL -Message "Could not import lab. Has it been deployed?"
@@ -79,7 +79,7 @@ Write-Host "  DC1:   Enter-PSSession -VMName DC1" -ForegroundColor Gray
 Write-Host "  SVR1:  Enter-PSSession -VMName SVR1" -ForegroundColor Gray
 Write-Host "  WS1:   Enter-PSSession -VMName WS1" -ForegroundColor Gray
 if ($lin1IP) {
-    Write-Host "  LIN1:  ssh -i $SSHKey $LinuxUser@$lin1IP" -ForegroundColor Gray
+    Write-Host "  LIN1:  ssh -i $SSHKey $GlobalLabConfig.Credentials.LinuxUser@$lin1IP" -ForegroundColor Gray
 } else {
     if ($lin1Vm) {
         Write-Host "  LIN1:  (waiting for IP -- check Lab Status in a minute)" -ForegroundColor Yellow
