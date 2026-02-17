@@ -1274,6 +1274,9 @@ function Initialize-ActionsView {
         if ($action -and $actionDescriptions.ContainsKey($action)) {
             $parts += $actionDescriptions[$action]
         }
+        if ($action -and -not $actionDescriptions.ContainsKey($action)) {
+            $parts += "Run the '$action' action."
+        }
         if ($mode -and $modeDescriptions.ContainsKey($mode)) {
             $parts += $modeDescriptions[$mode]
         }
@@ -1305,7 +1308,7 @@ function Initialize-ActionsView {
     $fnArgList           = Get-Command -Name New-LabAppArgumentList -ErrorAction Stop
 
     # ── Update command preview ────────────────────────────────────
-    $appScriptPath = Join-Path $script:RepoRoot 'OpenCodeLab.ps1'
+    $appScriptPath = Join-Path $script:RepoRoot 'OpenCodeLab-App.ps1'
 
     $updatePreview = {
         $opts = & $getOptions
@@ -1348,6 +1351,17 @@ function Initialize-ActionsView {
     $btnRunAction.Add_Click({
         $opts = & $getOptions
 
+        # Validate blow-away requires a confirmation token
+        if ($opts.Action -eq 'blow-away' -and [string]::IsNullOrWhiteSpace($opts.ConfirmationToken)) {
+            [System.Windows.MessageBox]::Show(
+                "The blow-away action requires a Confirmation Token. Expand Advanced Options and provide one.",
+                'Missing Confirmation Token',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
         # Safety gate for destructive actions
         $guard = & $fnDestructiveGuard -Action $opts.Action -Mode $opts.Mode `
                      -ProfilePath $opts.ProfilePath
@@ -1363,7 +1377,7 @@ function Initialize-ActionsView {
 
         # Build argument list and launch elevated
         $argList = & $fnArgList -Options $opts
-        $scriptPath = Join-Path $script:RepoRoot 'OpenCodeLab.ps1'
+        $scriptPath = Join-Path $script:RepoRoot 'OpenCodeLab-App.ps1'
         $fullArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath) + $argList
 
         try {
