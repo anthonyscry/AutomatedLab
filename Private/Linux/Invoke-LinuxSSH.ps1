@@ -22,7 +22,8 @@ function Invoke-LinuxSSH {
     # Ensure known_hosts directory exists
     $knownHostsDir = Split-Path -Parent $GlobalLabConfig.SSH.KnownHostsPath
     if (-not (Test-Path $knownHostsDir)) {
-        New-Item -ItemType Directory -Path $knownHostsDir -Force | Out-Null
+        $null = New-Item -ItemType Directory -Path $knownHostsDir -Force
+        Write-Verbose "Created directory: $knownHostsDir"
     }
 
     $sshArgs = @(

@@ -42,11 +42,14 @@ function New-LabUnattendXml {
         [string]$OSType,
 
         [Parameter()]
-        [string]$TimeZone = $(if ($LabTimeZone) { $LabTimeZone } else { 'Pacific Standard Time' })
+        [string]$TimeZone = $(if (Test-Path variable:LabTimeZone) { $LabTimeZone } else { 'Pacific Standard Time' })
     )
 
-    # Build unattend.xml as string - using proper escaping
-    $xmlTemplate = @"
+    try {
+        Write-Warning "Unattend.xml stores the administrator password in plaintext. This is inherent to Windows unattended installs. The generated file will be deleted from the VM after first logon."
+
+        # Build unattend.xml as string - using proper escaping
+        $xmlTemplate = @"
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
   <!-- SimpleLab Unattend.xml - Automated Windows Installation -->
@@ -118,5 +121,9 @@ function New-LabUnattendXml {
 </unattend>
 "@
 
-    return $xmlTemplate
+        return $xmlTemplate
+    }
+    catch {
+        throw "New-LabUnattendXml: failed to generate unattend XML - $_"
+    }
 }

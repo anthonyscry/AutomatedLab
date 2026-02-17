@@ -172,7 +172,8 @@ function Set-LabVMUnattend {
         finally {
             # Always dismount the VHD
             Write-Verbose "Dismounting VHD..."
-            Dismount-VHD -Path $vhdPath -ErrorAction SilentlyContinue | Out-Null
+            $null = Dismount-VHD -Path $vhdPath -ErrorAction SilentlyContinue
+            Write-Verbose "Dismounted VHD: $vhdPath"
         }
     }
     catch {

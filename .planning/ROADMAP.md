@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Brownfield Hardening & Integration** - Phases 1-6 (shipped 2026-02-17)
-- 🚧 **v1.1 Production Robustness** - Phases 7-10 (in progress)
+- ✅ **v1.1 Production Robustness** - Phases 7-10 (shipped 2026-02-17)
 
 ## Phases
 
@@ -127,7 +127,7 @@ Plans:
 
 </details>
 
-### 🚧 v1.1 Production Robustness (In Progress)
+### v1.1 Production Robustness (Complete)
 
 **Milestone Goal:** Every function handles errors explicitly, the orchestrator is modular and testable, and all 10 known production gaps are closed — so deploys either succeed or explain exactly why they failed.
 
@@ -137,10 +137,10 @@ Plans:
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 7: Security & Reliability Fixes** - Close 8 production gaps in security and reliability (S1-S4, R1-R4)
-- [ ] **Phase 8: Orchestrator Extraction** - Extract 31 inline functions from OpenCodeLab-App.ps1 to Private/ helpers
-- [ ] **Phase 9: Error Handling** - Add try-catch error handling to all 39 functions currently missing it
-- [ ] **Phase 10: Module Diagnostics** - Reconcile module exports and replace Out-Null with Write-Verbose
+- [x] **Phase 7: Security & Reliability Fixes** - Close 8 production gaps in security and reliability (S1-S4, R1-R4)
+- [x] **Phase 8: Orchestrator Extraction** - Extract 31 inline functions from OpenCodeLab-App.ps1 to Private/ helpers
+- [x] **Phase 9: Error Handling** - Add try-catch error handling to all 39 functions currently missing it
+- [x] **Phase 10: Module Diagnostics** - Reconcile module exports and replace Out-Null with Write-Verbose
 
 ## Phase Details
 
@@ -164,48 +164,56 @@ Plans:
 - [ ] 07-02-PLAN.md -- Close reliability gaps R1-R4: control flow, validation, config paths + tests
 
 ### Phase 8: Orchestrator Extraction
-**Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 31 inline functions extracted to Private/ helpers
+**Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 34 inline functions extracted to Private/ helpers
 **Depends on**: Phase 7
 **Requirements**: EXT-01, EXT-02, EXT-03, EXT-04
 **Success Criteria** (what must be TRUE):
-  1. All 31 inline functions moved from OpenCodeLab-App.ps1 to Private/ helpers with proper naming conventions
-  2. OpenCodeLab-App.ps1 sources extracted helpers via $OrchestrationHelperPaths array in Lab-Common.ps1
+  1. All 34 inline functions moved from OpenCodeLab-App.ps1 to Private/ helpers with proper naming conventions
+  2. Lab-Common.ps1 auto-loads extracted helpers via Get-LabScriptFiles (no explicit registration needed)
   3. Each extracted helper has [CmdletBinding()], explicit parameters, and no script-scope variable dependencies
-  4. All 542 existing Pester tests continue passing after extraction (no behavior regression)
+  4. All 566 existing Pester tests continue passing after extraction (no behavior regression)
   5. Extracted helpers are independently testable with unit tests
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- TBD
+- [x] 08-01-PLAN.md -- Extract 11 pure utility functions (arg builders, script resolver, run events, log retention)
+- [x] 08-02-PLAN.md -- Extract 8 state/operation functions (state overrides, snapshots, VM stop, artifacts, blow-away, quick ops)
+- [x] 08-03-PLAN.md -- Extract 6 lifecycle orchestration functions (action core, one-button setup/reset, setup, bulk VM)
+- [x] 08-04-PLAN.md -- Extract 9 interactive menu functions (menu display, commands, role config, VM wizard)
 
 ### Phase 9: Error Handling
-**Goal**: All 39 functions without try-catch get explicit error handling with context-aware messages
+**Goal**: All functions without try-catch get explicit error handling with context-aware messages
 **Depends on**: Phase 8
 **Requirements**: ERR-01, ERR-02, ERR-03, ERR-04
 **Success Criteria** (what must be TRUE):
-  1. All 28 Private functions without try-catch have explicit error handling added
-  2. All 11 Public functions without try-catch have explicit error handling added
+  1. All 34 Private functions without try-catch (excluding 15 trivial/exempt) have explicit error handling added
+  2. All 6 Public functions without try-catch have explicit error handling added
   3. Error messages include function name and actionable context (not just stack traces)
   4. No function uses exit to terminate — all use return or throw for proper error propagation
   5. Error handling follows PowerShell best practices (ErrorAction, ErrorRecord, terminating vs non-terminating)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- TBD
+- [ ] 09-01-PLAN.md -- Add try-catch to 10 orchestration & lifecycle Private functions (ERR-01, ERR-03)
+- [ ] 09-02-PLAN.md -- Add try-catch to 10 configuration & data-building Private functions (ERR-01, ERR-03)
+- [ ] 09-03-PLAN.md -- Add try-catch to 14 resolution, policy & menu Private functions (ERR-01, ERR-03)
+- [ ] 09-04-PLAN.md -- Add try-catch to 6 Public functions + comprehensive audit tests (ERR-01, ERR-02, ERR-03, ERR-04)
 
 ### Phase 10: Module Diagnostics
 **Goal**: Module export list is accurate and diagnostic visibility is maximized without suppressing useful output
 **Depends on**: Phase 9
 **Requirements**: DIAG-01, DIAG-02, DIAG-03
 **Success Criteria** (what must be TRUE):
-  1. All 65 Out-Null instances replaced with Write-Verbose in operational paths (diagnostic visibility)
+  1. All Out-Null instances replaced with context-appropriate patterns in operational paths (diagnostic visibility)
   2. SimpleLab.psd1 FunctionsToExport matches actual Public/ function count (export reconciliation)
   3. SimpleLab.psm1 Export-ModuleMember matches .psd1 FunctionsToExport list (consistency)
   4. Module loads without warnings about missing or extra exported functions
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- TBD
+- [x] 10-01-PLAN.md -- GUI [void] cast conversion + module export reconciliation + regression tests (DIAG-02, DIAG-03)
+- [x] 10-02-PLAN.md -- Replace Out-Null in Private/ and Public/ files with context-aware patterns (DIAG-01)
+- [x] 10-03-PLAN.md -- Replace Out-Null in Deploy, Bootstrap, LabBuilder, Scripts with context-aware patterns (DIAG-01)
 
 ## Progress
 
@@ -220,10 +228,10 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 4. Role Provisioning | v1.0 | 4/4 | Complete | 2026-02-17 |
 | 5. GUI Integration | v1.0 | 4/4 | Complete | 2026-02-17 |
 | 6. Multi-Host Coordination | v1.0 | 5/5 | Complete | 2026-02-17 |
-| 7. Security & Reliability Fixes | v1.1 | 0/2 | Planned | - |
-| 8. Orchestrator Extraction | v1.1 | 0/TBD | Not started | - |
-| 9. Error Handling | v1.1 | 0/TBD | Not started | - |
-| 10. Module Diagnostics | v1.1 | 0/TBD | Not started | - |
+| 7. Security & Reliability Fixes | v1.1 | 2/2 | Complete | 2026-02-17 |
+| 8. Orchestrator Extraction | v1.1 | 4/4 | Complete | 2026-02-17 |
+| 9. Error Handling | v1.1 | 4/4 | Complete | 2026-02-17 |
+| 10. Module Diagnostics | v1.1 | 3/3 | Complete | 2026-02-17 |
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*

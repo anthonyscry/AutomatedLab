@@ -102,10 +102,10 @@ function Stop-LabVMs {
                 try {
                     Import-Module Hyper-V -ErrorAction Stop
                     if ($UseForce) {
-                        Stop-VM -Name $Name -TurnOff -Force -ErrorAction Stop | Out-Null
+                        $null = Stop-VM -Name $Name -TurnOff -Force -ErrorAction Stop
                     }
                     else {
-                        Stop-VM -Name $Name -Force -ErrorAction Stop | Out-Null
+                        $null = Stop-VM -Name $Name -Force -ErrorAction Stop
                     }
                     [pscustomobject]@{ VMName = $Name; Success = $true; ErrorMessage = '' }
                 }
@@ -116,7 +116,7 @@ function Stop-LabVMs {
         }
 
         if ($jobs.Count -gt 0) {
-            $jobs | Wait-Job -Timeout $TimeoutSeconds | Out-Null
+            $null = $jobs | Wait-Job -Timeout $TimeoutSeconds
 
             foreach ($job in $jobs) {
                 $jobOutput = @()

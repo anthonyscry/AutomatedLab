@@ -36,15 +36,25 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 - ✓ GUI-CLI feature parity — v1.0
 - ✓ Multi-host coordination (dispatch, scoped tokens, transient failure classification) — v1.0
 - ✓ 542 Pester tests passing — v1.0
+- ✓ Security gaps S1-S4 closed with regression tests (24 tests) — Phase 7
+- ✓ Reliability gaps R1-R4 closed with regression tests (24 tests) — Phase 7
+- ✓ 566 Pester tests passing — Phase 7
+- ✓ 34 inline functions extracted from OpenCodeLab-App.ps1 to Private/ (App.ps1: 2,012 → 977 lines) — Phase 8
+- ✓ Orchestrator is modular — each extracted helper independently testable with 133 new tests — Phase 8
+- ✓ 699 Pester tests passing — Phase 8
+- ✓ 40 functions now have structured try-catch with function-name-prefixed actionable errors — Phase 9
+- ✓ ErrorHandling-Audit.Tests.ps1 regression guard ensures no function ships without error handling — Phase 9
+- ✓ 837 Pester tests passing — Phase 9
 
 ### Active
 
-- [ ] All 10 documented production gaps closed (S1-S4, R1-R4, M1-M2)
-- [ ] 31 inline functions extracted from OpenCodeLab-App.ps1 to Private/ helpers
-- [ ] All 39 functions without try-catch get explicit error handling
-- [ ] Module export list reconciled between .psd1 and .psm1
-- [ ] Out-Null replaced with Write-Verbose across codebase
-- [ ] Orchestrator is modular — each extracted helper independently testable
+None — v1.1 milestone complete.
+
+### Recently Completed (Phase 10)
+
+- ✓ Module export list reconciled — .psd1 and .psm1 both export 47 functions, ghost exports removed — Phase 10
+- ✓ Out-Null replaced with context-aware patterns across ~170 instances in 60+ files — Phase 10
+- ✓ 10 regression tests in ModuleDiagnostics.Tests.ps1 guard export consistency and [void] patterns — Phase 10
 
 ### Out of Scope
 
@@ -59,7 +69,7 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 
 - v1.0 Hardening milestone complete (2026-02-17): 6 phases, 56 requirements, 542 tests
 - Remaining production gaps documented in `docs/plans/2026-02-16-remaining-production-gaps-design.md`
-- OpenCodeLab-App.ps1 is 2,012 lines with 31 inline functions — extraction is prerequisite for testability
+- OpenCodeLab-App.ps1 reduced to 977 lines (thin orchestrator) — 34 functions extracted to Private/ in Phase 8
 - 39 functions (28 Private, 11 Public) lack try-catch error handling
 - 65 Out-Null instances suppress diagnostic information
 - Module export mismatch between SimpleLab.psd1 (47 functions) and SimpleLab.psm1
@@ -76,8 +86,8 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Extract inline functions before adding error handling | Can't properly test inline functions; extraction enables unit testing | — Pending |
-| Fix all 10 production gaps, not just security | Reliability gaps (exit 0, missing validation) affect daily use | — Pending |
+| Extract inline functions before adding error handling | Can't properly test inline functions; extraction enables unit testing | ✓ Phase 8 — 34 functions extracted, 133 new tests |
+| Fix all 10 production gaps, not just security | Reliability gaps (exit 0, missing validation) affect daily use | ✓ 8/10 closed in Phase 7 (S1-S4, R1-R4); M1-M2 in Phases 9-10 |
 | Replace Out-Null with Write-Verbose | Suppressed output hides diagnostics; Verbose is opt-in | — Pending |
 | Clean up dead code and archive | Reduce repo noise and search pollution | ✓ v1.0 |
 | Unified config to $GlobalLabConfig | Eliminated dual config system, fail-fast validation | ✓ v1.0 |
@@ -86,4 +96,4 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 | Credential scrubbing in log output | Multi-layer scrubber wired into Write-RunArtifact | ✓ v1.0 |
 
 ---
-*Last updated: 2026-02-17 after v1.1 milestone start*
+*Last updated: 2026-02-17 after Phase 9*

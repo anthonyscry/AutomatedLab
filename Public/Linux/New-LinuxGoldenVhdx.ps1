@@ -41,7 +41,10 @@ function New-LinuxGoldenVhdx {
     }
 
     $templateDir = Split-Path $TemplatePath -Parent
-    if ($templateDir) { New-Item -ItemType Directory -Path $templateDir -Force | Out-Null }
+    if ($templateDir) {
+        $null = New-Item -ItemType Directory -Path $templateDir -Force
+        Write-Verbose "Created directory: $templateDir"
+    }
 
     $tempVMName = "GoldenTemplate-$(Get-Date -Format 'yyyyMMddHHmmss')"
 
@@ -92,7 +95,7 @@ function New-LinuxGoldenVhdx {
     }
     finally {
         # Cleanup temp VM
-        Remove-HyperVVMStale -VMName $tempVMName -Context 'golden-template-cleanup' | Out-Null
+        $null = Remove-HyperVVMStale -VMName $tempVMName -Context 'golden-template-cleanup'
         if ($cidataPath) {
             Remove-Item $cidataPath -Force -ErrorAction SilentlyContinue
         }

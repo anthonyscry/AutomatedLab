@@ -32,7 +32,8 @@ function Initialize-LabConfig {
         # Ensure destination directory exists
         $targetDir = Split-Path -Parent $resolvedPath
         if (-not (Test-Path -Path $targetDir -PathType Container)) {
-            New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+            $null = New-Item -Path $targetDir -ItemType Directory -Force
+            Write-Verbose "Created directory: $targetDir"
         }
 
         # Create default config object

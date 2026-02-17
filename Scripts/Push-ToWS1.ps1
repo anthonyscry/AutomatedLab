@@ -98,7 +98,8 @@ $pushVars = @{
     MOUNT_PATH = $GlobalLabConfig.Paths.LinuxLabShareMount
 }
 
-Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $pushScript -ActivityName "Push-$ProjectName" -Variables $pushVars | Out-Null
+Write-Verbose "Copying project '$ProjectName' from LIN1 to LabShare..."
+$null = Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $pushScript -ActivityName "Push-$ProjectName" -Variables $pushVars
 
 Write-Host "`n=== DONE ===" -ForegroundColor Green
 Write-Host "  On WS1:  cd L:\Transfer\$ProjectName" -ForegroundColor Gray

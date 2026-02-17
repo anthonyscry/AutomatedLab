@@ -71,7 +71,8 @@ function Get-LabRole_DSC {
             Invoke-LabCommand -ComputerName $dscVMName -ActivityName 'DSC-Install-Modules' -ScriptBlock {
                 # NuGet provider (idempotent)
                 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-                    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+                    Write-Verbose "Installing NuGet provider..."
+                    $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
                     Write-Host '    [OK] NuGet provider installed.' -ForegroundColor Green
                 }
 
@@ -98,7 +99,8 @@ function Get-LabRole_DSC {
                 param($KeyDir, $KeyFile)
                 $keyPath = Join-Path $KeyDir $KeyFile
                 if (-not (Test-Path $keyPath)) {
-                    New-Item -Path $KeyDir -ItemType Directory -Force | Out-Null
+                    $null = New-Item -Path $KeyDir -ItemType Directory -Force
+                    Write-Verbose "Created DSC registration key directory: $KeyDir"
                     $key = [guid]::NewGuid().Guid
                     Set-Content -Path $keyPath -Value $key -Encoding ASCII -Force
                     Write-Host "    [OK] Registration key generated: $keyPath" -ForegroundColor Green
@@ -172,7 +174,8 @@ function Get-LabRole_DSC {
                 # Compile MOF
                 $mofOutputPath = "$env:TEMP\DscPullServerConfig"
                 if (Test-Path $mofOutputPath) { Remove-Item $mofOutputPath -Recurse -Force }
-                DscPullServerConfig -NodeName 'localhost' -OutputPath $mofOutputPath | Out-Null
+                Write-Verbose "Compiling DSC Pull Server MOF to $mofOutputPath..."
+                $null = DscPullServerConfig -NodeName 'localhost' -OutputPath $mofOutputPath
 
                 # Apply configuration
                 Start-DscConfiguration -Path $mofOutputPath -Wait -Verbose -Force
@@ -183,15 +186,17 @@ function Get-LabRole_DSC {
                 # Open firewall ports (idempotent)
                 $pullRule = Get-NetFirewallRule -DisplayName "DSC Pull Server ($PullPort)" -ErrorAction SilentlyContinue
                 if (-not $pullRule) {
-                    New-NetFirewallRule -DisplayName "DSC Pull Server ($PullPort)" `
-                        -Direction Inbound -LocalPort $PullPort -Protocol TCP -Action Allow | Out-Null
+                    Write-Verbose "Creating firewall rule for DSC Pull Server port $PullPort..."
+                    $null = New-NetFirewallRule -DisplayName "DSC Pull Server ($PullPort)" `
+                        -Direction Inbound -LocalPort $PullPort -Protocol TCP -Action Allow
                     Write-Host "    [OK] Firewall rule created for port $PullPort" -ForegroundColor Green
                 }
 
                 $compRule = Get-NetFirewallRule -DisplayName "DSC Compliance ($CompliancePort)" -ErrorAction SilentlyContinue
                 if (-not $compRule) {
-                    New-NetFirewallRule -DisplayName "DSC Compliance ($CompliancePort)" `
-                        -Direction Inbound -LocalPort $CompliancePort -Protocol TCP -Action Allow | Out-Null
+                    Write-Verbose "Creating firewall rule for DSC Compliance Server port $CompliancePort..."
+                    $null = New-NetFirewallRule -DisplayName "DSC Compliance ($CompliancePort)" `
+                        -Direction Inbound -LocalPort $CompliancePort -Protocol TCP -Action Allow
                     Write-Host "    [OK] Firewall rule created for port $CompliancePort" -ForegroundColor Green
                 }
             } -ArgumentList $pullPort, $compPort, $regKeyDir, $regKeyFile -Retries 2 -RetryIntervalInSeconds 30
@@ -255,7 +260,8 @@ function Set-LabLCMPullMode {
 
         $mofPath = "$env:TEMP\LCMPullConfig"
         if (Test-Path $mofPath) { Remove-Item $mofPath -Recurse -Force }
-        LCMPullConfig -OutputPath $mofPath | Out-Null
+        Write-Verbose "Compiling LCM Pull Config MOF to $mofPath..."
+        $null = LCMPullConfig -OutputPath $mofPath
         Set-DscLocalConfigurationManager -Path $mofPath -Force -Verbose
 
         Write-Host "  [OK] LCM configured for Pull mode on $env:COMPUTERNAME" -ForegroundColor Green

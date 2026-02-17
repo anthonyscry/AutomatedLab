@@ -118,7 +118,8 @@ try {
 
     # Create the LIN1 VM (Gen2, SecureBoot off, Ubuntu ISO + CIDATA VHDX)
     Write-Host "  Creating Hyper-V Gen2 VM..." -ForegroundColor Gray
-    New-LinuxVM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath -VMName 'LIN1' | Out-Null
+    Write-Verbose "Creating Hyper-V Gen2 VM 'LIN1'..."
+    $null = New-LinuxVM -UbuntuIsoPath $ubuntuIso -CidataVhdxPath $cidataPath -VMName 'LIN1'
 
     # Start VM -- Ubuntu autoinstall should proceed unattended
     Start-VM -Name 'LIN1'
@@ -210,7 +211,8 @@ $vars = @{
 }
 
 try {
-    Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars | Out-Null
+    Write-Verbose "Running LIN1 post-install configuration via SSH..."
+    $null = Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars
     Write-LabStatus -Status OK -Message "Post-install configuration complete"
 }
 catch {
@@ -220,7 +222,8 @@ catch {
 
 # Finalize boot media so LIN1 does not return to installer on reboot
 Write-Host "  Finalizing LIN1 boot media (detach installer + seed disk)..." -ForegroundColor Gray
-Finalize-LinuxInstallMedia -VMName 'LIN1' | Out-Null
+Write-Verbose "Detaching LIN1 installer and seed disk..."
+$null = Finalize-LinuxInstallMedia -VMName 'LIN1'
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green

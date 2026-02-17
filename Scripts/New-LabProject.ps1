@@ -146,7 +146,8 @@ $scriptVars = @{
 }
 
 Write-Host "`n  Creating project on LIN1..." -ForegroundColor Yellow
-Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName "Create-$ProjectName" -Variables $scriptVars | Out-Null
+Write-Verbose "Creating project '$ProjectName' on LIN1 via SSH..."
+$null = Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName "Create-$ProjectName" -Variables $scriptVars
 
 # Get LIN1 IP for connection info
 $lin1IP = (Get-VMNetworkAdapter -VMName 'LIN1' -ErrorAction SilentlyContinue).IPAddresses |

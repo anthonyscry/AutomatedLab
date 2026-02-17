@@ -23,58 +23,60 @@ function New-LabDeploymentReport {
         [datetime]$StartTime = [datetime]::Now
     )
 
-    $endTime = [datetime]::Now
-    $duration = $endTime - $StartTime
-    $durationStr = '{0:D2}h {1:D2}m {2:D2}s' -f [int]$duration.TotalHours, $duration.Minutes, $duration.Seconds
-    $timestamp = $endTime.ToString('yyyy-MM-dd HH:mm:ss')
-    $dateStamp = $endTime.ToString('yyyyMMdd-HHmmss')
+    try {
+        $endTime = [datetime]::Now
+        $duration = $endTime - $StartTime
+        $durationStr = '{0:D2}h {1:D2}m {2:D2}s' -f [int]$duration.TotalHours, $duration.Minutes, $duration.Seconds
+        $timestamp = $endTime.ToString('yyyy-MM-dd HH:mm:ss')
+        $dateStamp = $endTime.ToString('yyyyMMdd-HHmmss')
 
-    Write-Host ""
-    Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
-    Write-Host '  |           DEPLOYMENT RECAP REPORT            |' -ForegroundColor Cyan
-    Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
-    Write-Host ('  Lab:       {0}' -f $LabName) -ForegroundColor White
-    Write-Host ('  Completed: {0}' -f $timestamp) -ForegroundColor White
-    Write-Host ('  Duration:  {0}' -f $durationStr) -ForegroundColor White
-    Write-Host ('  Machines:  {0}' -f $Machines.Count) -ForegroundColor White
-    Write-Host ''
+        Write-Host ""
+        Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
+        Write-Host '  |           DEPLOYMENT RECAP REPORT            |' -ForegroundColor Cyan
+        Write-Host '  +----------------------------------------------+' -ForegroundColor Cyan
+        Write-Host ('  Lab:       {0}' -f $LabName) -ForegroundColor White
+        Write-Host ('  Completed: {0}' -f $timestamp) -ForegroundColor White
+        Write-Host ('  Duration:  {0}' -f $durationStr) -ForegroundColor White
+        Write-Host ('  Machines:  {0}' -f $Machines.Count) -ForegroundColor White
+        Write-Host ''
 
-    Write-Host '  VM Name      OS      IP                Role(s)               Status' -ForegroundColor Gray
-    Write-Host '  -------      --      --                -------               ------' -ForegroundColor Gray
-    foreach ($m in $Machines) {
-        $rolesText = @($m.Roles) -join ', '
-        if ($rolesText.Length -gt 20) { $rolesText = $rolesText.Substring(0, 17) + '...' }
-        $status = [string]$m.Status
-        $statusColor = if ($status -eq 'OK') { 'Green' } elseif ($status -eq 'WARN') { 'Yellow' } else { 'Red' }
+        Write-Host '  VM Name      OS      IP                Role(s)               Status' -ForegroundColor Gray
+        Write-Host '  -------      --      --                -------               ------' -ForegroundColor Gray
+        foreach ($m in $Machines) {
+            $rolesText = @($m.Roles) -join ', '
+            if ($rolesText.Length -gt 20) { $rolesText = $rolesText.Substring(0, 17) + '...' }
+            $status = [string]$m.Status
+            $statusColor = if ($status -eq 'OK') { 'Green' } elseif ($status -eq 'WARN') { 'Yellow' } else { 'Red' }
 
-        Write-Host ('  {0,-12} {1,-7} {2,-17} {3,-20} ' -f $m.VMName, $m.OSTag, $m.IP, $rolesText) -NoNewline -ForegroundColor Gray
-        Write-Host $status -ForegroundColor $statusColor
-    }
-
-    Write-Host ''
-    Write-Host '  CONNECTION INFO:' -ForegroundColor Yellow
-    foreach ($m in $Machines) {
-        if ($m.OSTag -eq '[LIN]') {
-            Write-Host ('    {0}: ssh -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) {1}@{2}' -f $m.VMName, $GlobalLabConfig.Credentials.LinuxUser, $m.IP) -ForegroundColor Gray
+            Write-Host ('  {0,-12} {1,-7} {2,-17} {3,-20} ' -f $m.VMName, $m.OSTag, $m.IP, $rolesText) -NoNewline -ForegroundColor Gray
+            Write-Host $status -ForegroundColor $statusColor
         }
-        else {
-            $rdpUser = '{0}\{1}' -f $GlobalLabConfig.Lab.DomainName, $GlobalLabConfig.Credentials.InstallUser
-            Write-Host ('    {0}: RDP to {1} ({2})' -f $m.VMName, $m.IP, $rdpUser) -ForegroundColor Gray
+
+        Write-Host ''
+        Write-Host '  CONNECTION INFO:' -ForegroundColor Yellow
+        foreach ($m in $Machines) {
+            if ($m.OSTag -eq '[LIN]') {
+                Write-Host ('    {0}: ssh -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) {1}@{2}' -f $m.VMName, $GlobalLabConfig.Credentials.LinuxUser, $m.IP) -ForegroundColor Gray
+            }
+            else {
+                $rdpUser = '{0}\{1}' -f $GlobalLabConfig.Lab.DomainName, $GlobalLabConfig.Credentials.InstallUser
+                Write-Host ('    {0}: RDP to {1} ({2})' -f $m.VMName, $m.IP, $rdpUser) -ForegroundColor Gray
+            }
         }
-    }
-    Write-Host ''
+        Write-Host ''
 
-    if ($OutputPath) {
-        $htmlDir = $OutputPath
-        New-Item -ItemType Directory -Path $htmlDir -Force | Out-Null
-        $htmlPath = Join-Path $htmlDir ("DeployReport-{0}.html" -f $dateStamp)
+        if ($OutputPath) {
+            $htmlDir = $OutputPath
+            $null = New-Item -ItemType Directory -Path $htmlDir -Force
+            Write-Verbose "Created directory: $htmlDir"
+            $htmlPath = Join-Path $htmlDir ("DeployReport-{0}.html" -f $dateStamp)
 
-        $machineRows = ($Machines | ForEach-Object {
-            $statusClass = switch ($_.Status) { 'OK' { 'ok' } 'WARN' { 'warn' } default { 'fail' } }
-            ('        <tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td></tr>' -f $statusClass, $_.VMName, $_.OSTag, $_.IP, (($_.Roles) -join ', '), $_.Status)
-        }) -join "`n"
+            $machineRows = ($Machines | ForEach-Object {
+                $statusClass = switch ($_.Status) { 'OK' { 'ok' } 'WARN' { 'warn' } default { 'fail' } }
+                ('        <tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td></tr>' -f $statusClass, $_.VMName, $_.OSTag, $_.IP, (($_.Roles) -join ', '), $_.Status)
+            }) -join "`n"
 
-        $html = @"
+            $html = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,10 +117,21 @@ $machineRows
 </html>
 "@
 
-        [IO.File]::WriteAllText($htmlPath, $html, [System.Text.UTF8Encoding]::new($false))
-        Write-Host ("  Report saved: {0}" -f $htmlPath) -ForegroundColor Green
-        return $htmlPath
-    }
+            [IO.File]::WriteAllText($htmlPath, $html, [System.Text.UTF8Encoding]::new($false))
+            Write-Host ("  Report saved: {0}" -f $htmlPath) -ForegroundColor Green
+            return $htmlPath
+        }
 
-    return $null
+        return $null
+    }
+    catch {
+        $PSCmdlet.WriteError(
+            [System.Management.Automation.ErrorRecord]::new(
+                [System.Exception]::new("New-LabDeploymentReport: failed to generate deployment report - $_", $_.Exception),
+                'New-LabDeploymentReport.Failure',
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+        )
+    }
 }

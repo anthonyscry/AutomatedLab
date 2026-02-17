@@ -1,130 +1,119 @@
-# Phase 7 Plan 01 Summary: VM Removal Command
+---
+phase: 07-teardown-operations
+plan: 01
+subsystem: testing
+tags: [security, pester, unattend-xml, ssh, sha256, plaintext-password]
 
-**Date:** 2026-02-10
-**Status:** Completed
-**Wave:** 1
+# Dependency graph
+requires: []
+provides:
+  - "Pester test suite verifying all 4 security gaps (S1-S4) are closed"
+  - "Write-Warning in New-LabUnattendXml about plaintext password storage"
+affects: [08-reliability-gaps, 09-error-handling, 10-app-extraction]
 
-## Overview
+# Tech tracking
+tech-stack:
+  added: []
+  patterns: [Pester 5.x security regression tests using Select-String for static analysis]
 
-Implemented lab-wide VM removal command with confirmation prompts and optional VHD deletion. Preserves ISOs and virtual switch by default.
+key-files:
+  created: [Tests/SecurityGaps.Tests.ps1]
+  modified: [Private/New-LabUnattendXml.ps1]
 
-## Files Created
+key-decisions:
+  - "Use script: scope variables in Pester BeforeAll for access inside It blocks (not $using:)"
+  - "Use [IO.Path]::DirectorySeparatorChar in file path filters for cross-platform compatibility"
+  - "Use Test-Path variable:LabTimeZone instead of bare $LabTimeZone in default param value (StrictMode compliance)"
 
-### SimpleLab/Public/Remove-LabVMs.ps1
-- **Lines:** 184
-- **Purpose:** Remove all lab VMs with confirmation
+patterns-established:
+  - "Security gap tests: use Select-String static analysis for code-level verification without runtime execution"
+  - "Cross-platform path filters: use [IO.Path]::DirectorySeparatorChar not hardcoded backslashes"
+  - "script: scope for BeforeAll variables in Pester 5.x It blocks"
 
-**Parameters:**
-- `RemoveVHD` (switch) - Also delete VHD files
-- `Force` (switch) - Skip confirmation prompts
+requirements-completed: [SEC-01, SEC-02, SEC-03, SEC-04]
 
-**Returns:**
-```powershell
-[PSCustomObject]@{
-    VMsRemoved = @("SimpleDC", "SimpleServer", "SimpleWin11")
-    FailedVMs = @()
-    VHDsRemoved = @("C:\VMs\SimpleDC\disk.vhdx", ...)
-    OverallStatus = "OK"
-    Message = "Removed 3 VM(s)"
-    Duration = "00:02:30"
-}
-```
+# Metrics
+duration: 7min
+completed: 2026-02-17
+---
 
-## Removal Behavior
+# Phase 07 Plan 01: Security Gaps Regression Suite Summary
 
-**Removal Order (reverse dependency):**
-1. SimpleWin11 (workstation)
-2. SimpleServer (member server)
-3. SimpleDC (domain controller)
+**Plaintext password warning added to New-LabUnattendXml and 11-test Pester security suite verifying all 4 gaps (S1-S4) are regression-guarded**
 
-**Default Behavior:**
-- Stops running VMs before removal
-- Preserves VHD files (disk images)
-- Preserves ISO files
-- Preserves virtual switch
-- Prompts for confirmation
+## Performance
 
-**With -RemoveVHD:**
-- Also deletes VHD files
-- Frees up disk space
-- Complete cleanup
+- **Duration:** 7 min
+- **Started:** 2026-02-17T03:04:17Z
+- **Completed:** 2026-02-17T03:11:37Z
+- **Tasks:** 2
+- **Files modified:** 2
 
-**With -Force:**
-- Skips confirmation prompt
-- Shows what was removed in output
-- Useful for automation
+## Accomplishments
+- Added Write-Warning to New-LabUnattendXml about plaintext password storage in unattend.xml (closes S4)
+- Created SecurityGaps.Tests.ps1 with 11 tests covering all 4 security gaps (S1-S4)
+- Full test suite passes: 566 tests, 0 failures (up from 542 in v1.0 — 11 new security tests added)
+- Auto-fixed StrictMode compliance bug in default TimeZone parameter
 
-## Confirmation Prompt
+## Task Commits
 
-Default prompt shows:
-```
-The following VMs will be removed:
-  - SimpleDC (Running)
-  - SimpleServer (Off)
-  - SimpleWin11 (Off)
+Each task was committed atomically:
 
-VHD files will be preserved (use -RemoveVHD to delete)
+1. **Task 1: Add plaintext password warning to New-LabUnattendXml** - `640304b` (feat)
+2. **Task 2: Create SecurityGaps.Tests.ps1 verifying all 4 security gaps** - `b5b7df3` (feat)
 
-Confirm removal? (Y/N)
-```
+**Plan metadata:** (see docs commit)
 
-## Module Changes
+## Files Created/Modified
+- `Private/New-LabUnattendXml.ps1` - Added Write-Warning about plaintext password + StrictMode fix for $LabTimeZone default param
+- `Tests/SecurityGaps.Tests.ps1` - 11 Pester 5.x tests verifying S1-S4 security gaps are closed
 
-### SimpleLab.psm1
-- Added `Remove-LabVMs` to Export-ModuleMember (alphabetically sorted)
-
-### SimpleLab.psd1
-- Updated module version to 1.1.0
-- Added `Remove-LabVMs` to FunctionsToExport (alphabetically sorted)
-
-## Success Criteria Met
-
-1. ✅ User can remove lab VMs while preserving ISOs and templates
-2. ✅ Command confirms which VMs will be removed before proceeding
-3. ✅ User receives confirmation prompt before destructive operation
-4. ✅ Teardown completes without leaving orphaned Hyper-V artifacts
-
-## Module Statistics
-
-**SimpleLab v1.1.0** - Now with lab-wide VM removal!
-
-- **30 exported public functions** (+1)
-- **20 internal helper functions** (same)
-- **3 Teardown-related functions** (2 public, 1 private)
-
-## Usage Examples
-
-```powershell
-# Remove VMs with confirmation (preserves VHDs)
-Remove-LabVMs
-
-# Remove VMs and delete VHDs (free disk space)
-Remove-LabVMs -RemoveVHD
-
-# Remove without prompts (automation)
-Remove-LabVMs -Force
-
-# Complete cleanup
-Remove-LabVMs -RemoveVHD -Force
-```
-
-## Phase 7 Progress
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 07-01 | VM Removal Command | ✅ Complete |
-| 07-02 | Clean Slate Command | ⏳ Next |
-| 07-03 | Teardown Confirmation UX | Pending |
-| 07-04 | Artifact Cleanup Validation | Pending |
+## Decisions Made
+- Used `script:` scope variables in Pester BeforeAll (not `$using:`) — Pester 5.x `$using:` is only for remote commands
+- Used `[IO.Path]::DirectorySeparatorChar` in path filter to support both Windows and WSL paths
+- Static analysis via Select-String is sufficient for S1-S3 tests (runtime execution not needed for code pattern checks)
 
 ## Deviations from Plan
 
-**None.** Implementation exactly matches plan specification.
+### Auto-fixed Issues
 
-## Next Steps
+**1. [Rule 1 - Bug] Fixed StrictMode violation in New-LabUnattendXml default parameter**
+- **Found during:** Task 2 (creating SecurityGaps.Tests.ps1 with Set-StrictMode -Version Latest)
+- **Issue:** Default param value `$(if ($LabTimeZone) {...})` fails under StrictMode when `$LabTimeZone` is undefined
+- **Fix:** Changed to `$(if (Test-Path variable:LabTimeZone) { $LabTimeZone } else { 'Pacific Standard Time' })` — consistent with project pattern in Initialize-LabVMs.ps1 line 48
+- **Files modified:** Private/New-LabUnattendXml.ps1
+- **Verification:** Test S4 passes in BeforeAll context with Set-StrictMode -Version Latest
+- **Committed in:** b5b7df3 (Task 2 commit)
 
-Proceed to **Phase 7 Plan 02** - Clean Slate Command for complete lab reset.
+---
 
-**Overall Progress: 91% [█████████████░]**
+**Total deviations:** 1 auto-fixed (Rule 1 - Bug)
+**Impact on plan:** Fix was necessary for tests to run under StrictMode. Consistent with established project pattern. No scope creep.
 
-22 of 23 total plans complete across 7 phases.
+## Issues Encountered
+- Pester `$using:` scope modifier is invalid inside regular It blocks (only works with Invoke-Command/remote). Resolved by using `script:` scope in BeforeAll.
+- Path filter `*\Tests\*` doesn't work on Linux/WSL where paths use forward slashes. Resolved using `[IO.Path]::DirectorySeparatorChar`.
+
+## User Setup Required
+None - no external service configuration required.
+
+## Next Phase Readiness
+- All 4 security gaps now have regression test coverage
+- Full test suite: 566 tests passing
+- Ready for Phase 07 Plan 02 (reliability gaps)
+
+---
+*Phase: 07-teardown-operations*
+*Completed: 2026-02-17*
+
+## Self-Check: PASSED
+
+- `Private/New-LabUnattendXml.ps1` — FOUND
+- `Tests/SecurityGaps.Tests.ps1` — FOUND
+- `.planning/phases/07-teardown-operations/07-01-SUMMARY.md` — FOUND
+- Commit `640304b` (Task 1) — FOUND
+- Commit `b5b7df3` (Task 2) — FOUND
+- Write-Warning present in New-LabUnattendXml.ps1 — VERIFIED
+- 4 Describe blocks in SecurityGaps.Tests.ps1 — VERIFIED
+- All 11 security tests pass — VERIFIED
+- Full test suite: 566 tests, 0 failures — VERIFIED

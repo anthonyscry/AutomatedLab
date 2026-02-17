@@ -49,7 +49,8 @@ function Get-LabRole_Jumpbox {
                         $installed = Get-WindowsCapability -Online -Name $cap -ErrorAction SilentlyContinue
                         if ($installed -and $installed.State -ne 'Installed') {
                             try {
-                                Add-WindowsCapability -Online -Name $cap -ErrorAction Stop | Out-Null
+                                Write-Verbose "Installing RSAT capability: $cap..."
+                                $null = Add-WindowsCapability -Online -Name $cap -ErrorAction Stop
                                 Write-Host "    [OK] Installed: $cap" -ForegroundColor Green
                                 $successCount++
                             }

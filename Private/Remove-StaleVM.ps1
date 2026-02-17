@@ -95,19 +95,21 @@ function Remove-StaleVM {
                 try {
                     # Stop VM if not Off
                     if ($vm.State -ne "Off") {
-                        Stop-VM -Name $vmName -TurnOff -Force -ErrorAction Stop | Out-Null
+                        Write-Verbose "Stopping VM '$vmName'..."
+                        $null = Stop-VM -Name $vmName -TurnOff -Force -ErrorAction Stop
                         Start-Sleep -Seconds 1
                     }
 
                     # Remove VM
-                    Remove-VM -Name $vmName -Force -ErrorAction Stop | Out-Null
+                    Write-Verbose "Removing VM '$vmName'..."
+                    $null = Remove-VM -Name $vmName -Force -ErrorAction Stop
                     $result.VMsRemoved += $vmName
                     $removedCount++
 
                     # Remove checkpoint files if any
                     $checkpointPath = "C:\Lab\VMs\$vmName"
                     if (Test-Path -Path $checkpointPath -ErrorAction SilentlyContinue) {
-                        Remove-Item -Path "$checkpointPath\*" -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+                        $null = Remove-Item -Path "$checkpointPath\*" -Recurse -Force -ErrorAction SilentlyContinue
                     }
                 }
                 catch {

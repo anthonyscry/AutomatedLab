@@ -1,181 +1,134 @@
-# Phase 7 Plan 02 Summary: Clean Slate Command
+---
+phase: 07-teardown-operations
+plan: 02
+subsystem: testing
+tags: [pester, reliability, validation, control-flow, config]
 
-**Date:** 2026-02-10
-**Status:** Completed
-**Wave:** 1
+# Dependency graph
+requires:
+  - phase: 07-teardown-operations
+    provides: Phase 7 plan definitions for reliability gaps R1-R4
 
-## Overview
+provides:
+  - Accumulated check control flow in Test-DCPromotionPrereqs (R1 closed)
+  - R2 verified: Ensure-VMsReady confirmed using return not exit
+  - IP/CIDR validation on Set-VMStaticIP and New-LabNAT (R3 closed)
+  - GlobalLabConfig-based path resolution in New-LabSSHKey (R4 closed)
+  - ReliabilityGaps.Tests.ps1 with 13 tests verifying all R1-R4
 
-Implemented complete lab reset functionality with the `Reset-Lab` command that removes VMs, checkpoints, and virtual switch for a clean slate. Also added `Remove-LabSwitch` for standalone vSwitch removal.
+affects:
+  - phase 07 remaining plans
+  - any plan that calls Test-DCPromotionPrereqs, Set-VMStaticIP, New-LabNAT, New-LabSSHKey
 
-## Files Created
+# Tech tracking
+tech-stack:
+  added: []
+  patterns:
+    - "Accumulated check pattern: collect all results, determine pass/fail at the end instead of early return"
+    - "canProceedToVMChecks flag: controls in-VM check execution without early return"
+    - "Skipped check status: used when prerequisites prevent a check from running"
+    - "Script-scoped variables in Pester BeforeAll: $script:VarName accessible in It blocks via $script:VarName"
 
-### SimpleLab/Private/Remove-LabCheckpoint.ps1
-- **Lines:** 102
-- **Purpose:** Remove all checkpoints for lab VMs
-- **Visibility:** Internal helper function
+key-files:
+  created:
+    - Tests/ReliabilityGaps.Tests.ps1
+  modified:
+    - Private/Test-DCPromotionPrereqs.ps1
+    - Private/Set-VMStaticIP.ps1
+    - Public/New-LabNAT.ps1
+    - Public/New-LabSSHKey.ps1
 
-**Behavior:**
-- Iterates through all lab VMs
-- Removes all checkpoints for each VM
-- Tracks total checkpoints removed
-- Per-VM error handling
+key-decisions:
+  - "Accumulated check pattern over early return: allows Check 5 (network) to always run when VM is available"
+  - "canProceedToVMChecks flag gates in-VM checks without structural early return"
+  - "CanPromote derived from failCount at the end, not set per individual check"
+  - "Use $script: prefix for Pester 5 BeforeAll variables, not $using:"
+  - "New-LabSSHKey uses GlobalLabConfig.Linux.SSHKeyDir with graceful fallback and Write-Warning"
 
-### SimpleLab/Public/Remove-LabSwitch.ps1
-- **Lines:** 95
-- **Purpose:** Remove the SimpleLab virtual switch
+patterns-established:
+  - "Pester 5 variable scope: BeforeAll variables must be $script:Var to be accessible in It blocks"
+  - "Reliability test pattern: use Select-String on source files to verify structural properties"
 
-**Parameters:**
-- `Force` (switch) - Skip confirmation prompts
+requirements-completed:
+  - REL-01
+  - REL-02
+  - REL-03
+  - REL-04
 
-**Returns:**
-```powershell
-[PSCustomObject]@{
-    SwitchName = "SimpleLab"
-    OverallStatus = "OK"
-    Message = "Virtual switch 'SimpleLab' removed successfully"
-    Duration = "00:00:05"
-}
-```
+# Metrics
+duration: 6min
+completed: 2026-02-17
+---
 
-### SimpleLab/Public/Reset-Lab.ps1
-- **Lines:** 233
-- **Purpose:** Complete lab reset (clean slate)
+# Phase 07 Plan 02: Reliability Gaps Summary
 
-**Parameters:**
-- `RemoveVHD` (switch) - Also delete VHD files
-- `Force` (switch) - Skip confirmation prompts
+**Accumulated check control flow in Test-DCPromotionPrereqs with IP/CIDR validation in Set-VMStaticIP and New-LabNAT, GlobalLabConfig path in New-LabSSHKey, and 13 Pester tests verifying all 4 reliability gaps**
 
-**Returns:**
-```powershell
-[PSCustomObject]@{
-    VMsRemoved = @("SimpleDC", "SimpleServer", "SimpleWin11")
-    CheckpointsRemoved = 5
-    VSwitchRemoved = $true
-    VHDsRemoved = @(...)
-    FailedVMs = @()
-    OverallStatus = "OK"
-    Message = "Lab reset complete: removed 3 VM(s), 5 checkpoint(s), virtual switch"
-    Duration = "00:03:00"
-}
-```
+## Performance
 
-## Clean Slate Behavior
+- **Duration:** 6 min
+- **Started:** 2026-02-17T03:04:19Z
+- **Completed:** 2026-02-17T03:10:36Z
+- **Tasks:** 2
+- **Files modified:** 5 (4 source, 1 test)
 
-**Removal Order:**
-1. Checkpoints first (must be removed before VMs)
-2. VMs second (using Remove-LabVMs internally)
-3. Virtual switch last (no dependencies after VMs gone)
+## Accomplishments
+- Restructured Test-DCPromotionPrereqs to accumulate all check results without early return — Check 5 (network) now always runs when VM is available (R1 closed)
+- Verified Ensure-VMsReady uses `return` not `exit 0` — no code change needed, already correct (R2 verified)
+- Added ValidatePattern and ValidateRange to Set-VMStaticIP parameters; added CIDR prefix validation in New-LabNAT (R3 closed)
+- Replaced Get-LabConfig pattern in New-LabSSHKey with GlobalLabConfig.Linux.SSHKeyDir lookup (R4 closed)
+- Created ReliabilityGaps.Tests.ps1 with 13 tests, all passing; full suite 566 tests passing, 0 failures
 
-**Scope:**
-- ✅ All VMs removed
-- ✅ All checkpoints removed
-- ✅ Virtual switch "SimpleLab" removed
-- 🔹 VHD files preserved (unless -RemoveVHD)
-- 🔹 ISO files always preserved
-- 🔹 Config files always preserved
+## Task Commits
 
-## Confirmation Prompt
+Each task was committed atomically:
 
-Shows comprehensive summary:
-```
-SimpleLab Clean Slate Reset
-============================================================
+1. **Task 1: Restructure Test-DCPromotionPrereqs (R1) and add validation to Set-VMStaticIP and New-LabNAT (R3)** - `aba0165` (fix)
+2. **Task 2: Fix hardcoded paths in New-LabSSHKey (R4) and create ReliabilityGaps.Tests.ps1** - `f6ed5ae` (feat)
 
-This will completely reset the lab:
+**Plan metadata:** *(final docs commit)*
 
-VMs to remove:
-  - SimpleDC (Running) (2 checkpoint(s))
-  - SimpleServer (Off) (1 checkpoint(s))
-  - SimpleWin11 (Off) (2 checkpoint(s))
+## Files Created/Modified
+- `Private/Test-DCPromotionPrereqs.ps1` - Restructured to use canProceedToVMChecks flag, accumulate checks, no early return
+- `Private/Set-VMStaticIP.ps1` - Added ValidatePattern on IPAddress, ValidateRange(1,32) on PrefixLength
+- `Public/New-LabNAT.ps1` - Added CIDR prefix length validation (1-32) after extraction from AddressSpace
+- `Public/New-LabSSHKey.ps1` - Replaced Get-LabConfig with GlobalLabConfig.Linux.SSHKeyDir; added fallback warning
+- `Tests/ReliabilityGaps.Tests.ps1` - 13 tests across 4 Describe blocks covering R1-R4
 
-Total checkpoints: 5
-Virtual switch: SimpleLab (Type: Internal)
-
-VHD files will be preserved (use -RemoveVHD to delete)
-
-This is a DESTRUCTIVE operation.
-
-Confirm? (Y/N)
-```
-
-## Module Changes
-
-### SimpleLab.psm1
-- Added `Remove-LabSwitch`, `Reset-Lab` to Export-ModuleMember (alphabetically sorted)
-- Remove-LabCheckpoint remains internal (Private/)
-
-### SimpleLab.psd1
-- Updated module version to 1.2.0
-- Added both public functions to FunctionsToExport (alphabetically sorted)
-
-## Success Criteria Met
-
-1. ✅ User can run clean slate command to remove VMs, checkpoints, and vSwitch
-2. ✅ User is prompted for confirmation before destructive operations
-3. ✅ Teardown completes without leaving orphaned Hyper-V artifacts
-4. ✅ User receives clear summary of what was removed
-
-## Module Statistics
-
-**SimpleLab v1.2.0** - Now with complete lab reset!
-
-- **32 exported public functions** (+2)
-- **21 internal helper functions** (+1)
-- **6 Teardown-related functions** (4 public, 2 private)
-
-## Usage Examples
-
-```powershell
-# Complete lab reset (preserves VHDs)
-Reset-Lab
-
-# Complete reset including VHDs (free disk space)
-Reset-Lab -RemoveVHD
-
-# Reset without prompts (automation)
-Reset-Lab -Force
-
-# Individual components
-Remove-LabSwitch  # Just the vSwitch
-Remove-LabVMs     # Just VMs
-```
-
-## Core Value Fulfillment
-
-**"One command builds a Windows domain lab; one command tears it down"** ✅
-
-```powershell
-# Build
-Initialize-LabVMs
-Start-LabVMs
-Initialize-LabDomain
-Join-LabDomain
-
-# Tear down
-Reset-Lab
-```
-
-## Phase 7 Progress
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 07-01 | VM Removal Command | ✅ Complete |
-| 07-02 | Clean Slate Command | ✅ Complete |
-| 07-03 | Teardown Confirmation UX | ✅ Complete* |
-| 07-04 | Artifact Cleanup Validation | ⏳ Next |
-
-*Plans 01 and 02 include comprehensive confirmation UX
+## Decisions Made
+- Used `canProceedToVMChecks` flag to gate in-VM checks (Checks 3-5) rather than allowing them to fail with unhandled null refs. This preserves the network check always running when VM is up, while gracefully skipping with `Skipped` status when Hyper-V or VM is unavailable.
+- CanPromote is now calculated at the end (`$failCount -eq 0`) rather than assumed `$true` if all checks pass — more explicit.
+- Pester `$using:VarName` syntax does NOT work for BeforeAll-defined variables in Pester 5 without parallel mode. Must use `$script:VarName` in both BeforeAll (assignment) and It blocks (access). This matches the existing SecurityGaps.Tests.ps1 pattern.
 
 ## Deviations from Plan
 
-**None.** Implementation exactly matches plan specification.
+### Auto-fixed Issues
 
-## Next Steps
+**1. [Rule 1 - Bug] Fixed $using: scope in Pester 5 test file**
+- **Found during:** Task 2 (creating ReliabilityGaps.Tests.ps1)
+- **Issue:** Initially wrote `$using:PrivatePath` in It blocks (mirroring what appeared to be used in SecurityGaps.Tests.ps1) — all 13 tests failed with "A Using variable cannot be retrieved"
+- **Fix:** Changed all `$using:` references to `$script:` and changed BeforeAll assignments to use `$script:` prefix, matching the actual pattern in SecurityGaps.Tests.ps1
+- **Files modified:** Tests/ReliabilityGaps.Tests.ps1
+- **Verification:** All 13 tests pass
+- **Committed in:** f6ed5ae (Task 2 commit)
 
-Proceed to **Phase 7 Plan 04** - Artifact Cleanup Validation.
+---
 
-**Overall Progress: 95% [██████████████░]**
+**Total deviations:** 1 auto-fixed (Rule 1 - Bug)
+**Impact on plan:** Fix was required for correctness. No scope creep.
 
-23 of 24 total plans complete across 7 phases.
-**Core value fully realized! 🎉**
+## Issues Encountered
+None beyond the Pester scope issue documented above.
+
+## User Setup Required
+None - no external service configuration required.
+
+## Next Phase Readiness
+- All 4 reliability gaps (R1-R4) are now verified closed
+- Phase 7 plan 02 complete — all REL requirements fulfilled
+- Test suite at 566 passing with no regressions
+- Ready to proceed to remaining phase 7 plans or phase 8
+
+---
+*Phase: 07-teardown-operations*
+*Completed: 2026-02-17*

@@ -47,14 +47,16 @@ function Get-LabRole_FileServer {
                 # Create share directory and sub-folders (idempotent)
                 $sharePath = 'C:\LabShare'
                 if (-not (Test-Path $sharePath)) {
-                    New-Item -Path $sharePath -ItemType Directory -Force | Out-Null
+                    $null = New-Item -Path $sharePath -ItemType Directory -Force
+                    Write-Verbose "Created share root: $sharePath"
                 }
 
                 $subFolders = @('Public', 'Departments', 'IT')
                 foreach ($folder in $subFolders) {
                     $sub = Join-Path $sharePath $folder
                     if (-not (Test-Path $sub)) {
-                        New-Item -Path $sub -ItemType Directory -Force | Out-Null
+                        $null = New-Item -Path $sub -ItemType Directory -Force
+                        Write-Verbose "Created share subfolder: $sub"
                     }
                 }
 
@@ -62,10 +64,11 @@ function Get-LabRole_FileServer {
                 $shareName = 'LabShare'
                 if (-not (Get-SmbShare -Name $shareName -ErrorAction SilentlyContinue)) {
                     $netbios = ($DomainName -split '\.')[0].ToUpper()
-                    New-SmbShare -Name $shareName -Path $sharePath `
+                    Write-Verbose "Creating SMB share '$shareName' at $sharePath..."
+                    $null = New-SmbShare -Name $shareName -Path $sharePath `
                         -FullAccess "$netbios\Domain Admins" `
                         -ChangeAccess "$netbios\Domain Users" `
-                        -Description 'LabBuilder File Share' | Out-Null
+                        -Description 'LabBuilder File Share'
                     Write-Host "    [OK] SMB share created: \\$env:COMPUTERNAME\$shareName" -ForegroundColor Green
                 }
                 else {
@@ -75,8 +78,9 @@ function Get-LabRole_FileServer {
                 # Firewall rule for SMB (idempotent)
                 $rule = Get-NetFirewallRule -DisplayName 'File Server SMB (445)' -ErrorAction SilentlyContinue
                 if (-not $rule) {
-                    New-NetFirewallRule -DisplayName 'File Server SMB (445)' `
-                        -Direction Inbound -LocalPort 445 -Protocol TCP -Action Allow | Out-Null
+                    Write-Verbose "Creating firewall rule for SMB port 445..."
+                    $null = New-NetFirewallRule -DisplayName 'File Server SMB (445)' `
+                        -Direction Inbound -LocalPort 445 -Protocol TCP -Action Allow
                     Write-Host '    [OK] Firewall rule created for SMB port 445.' -ForegroundColor Green
                 }
             } -ArgumentList $LabConfig.DomainName -Retries 2 -RetryIntervalInSeconds 10

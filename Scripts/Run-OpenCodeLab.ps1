@@ -21,7 +21,7 @@ function Test-PowerShellScriptSyntax {
 
     $tokens = $null
     $parseErrors = $null
-    [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$parseErrors) | Out-Null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$parseErrors)
 
     if ($parseErrors.Count -gt 0) {
         $messages = @($parseErrors | ForEach-Object { $_.Message })

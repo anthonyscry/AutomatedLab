@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** Phase 7 - Security & Reliability Fixes (v1.1 milestone)
+**Current focus:** v1.1 milestone complete
 
 ## Current Position
 
-Phase: 7 of 10 (Security & Reliability Fixes)
-Plan: Ready to plan phase 7
-Status: Roadmap complete, ready to begin v1.1 milestone
-Last activity: 2026-02-17 — v1.1 roadmap created with 4 phases (7-10)
+Phase: 10 of 10 (Module Diagnostics) — COMPLETE
+Plan: 3 of 3 complete
+Status: v1.1 milestone complete — all phases done
+Last activity: 2026-02-17 — Phase 10 verified PASSED (4/4 must-haves). v1.1 milestone complete. All 13 plans across 4 phases executed successfully.
 
-Progress: [████████████████████░░] 60% (25/42+ total plans across all phases)
+Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1 milestone done: Phase 7, 8, 9, 10 all complete)
 
 ## Performance Metrics
 
@@ -26,7 +26,10 @@ Progress: [████████████████████░░] 6
 
 **Current milestone (v1.1):**
 - 4 phases planned, 19 requirements
-- Plan count TBD during phase planning
+- Phase 7: 2 plans, ~6.5 min avg, 24 new tests (566 total)
+- Phase 8: 4 plans, ~25 min avg, 133 new tests (699 total)
+- Phase 9: 4 plans, ~19 min avg, 138 new tests (837 total)
+- Phase 10: 3 plans complete — Plan 01: 13 min / 10 tests (847 total), Plan 02: 28 min / 34 files / ~68 Out-Null replaced (Private+Public sweep), Plan 03: 11 min / 99 instances replaced / 58 tests pass
 
 ## Accumulated Context
 
@@ -35,27 +38,28 @@ Progress: [████████████████████░░] 6
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Extract inline functions before adding error handling** (pending): Can't properly test inline functions; extraction enables unit testing
-- **Fix all 10 production gaps, not just security** (pending): Reliability gaps (exit 0, missing validation) affect daily use
-- **Replace Out-Null with Write-Verbose** (pending): Suppressed output hides diagnostics; Verbose is opt-in
-- **No behavior changes during extraction** (pending): Observable output must remain identical
+- **Write-Verbose before $null= for significant cmdlets** (Phase 10, Plan 03): vSwitch, NAT, DHCP scope, firewalls — verbose message documents the action before suppression
+- **[void] for .NET methods, $null= for cmdlets** (Phase 10): [void] cast for .NET method return values; $null= assignment for cmdlet output suppression; 2>&1 | Out-Null preserved for external processes
+- **[void] cast with parens for cmdlet calls** (Phase 10, Plan 01): `[void](cmdlet -Param value)` not `[void]cmdlet -Param value`; plain `[void]` cast requires an expression
+- **Canonical module export list is derived from Public/ files** (Phase 10, Plan 01): 35 top-level + 12 Linux = 47; ghost functions (Test-LabCleanup, Test-LabPrereqs, Write-ValidationReport) removed
+- **Non-critical functions use PSCmdlet.WriteError; critical use throw** (Phase 9): Side-effect functions use WriteError; pipeline-critical functions throw
+- **TestCases must be at discovery time for Pester 5** (Phase 9): -TestCases values in file scope, not BeforeAll
+- **Resolution errors throw, menu errors Write-Warning** (Phase 9): Wrong resolution = wrong operation; menus degrade gracefully
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- OpenCodeLab-App.ps1 extraction is high-risk (2,012 lines, 31 inline functions) — needs careful incremental approach
-- Some inline functions reference script-scoped variables — extraction may require parameter injection
-- Module export mismatch could cause runtime failures if not reconciled carefully
+None. v1.1 milestone complete. All Out-Null instances replaced with diagnostic-preserving patterns.
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: v1.1 Production Robustness roadmap created (4 phases: 7-10)
-Resume file: None — ready to begin Phase 7 planning
+Stopped at: v1.1 milestone complete — all phases verified, branch ready for merge
+Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-17 after roadmap creation*
+*Last updated: 2026-02-17 after Phase 10 verification passed (v1.1 milestone complete)*

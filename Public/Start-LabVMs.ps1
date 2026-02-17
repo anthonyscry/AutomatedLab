@@ -120,7 +120,7 @@ function Start-LabVMs {
                 param($Name)
                 try {
                     Import-Module Hyper-V -ErrorAction Stop
-                    Start-VM -Name $Name -ErrorAction Stop | Out-Null
+                    $null = Start-VM -Name $Name -ErrorAction Stop
                     [pscustomobject]@{ VMName = $Name; Success = $true; ErrorMessage = '' }
                 }
                 catch {
@@ -130,7 +130,7 @@ function Start-LabVMs {
         }
 
         if ($jobs.Count -gt 0) {
-            $jobs | Wait-Job -Timeout $TimeoutSeconds | Out-Null
+            $null = $jobs | Wait-Job -Timeout $TimeoutSeconds
 
             foreach ($job in $jobs) {
                 $jobOutput = @()

@@ -63,7 +63,8 @@ function Save-LabTemplate {
     # Ensure directory exists
     $templatesDir = Join-Path (Join-Path $RepoRoot '.planning') 'templates'
     if (-not (Test-Path $templatesDir)) {
-        New-Item -ItemType Directory -Path $templatesDir -Force | Out-Null
+        $null = New-Item -ItemType Directory -Path $templatesDir -Force
+        Write-Verbose "Created directory: $templatesDir"
     }
 
     $templatePath = Join-Path $templatesDir "$Name.json"

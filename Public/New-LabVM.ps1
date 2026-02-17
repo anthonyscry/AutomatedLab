@@ -153,7 +153,8 @@ function New-LabVM {
 
                     # Step 8a: Set DVD drive as first boot device (required for Gen2 VMs)
                     $dvdDrive = Get-VMDvdDrive -VMName $VMName -ErrorAction Stop
-                    Set-VMFirmware -VMName $VMName -FirstBootDevice $dvdDrive -ErrorAction Stop | Out-Null
+                    Write-Verbose "Setting DVD drive as first boot device for '$VMName'"
+                    $null = Set-VMFirmware -VMName $VMName -FirstBootDevice $dvdDrive -ErrorAction Stop
                 }
                 else {
                     $result.Status = "ISONotFound"

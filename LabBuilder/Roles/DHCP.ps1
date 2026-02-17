@@ -66,7 +66,8 @@ function Get-LabRole_DHCP {
                 )
 
                 try {
-                    Add-DhcpServerInDC -DnsName "$env:COMPUTERNAME.$env:USERDNSDOMAIN" -IPAddress $ServerIp -ErrorAction Stop | Out-Null
+                    Write-Verbose "Authorizing DHCP server in AD..."
+                    $null = Add-DhcpServerInDC -DnsName "$env:COMPUTERNAME.$env:USERDNSDOMAIN" -IPAddress $ServerIp -ErrorAction Stop
                     Write-Host '    [OK] DHCP server authorized in AD.' -ForegroundColor Green
                 }
                 catch {
@@ -77,14 +78,16 @@ function Get-LabRole_DHCP {
                     Where-Object { $_.ScopeId.IPAddressToString -eq $ScopeId }
 
                 if (-not $scope) {
-                    Add-DhcpServerv4Scope -Name 'LabBuilder' -StartRange $StartRange -EndRange $EndRange -SubnetMask $Mask -State Active | Out-Null
+                    Write-Verbose "Creating DHCP scope: $ScopeId ($StartRange - $EndRange)..."
+                    $null = Add-DhcpServerv4Scope -Name 'LabBuilder' -StartRange $StartRange -EndRange $EndRange -SubnetMask $Mask -State Active
                     Write-Host "    [OK] DHCP scope created: $ScopeId" -ForegroundColor Green
                 }
                 else {
                     Write-Host "    [OK] DHCP scope already exists: $ScopeId" -ForegroundColor Green
                 }
 
-                Set-DhcpServerv4OptionValue -ScopeId $ScopeId -Router $Router -DnsServer @($Dns, '1.1.1.1') -DnsDomain $DnsDomain | Out-Null
+                Write-Verbose "Setting DHCP scope options for $ScopeId..."
+                $null = Set-DhcpServerv4OptionValue -ScopeId $ScopeId -Router $Router -DnsServer @($Dns, '1.1.1.1') -DnsDomain $DnsDomain
                 Write-Host '    [OK] DHCP scope options configured.' -ForegroundColor Green
 
                 Set-Service DHCPServer -StartupType Automatic

@@ -5,10 +5,22 @@ BeforeAll {
     $deployPath = Join-Path $repoRoot 'Deploy.ps1'
     $bootstrapPath = Join-Path $repoRoot 'Bootstrap.ps1'
     $appPath = Join-Path $repoRoot 'OpenCodeLab-App.ps1'
+    $bootstrapArgsPath = Join-Path $repoRoot 'Private/Get-LabBootstrapArgs.ps1'
+    $deployArgsPath = Join-Path $repoRoot 'Private/Get-LabDeployArgs.ps1'
+
+    # Batch 3 extractions: bootstrap entry paths moved to Private/
+    $labSetupPath = Join-Path $repoRoot 'Private/Invoke-LabSetup.ps1'
+    $labOneButtonSetupPath = Join-Path $repoRoot 'Private/Invoke-LabOneButtonSetup.ps1'
+    $orchActionCorePath = Join-Path $repoRoot 'Private/Invoke-LabOrchestrationActionCore.ps1'
 
     $deployText = Get-Content -Raw -Path $deployPath
     $bootstrapText = Get-Content -Raw -Path $bootstrapPath
     $appText = Get-Content -Raw -Path $appPath
+    $bootstrapArgsText = Get-Content -Raw -Path $bootstrapArgsPath
+    $deployArgsText = Get-Content -Raw -Path $deployArgsPath
+    $labSetupText = Get-Content -Raw -Path $labSetupPath
+    $labOneButtonSetupText = Get-Content -Raw -Path $labOneButtonSetupPath
+    $orchActionCoreText = Get-Content -Raw -Path $orchActionCorePath
 }
 
 Describe 'Deploy and bootstrap mode defaults' {
@@ -37,23 +49,33 @@ Describe 'Deploy and bootstrap mode defaults' {
 
 Describe 'OpenCodeLab app deploy handoff' {
     It 'passes effective mode explicitly when launching Deploy.ps1' {
-        $appText | Should -Match '(Get-DeployArgs\s+-Mode\s+\$EffectiveMode|Invoke-OrchestrationActionCore\s+-OrchestrationAction\s+''deploy''\s+-Mode\s+\$EffectiveMode)'
+        # Invoke-OrchestrationActionCore extracted to Private/Invoke-LabOrchestrationActionCore.ps1 in Batch 3
+        # App.ps1 calls Invoke-LabOrchestrationActionCore with -Mode $EffectiveMode
+        $appText | Should -Match '(Get-DeployArgs\s+-Mode\s+\$EffectiveMode|Invoke-Lab(OrchestrationActionCore\s+-OrchestrationAction\s+''deploy''\s+-Mode\s+\$EffectiveMode|OrchestrationActionCore\s+-OrchestrationAction\s+''deploy''\s+-Mode\s+\$EffectiveMode))'
     }
 
     It 'passes effective mode explicitly into Bootstrap.ps1 for all bootstrap entry paths' {
-        $matches = [regex]::Matches($appText, 'Get-BootstrapArgs\s+-Mode\s+\$EffectiveMode')
-        $matches.Count | Should -Be 3
+        # Batch 3 extraction: Get-LabBootstrapArgs -Mode calls are now in Private/ files
+        # App.ps1 has 1 direct call (bootstrap action)
+        # Invoke-LabSetup.ps1 and Invoke-LabOneButtonSetup.ps1 each have 1 call
+        $appMatches = [regex]::Matches($appText, 'Get-LabBootstrapArgs\s+-Mode\s+\$EffectiveMode')
+        $setupMatches = [regex]::Matches($labSetupText, 'Get-LabBootstrapArgs\s+-Mode\s+\$EffectiveMode')
+        $oneButtonMatches = [regex]::Matches($labOneButtonSetupText, 'Get-LabBootstrapArgs\s+-Mode\s+\$EffectiveMode')
+        $totalMatches = $appMatches.Count + $setupMatches.Count + $oneButtonMatches.Count
+        $totalMatches | Should -Be 3
     }
 
-    It 'Get-BootstrapArgs accepts mode and forwards it to Bootstrap.ps1' {
-        $appText | Should -Match 'function\s+Get-BootstrapArgs\s*\{\s*param\('
-        $appText | Should -Match 'Get-BootstrapArgs\s*\{[\s\S]*\$scriptArgs\s*\+=\s*@\(''-Mode'',\s*\$Mode\)'
+    It 'Get-LabBootstrapArgs accepts mode and forwards it to Bootstrap.ps1' {
+        # Function now lives in Private/Get-LabBootstrapArgs.ps1 (extracted from App.ps1)
+        $bootstrapArgsText | Should -Match 'function\s+Get-LabBootstrapArgs'
+        $bootstrapArgsText | Should -Match '\$scriptArgs\s*\+=\s*@\(''-Mode'',\s*\$Mode\)'
     }
 
     It 'OpenCodeLab-App supports and forwards subnet conflict auto-fix opt-in switch' {
         $appText | Should -Match '\[switch\]\$AutoFixSubnetConflict'
-        $appText | Should -Match 'Get-BootstrapArgs\s*\{[\s\S]*if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
-        $appText | Should -Match 'Get-DeployArgs\s*\{[\s\S]*if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
+        # Functions extracted to Private/ - verify they handle AutoFixSubnetConflict
+        $bootstrapArgsText | Should -Match 'if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
+        $deployArgsText | Should -Match 'if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
         $appText | Should -Match '\$defaults\.AutoFixSubnetConflict'
     }
 }

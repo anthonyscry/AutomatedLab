@@ -21,7 +21,8 @@ function Copy-LinuxFile {
     # Ensure known_hosts directory exists
     $knownHostsDir = Split-Path -Parent $GlobalLabConfig.SSH.KnownHostsPath
     if (-not (Test-Path $knownHostsDir)) {
-        New-Item -ItemType Directory -Path $knownHostsDir -Force | Out-Null
+        $null = New-Item -ItemType Directory -Path $knownHostsDir -Force
+        Write-Verbose "Created directory: $knownHostsDir"
     }
 
     & $scpExe -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)" -i $KeyPath $LocalPath "${User}@${IP}:${RemotePath}" 2>&1 | Out-Null

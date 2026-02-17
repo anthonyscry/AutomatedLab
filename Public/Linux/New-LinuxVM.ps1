@@ -61,7 +61,10 @@ function New-LinuxVM {
         $VhdxPath = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) "$VMName\$VMName.vhdx"
     }
     $vhdxDir = Split-Path $VhdxPath -Parent
-    if ($vhdxDir) { New-Item -ItemType Directory -Path $vhdxDir -Force | Out-Null }
+    if ($vhdxDir) {
+        $null = New-Item -ItemType Directory -Path $vhdxDir -Force
+        Write-Verbose "Created directory: $vhdxDir"
+    }
 
     # Create Gen2 VM with dynamic memory
     $vm = Hyper-V\New-VM -Name $VMName -Generation 2 `

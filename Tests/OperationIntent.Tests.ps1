@@ -40,12 +40,12 @@ Describe 'Resolve-LabOperationIntent' {
     It 'throws for unsupported mode values' {
         {
             Resolve-LabOperationIntent -Action 'deploy' -Mode 'turbo'
-        } | Should -Throw "Unsupported mode*"
+        } | Should -Throw "*Unsupported mode*"
     }
 
     It 'throws for unsupported action values' {
         {
             Resolve-LabOperationIntent -Action 'destroy-all' -Mode 'quick'
-        } | Should -Throw "Unsupported action*"
+        } | Should -Throw "*Unsupported action*"
     }
 }

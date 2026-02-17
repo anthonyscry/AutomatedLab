@@ -113,7 +113,7 @@ function Save-LabCheckpoint {
             $vmName = $job.Name -replace '^cp-', ''
             if ($job.State -eq 'Completed') {
                 try {
-                    Receive-Job -Job $job -ErrorAction Stop | Out-Null
+                    $null = Receive-Job -Job $job -ErrorAction Stop
                     $result.VMsCheckpointed += $vmName
                     Write-Verbose "Checkpoint created for VM '$vmName'"
                 }

@@ -47,7 +47,8 @@ function Get-LabRole_IIS {
                     # Create sample site directory (idempotent)
                     $sitePath = 'C:\inetpub\LabSite'
                     if (-not (Test-Path $sitePath)) {
-                        New-Item -Path $sitePath -ItemType Directory -Force | Out-Null
+                        $null = New-Item -Path $sitePath -ItemType Directory -Force
+                        Write-Verbose "Created IIS site directory: $sitePath"
                     }
 
                     # Default page (idempotent)
@@ -70,8 +71,9 @@ function Get-LabRole_IIS {
                     # Firewall rule (idempotent)
                     $rule = Get-NetFirewallRule -DisplayName 'IIS HTTP (80)' -ErrorAction SilentlyContinue
                     if (-not $rule) {
-                        New-NetFirewallRule -DisplayName 'IIS HTTP (80)' `
-                            -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow | Out-Null
+                        Write-Verbose "Creating firewall rule for IIS HTTP port 80..."
+                        $null = New-NetFirewallRule -DisplayName 'IIS HTTP (80)' `
+                            -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow
                         Write-Host '    [OK] Firewall rule created for port 80.' -ForegroundColor Green
                     }
                 } -Retries 2 -RetryIntervalInSeconds 10

@@ -6,26 +6,30 @@ BeforeAll {
     # Parent directory is project root
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $OpenCodeLabAppPath = Join-Path $ProjectRoot 'OpenCodeLab-App.ps1'
+    $BlowAwayPath = Join-Path $ProjectRoot 'Private/Invoke-LabBlowAway.ps1'
     $BootstrapPath = Join-Path $ProjectRoot 'Bootstrap.ps1'
+
+    # Extracted in Batch 3 - now lives in Private/
+    $OneButtonResetPath = Join-Path $ProjectRoot 'Private/Invoke-LabOneButtonReset.ps1'
 }
 
-Describe 'Invoke-BlowAway teardown completeness' {
+Describe 'Invoke-LabBlowAway teardown completeness' {
     It 'function definition contains Clear-LabSSHKnownHosts call' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
-        $content | Should -Match 'function Invoke-BlowAway'
+        $content = Get-Content $BlowAwayPath -Raw
+        $content | Should -Match 'function Invoke-LabBlowAway'
         $content | Should -Match 'Clear-LabSSHKnownHosts'
     }
 
     It 'Simulate mode includes SSH cleanup step in output' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
+        $content = Get-Content $BlowAwayPath -Raw
         # Check that the simulate block mentions SSH known_hosts
         $content | Should -Match 'Would clear SSH known_hosts'
     }
 
     It 'NAT removal includes verification check' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
-        # Verify NAT removal verification exists after Remove-NetNat
-        $content | Should -Match 'Remove-NetNat.*-Name.*GlobalLabConfig\.Network\.NatName'
+        $content = Get-Content $BlowAwayPath -Raw
+        # Verify NAT removal verification exists after Remove-NetNat (now uses $LabConfig param)
+        $content | Should -Match 'Remove-NetNat.*-Name.*LabConfig\.Network\.NatName'
         $content | Should -Match '\$natCheck.*Get-NetNat'
     }
 }
@@ -70,12 +74,14 @@ Describe 'Bootstrap.ps1 idempotency' {
     }
 }
 
-Describe 'Invoke-OneButtonReset confirmation gates' {
+Describe 'Invoke-LabOneButtonReset confirmation gates' {
     It 'requires confirmation unless Force or NonInteractive is set' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
+        # Function extracted to Private/Invoke-LabOneButtonReset.ps1 in Batch 3
+        $content = Get-Content $OneButtonResetPath -Raw
         # Should use Force/NonInteractive flags to control BypassPrompt
-        $content | Should -Match 'function Invoke-OneButtonReset'
-        $content | Should -Match '\$Force.*\$NonInteractive'
+        $content | Should -Match 'function Invoke-LabOneButtonReset'
+        $content | Should -Match '\$Force'
+        $content | Should -Match '\$NonInteractive'
         $content | Should -Match 'BypassPrompt.*shouldBypassPrompt'
     }
 }
