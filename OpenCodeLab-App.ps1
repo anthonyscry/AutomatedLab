@@ -504,7 +504,7 @@ function Ensure-LabImported {
     try {
         Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop | Out-Null
     } catch {
-        throw "Lab '$GlobalLabConfig.Lab.Name' is not registered. Run setup first."
+        throw "Lab '$($GlobalLabConfig.Lab.Name)' is not registered. Run setup first."
     }
 }
 
@@ -529,11 +529,11 @@ function Invoke-BlowAway {
     if ($Simulate) {
         Write-Host "`n=== DRY RUN: BLOW AWAY LAB ===" -ForegroundColor Yellow
         Write-Host "  Would stop lab VMs: $(@($GlobalLabConfig.Lab.CoreVMNames) -join ', ')" -ForegroundColor DarkGray
-        Write-Host "  Would remove lab definition: $GlobalLabConfig.Lab.Name" -ForegroundColor DarkGray
-        Write-Host "  Would remove lab files: (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor DarkGray
+        Write-Host "  Would remove lab definition: $($GlobalLabConfig.Lab.Name)" -ForegroundColor DarkGray
+        Write-Host "  Would remove lab files: $(Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor DarkGray
         Write-Host "  Would clear SSH known_hosts entries" -ForegroundColor DarkGray
         if ($DropNetwork) {
-            Write-Host "  Would remove network: $SwitchName / $GlobalLabConfig.Network.NatName" -ForegroundColor DarkGray
+            Write-Host "  Would remove network: $SwitchName / $($GlobalLabConfig.Network.NatName)" -ForegroundColor DarkGray
         }
         Add-RunEvent -Step 'blow-away' -Status 'dry-run' -Message 'No changes made'
         return
@@ -542,7 +542,7 @@ function Invoke-BlowAway {
     Write-Host "`n=== BLOW AWAY LAB ===" -ForegroundColor Red
     Write-Host "  This will stop VMs, remove lab definition, and delete local lab files." -ForegroundColor Yellow
     if ($DropNetwork) {
-        Write-Host "  Network objects ($SwitchName / $GlobalLabConfig.Network.NatName) will also be removed." -ForegroundColor Yellow
+        Write-Host "  Network objects ($SwitchName / $($GlobalLabConfig.Network.NatName)) will also be removed." -ForegroundColor Yellow
     }
 
     if (-not $BypassPrompt) {
@@ -612,7 +612,7 @@ function Invoke-BlowAway {
     Write-Host "  [4/5] Removing lab files..." -ForegroundColor Cyan
     if (Test-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)) {
         Remove-Item -Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "    removed (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor Gray
+        Write-Host "    removed $(Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name)" -ForegroundColor Gray
     }
 
     Write-Host "  [4b/5] Clearing SSH known hosts..." -ForegroundColor Cyan
@@ -630,7 +630,7 @@ function Invoke-BlowAway {
         $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
         if ($nat) {
             Remove-NetNat -Name $GlobalLabConfig.Network.NatName -Confirm:$false -ErrorAction SilentlyContinue
-            Write-Host "    removed NAT $GlobalLabConfig.Network.NatName" -ForegroundColor Gray
+            Write-Host "    removed NAT $($GlobalLabConfig.Network.NatName)" -ForegroundColor Gray
 
             # Verify NAT removal
             $natCheck = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
@@ -1040,10 +1040,10 @@ function Invoke-BulkAdditionalVMProvision {
     $total = $ServerCount + $WorkstationCount
     if ($total -eq 0) { return }
 
-    $serverMemoryGB = [int]([math]::Ceiling($Server_Memory / 1GB))
-    $workstationMemoryGB = [int]([math]::Ceiling($Client_Memory / 1GB))
-    $serverCpu = [int]$Server_Processors
-    $workstationCpu = [int]$Client_Processors
+    $serverMemoryGB = [int]([math]::Ceiling($GlobalLabConfig.VMSizing.Server.Memory / 1GB))
+    $workstationMemoryGB = [int]([math]::Ceiling($GlobalLabConfig.VMSizing.Client.Memory / 1GB))
+    $serverCpu = [int]$GlobalLabConfig.VMSizing.Server.Processors
+    $workstationCpu = [int]$GlobalLabConfig.VMSizing.Client.Processors
 
     $diskRoot = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'Disks'
     if (-not (Test-Path $diskRoot)) {
