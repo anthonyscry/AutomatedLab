@@ -45,6 +45,8 @@ function New-LabUnattendXml {
         [string]$TimeZone = $(if ($LabTimeZone) { $LabTimeZone } else { 'Pacific Standard Time' })
     )
 
+    Write-Warning "Unattend.xml stores the administrator password in plaintext. This is inherent to Windows unattended installs. The generated file will be deleted from the VM after first logon."
+
     # Build unattend.xml as string - using proper escaping
     $xmlTemplate = @"
 <?xml version="1.0" encoding="utf-8"?>
