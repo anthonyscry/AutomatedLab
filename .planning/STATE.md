@@ -74,11 +74,15 @@ Recent decisions affecting current work:
 - [Phase 03-03]: Fixed systemic invalid parameter syntax across 12 files - PowerShell requires simple parameter names in param blocks, not dotted properties like $GlobalLabConfig.Network.NatName (same issue as 03-01 but in additional files discovered during test execution)
 - [Phase 03-05]: Complete legacy variable migration - Invoke-BulkAdditionalVMProvision was last function using $Server_Memory, $Client_Memory, $Server_Processors, $Client_Processors instead of $GlobalLabConfig.VMSizing
 - [Phase 03-05]: Subexpression syntax enforcement - Fixed 7 string interpolation bugs, added comprehensive action routing tests to prevent regressions
+- [Phase 04-01]: Fixed param syntax in FileServer/Client roles, added prereq validation to DHCP/DSC
+- [Phase 04-02]: All 6 core Windows roles get try-catch error handling with post-install service verification
+- [Phase 04-03]: DC failure is fatal (aborts build), post-install summary table, 15-role scriptMap in orchestrator
+- [Phase 04-04]: Linux roles return safe stubs when config missing, LinuxRoleBase validates before property access
 
 ### Pending Todos
 
-- Phase 3 complete (all 5 plans executed)
-- Next: Phase 4 or end-to-end validation
+- Phase 4 complete (4 plans, 111 tests)
+- Next: Phase 5 (GUI Integration)
 
 ### Blockers/Concerns
 
@@ -91,5 +95,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17 (phase transition)
-Stopped at: Phase 4 complete, ready to plan Phase 5
+Stopped at: Phase 4 complete, advancing to Phase 5 (GUI Integration)
 Resume file: None

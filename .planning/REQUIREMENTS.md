@@ -40,17 +40,17 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Roles
 
-- [ ] **ROLE-01**: DC role promotes domain controller with DNS and ADWS services running
-- [ ] **ROLE-02**: SQL role installs SQL Server with configured SA account
-- [ ] **ROLE-03**: IIS role installs and configures web server
-- [ ] **ROLE-04**: WSUS role installs Windows Server Update Services
-- [ ] **ROLE-05**: DHCP role configures DHCP server with lab scope
-- [ ] **ROLE-06**: FileServer role creates and shares directories
-- [ ] **ROLE-07**: PrintServer role installs print services
-- [ ] **ROLE-08**: DSC role configures Desired State Configuration pull server
-- [ ] **ROLE-09**: Jumpbox role configures RDP gateway access
-- [ ] **ROLE-10**: Client role joins domain as workstation
-- [ ] **ROLE-11**: All roles handle missing prerequisites gracefully with clear error messages
+- [x] **ROLE-01**: DC role promotes domain controller with DNS and ADWS services running
+- [x] **ROLE-02**: SQL role installs SQL Server with configured SA account
+- [x] **ROLE-03**: IIS role installs and configures web server
+- [x] **ROLE-04**: WSUS role installs Windows Server Update Services
+- [x] **ROLE-05**: DHCP role configures DHCP server with lab scope
+- [x] **ROLE-06**: FileServer role creates and shares directories
+- [x] **ROLE-07**: PrintServer role installs print services
+- [x] **ROLE-08**: DSC role configures Desired State Configuration pull server
+- [x] **ROLE-09**: Jumpbox role configures RDP gateway access
+- [x] **ROLE-10**: Client role joins domain as workstation
+- [x] **ROLE-11**: All roles handle missing prerequisites gracefully with clear error messages
 
 ### Network
 
@@ -152,17 +152,17 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 | NET-03 | Phase 3 | Done |
 | NET-04 | Phase 3 | Done |
 | NET-05 | Phase 3 | Done |
-| ROLE-01 | Phase 4 | Pending |
-| ROLE-02 | Phase 4 | Pending |
-| ROLE-03 | Phase 4 | Pending |
-| ROLE-04 | Phase 4 | Pending |
-| ROLE-05 | Phase 4 | Pending |
-| ROLE-06 | Phase 4 | Pending |
-| ROLE-07 | Phase 4 | Pending |
-| ROLE-08 | Phase 4 | Pending |
-| ROLE-09 | Phase 4 | Pending |
-| ROLE-10 | Phase 4 | Pending |
-| ROLE-11 | Phase 4 | Pending |
+| ROLE-01 | Phase 4 | Done |
+| ROLE-02 | Phase 4 | Done |
+| ROLE-03 | Phase 4 | Done |
+| ROLE-04 | Phase 4 | Done |
+| ROLE-05 | Phase 4 | Done |
+| ROLE-06 | Phase 4 | Done |
+| ROLE-07 | Phase 4 | Done |
+| ROLE-08 | Phase 4 | Done |
+| ROLE-09 | Phase 4 | Done |
+| ROLE-10 | Phase 4 | Done |
+| ROLE-11 | Phase 4 | Done |
 | GUI-01 | Phase 5 | Pending |
 | GUI-02 | Phase 5 | Pending |
 | GUI-03 | Phase 5 | Pending |
