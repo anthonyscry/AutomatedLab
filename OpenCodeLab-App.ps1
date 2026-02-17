@@ -184,9 +184,7 @@ if ($DefaultsFile) {
 # Invoke-QuickDeploy extracted to Private/Invoke-LabQuickDeploy.ps1
 # Invoke-QuickTeardown extracted to Private/Invoke-LabQuickTeardown.ps1
 
-function Pause-Menu {
-    Read-Host "`n  Press Enter to continue" | Out-Null
-}
+# Pause-Menu extracted to Private/Suspend-LabMenuPrompt.ps1
 
 function Invoke-MenuCommand {
     param(
@@ -205,7 +203,7 @@ function Invoke-MenuCommand {
     }
 
     if (-not $NoPause) {
-        Pause-Menu
+        Suspend-LabMenuPrompt
     }
 }
 
