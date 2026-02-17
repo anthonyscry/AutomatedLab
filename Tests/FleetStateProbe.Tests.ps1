@@ -141,4 +141,41 @@ Describe 'Get-LabFleetStateProbe' {
         $afterFailure.Reachable | Should -BeTrue
         $afterFailure.Probe.PSObject.Properties.Name | Should -Contain 'LabRegistered'
     }
+
+    It 'returns structured failure when remote probe throws' {
+        Mock Invoke-LabRemoteProbe {
+            throw "Remote probe failed for host 'hv-fail': WinRM cannot complete the operation."
+        }
+
+        $results = Get-LabFleetStateProbe -HostNames @('hv-fail')
+
+        @($results).Count | Should -Be 1
+        $results[0].HostName | Should -Be 'hv-fail'
+        $results[0].Reachable | Should -BeFalse
+        $results[0].Probe | Should -BeNullOrEmpty
+        $results[0].Failure | Should -BeLike "*hv-fail*WinRM*"
+    }
+
+    It 'returns mixed results for fleet with one reachable and one unreachable host' {
+        Mock Invoke-LabRemoteProbe {
+            param($HostName, $ScriptBlock, $ArgumentList)
+            if ($HostName -eq 'hv-ok') {
+                return [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+            }
+            throw "Remote probe failed for host 'hv-down': Connection refused"
+        }
+
+        $results = Get-LabFleetStateProbe -HostNames @('hv-ok', 'hv-down')
+
+        @($results).Count | Should -Be 2
+        ($results | Where-Object { $_.HostName -eq 'hv-ok' }).Reachable | Should -BeTrue
+        ($results | Where-Object { $_.HostName -eq 'hv-down' }).Reachable | Should -BeFalse
+        ($results | Where-Object { $_.HostName -eq 'hv-down' }).Failure | Should -BeLike "*hv-down*Connection refused*"
+    }
 }
