@@ -175,56 +175,7 @@ if ($DefaultsFile) {
 
 # Invoke-BlowAway extracted to Private/Invoke-LabBlowAway.ps1
 
-function Invoke-OneButtonSetup {
-    Write-Host "`n=== ONE-BUTTON SETUP ===" -ForegroundColor Cyan
-    Write-Host "  Mode: WINDOWS CORE (DC1 + SVR1 + WS1)" -ForegroundColor Green
-    Write-Host "  Bootstrapping prerequisites + deploying lab + start + status" -ForegroundColor Gray
-
-    $preflightArgs = Get-LabPreflightArgs
-    $bootstrapArgs = Get-LabBootstrapArgs -Mode $EffectiveMode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
-
-    Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-    Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-
-    # Verify expected VMs exist after bootstrap (bootstrap chains into deploy)
-    $expectedVMs = Get-LabExpectedVMs -LabConfig $GlobalLabConfig
-    $missingVMs = $expectedVMs | Where-Object { -not (Hyper-V\Get-VM -Name $_ -ErrorAction SilentlyContinue) }
-    if ($missingVMs) {
-        throw "VMs not found after bootstrap: $($missingVMs -join ', '). Deploy may have failed."
-    }
-
-    Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents
-    Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
-
-    $healthArgs = Get-LabHealthArgs
-    try {
-        Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-        Write-LabStatus -Status OK -Message "Post-deploy health gate passed"
-    } catch {
-        Write-LabStatus -Status FAIL -Message "Post-deploy health gate failed"
-        Write-Host "  Attempting automatic rollback to LabReady..." -ForegroundColor Yellow
-        try {
-            if (-not (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames))) {
-                Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message 'LabReady snapshot missing' -RunEvents $RunEvents
-                Write-LabStatus -Status WARN -Message "LabReady snapshot missing. Cannot auto-rollback."
-                Write-Host "  Run deploy once to recreate LabReady checkpoint." -ForegroundColor Yellow
-            } else {
-                Add-LabRunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady' -RunEvents $RunEvents
-                Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-                Add-LabRunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
-                Write-LabStatus -Status OK -Message "Automatic rollback completed"
-                Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
-            }
-        } catch {
-            Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
-            Write-LabStatus -Status WARN -Message "Automatic rollback failed: $($_.Exception.Message)"
-        }
-        throw
-    }
-
-    Write-Host ''
-    Write-LabStatus -Status OK -Message 'One-button setup complete.'
-}
+# Invoke-OneButtonSetup extracted to Private/Invoke-LabOneButtonSetup.ps1
 
 function Invoke-OneButtonReset {
     param([switch]$DropNetwork)
@@ -605,7 +556,7 @@ function Invoke-SetupLabMenu {
 
     Add-LabRunEvent -Step 'setup-plan' -Status 'ok' -Message ("ExtraServers={0}; ExtraWorkstations={1}" -f $serverCount, $workstationCount) -RunEvents $RunEvents
 
-    Invoke-OneButtonSetup
+    Invoke-LabOneButtonSetup -EffectiveMode $EffectiveMode -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
 
     if (($serverCount + $workstationCount) -gt 0) {
         Write-Host ''
@@ -1287,7 +1238,7 @@ $skipLegacyOrchestration = $false
             Invoke-InteractiveMenu
         }
         'setup' { Invoke-Setup }
-        'one-button-setup' { Invoke-OneButtonSetup }
+        'one-button-setup' { Invoke-LabOneButtonSetup -EffectiveMode $EffectiveMode -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict }
         'one-button-reset' { Invoke-OneButtonReset -DropNetwork:$RemoveNetwork }
         'preflight' {
             $preflightArgs = Get-LabPreflightArgs
