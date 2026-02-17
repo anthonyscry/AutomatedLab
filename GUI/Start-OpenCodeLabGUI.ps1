@@ -136,7 +136,7 @@ function Save-GuiSettings {
 
     $parentDir = Split-Path -Parent $script:GuiSettingsPath
     if (-not (Test-Path $parentDir)) {
-        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+        [void]New-Item -ItemType Directory -Path $parentDir -Force
     }
 
     try {
@@ -211,11 +211,11 @@ function Switch-View {
 
         if (Test-Path $viewPath) {
             $viewElement = Import-XamlFile -Path $viewPath
-            $script:contentArea.Children.Add($viewElement) | Out-Null
+            [void]$script:contentArea.Children.Add($viewElement)
         }
         else {
             $script:txtPlaceholder.Text = "$ViewName view coming soon..."
-            $script:contentArea.Children.Add($script:txtPlaceholder) | Out-Null
+            [void]$script:contentArea.Children.Add($script:txtPlaceholder)
         }
     }
     catch {
@@ -225,7 +225,7 @@ function Switch-View {
         $errBlock.Foreground = [System.Windows.Media.Brushes]::Red
         $errBlock.TextWrapping = 'Wrap'
         $errBlock.FontSize = 14
-        $script:contentArea.Children.Add($errBlock) | Out-Null
+        [void]$script:contentArea.Children.Add($errBlock)
         return
     }
 
@@ -446,7 +446,7 @@ function Update-TopologyCanvas {
     $gwRect.Fill            = $cardBgBrush
     [System.Windows.Controls.Canvas]::SetLeft($gwRect, $gwX)
     [System.Windows.Controls.Canvas]::SetTop($gwRect, $gwY)
-    $Canvas.Children.Add($gwRect) | Out-Null
+    [void]$Canvas.Children.Add($gwRect)
 
     $gatewayIP = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Network.GatewayIp) {
         $GlobalLabConfig.Network.GatewayIp
@@ -463,7 +463,7 @@ function Update-TopologyCanvas {
     $gwLabel.Width               = $gwWidth
     [System.Windows.Controls.Canvas]::SetLeft($gwLabel, $gwX)
     [System.Windows.Controls.Canvas]::SetTop($gwLabel, $gwY + 4)
-    $Canvas.Children.Add($gwLabel) | Out-Null
+    [void]$Canvas.Children.Add($gwLabel)
 
     # ── Virtual Switch bar (middle) ─────────────────────────────
     $swMargin = 30
@@ -482,7 +482,7 @@ function Update-TopologyCanvas {
     $swRect.StrokeThickness = 1
     [System.Windows.Controls.Canvas]::SetLeft($swRect, $swX)
     [System.Windows.Controls.Canvas]::SetTop($swRect, $swY)
-    $Canvas.Children.Add($swRect) | Out-Null
+    [void]$Canvas.Children.Add($swRect)
 
     $switchName = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Network.SwitchName) {
         $GlobalLabConfig.Network.SwitchName
@@ -500,7 +500,7 @@ function Update-TopologyCanvas {
     $swLabel.Padding             = New-Object System.Windows.Thickness(0, 6, 0, 0)
     [System.Windows.Controls.Canvas]::SetLeft($swLabel, $swX)
     [System.Windows.Controls.Canvas]::SetTop($swLabel, $swY)
-    $Canvas.Children.Add($swLabel) | Out-Null
+    [void]$Canvas.Children.Add($swLabel)
 
     # ── Line from gateway to switch ─────────────────────────────
     $gwLine = New-Object System.Windows.Shapes.Line
@@ -510,7 +510,7 @@ function Update-TopologyCanvas {
     $gwLine.Y2              = $swY
     $gwLine.Stroke          = $borderBrush
     $gwLine.StrokeThickness = 2
-    $Canvas.Children.Add($gwLine) | Out-Null
+    [void]$Canvas.Children.Add($gwLine)
 
     # ── VM nodes below the switch ───────────────────────────────
     if (-not $VMStatuses -or $VMStatuses.Count -eq 0) { return }
@@ -535,7 +535,7 @@ function Update-TopologyCanvas {
         $vmLine.Y2              = $nodeY
         $vmLine.Stroke          = $stateColor
         $vmLine.StrokeThickness = 2
-        $Canvas.Children.Add($vmLine) | Out-Null
+        [void]$Canvas.Children.Add($vmLine)
 
         # Node rectangle
         $nodeRect = New-Object System.Windows.Shapes.Rectangle
@@ -548,7 +548,7 @@ function Update-TopologyCanvas {
         $nodeRect.StrokeThickness = 2
         [System.Windows.Controls.Canvas]::SetLeft($nodeRect, $nodeX)
         [System.Windows.Controls.Canvas]::SetTop($nodeRect, $nodeY)
-        $Canvas.Children.Add($nodeRect) | Out-Null
+        [void]$Canvas.Children.Add($nodeRect)
 
         # Node label (VM name + IP)
         $ipText = if ($vm.NetworkStatus -and $vm.NetworkStatus -ne 'N/A') {
@@ -566,7 +566,7 @@ function Update-TopologyCanvas {
         $nodeLabel.Padding             = New-Object System.Windows.Thickness(0, 8, 0, 0)
         [System.Windows.Controls.Canvas]::SetLeft($nodeLabel, $nodeX)
         [System.Windows.Controls.Canvas]::SetTop($nodeLabel, $nodeY)
-        $Canvas.Children.Add($nodeLabel) | Out-Null
+        [void]$Canvas.Children.Add($nodeLabel)
     }
 }
 
@@ -607,7 +607,7 @@ function Initialize-DashboardView {
         $card.FindName('btnStop').Add_Click($stopBlock)
         $card.FindName('btnConnect').Add_Click($connBlock)
 
-        $vmContainer.Children.Add($card) | Out-Null
+        [void]$vmContainer.Children.Add($card)
         $script:VMCards[$vmName] = $card
     }
 
@@ -731,18 +731,18 @@ function Initialize-CustomizeView {
         $txtName.Style = $viewElement.FindResource('ModernTextBox')
         $txtName.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
         [System.Windows.Controls.Grid]::SetColumn($txtName, 0)
-        $rowGrid.Children.Add($txtName) | Out-Null
+        [void]$rowGrid.Children.Add($txtName)
 
         # Role ComboBox
         $cmbRole = New-Object System.Windows.Controls.ComboBox
         $cmbRole.Tag = 'vmRole'
         $cmbRole.Style = $viewElement.FindResource('ModernComboBox')
         $cmbRole.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
-        foreach ($r in $roles) { $cmbRole.Items.Add($r) | Out-Null }
+        foreach ($r in $roles) { [void]$cmbRole.Items.Add($r) }
         $roleIdx = $roles.IndexOf($VMRole)
         $cmbRole.SelectedIndex = if ($roleIdx -ge 0) { $roleIdx } else { 1 }
         [System.Windows.Controls.Grid]::SetColumn($cmbRole, 1)
-        $rowGrid.Children.Add($cmbRole) | Out-Null
+        [void]$rowGrid.Children.Add($cmbRole)
 
         # IP TextBox
         $txtIP = New-Object System.Windows.Controls.TextBox
@@ -751,7 +751,7 @@ function Initialize-CustomizeView {
         $txtIP.Style = $viewElement.FindResource('ModernTextBox')
         $txtIP.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
         [System.Windows.Controls.Grid]::SetColumn($txtIP, 2)
-        $rowGrid.Children.Add($txtIP) | Out-Null
+        [void]$rowGrid.Children.Add($txtIP)
 
         # Memory TextBox
         $txtMem = New-Object System.Windows.Controls.TextBox
@@ -760,7 +760,7 @@ function Initialize-CustomizeView {
         $txtMem.Style = $viewElement.FindResource('ModernTextBox')
         $txtMem.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
         [System.Windows.Controls.Grid]::SetColumn($txtMem, 3)
-        $rowGrid.Children.Add($txtMem) | Out-Null
+        [void]$rowGrid.Children.Add($txtMem)
 
         # Processors TextBox
         $txtProc = New-Object System.Windows.Controls.TextBox
@@ -769,7 +769,7 @@ function Initialize-CustomizeView {
         $txtProc.Style = $viewElement.FindResource('ModernTextBox')
         $txtProc.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
         [System.Windows.Controls.Grid]::SetColumn($txtProc, 4)
-        $rowGrid.Children.Add($txtProc) | Out-Null
+        [void]$rowGrid.Children.Add($txtProc)
 
         # Remove button
         $btnRemove = New-Object System.Windows.Controls.Button
@@ -781,7 +781,7 @@ function Initialize-CustomizeView {
             $row = $this.Parent.Parent
             $vmEditorContainer.Children.Remove($row)
         }.GetNewClosure())
-        $rowGrid.Children.Add($btnRemove) | Out-Null
+        [void]$rowGrid.Children.Add($btnRemove)
 
         $rowBorder.Child = $rowGrid
         return $rowBorder
@@ -846,7 +846,7 @@ function Initialize-CustomizeView {
         foreach ($vm in $template.vms) {
             $row = & $newVMEditorRow -VMName $vm.name -VMRole $vm.role `
                        -VMIP $vm.ip -VMMemory ([int]$vm.memoryGB) -VMProcessors ([int]$vm.processors)
-            $vmEditorContainer.Children.Add($row) | Out-Null
+            [void]$vmEditorContainer.Children.Add($row)
         }
     }.GetNewClosure()
 
@@ -877,7 +877,7 @@ function Initialize-CustomizeView {
         $templateFiles = Get-ChildItem -Path $templatesDir -Filter '*.json' -File
         foreach ($f in $templateFiles) {
             $tName = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-            $cmbTemplate.Items.Add($tName) | Out-Null
+            [void]$cmbTemplate.Items.Add($tName)
         }
 
         if ($SelectName -and $cmbTemplate.Items.Contains($SelectName)) {
@@ -900,7 +900,7 @@ function Initialize-CustomizeView {
     $btnNewTemplate.Add_Click({
         $pnlNewTemplate.Visibility = [System.Windows.Visibility]::Visible
         $txtNewTemplateName.Text = ''
-        $txtNewTemplateName.Focus() | Out-Null
+        [void]$txtNewTemplateName.Focus()
     }.GetNewClosure())
 
     $btnCancelNew.Add_Click({
@@ -910,22 +910,22 @@ function Initialize-CustomizeView {
     $btnCreateTemplate.Add_Click({
         $newName = $txtNewTemplateName.Text.Trim()
         if (-not $newName) {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 'Please enter a template name.',
                 'Validation Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
         if ($newName -notmatch '^[a-zA-Z0-9_-]+$') {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 'Template name must contain only letters, numbers, hyphens, and underscores.',
                 'Validation Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -948,12 +948,12 @@ function Initialize-CustomizeView {
             }
         }
         else {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 $result.Message,
                 'Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Error
-            ) | Out-Null
+            )
         }
     }.GetNewClosure())
 
@@ -964,12 +964,12 @@ function Initialize-CustomizeView {
 
         $selectedName = $selected.ToString()
         if ($selectedName -eq 'default') {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 'The default template cannot be deleted.',
                 'Delete Template',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -997,19 +997,19 @@ function Initialize-CustomizeView {
         $nextIP = & $getNextIP
         $row = & $newVMEditorRow -VMName '' -VMRole 'Server' `
                    -VMIP $nextIP -VMMemory 4 -VMProcessors 4
-        $vmEditorContainer.Children.Add($row) | Out-Null
+        [void]$vmEditorContainer.Children.Add($row)
     }.GetNewClosure())
 
     # ── Save template button ──────────────────────────────────────
     $btnSaveTemplate.Add_Click({
         $selected = $cmbTemplate.SelectedItem
         if (-not $selected) {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 'No template selected.',
                 'Save Template',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -1019,12 +1019,12 @@ function Initialize-CustomizeView {
         # Validate VM names are not empty
         $emptyNames = @($vms | Where-Object { [string]::IsNullOrWhiteSpace($_.name) })
         if ($emptyNames.Count -gt 0) {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "All VMs must have a name. Please fill in empty name fields.",
                 'Validation Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -1033,23 +1033,23 @@ function Initialize-CustomizeView {
         $result = & $fnSaveTemplate -RepoRoot $repoRoot -Name $templateName `
                       -Description $description -VMs $vms
         if ($result.Success) {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 $result.Message,
                 'Save Template',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Information
-            ) | Out-Null
+            )
             if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
                 Add-LogEntry -Message "Saved template: $templateName" -Level 'Success'
             }
         }
         else {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 $result.Message,
                 'Validation Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
         }
     }.GetNewClosure())
 
@@ -1057,12 +1057,12 @@ function Initialize-CustomizeView {
     $btnApplyTemplate.Add_Click({
         $selected = $cmbTemplate.SelectedItem
         if (-not $selected) {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 'No template selected.',
                 'Apply Template',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -1073,12 +1073,12 @@ function Initialize-CustomizeView {
             # Validate VM names are not empty
             $emptyNames = @($vms | Where-Object { [string]::IsNullOrWhiteSpace($_.name) })
             if ($emptyNames.Count -gt 0) {
-                [System.Windows.MessageBox]::Show(
+                [void][System.Windows.MessageBox]::Show(
                     "All VMs must have a name. Please fill in empty name fields.",
                     'Validation Error',
                     [System.Windows.MessageBoxButton]::OK,
                     [System.Windows.MessageBoxImage]::Warning
-                ) | Out-Null
+                )
                 return
             }
 
@@ -1087,12 +1087,12 @@ function Initialize-CustomizeView {
             $saveResult = & $fnSaveTemplate -RepoRoot $repoRoot -Name $templateName `
                               -Description $description -VMs $vms
             if (-not $saveResult.Success) {
-                [System.Windows.MessageBox]::Show(
+                [void][System.Windows.MessageBox]::Show(
                     $saveResult.Message,
                     'Validation Error',
                     [System.Windows.MessageBoxButton]::OK,
                     [System.Windows.MessageBoxImage]::Warning
-                ) | Out-Null
+                )
                 return
             }
 
@@ -1136,28 +1136,28 @@ function Initialize-CustomizeView {
 
             $parentDir = Split-Path -Parent $configPath
             if (-not (Test-Path $parentDir)) {
-                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+                [void]New-Item -ItemType Directory -Path $parentDir -Force
             }
             $configObj | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath -Encoding UTF8
 
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "Template '$templateName' applied to lab configuration.`nThe next deploy will use these VM definitions.",
                 'Apply Template',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Information
-            ) | Out-Null
+            )
 
             if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
                 Add-LogEntry -Message "Applied template '$templateName' to lab config" -Level 'Success'
             }
         }
         catch {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "Failed to apply template: $_",
                 'Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Error
-            ) | Out-Null
+            )
         }
     }.GetNewClosure())
 
@@ -1174,7 +1174,7 @@ function Initialize-CustomizeView {
                 $errBlock.TextWrapping = 'Wrap'
                 $errBlock.Margin = New-Object System.Windows.Thickness(0, 16, 0, 0)
                 if ($viewElement -is [System.Windows.Controls.Panel]) {
-                    $viewElement.Children.Add($errBlock) | Out-Null
+                    [void]$viewElement.Children.Add($errBlock)
                 }
             }
         }
@@ -1222,11 +1222,11 @@ function Initialize-ActionsView {
                  'ansible', 'start', 'stop', 'asset-report',
                  'offline-bundle', 'terminal', 'new-project',
                  'push', 'test', 'save', 'rollback')
-    foreach ($a in $actions) { $cmbAction.Items.Add($a) | Out-Null }
+    foreach ($a in $actions) { [void]$cmbAction.Items.Add($a) }
     $cmbAction.SelectedIndex = 0
 
     $modes = @('quick', 'full')
-    foreach ($m in $modes) { $cmbMode.Items.Add($m) | Out-Null }
+    foreach ($m in $modes) { [void]$cmbMode.Items.Add($m) }
     $cmbMode.SelectedIndex = 0
 
     # ── Action/mode descriptions ─────────────────────────────────
@@ -1353,12 +1353,12 @@ function Initialize-ActionsView {
 
         # Validate blow-away requires a confirmation token
         if ($opts.Action -eq 'blow-away' -and [string]::IsNullOrWhiteSpace($opts.ConfirmationToken)) {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "The blow-away action requires a Confirmation Token. Expand Advanced Options and provide one.",
                 'Missing Confirmation Token',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -1384,12 +1384,12 @@ function Initialize-ActionsView {
             Start-Process powershell.exe -Verb RunAs -ArgumentList $fullArgs
         }
         catch {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "Failed to launch action: $_",
                 'Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Error
-            ) | Out-Null
+            )
             return
         }
 
@@ -1502,7 +1502,7 @@ function Initialize-LogsView {
     # Populate filter combo
     $filterOptions = @('All', 'Info', 'Warning', 'Error', 'Success')
     foreach ($opt in $filterOptions) {
-        $cmbLogFilter.Items.Add($opt) | Out-Null
+        [void]$cmbLogFilter.Items.Add($opt)
     }
 
     # Set current filter selection
@@ -1638,24 +1638,24 @@ function Initialize-SettingsView {
         # Validate subnet format
         $subnet = $txtSubnet.Text.Trim()
         if ($subnet -and $subnet -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$') {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "Invalid subnet format. Please enter CIDR notation (e.g. 10.0.10.0/24).",
                 'Validation Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
         # Validate gateway IP format
         $gwIP = $txtGatewayIP.Text.Trim()
         if ($gwIP -and $gwIP -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "Invalid Gateway IP format. Please enter a valid IPv4 address (e.g. 10.0.0.1).",
                 'Validation Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Warning
-            ) | Out-Null
+            )
             return
         }
 
@@ -1698,7 +1698,7 @@ function Initialize-SettingsView {
 
             $parentDir = Split-Path -Parent $configJsonPath
             if (-not (Test-Path $parentDir)) {
-                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+                [void]New-Item -ItemType Directory -Path $parentDir -Force
             }
             $configJson | ConvertTo-Json -Depth 10 | Set-Content -Path $configJsonPath -Encoding UTF8
 
@@ -1707,24 +1707,24 @@ function Initialize-SettingsView {
             $guiSettings['AdminUsername'] = $txtAdminUsername.Text.Trim()
             Save-GuiSettings -Settings $guiSettings
 
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 'Settings saved successfully.',
                 'Settings',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Information
-            ) | Out-Null
+            )
 
             if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
                 Add-LogEntry -Message 'Settings saved' -Level 'Success'
             }
         }
         catch {
-            [System.Windows.MessageBox]::Show(
+            [void][System.Windows.MessageBox]::Show(
                 "Failed to save settings: $_",
                 'Error',
                 [System.Windows.MessageBoxButton]::OK,
                 [System.Windows.MessageBoxImage]::Error
-            ) | Out-Null
+            )
 
             if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
                 Add-LogEntry -Message "Settings save failed: $_" -Level 'Error'
@@ -1737,4 +1737,4 @@ function Initialize-SettingsView {
 Switch-View -ViewName 'Dashboard'
 
 # ── Show window (blocks until closed) ───────────────────────────────────
-$mainWindow.ShowDialog() | Out-Null
+[void]$mainWindow.ShowDialog()
