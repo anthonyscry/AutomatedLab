@@ -252,10 +252,8 @@ function Test-LabReadySnapshot {
         $targets = @()
         if ($VMNames -and $VMNames.Count -gt 0) {
             $targets = @($VMNames)
-        } elseif (Get-Command Get-ExpectedVMs -ErrorAction SilentlyContinue) {
-            $targets = @(Get-ExpectedVMs)
         } else {
-            $targets = @(@($GlobalLabConfig.Lab.CoreVMNames))
+            $targets = @(Get-LabExpectedVMs -LabConfig $GlobalLabConfig)
         }
 
         foreach ($vmName in $targets) {
@@ -281,10 +279,6 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.NonInteractive) { $NonInteractive = [bool]$defaults.NonInteractive }
     if ($null -ne $defaults.AutoFixSubnetConflict) { $AutoFixSubnetConflict = [bool]$defaults.AutoFixSubnetConflict }
     if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
-}
-
-function Get-ExpectedVMs {
-    return @(@($GlobalLabConfig.Lab.CoreVMNames))
 }
 
 function Get-PreflightArgs {
@@ -634,7 +628,7 @@ function Invoke-OneButtonSetup {
     Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
 
     # Verify expected VMs exist after bootstrap (bootstrap chains into deploy)
-    $expectedVMs = Get-ExpectedVMs
+    $expectedVMs = Get-LabExpectedVMs -LabConfig $GlobalLabConfig
     $missingVMs = $expectedVMs | Where-Object { -not (Hyper-V\Get-VM -Name $_ -ErrorAction SilentlyContinue) }
     if ($missingVMs) {
         throw "VMs not found after bootstrap: $($missingVMs -join ', '). Deploy may have failed."
@@ -728,7 +722,7 @@ function Invoke-QuickTeardown {
 
     try {
         Ensure-LabImported
-        if (Test-LabReadySnapshot -VMNames (Get-ExpectedVMs)) {
+        if (Test-LabReadySnapshot -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig)) {
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
             Add-LabRunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message 'Quick teardown complete (LabReady restored)' -Indent 0
@@ -1296,7 +1290,7 @@ $skipLegacyOrchestration = $false
             $stateProbe = Resolve-RuntimeStateOverride
         }
         if ($null -eq $stateProbe) {
-            $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $GlobalLabConfig.Network.NatName)
+            $fleetProbe = @(Get-LabFleetStateProbe -HostNames $operationIntent.TargetHosts -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig) -SwitchName $SwitchName -NatName $GlobalLabConfig.Network.NatName)
         }
         elseif ($stateProbe -is [System.Array]) {
             $fleetProbe = @($stateProbe)
@@ -1497,7 +1491,7 @@ $skipLegacyOrchestration = $false
                 SwitchName = $SwitchName
                 NatName = $GlobalLabConfig.Network.NatName
                 AddressSpace = $GlobalLabConfig.Network.AddressSpace
-                VMNames = @(Get-ExpectedVMs)
+                VMNames = @(Get-LabExpectedVMs -LabConfig $GlobalLabConfig)
             }
             if ($hasGlobalLabConfig -and $GlobalLabConfig.ContainsKey('AutoHeal')) {
                 if ($GlobalLabConfig.AutoHeal.ContainsKey('TimeoutSeconds')) {
@@ -1527,7 +1521,7 @@ $skipLegacyOrchestration = $false
                 else {
                     Write-Host "[AutoHeal] No repairs possible. Falling back to full mode." -ForegroundColor Yellow
                 }
-                $stateProbe = Get-LabStateProbe -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-ExpectedVMs) -SwitchName $SwitchName -NatName $GlobalLabConfig.Network.NatName
+                $stateProbe = Get-LabStateProbe -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig) -SwitchName $SwitchName -NatName $GlobalLabConfig.Network.NatName
             }
         }
 
