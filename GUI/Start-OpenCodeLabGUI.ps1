@@ -199,15 +199,34 @@ function Switch-View {
 
     $viewPath = Join-Path (Join-Path $script:GuiRoot 'Views') "${ViewName}View.xaml"
 
-    $script:contentArea.Children.Clear()
-
-    if (Test-Path $viewPath) {
-        $viewElement = Import-XamlFile -Path $viewPath
-        $script:contentArea.Children.Add($viewElement) | Out-Null
+    # ── Stop Dashboard timer when leaving ────────────────────────────
+    if ($script:CurrentView -eq 'Dashboard') {
+        if ($null -ne $script:VMPollTimer) {
+            $script:VMPollTimer.Stop()
+        }
     }
-    else {
-        $script:txtPlaceholder.Text = "$ViewName view coming soon..."
-        $script:contentArea.Children.Add($script:txtPlaceholder) | Out-Null
+
+    try {
+        $script:contentArea.Children.Clear()
+
+        if (Test-Path $viewPath) {
+            $viewElement = Import-XamlFile -Path $viewPath
+            $script:contentArea.Children.Add($viewElement) | Out-Null
+        }
+        else {
+            $script:txtPlaceholder.Text = "$ViewName view coming soon..."
+            $script:contentArea.Children.Add($script:txtPlaceholder) | Out-Null
+        }
+    }
+    catch {
+        $script:contentArea.Children.Clear()
+        $errBlock = New-Object System.Windows.Controls.TextBlock
+        $errBlock.Text = "Failed to load $ViewName view: $_"
+        $errBlock.Foreground = [System.Windows.Media.Brushes]::Red
+        $errBlock.TextWrapping = 'Wrap'
+        $errBlock.FontSize = 14
+        $script:contentArea.Children.Add($errBlock) | Out-Null
+        return
     }
 
     # ── Clear stale element refs when leaving a view ────────────────
@@ -271,6 +290,14 @@ $script:btnNavActions.Add_Click({    Switch-View -ViewName 'Actions' })
 $script:btnNavCustomize.Add_Click({  Switch-View -ViewName 'Customize' })
 $script:btnNavLogs.Add_Click({       Switch-View -ViewName 'Logs' })
 $script:btnNavSettings.Add_Click({   Switch-View -ViewName 'Settings' })
+
+# ── Window Closing handler (cleanup timers) ─────────────────────────────
+$mainWindow.Add_Closing({
+    if ($null -ne $script:VMPollTimer) {
+        $script:VMPollTimer.Stop()
+        $script:VMPollTimer = $null
+    }
+})
 
 # ── VM role display names ──────────────────────────────────────────────
 $script:VMRoles = @{
@@ -589,25 +616,47 @@ function Initialize-DashboardView {
         $txtNoVMs.Visibility = [System.Windows.Visibility]::Collapsed
     }
 
-    # ── Polling timer (5-second interval) ─────────────────────────
-    $script:VMPollTimer = New-Object System.Windows.Threading.DispatcherTimer
-    $script:VMPollTimer.Interval = [TimeSpan]::FromSeconds(5)
-    $script:VMPollTimer.Add_Tick({
-        try {
-            $statuses = Get-LabStatus
-            foreach ($vmData in $statuses) {
-                $name = $vmData.VMName
-                if ($script:VMCards.ContainsKey($name)) {
-                    Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
-                }
+    # ── Initial poll (immediate update) ───────────────────────────
+    try {
+        $statuses = Get-LabStatus
+        foreach ($vmData in $statuses) {
+            $name = $vmData.VMName
+            if ($script:VMCards.ContainsKey($name)) {
+                Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
             }
-            Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
         }
-        catch {
-            # Silently ignore polling errors to keep the GUI responsive
-        }
-    })
-    $script:VMPollTimer.Start()
+        Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
+    }
+    catch {
+        # Silently ignore initial poll errors
+    }
+
+    # ── Polling timer (5-second interval) ─────────────────────────
+    if ($null -ne $script:VMPollTimer) {
+        # Timer already exists from previous Dashboard visit - just restart it
+        $script:VMPollTimer.Start()
+    }
+    else {
+        # Create new timer on first visit
+        $script:VMPollTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $script:VMPollTimer.Interval = [TimeSpan]::FromSeconds(5)
+        $script:VMPollTimer.Add_Tick({
+            try {
+                $statuses = Get-LabStatus
+                foreach ($vmData in $statuses) {
+                    $name = $vmData.VMName
+                    if ($script:VMCards.ContainsKey($name)) {
+                        Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
+                    }
+                }
+                Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
+            }
+            catch {
+                # Silently ignore polling errors to keep the GUI responsive
+            }
+        })
+        $script:VMPollTimer.Start()
+    }
 }
 
 # ── Customize view initialisation ──────────────────────────────────────
@@ -1144,6 +1193,21 @@ function Initialize-ActionsView {
         'one-button-setup' = 'Full automated lab deployment from scratch. Runs setup, then deploy in sequence - zero interaction required.'
         'one-button-reset' = 'Tear down and redeploy the entire lab. Destroys existing VMs, then runs a fresh one-button-setup.'
         'blow-away'        = 'DESTRUCTIVE: Complete removal of all lab resources. Deletes VMs, virtual switch, NAT rules, and all lab files. Requires confirmation token.'
+        'preflight'        = 'Run pre-deployment validation checks. Verifies Hyper-V, disk space, ISO availability, and network prerequisites.'
+        'bootstrap'        = 'Bootstrap the lab host environment. Installs required PowerShell modules, creates directory structure, and prepares configuration.'
+        'add-lin1'         = 'Add the Ubuntu Linux VM (lin1) to the lab. Creates and configures the Linux VM with cloud-init.'
+        'lin1-config'      = 'Configure the Linux VM (lin1). Applies post-install settings, network configuration, and domain integration.'
+        'ansible'          = 'Install and configure Ansible on the Linux VM. Sets up Ansible for lab automation and configuration management.'
+        'start'            = 'Start all lab VMs. Powers on all virtual machines in the correct boot order.'
+        'stop'             = 'Stop all lab VMs gracefully. Sends shutdown commands and waits for clean power-off.'
+        'asset-report'     = 'Generate a lab asset report. Lists all VMs, disks, network adapters, and resource usage.'
+        'offline-bundle'   = 'Build an offline deployment bundle. Packages all required files for air-gapped lab deployment.'
+        'terminal'         = 'Open interactive terminals to lab VMs. Launches PowerShell remoting or SSH sessions.'
+        'new-project'      = 'Create a new lab project workspace. Scaffolds directory structure and configuration files for a new project.'
+        'push'             = 'Push files to the WS1 workstation VM. Copies project files to the Windows 11 client for testing.'
+        'test'             = 'Run tests on the WS1 workstation VM. Executes the test suite remotely on the client VM.'
+        'save'             = 'Save current lab work. Creates checkpoints and backs up current state for later restoration.'
+        'rollback'         = 'Rollback to the last saved checkpoint. Restores all VMs to their most recent saved state.'
     }
     $modeDescriptions = @{
         'quick' = 'Quick mode: Skip VMs that already exist and are running. Faster for incremental changes.'
