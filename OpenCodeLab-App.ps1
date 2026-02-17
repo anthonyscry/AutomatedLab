@@ -288,16 +288,7 @@ function Invoke-OrchestrationActionCore {
 
 # Resolve-RuntimeStateOverride extracted to Private/Resolve-LabRuntimeStateOverride.ps1
 
-function Stop-LabVMsSafe {
-    try {
-        Import-LabModule -LabName $GlobalLabConfig.Lab.Name
-        Stop-LabVM -All -ErrorAction SilentlyContinue | Out-Null
-    } catch {
-        Get-VM -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -in @($GlobalLabConfig.Lab.CoreVMNames) -and $_.State -eq 'Running' } |
-            Stop-VM -Force -ErrorAction SilentlyContinue
-    }
-}
+# Stop-LabVMsSafe extracted to Private/Stop-LabVMsSafe.ps1
 
 function Invoke-BlowAway {
     param(
@@ -334,7 +325,7 @@ function Invoke-BlowAway {
     }
 
     Write-Host "`n  [1/5] Stopping lab VMs..." -ForegroundColor Cyan
-    Stop-LabVMsSafe
+    Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)
 
     Write-Host "  [2/5] Removing AutomatedLab definition..." -ForegroundColor Cyan
     try {
@@ -534,7 +525,7 @@ function Invoke-QuickTeardown {
 
     Write-Host "`n=== QUICK TEARDOWN ===" -ForegroundColor Cyan
     Add-LabRunEvent -Step 'teardown-quick' -Status 'start' -Message 'stop + optional restore' -RunEvents $RunEvents
-    Stop-LabVMsSafe
+    Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)
 
     try {
         if (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig) -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)) {
@@ -961,7 +952,7 @@ function Invoke-InteractiveMenu {
                 }
             }
             '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            '2' { Invoke-MenuCommand -Name 'stop' -Command { Stop-LabVMsSafe; Write-LabStatus -Status OK -Message "Lab stopped" } }
+            '2' { Invoke-MenuCommand -Name 'stop' -Command { Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames); Write-LabStatus -Status OK -Message "Lab stopped" } }
             '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '4' {
                 Invoke-MenuCommand -Name 'rollback' -Command {
@@ -1656,7 +1647,7 @@ $skipLegacyOrchestration = $false
         }
         'stop' {
             Add-LabRunEvent -Step 'stop' -Status 'start' -Message 'Stop-LabVMsSafe' -RunEvents $RunEvents
-            Stop-LabVMsSafe
+            Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)
             Add-LabRunEvent -Step 'stop' -Status 'ok' -Message 'requested' -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message "Stop requested for all lab VMs" -Indent 0
         }
