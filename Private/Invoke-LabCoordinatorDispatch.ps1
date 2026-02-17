@@ -32,10 +32,16 @@ function Invoke-LabCoordinatorDispatch {
     )
 
     $executionStartedAt = Get-Date
+
+    $resolvedTargets = @($TargetHosts | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($resolvedTargets.Count -eq 0) {
+        throw "TargetHosts must contain at least one non-empty host name."
+    }
+
     $hostOutcomes = New-Object System.Collections.ArrayList
 
     if ($DispatchMode -eq 'off') {
-        foreach ($hostName in @($TargetHosts)) {
+        foreach ($hostName in @($resolvedTargets)) {
             [void]$hostOutcomes.Add([pscustomobject]@{
                 HostName = [string]$hostName
                 DispatchStatus = 'not_dispatched'
@@ -57,8 +63,8 @@ function Invoke-LabCoordinatorDispatch {
     $stopOnFirstFailure = ($Action -eq 'teardown' -and $EffectiveMode -eq 'full')
     $abortRemaining = $false
 
-    for ($hostIndex = 0; $hostIndex -lt @($TargetHosts).Count; $hostIndex++) {
-        $hostName = [string]$TargetHosts[$hostIndex]
+    for ($hostIndex = 0; $hostIndex -lt @($resolvedTargets).Count; $hostIndex++) {
+        $hostName = [string]$resolvedTargets[$hostIndex]
         $isCanarySkipped = ($DispatchMode -eq 'canary' -and $hostIndex -gt 0)
 
         if ($isCanarySkipped) {
