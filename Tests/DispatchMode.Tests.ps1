@@ -73,4 +73,30 @@ Describe 'Resolve-LabDispatchMode' {
     It 'rejects unsupported values' {
         { Resolve-LabDispatchMode -Mode 'invalid' } | Should -Throw '*Unsupported dispatch mode*'
     }
+
+    It 'uses config value when neither parameter nor env var is provided' {
+        $config = @{ DispatchMode = 'canary' }
+        $result = Resolve-LabDispatchMode -Config $config
+
+        $result.Mode | Should -Be 'canary'
+        $result.Source | Should -Be 'config'
+        $result.ExecutionEnabled | Should -BeTrue
+    }
+
+    It 'parameter takes precedence over config' {
+        $config = @{ DispatchMode = 'canary' }
+        $result = Resolve-LabDispatchMode -Mode 'off' -Config $config
+
+        $result.Mode | Should -Be 'off'
+        $result.Source | Should -Be 'parameter'
+    }
+
+    It 'environment takes precedence over config' {
+        $env:OPENCODELAB_DISPATCH_MODE = 'enforced'
+        $config = @{ DispatchMode = 'canary' }
+        $result = Resolve-LabDispatchMode -Config $config
+
+        $result.Mode | Should -Be 'enforced'
+        $result.Source | Should -Be 'environment'
+    }
 }
