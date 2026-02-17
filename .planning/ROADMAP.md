@@ -182,19 +182,22 @@ Plans:
 - [x] 08-04-PLAN.md -- Extract 9 interactive menu functions (menu display, commands, role config, VM wizard)
 
 ### Phase 9: Error Handling
-**Goal**: All 39 functions without try-catch get explicit error handling with context-aware messages
+**Goal**: All functions without try-catch get explicit error handling with context-aware messages
 **Depends on**: Phase 8
 **Requirements**: ERR-01, ERR-02, ERR-03, ERR-04
 **Success Criteria** (what must be TRUE):
-  1. All 28 Private functions without try-catch have explicit error handling added
-  2. All 11 Public functions without try-catch have explicit error handling added
+  1. All 34 Private functions without try-catch (excluding 15 trivial/exempt) have explicit error handling added
+  2. All 6 Public functions without try-catch have explicit error handling added
   3. Error messages include function name and actionable context (not just stack traces)
   4. No function uses exit to terminate — all use return or throw for proper error propagation
   5. Error handling follows PowerShell best practices (ErrorAction, ErrorRecord, terminating vs non-terminating)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- TBD
+- [ ] 09-01-PLAN.md -- Add try-catch to 10 orchestration & lifecycle Private functions (ERR-01, ERR-03)
+- [ ] 09-02-PLAN.md -- Add try-catch to 10 configuration & data-building Private functions (ERR-01, ERR-03)
+- [ ] 09-03-PLAN.md -- Add try-catch to 14 resolution, policy & menu Private functions (ERR-01, ERR-03)
+- [ ] 09-04-PLAN.md -- Add try-catch to 6 Public functions + comprehensive audit tests (ERR-01, ERR-02, ERR-03, ERR-04)
 
 ### Phase 10: Module Diagnostics
 **Goal**: Module export list is accurate and diagnostic visibility is maximized without suppressing useful output
@@ -225,7 +228,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Multi-Host Coordination | v1.0 | 5/5 | Complete | 2026-02-17 |
 | 7. Security & Reliability Fixes | v1.1 | 2/2 | Complete | 2026-02-17 |
 | 8. Orchestrator Extraction | v1.1 | 4/4 | Complete | 2026-02-17 |
-| 9. Error Handling | v1.1 | 0/TBD | Not started | - |
+| 9. Error Handling | v1.1 | 0/4 | Planned | - |
 | 10. Module Diagnostics | v1.1 | 0/TBD | Not started | - |
 
 ---
