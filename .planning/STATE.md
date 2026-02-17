@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 10 of 10 (Module Diagnostics)
-Plan: Ready to plan phase 10
-Status: Phase 9 complete, ready to begin Phase 10
-Last activity: 2026-02-17 — Phase 9 complete (40 functions with try-catch, 138 new tests, 837 total passing)
+Plan: 1 of ? complete (Phase 10 ongoing)
+Status: Phase 10 Plan 01 complete
+Last activity: 2026-02-17 — Phase 10 Plan 01 complete (GUI Out-Null to [void], module export reconciliation, 10 regression tests, 847 total passing)
 
-Progress: [████████████████████████████████░░] 35/37 plans complete (v1.1: 2/2 Phase 7, 4/4 Phase 8, 4/4 Phase 9, Phase 10 TBD)
+Progress: [████████████████████████████████████░] 36/38 plans complete (v1.1: 2/2 Phase 7, 4/4 Phase 8, 4/4 Phase 9, 1/? Phase 10)
 
 ## Performance Metrics
 
@@ -29,7 +29,7 @@ Progress: [███████████████████████
 - Phase 7: 2 plans, ~6.5 min avg, 24 new tests (566 total)
 - Phase 8: 4 plans, ~25 min avg, 133 new tests (699 total)
 - Phase 9: 4 plans, ~19 min avg, 138 new tests (837 total)
-- Phase 10: Plan count TBD
+- Phase 10: Plan 01 complete, 13 min, 10 new tests (847 total)
 
 ## Accumulated Context
 
@@ -38,7 +38,9 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Replace Out-Null with Write-Verbose** (pending - Phase 10): Suppressed output hides diagnostics; Verbose is opt-in
+- **[void] cast with parens for cmdlet calls** (Phase 10, Plan 01): `[void](cmdlet -Param value)` not `[void]cmdlet -Param value`; plain `[void]` cast requires an expression
+- **Canonical module export list is derived from Public/ files** (Phase 10, Plan 01): 35 top-level + 12 Linux = 47; ghost functions (Test-LabCleanup, Test-LabPrereqs, Write-ValidationReport) removed
+- **Replace Out-Null with [void] cast** (Phase 10): Consistent [void] cast pattern instead of pipe-to-Out-Null
 - **Non-critical functions use PSCmdlet.WriteError; critical use throw** (Phase 9): Side-effect functions use WriteError; pipeline-critical functions throw
 - **TestCases must be at discovery time for Pester 5** (Phase 9): -TestCases values in file scope, not BeforeAll
 - **Resolution errors throw, menu errors Write-Warning** (Phase 9): Wrong resolution = wrong operation; menus degrade gracefully
@@ -49,14 +51,14 @@ None.
 
 ### Blockers/Concerns
 
-None. Phase 9 complete. All functions have structured error handling with regression guard.
+None. Phase 10 Plan 01 complete. Module exports clean and regression-guarded.
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 9 complete, ready to plan Phase 10
+Stopped at: Phase 10 Plan 01 complete
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-17 after Phase 9 completion*
+*Last updated: 2026-02-17 after Phase 10 Plan 01 completion*
