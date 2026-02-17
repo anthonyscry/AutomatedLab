@@ -157,10 +157,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   6. Ensure-VMsReady uses return instead of exit 0 to avoid premature script termination (R2 closed)
   7. New-LabNAT and Set-VMStaticIP validate IP addresses and CIDR prefix before applying configuration (R3 closed)
   8. Initialize-LabVMs and New-LabSSHKey use $GlobalLabConfig paths instead of hardcoded paths (R4 closed)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- TBD
+- [ ] 07-01-PLAN.md -- Close security gaps S1-S4: plaintext password warning + verification tests
+- [ ] 07-02-PLAN.md -- Close reliability gaps R1-R4: control flow, validation, config paths + tests
 
 ### Phase 8: Orchestrator Extraction
 **Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 31 inline functions extracted to Private/ helpers
@@ -219,7 +220,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 4. Role Provisioning | v1.0 | 4/4 | Complete | 2026-02-17 |
 | 5. GUI Integration | v1.0 | 4/4 | Complete | 2026-02-17 |
 | 6. Multi-Host Coordination | v1.0 | 5/5 | Complete | 2026-02-17 |
-| 7. Security & Reliability Fixes | v1.1 | 0/TBD | Not started | - |
+| 7. Security & Reliability Fixes | v1.1 | 0/2 | Planned | - |
 | 8. Orchestrator Extraction | v1.1 | 0/TBD | Not started | - |
 | 9. Error Handling | v1.1 | 0/TBD | Not started | - |
 | 10. Module Diagnostics | v1.1 | 0/TBD | Not started | - |
