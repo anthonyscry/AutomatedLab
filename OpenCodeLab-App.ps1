@@ -308,33 +308,6 @@ function Resolve-ScriptPath {
     throw "Script not found: $path (also checked Scripts\$BaseName.ps1)"
 }
 
-function Convert-ArgumentArrayToSplat {
-    param([string[]]$ArgumentList)
-
-    $splat = @{}
-    for ($i = 0; $i -lt $ArgumentList.Count; $i++) {
-        $token = $ArgumentList[$i]
-        if (-not $token.StartsWith('-')) {
-            throw "Unsupported argument token '$token'. Use named parameters (for example -NonInteractive)."
-        }
-
-        $name = $token.TrimStart('-')
-        if ([string]::IsNullOrWhiteSpace($name)) {
-            throw "Invalid argument token '$token'."
-        }
-
-        $nextIsValue = ($i + 1 -lt $ArgumentList.Count) -and (-not $ArgumentList[$i + 1].StartsWith('-'))
-        if ($nextIsValue) {
-            $splat[$name] = $ArgumentList[$i + 1]
-            $i++
-        } else {
-            $splat[$name] = $true
-        }
-    }
-
-    return $splat
-}
-
 function Invoke-RepoScript {
     param(
         [Parameter(Mandatory)][string]$BaseName,
@@ -347,7 +320,7 @@ function Invoke-RepoScript {
     Write-Host "  Running: $([System.IO.Path]::GetFileName($path))" -ForegroundColor Gray
     try {
         if ($Arguments -and $Arguments.Count -gt 0) {
-            $scriptSplat = Convert-ArgumentArrayToSplat -ArgumentList $Arguments
+            $scriptSplat = Convert-LabArgumentArrayToSplat -ArgumentList $Arguments
             & $path @scriptSplat
         } else {
             & $path
