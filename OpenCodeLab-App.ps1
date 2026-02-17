@@ -438,83 +438,7 @@ function Read-MenuCount {
     return $DefaultValue
 }
 
-function Invoke-BulkAdditionalVMProvision {
-    param(
-        [Parameter(Mandatory)][ValidateRange(0, 100)][int]$ServerCount,
-        [Parameter(Mandatory)][ValidateRange(0, 100)][int]$WorkstationCount,
-        [string]$ServerIsoPath,
-        [string]$WorkstationIsoPath
-    )
-
-    $total = $ServerCount + $WorkstationCount
-    if ($total -eq 0) { return }
-
-    $serverMemoryGB = [int]([math]::Ceiling($GlobalLabConfig.VMSizing.Server.Memory / 1GB))
-    $workstationMemoryGB = [int]([math]::Ceiling($GlobalLabConfig.VMSizing.Client.Memory / 1GB))
-    $serverCpu = [int]$GlobalLabConfig.VMSizing.Server.Processors
-    $workstationCpu = [int]$GlobalLabConfig.VMSizing.Client.Processors
-
-    $diskRoot = Join-Path (Join-Path $GlobalLabConfig.Paths.LabRoot $GlobalLabConfig.Lab.Name) 'Disks'
-    if (-not (Test-Path $diskRoot)) {
-        New-Item -Path $diskRoot -ItemType Directory -Force | Out-Null
-    }
-
-    $existingNames = @()
-    try {
-        $existingNames = @(Hyper-V\Get-VM -ErrorAction Stop | Select-Object -ExpandProperty Name)
-    } catch {
-        $existingNames = @()
-    }
-
-    $newVmCmd = Get-Command New-LabVM -ErrorAction SilentlyContinue
-    if (-not $newVmCmd) {
-        throw 'New-LabVM function is not available in this session.'
-    }
-
-    for ($i = 0; $i -lt $ServerCount; $i++) {
-        $suffix = 2
-        while ($existingNames -contains ("SVR{0}" -f $suffix)) { $suffix++ }
-        $vmName = "SVR{0}" -f $suffix
-        $existingNames += $vmName
-        $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
-
-        if ([string]::IsNullOrWhiteSpace($ServerIsoPath)) {
-            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $serverCpu
-        } else {
-            $result = New-LabVM -VMName $vmName -MemoryGB $serverMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $serverCpu -IsoPath $ServerIsoPath
-        }
-
-        if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
-            Add-LabRunEvent -Step 'setup-add-server-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status) -RunEvents $RunEvents
-            Write-LabStatus -Status OK -Message ("Provisioned server VM {0}: {1}" -f $vmName, $result.Status)
-        } else {
-            Add-LabRunEvent -Step 'setup-add-server-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message) -RunEvents $RunEvents
-            Write-LabStatus -Status FAIL -Message ("Failed to provision server VM {0}: {1}" -f $vmName, $result.Message)
-        }
-    }
-
-    for ($i = 0; $i -lt $WorkstationCount; $i++) {
-        $suffix = 2
-        while ($existingNames -contains ("WS{0}" -f $suffix)) { $suffix++ }
-        $vmName = "WS{0}" -f $suffix
-        $existingNames += $vmName
-        $vhdPath = Join-Path $diskRoot ("{0}.vhdx" -f $vmName)
-
-        if ([string]::IsNullOrWhiteSpace($WorkstationIsoPath)) {
-            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $workstationCpu
-        } else {
-            $result = New-LabVM -VMName $vmName -MemoryGB $workstationMemoryGB -VHDPath $vhdPath -SwitchName $GlobalLabConfig.Network.SwitchName -ProcessorCount $workstationCpu -IsoPath $WorkstationIsoPath
-        }
-
-        if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
-            Add-LabRunEvent -Step 'setup-add-workstation-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status) -RunEvents $RunEvents
-            Write-LabStatus -Status OK -Message ("Provisioned workstation VM {0}: {1}" -f $vmName, $result.Status)
-        } else {
-            Add-LabRunEvent -Step 'setup-add-workstation-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message) -RunEvents $RunEvents
-            Write-LabStatus -Status FAIL -Message ("Failed to provision workstation VM {0}: {1}" -f $vmName, $result.Message)
-        }
-    }
-}
+# Invoke-BulkAdditionalVMProvision extracted to Private/Invoke-LabBulkVMProvision.ps1
 
 function Invoke-SetupLabMenu {
     Write-Host ''
@@ -540,7 +464,7 @@ function Invoke-SetupLabMenu {
     if (($serverCount + $workstationCount) -gt 0) {
         Write-Host ''
         Write-Host '  Provisioning additional VMs...' -ForegroundColor Cyan
-        Invoke-BulkAdditionalVMProvision -ServerCount $serverCount -WorkstationCount $workstationCount -ServerIsoPath $serverIso -WorkstationIsoPath $workstationIso
+        Invoke-LabBulkVMProvision -ServerCount $serverCount -WorkstationCount $workstationCount -ServerIsoPath $serverIso -WorkstationIsoPath $workstationIso -LabConfig $GlobalLabConfig -RunEvents $RunEvents
     }
 }
 
