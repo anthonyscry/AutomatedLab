@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Core Lifecycle Integration** - Bootstrap → Deploy → Teardown works end-to-end with error handling (2026-02-17)
 - [x] **Phase 4: Role Provisioning** - All 11 Windows/Linux roles provision correctly with error handling (2026-02-17)
 - [x] **Phase 5: GUI Integration** - Dashboard, Actions, Customize, Settings, Logs work with CLI feature parity (2026-02-17)
-- [ ] **Phase 6: Multi-Host Coordination** - Dispatcher routes operations to remote hosts with scoped tokens
+- [x] **Phase 6: Multi-Host Coordination** - Dispatcher routes operations to remote hosts with scoped tokens (2026-02-17)
 
 ## Phase Details
 
@@ -130,11 +130,11 @@ Plans:
 **Plans**: 5 plans (3 waves)
 
 Plans:
-- [ ] 06-01-PLAN.md -- Host inventory validation: duplicate detection, connection type validation (MH-01)
-- [ ] 06-02-PLAN.md -- Dispatch routing hardening: empty targets, config-based mode (MH-02, MH-03)
-- [ ] 06-03-PLAN.md -- Scoped confirmation token edge case tests (MH-04)
-- [ ] 06-04-PLAN.md -- Remote failure handling: SSH patterns, fleet probe messages (MH-05)
-- [ ] 06-05-PLAN.md -- End-to-end integration tests for full coordinator pipeline (MH-01..05)
+- [x] 06-01-PLAN.md -- Host inventory validation: duplicate detection, connection type validation (MH-01)
+- [x] 06-02-PLAN.md -- Dispatch routing hardening: empty targets, config-based mode (MH-02, MH-03)
+- [x] 06-03-PLAN.md -- Scoped confirmation token edge case tests (MH-04)
+- [x] 06-04-PLAN.md -- Remote failure handling: SSH patterns, fleet probe messages (MH-05)
+- [x] 06-05-PLAN.md -- End-to-end integration tests for full coordinator pipeline (MH-01..05)
 
 ## Progress
 
@@ -148,7 +148,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Core Lifecycle Integration | 5/5 | Complete | 2026-02-17 |
 | 4. Role Provisioning | 4/4 | Complete | 2026-02-17 |
 | 5. GUI Integration | 4/4 | Complete | 2026-02-17 |
-| 6. Multi-Host Coordination | 0/0 | Not started | - |
+| 6. Multi-Host Coordination | 5/5 | Complete | 2026-02-17 |
 
 ---
 *Roadmap created: 2026-02-16*

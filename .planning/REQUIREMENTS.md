@@ -62,11 +62,11 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Multi-Host
 
-- [ ] **MH-01**: Host inventory file loads and validates remote host entries
-- [ ] **MH-02**: Coordinator dispatch routes operations to correct target hosts
-- [ ] **MH-03**: Dispatch modes (off/canary/enforced) behave as documented
-- [ ] **MH-04**: Scoped confirmation tokens validate per-host safety gates
-- [ ] **MH-05**: Remote operations handle connectivity failures gracefully
+- [x] **MH-01**: Host inventory file loads and validates remote host entries
+- [x] **MH-02**: Coordinator dispatch routes operations to correct target hosts
+- [x] **MH-03**: Dispatch modes (off/canary/enforced) behave as documented
+- [x] **MH-04**: Scoped confirmation tokens validate per-host safety gates
+- [x] **MH-05**: Remote operations handle connectivity failures gracefully
 
 ### Configuration
 
@@ -171,11 +171,11 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 | GUI-06 | Phase 5 | Done |
 | GUI-07 | Phase 5 | Done |
 | GUI-08 | Phase 5 | Done |
-| MH-01 | Phase 6 | Pending |
-| MH-02 | Phase 6 | Pending |
-| MH-03 | Phase 6 | Pending |
-| MH-04 | Phase 6 | Pending |
-| MH-05 | Phase 6 | Pending |
+| MH-01 | Phase 6 | Done |
+| MH-02 | Phase 6 | Done |
+| MH-03 | Phase 6 | Done |
+| MH-04 | Phase 6 | Done |
+| MH-05 | Phase 6 | Done |
 
 **Coverage:**
 - v1 requirements: 56 total
