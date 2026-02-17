@@ -13,6 +13,7 @@ Describe 'WPF GUI XAML Files' {
         'Themes/Light.xaml'
         'Views/DashboardView.xaml'
         'Views/ActionsView.xaml'
+        'Views/CustomizeView.xaml'
         'Views/LogsView.xaml'
         'Views/SettingsView.xaml'
         'Components/VMCard.xaml'
@@ -98,5 +99,73 @@ Describe 'GUI Entry Point Syntax' {
         $errors = $null
         [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$null, [ref]$errors)
         $errors.Count | Should -Be 0
+    }
+}
+
+Describe 'GUI Log Management' {
+
+    BeforeAll {
+        $scriptPath = Join-Path $guiRoot 'Start-OpenCodeLabGUI.ps1'
+        $scriptContent = Get-Content -Raw -Path $scriptPath
+    }
+
+    It 'Declares LogEntriesMaxCount constant' {
+        $scriptContent | Should -Match '\$script:LogEntriesMaxCount\s*=\s*\d+'
+    }
+
+    It 'LogEntriesMaxCount is set to 2000' {
+        $scriptContent | Should -Match '\$script:LogEntriesMaxCount\s*=\s*2000'
+    }
+
+    It 'Add-LogEntry function trims entries when cap exceeded' {
+        $scriptContent | Should -Match 'while\s*\(\s*\$script:LogEntries\.Count\s*-gt\s*\$script:LogEntriesMaxCount\s*\)'
+        $scriptContent | Should -Match '\$script:LogEntries\.RemoveAt\(0\)'
+    }
+
+    It 'Render-LogEntries uses Application.Current.FindResource instead of mainWindow.FindResource' {
+        $scriptContent | Should -Match '\[System\.Windows\.Application\]::Current\.FindResource\(\$brushKey\)'
+        $scriptContent | Should -Not -Match '\$mainWindow\.FindResource\(\$brushKey\)'
+    }
+}
+
+Describe 'GUI Settings Persistence' {
+
+    BeforeAll {
+        $scriptPath = Join-Path $guiRoot 'Start-OpenCodeLabGUI.ps1'
+        $scriptContent = Get-Content -Raw -Path $scriptPath
+    }
+
+    It 'Settings Save handler validates subnet format' {
+        $scriptContent | Should -Match 'Invalid subnet format.*CIDR notation'
+    }
+
+    It 'Settings Save handler persists Network settings to config.json' {
+        $scriptContent | Should -Match '\$networkSettings\s*=\s*\[PSCustomObject\]@\{'
+        $scriptContent | Should -Match 'SwitchName\s*='
+        $scriptContent | Should -Match 'Subnet\s*='
+        $scriptContent | Should -Match 'GatewayIP\s*='
+    }
+
+    It 'Settings Save handler persists AdminUsername to config.json' {
+        $scriptContent | Should -Match '\$configJson\.AdminUsername\s*=\s*\$adminUser'
+    }
+
+    It 'Settings Save handler persists AdminUsername to gui-settings.json' {
+        $scriptContent | Should -Match "Save-GuiSettings"
+        $scriptContent | Should -Match "\`$guiSettings\['AdminUsername'\]"
+    }
+
+    It 'Initialize-SettingsView loads from config.json when GlobalLabConfig unavailable' {
+        $scriptContent | Should -Match 'if\s*\(-not\s*\(Test-Path\s+variable:GlobalLabConfig\)\)'
+        $scriptContent | Should -Match '\$configJson\.Network'
+        $scriptContent | Should -Match '\$configJson\.AdminUsername'
+    }
+
+    It 'Save-GuiSettings wraps Set-Content in try/catch' {
+        $scriptContent | Should -Match 'catch\s*\{\s*Write-Warning.*Failed to save GUI settings'
+    }
+
+    It 'Get-GuiSettings returns empty hashtable on corrupt JSON' {
+        $scriptContent | Should -Match 'catch\s*\{\s*Write-Warning.*Failed to read GUI settings'
     }
 }
