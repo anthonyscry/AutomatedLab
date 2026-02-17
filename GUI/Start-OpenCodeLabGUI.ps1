@@ -669,7 +669,8 @@ function Initialize-CustomizeView {
     [CmdletBinding()]
     param()
 
-    $viewElement = $script:contentArea.Children[0]
+    try {
+        $viewElement = $script:contentArea.Children[0]
 
     # ── Resolve named controls ────────────────────────────────────
     $cmbTemplate          = $viewElement.FindName('cmbTemplate')
@@ -834,7 +835,10 @@ function Initialize-CustomizeView {
         try {
             $template = Get-Content -Path $templatePath -Raw | ConvertFrom-Json
         }
-        catch { return }
+        catch {
+            $txtTemplateDescription.Text = "Error loading template: $_"
+            return
+        }
 
         $txtTemplateDescription.Text = $template.description
         $txtEditDescription.Text     = $template.description
@@ -1011,6 +1015,19 @@ function Initialize-CustomizeView {
 
         $templateName = $selected.ToString()
         $vms = & $getVMsFromEditor
+
+        # Validate VM names are not empty
+        $emptyNames = @($vms | Where-Object { [string]::IsNullOrWhiteSpace($_.name) })
+        if ($emptyNames.Count -gt 0) {
+            [System.Windows.MessageBox]::Show(
+                "All VMs must have a name. Please fill in empty name fields.",
+                'Validation Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
         $description = $txtEditDescription.Text
 
         $result = & $fnSaveTemplate -RepoRoot $repoRoot -Name $templateName `
@@ -1052,6 +1069,18 @@ function Initialize-CustomizeView {
         try {
             $templateName = $selected.ToString()
             $vms = & $getVMsFromEditor
+
+            # Validate VM names are not empty
+            $emptyNames = @($vms | Where-Object { [string]::IsNullOrWhiteSpace($_.name) })
+            if ($emptyNames.Count -gt 0) {
+                [System.Windows.MessageBox]::Show(
+                    "All VMs must have a name. Please fill in empty name fields.",
+                    'Validation Error',
+                    [System.Windows.MessageBoxButton]::OK,
+                    [System.Windows.MessageBoxImage]::Warning
+                ) | Out-Null
+                return
+            }
 
             # First save the current state
             $description = $txtEditDescription.Text
@@ -1132,8 +1161,25 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure())
 
-    # ── Initial load ──────────────────────────────────────────────
-    & $refreshTemplateList -SelectName 'default'
+        # ── Initial load ──────────────────────────────────────────────
+        & $refreshTemplateList -SelectName 'default'
+    }
+    catch {
+        try {
+            $viewElement = $script:contentArea.Children[0]
+            if ($viewElement) {
+                $errBlock = New-Object System.Windows.Controls.TextBlock
+                $errBlock.Text = "Customize view failed to initialize: $_"
+                $errBlock.Foreground = [System.Windows.Media.Brushes]::Red
+                $errBlock.TextWrapping = 'Wrap'
+                $errBlock.Margin = New-Object System.Windows.Thickness(0, 16, 0, 0)
+                if ($viewElement -is [System.Windows.Controls.Panel]) {
+                    $viewElement.Children.Add($errBlock) | Out-Null
+                }
+            }
+        }
+        catch { }
+    }
 }
 
 # ── Actions view initialisation ────────────────────────────────────────
