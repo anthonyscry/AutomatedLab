@@ -1,25 +1,14 @@
-# Roadmap: AutomatedLab Hardening & Integration
+# Roadmap: AutomatedLab
 
-## Overview
+## Milestones
 
-This brownfield hardening milestone transforms a 107-function PowerShell lab automation codebase from "mostly working" to "reliably works end-to-end." We clean technical debt first (archive cleanup, config unification, security hardening), then systematically integrate-test and fix core lifecycle flows (bootstrap, deploy, teardown), role provisioning, GUI operations, and multi-host coordination. Every phase completes when observable user behaviors work without errors.
+- ✅ **v1.0 Brownfield Hardening & Integration** - Phases 1-6 (shipped 2026-02-17)
+- 🚧 **v1.1 Production Robustness** - Phases 7-10 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Cleanup & Config Foundation** - Remove dead code, unify config system, standardize helper sourcing (2026-02-16)
-- [x] **Phase 2: Security Hardening** - Eliminate hardcoded passwords, validate checksums, secure SSH operations (2026-02-16)
-- [x] **Phase 3: Core Lifecycle Integration** - Bootstrap → Deploy → Teardown works end-to-end with error handling (2026-02-17)
-- [x] **Phase 4: Role Provisioning** - All 11 Windows/Linux roles provision correctly with error handling (2026-02-17)
-- [x] **Phase 5: GUI Integration** - Dashboard, Actions, Customize, Settings, Logs work with CLI feature parity (2026-02-17)
-- [x] **Phase 6: Multi-Host Coordination** - Dispatcher routes operations to remote hosts with scoped tokens (2026-02-17)
-
-## Phase Details
+<details>
+<summary>✅ v1.0 Brownfield Hardening & Integration (Phases 1-6) - SHIPPED 2026-02-17</summary>
 
 ### Phase 1: Cleanup & Config Foundation
 **Goal**: Codebase is clean, config system unified, helper sourcing consistent — foundation ready for integration testing
@@ -34,10 +23,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Delete .archive/, untrack artifacts, remove dead code
-- [ ] 01-02-PLAN.md -- Standardize helper sourcing with fail-fast error handling
-- [ ] 01-03-PLAN.md -- Unify config to $GlobalLabConfig, add validation, remove legacy vars
-- [ ] 01-04-PLAN.md -- Template JSON validation on read and write
+- [x] 01-01-PLAN.md -- Delete .archive/, untrack artifacts, remove dead code
+- [x] 01-02-PLAN.md -- Standardize helper sourcing with fail-fast error handling
+- [x] 01-03-PLAN.md -- Unify config to $GlobalLabConfig, add validation, remove legacy vars
+- [x] 01-04-PLAN.md -- Template JSON validation on read and write
 
 ### Phase 2: Security Hardening
 **Goal**: Lab deployments use secure defaults with no hardcoded credentials or insecure downloads
@@ -51,9 +40,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Credential resolution chain with warning-on-default and interactive fallback (SEC-01)
-- [ ] 02-02-PLAN.md -- Replace SSH UserKnownHostsFile=NUL with lab-specific known_hosts (SEC-02)
-- [ ] 02-03-PLAN.md -- Mandatory download checksums and credential scrubbing for logs (SEC-03, SEC-04)
+- [x] 02-01-PLAN.md -- Credential resolution chain with warning-on-default and interactive fallback (SEC-01)
+- [x] 02-02-PLAN.md -- Replace SSH UserKnownHostsFile=NUL with lab-specific known_hosts (SEC-02)
+- [x] 02-03-PLAN.md -- Mandatory download checksums and credential scrubbing for logs (SEC-03, SEC-04)
 
 ### Phase 3: Core Lifecycle Integration
 **Goal**: Bootstrap → Deploy → Use → Teardown completes end-to-end on clean Windows host without errors
@@ -69,14 +58,14 @@ Plans:
   7. All destructive actions require confirmation tokens before executing
   8. Error handling uses try-catch on critical operations with context-aware messages
   9. Network infrastructure (vSwitch, NAT, static IPs, DNS) configures correctly and validates connectivity
-**Plans**: 5 plans (3 waves)
+**Plans**: 5 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Fix string interpolation, param syntax, legacy vars in Bootstrap/Deploy/Preflight/Health (LIFE-01, CLI-04)
-- [ ] 03-02-PLAN.md -- Add try-catch error handling to all critical Deploy.ps1 sections (CLI-08, LIFE-01)
-- [ ] 03-03-PLAN.md -- Fix hardcoded network values, enhance health check with full infrastructure coverage (NET-01..05, CLI-06)
-- [ ] 03-04-PLAN.md -- Harden teardown (SSH cleanup, NAT verify), confirmation tokens, bootstrap idempotency (LIFE-04, LIFE-05, CLI-07, CLI-03)
-- [ ] 03-05-PLAN.md -- CLI action routing cleanup, quick mode verification, end-to-end integration (LIFE-03, CLI-01, CLI-02, CLI-05, CLI-09)
+- [x] 03-01-PLAN.md -- Fix string interpolation, param syntax, legacy vars in Bootstrap/Deploy/Preflight/Health (LIFE-01, CLI-04)
+- [x] 03-02-PLAN.md -- Add try-catch error handling to all critical Deploy.ps1 sections (CLI-08, LIFE-01)
+- [x] 03-03-PLAN.md -- Fix hardcoded network values, enhance health check with full infrastructure coverage (NET-01..05, CLI-06)
+- [x] 03-04-PLAN.md -- Harden teardown (SSH cleanup, NAT verify), confirmation tokens, bootstrap idempotency (LIFE-04, LIFE-05, CLI-07, CLI-03)
+- [x] 03-05-PLAN.md -- CLI action routing cleanup, quick mode verification, end-to-end integration (LIFE-03, CLI-01, CLI-02, CLI-05, CLI-09)
 
 ### Phase 4: Role Provisioning
 **Goal**: All 11 Windows/Linux roles provision successfully with graceful error handling
@@ -88,7 +77,7 @@ Plans:
   3. IIS, WSUS, DHCP, FileServer, PrintServer, DSC, Jumpbox roles install and configure correctly
   4. Client role joins domain as workstation
   5. All roles handle missing prerequisites gracefully with clear error messages
-**Plans**: 4 plans (2 waves)
+**Plans**: 4 plans
 
 Plans:
 - [x] 04-01-PLAN.md -- Fix param syntax bugs, add prerequisite validation to DHCP/DSC, create role tests (ROLE-05, ROLE-06, ROLE-08, ROLE-10, ROLE-11)
@@ -109,7 +98,7 @@ Plans:
   6. View switching works reliably between all views without state corruption
   7. Script-scoped variable closures captured correctly in all event handlers
   8. CLI and GUI achieve feature parity — no capability gaps between interfaces
-**Plans**: 4 plans (3 waves)
+**Plans**: 4 plans
 
 Plans:
 - [x] 05-01-PLAN.md -- Actions parity (23 actions), timer lifecycle, view switching try-catch (GUI-01, GUI-02, GUI-06, GUI-07)
@@ -127,7 +116,7 @@ Plans:
   3. Dispatch modes (off/canary/enforced) behave as documented
   4. Scoped confirmation tokens validate per-host safety gates
   5. Remote operations handle connectivity failures gracefully with clear messages
-**Plans**: 5 plans (3 waves)
+**Plans**: 5 plans
 
 Plans:
 - [x] 06-01-PLAN.md -- Host inventory validation: duplicate detection, connection type validation (MH-01)
@@ -136,21 +125,107 @@ Plans:
 - [x] 06-04-PLAN.md -- Remote failure handling: SSH patterns, fleet probe messages (MH-05)
 - [x] 06-05-PLAN.md -- End-to-end integration tests for full coordinator pipeline (MH-01..05)
 
+</details>
+
+### 🚧 v1.1 Production Robustness (In Progress)
+
+**Milestone Goal:** Every function handles errors explicitly, the orchestrator is modular and testable, and all 10 known production gaps are closed — so deploys either succeed or explain exactly why they failed.
+
+**Phase Numbering:**
+- Integer phases (7, 8, 9, 10): Planned milestone work
+- Decimal phases (7.1, 7.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 7: Security & Reliability Fixes** - Close 8 production gaps in security and reliability (S1-S4, R1-R4)
+- [ ] **Phase 8: Orchestrator Extraction** - Extract 31 inline functions from OpenCodeLab-App.ps1 to Private/ helpers
+- [ ] **Phase 9: Error Handling** - Add try-catch error handling to all 39 functions currently missing it
+- [ ] **Phase 10: Module Diagnostics** - Reconcile module exports and replace Out-Null with Write-Verbose
+
+## Phase Details
+
+### Phase 7: Security & Reliability Fixes
+**Goal**: All documented security and reliability production gaps (S1-S4, R1-R4) are closed with no hardcoded credentials, insecure SSH operations, unchecked downloads, or incorrect control flow
+**Depends on**: Phase 6
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, REL-01, REL-02, REL-03, REL-04
+**Success Criteria** (what must be TRUE):
+  1. Initialize-LabVMs.ps1 uses $GlobalLabConfig.Credentials.AdminPassword instead of hardcoded default (S1 closed)
+  2. Open-LabTerminal.ps1 uses StrictHostKeyChecking=accept-new instead of =no (S2 closed)
+  3. Deploy.ps1 validates Git installer SHA256 checksum after download (S3 closed)
+  4. New-LabUnattendXml emits Write-Warning about plaintext password storage in unattend.xml (S4 closed)
+  5. Test-DCPromotionPrereqs always executes network connectivity check without early return skip (R1 closed)
+  6. Ensure-VMsReady uses return instead of exit 0 to avoid premature script termination (R2 closed)
+  7. New-LabNAT and Set-VMStaticIP validate IP addresses and CIDR prefix before applying configuration (R3 closed)
+  8. Initialize-LabVMs and New-LabSSHKey use $GlobalLabConfig paths instead of hardcoded paths (R4 closed)
+**Plans**: TBD
+
+Plans:
+- TBD
+
+### Phase 8: Orchestrator Extraction
+**Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 31 inline functions extracted to Private/ helpers
+**Depends on**: Phase 7
+**Requirements**: EXT-01, EXT-02, EXT-03, EXT-04
+**Success Criteria** (what must be TRUE):
+  1. All 31 inline functions moved from OpenCodeLab-App.ps1 to Private/ helpers with proper naming conventions
+  2. OpenCodeLab-App.ps1 sources extracted helpers via $OrchestrationHelperPaths array in Lab-Common.ps1
+  3. Each extracted helper has [CmdletBinding()], explicit parameters, and no script-scope variable dependencies
+  4. All 542 existing Pester tests continue passing after extraction (no behavior regression)
+  5. Extracted helpers are independently testable with unit tests
+**Plans**: TBD
+
+Plans:
+- TBD
+
+### Phase 9: Error Handling
+**Goal**: All 39 functions without try-catch get explicit error handling with context-aware messages
+**Depends on**: Phase 8
+**Requirements**: ERR-01, ERR-02, ERR-03, ERR-04
+**Success Criteria** (what must be TRUE):
+  1. All 28 Private functions without try-catch have explicit error handling added
+  2. All 11 Public functions without try-catch have explicit error handling added
+  3. Error messages include function name and actionable context (not just stack traces)
+  4. No function uses exit to terminate — all use return or throw for proper error propagation
+  5. Error handling follows PowerShell best practices (ErrorAction, ErrorRecord, terminating vs non-terminating)
+**Plans**: TBD
+
+Plans:
+- TBD
+
+### Phase 10: Module Diagnostics
+**Goal**: Module export list is accurate and diagnostic visibility is maximized without suppressing useful output
+**Depends on**: Phase 9
+**Requirements**: DIAG-01, DIAG-02, DIAG-03
+**Success Criteria** (what must be TRUE):
+  1. All 65 Out-Null instances replaced with Write-Verbose in operational paths (diagnostic visibility)
+  2. SimpleLab.psd1 FunctionsToExport matches actual Public/ function count (export reconciliation)
+  3. SimpleLab.psm1 Export-ModuleMember matches .psd1 FunctionsToExport list (consistency)
+  4. Module loads without warnings about missing or extra exported functions
+**Plans**: TBD
+
+Plans:
+- TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 7 → 8 → 9 → 10
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Cleanup & Config Foundation | 4/4 | Complete | 2026-02-16 |
-| 2. Security Hardening | 3/3 | Complete | 2026-02-16 |
-| 3. Core Lifecycle Integration | 5/5 | Complete | 2026-02-17 |
-| 4. Role Provisioning | 4/4 | Complete | 2026-02-17 |
-| 5. GUI Integration | 4/4 | Complete | 2026-02-17 |
-| 6. Multi-Host Coordination | 5/5 | Complete | 2026-02-17 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Cleanup & Config Foundation | v1.0 | 4/4 | Complete | 2026-02-16 |
+| 2. Security Hardening | v1.0 | 3/3 | Complete | 2026-02-16 |
+| 3. Core Lifecycle Integration | v1.0 | 5/5 | Complete | 2026-02-17 |
+| 4. Role Provisioning | v1.0 | 4/4 | Complete | 2026-02-17 |
+| 5. GUI Integration | v1.0 | 4/4 | Complete | 2026-02-17 |
+| 6. Multi-Host Coordination | v1.0 | 5/5 | Complete | 2026-02-17 |
+| 7. Security & Reliability Fixes | v1.1 | 0/TBD | Not started | - |
+| 8. Orchestrator Extraction | v1.1 | 0/TBD | Not started | - |
+| 9. Error Handling | v1.1 | 0/TBD | Not started | - |
+| 10. Module Diagnostics | v1.1 | 0/TBD | Not started | - |
 
 ---
-*Roadmap created: 2026-02-16*
-*Depth: standard (6 phases)*
-*Coverage: 56/56 v1 requirements mapped*
+*Roadmap created: 2026-02-16 (v1.0)*
+*v1.1 milestone added: 2026-02-17*
+*Depth: standard (4 phases for v1.1)*
+*Coverage: 19/19 v1.1 requirements mapped*
