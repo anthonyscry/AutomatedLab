@@ -6,26 +6,27 @@ BeforeAll {
     # Parent directory is project root
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
     $OpenCodeLabAppPath = Join-Path $ProjectRoot 'OpenCodeLab-App.ps1'
+    $BlowAwayPath = Join-Path $ProjectRoot 'Private/Invoke-LabBlowAway.ps1'
     $BootstrapPath = Join-Path $ProjectRoot 'Bootstrap.ps1'
 }
 
-Describe 'Invoke-BlowAway teardown completeness' {
+Describe 'Invoke-LabBlowAway teardown completeness' {
     It 'function definition contains Clear-LabSSHKnownHosts call' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
-        $content | Should -Match 'function Invoke-BlowAway'
+        $content = Get-Content $BlowAwayPath -Raw
+        $content | Should -Match 'function Invoke-LabBlowAway'
         $content | Should -Match 'Clear-LabSSHKnownHosts'
     }
 
     It 'Simulate mode includes SSH cleanup step in output' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
+        $content = Get-Content $BlowAwayPath -Raw
         # Check that the simulate block mentions SSH known_hosts
         $content | Should -Match 'Would clear SSH known_hosts'
     }
 
     It 'NAT removal includes verification check' {
-        $content = Get-Content $OpenCodeLabAppPath -Raw
-        # Verify NAT removal verification exists after Remove-NetNat
-        $content | Should -Match 'Remove-NetNat.*-Name.*GlobalLabConfig\.Network\.NatName'
+        $content = Get-Content $BlowAwayPath -Raw
+        # Verify NAT removal verification exists after Remove-NetNat (now uses $LabConfig param)
+        $content | Should -Match 'Remove-NetNat.*-Name.*LabConfig\.Network\.NatName'
         $content | Should -Match '\$natCheck.*Get-NetNat'
     }
 }
