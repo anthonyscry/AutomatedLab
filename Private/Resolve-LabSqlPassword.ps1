@@ -21,16 +21,28 @@ function Resolve-LabSqlPassword {
         [AllowEmptyString()][AllowNull()][string]$Password
     )
 
-    # Use the BuilderPasswordEnvVar from config (LAB_ADMIN_PASSWORD)
-    # This keeps SQL password aligned with LabBuilder's password source
-    $envVarName = if (Test-Path variable:GlobalLabConfig) {
-        $GlobalLabConfig.Credentials.BuilderPasswordEnvVar
-    } else {
-        'LAB_ADMIN_PASSWORD'
-    }
+    try {
+        # Use the BuilderPasswordEnvVar from config (LAB_ADMIN_PASSWORD)
+        # This keeps SQL password aligned with LabBuilder's password source
+        $envVarName = if (Test-Path variable:GlobalLabConfig) {
+            $GlobalLabConfig.Credentials.BuilderPasswordEnvVar
+        } else {
+            'LAB_ADMIN_PASSWORD'
+        }
 
-    Resolve-LabPassword -Password $Password `
-        -DefaultPassword 'SimpleLabSqlSa123!' `
-        -EnvVarName $envVarName `
-        -PasswordLabel 'SqlSaPassword'
+        Resolve-LabPassword -Password $Password `
+            -DefaultPassword 'SimpleLabSqlSa123!' `
+            -EnvVarName $envVarName `
+            -PasswordLabel 'SqlSaPassword'
+    }
+    catch {
+        $PSCmdlet.WriteError(
+            [System.Management.Automation.ErrorRecord]::new(
+                [System.Exception]::new("Resolve-LabSqlPassword: failed to resolve SQL password - $_", $_.Exception),
+                'Resolve-LabSqlPassword.Failure',
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+        )
+    }
 }
