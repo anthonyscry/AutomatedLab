@@ -2,7 +2,10 @@ function Resolve-LabDispatchMode {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [string]$Mode
+        [string]$Mode,
+
+        [Parameter()]
+        [hashtable]$Config
     )
 
     $supportedModes = @('off', 'canary', 'enforced')
@@ -20,6 +23,10 @@ function Resolve-LabDispatchMode {
     elseif (-not [string]::IsNullOrWhiteSpace($env:OPENCODELAB_DISPATCH_MODE)) {
         $resolvedMode = $env:OPENCODELAB_DISPATCH_MODE.Trim().ToLowerInvariant()
         $source = 'environment'
+    }
+    elseif ($null -ne $Config -and $Config.ContainsKey('DispatchMode') -and -not [string]::IsNullOrWhiteSpace([string]$Config['DispatchMode'])) {
+        $resolvedMode = ([string]$Config['DispatchMode']).Trim().ToLowerInvariant()
+        $source = 'config'
     }
 
     if ($supportedModes -notcontains $resolvedMode) {
