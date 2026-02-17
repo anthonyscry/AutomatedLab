@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 3 of 6 (Core Lifecycle Integration)
-Plan: 4 of 5 in current phase
+Plan: 5 of 5 in current phase
 Status: Executing phase 3
-Last activity: 2026-02-16 — Completed 03-03 (Network test config-awareness & enhanced health checks)
+Last activity: 2026-02-17 — Completed 03-05 (CLI action routing cleanup & validation)
 
-Progress: [█████░░░░░] 40%
+Progress: [██████░░░░] 45%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 4.4 min
-- Total execution time: 0.74 hours
+- Total execution time: 0.82 hours
 
 **By Phase:**
 
@@ -29,20 +29,20 @@ Progress: [█████░░░░░] 40%
 |-------|-------|-------|----------|
 | 01-cleanup-config-foundation | 4 | 13.1 min | 3.3 min |
 | 02-security-hardening | 3 | 10.4 min | 3.5 min |
-| 03-core-lifecycle-integration | 3 | 17.8 min | 5.9 min |
+| 03-core-lifecycle-integration | 4 | 22.3 min | 5.6 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (8.1 min), 03-02 (3.7 min), 03-01 (6.0 min), 02-03 (2.3 min), 02-02 (3.6 min)
-- Trend: Rising (Phase 03 plans averaging 5.9 min due to systemic fixes and comprehensive testing)
+- Last 5 plans: 03-05 (4.5 min), 03-04 (3.7 min), 03-03 (8.1 min), 03-02 (3.7 min), 03-01 (6.0 min)
+- Trend: Stable (Phase 03 plans averaging 5.6 min due to systemic fixes and comprehensive testing)
 
 **Plan Details:**
 | Plan | Duration | Tasks | Files Changed |
 |------|----------|-------|---------------|
+| Phase 03-05 | 4.5 min | 2 tasks | 2 files |
+| Phase 03-04 | 3.7 min | 2 tasks | 2 files |
 | Phase 03-03 | 8.1 min | 2 tasks | 16 files |
 | Phase 03-02 | 3.7 min | 2 tasks | 2 files |
 | Phase 03-01 | 6.0 min | 2 tasks | 5 files |
-| Phase 02-03 | 2.3 min | 2 tasks | 4 files |
-| Phase 02-02 | 3.6 min | 2 tasks | 7 files |
 
 *Updated after each plan completion*
 
@@ -72,10 +72,13 @@ Recent decisions affecting current work:
 - [Phase 03-04]: NAT removal verification to catch silent failures
 - [Phase 03-04]: Confirmation gates on destructive actions respect Force/NonInteractive flags
 - [Phase 03-03]: Fixed systemic invalid parameter syntax across 12 files - PowerShell requires simple parameter names in param blocks, not dotted properties like $GlobalLabConfig.Network.NatName (same issue as 03-01 but in additional files discovered during test execution)
+- [Phase 03-05]: Complete legacy variable migration - Invoke-BulkAdditionalVMProvision was last function using $Server_Memory, $Client_Memory, $Server_Processors, $Client_Processors instead of $GlobalLabConfig.VMSizing
+- [Phase 03-05]: Subexpression syntax enforcement - Fixed 7 string interpolation bugs, added comprehensive action routing tests to prevent regressions
 
 ### Pending Todos
 
-- Phase 3 has 3 remaining plans: 03-02 (Quick mode), 03-03 (Teardown), 03-05 (End-to-end test)
+- Phase 3 complete (all 5 plans executed)
+- Next: Phase 4 or end-to-end validation
 
 ### Blockers/Concerns
 
@@ -87,6 +90,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-16 (execute-plan)
-Stopped at: Completed 03-03-PLAN.md (Network test config-awareness & enhanced health checks)
+Last session: 2026-02-17 (execute-plan)
+Stopped at: Completed 03-05-PLAN.md (CLI action routing cleanup & validation)
 Resume file: None
