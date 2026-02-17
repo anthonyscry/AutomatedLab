@@ -165,40 +165,7 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
 }
 
-function Invoke-OrchestrationActionCore {
-    param(
-        [Parameter(Mandatory)]
-        [ValidateSet('deploy', 'teardown')]
-        [string]$OrchestrationAction,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('quick', 'full')]
-        [string]$Mode,
-
-        [Parameter(Mandatory)]
-        [object]$Intent
-    )
-
-    switch ($OrchestrationAction) {
-        'deploy' {
-            if ($Intent.RunQuickStartupSequence) {
-                Invoke-LabQuickDeploy -DryRun:$DryRun -ScriptDir $ScriptDir -RunEvents $RunEvents
-            }
-            else {
-                $deployArgs = Get-LabDeployArgs -Mode $Mode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
-                Invoke-LabRepoScript -BaseName 'Deploy' -Arguments $deployArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-            }
-        }
-        'teardown' {
-            if ($Intent.RunQuickReset) {
-                Invoke-LabQuickTeardown -DryRun:$DryRun -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames) -LabConfig $GlobalLabConfig -RunEvents $RunEvents
-            }
-            else {
-                Invoke-LabBlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun -LabConfig $GlobalLabConfig -SwitchName $SwitchName -RunEvents $RunEvents
-            }
-        }
-    }
-}
+# Invoke-OrchestrationActionCore extracted to Private/Invoke-LabOrchestrationActionCore.ps1
 
 # Resolve-NoExecuteStateOverride extracted to Private/Resolve-LabNoExecuteStateOverride.ps1
 
@@ -1255,7 +1222,7 @@ $skipLegacyOrchestration = $false
         $localDispatchExecutor = {
             param($DispatchAction, $DispatchEffectiveMode)
 
-            Invoke-OrchestrationActionCore -OrchestrationAction $DispatchAction -Mode $DispatchEffectiveMode -Intent $orchestrationIntent
+            Invoke-LabOrchestrationActionCore -OrchestrationAction $DispatchAction -Mode $DispatchEffectiveMode -Intent $orchestrationIntent -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -RunEvents $RunEvents -Force:$Force -NonInteractive:$NonInteractive -RemoveNetwork:$RemoveNetwork -DryRun:$DryRun -AutoFixSubnetConflict:$AutoFixSubnetConflict
             return $true
         }.GetNewClosure()
 
@@ -1335,7 +1302,7 @@ $skipLegacyOrchestration = $false
                 Add-LabRunEvent -Step 'deploy' -Status 'ok' -Message 'skipped legacy deploy path (dispatcher handled orchestration action)' -RunEvents $RunEvents
             }
             else {
-                Invoke-OrchestrationActionCore -OrchestrationAction 'deploy' -Mode $EffectiveMode -Intent $orchestrationIntent
+                Invoke-LabOrchestrationActionCore -OrchestrationAction 'deploy' -Mode $EffectiveMode -Intent $orchestrationIntent -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -RunEvents $RunEvents -Force:$Force -NonInteractive:$NonInteractive -RemoveNetwork:$RemoveNetwork -DryRun:$DryRun -AutoFixSubnetConflict:$AutoFixSubnetConflict
             }
         }
         'teardown' {
@@ -1343,7 +1310,7 @@ $skipLegacyOrchestration = $false
                 Add-LabRunEvent -Step 'teardown' -Status 'ok' -Message 'skipped legacy teardown path (dispatcher handled orchestration action)' -RunEvents $RunEvents
             }
             else {
-                Invoke-OrchestrationActionCore -OrchestrationAction 'teardown' -Mode $EffectiveMode -Intent $orchestrationIntent
+                Invoke-LabOrchestrationActionCore -OrchestrationAction 'teardown' -Mode $EffectiveMode -Intent $orchestrationIntent -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -RunEvents $RunEvents -Force:$Force -NonInteractive:$NonInteractive -RemoveNetwork:$RemoveNetwork -DryRun:$DryRun -AutoFixSubnetConflict:$AutoFixSubnetConflict
             }
         }
         'add-lin1' {
