@@ -136,7 +136,7 @@ function Save-GuiSettings {
 
     $parentDir = Split-Path -Parent $script:GuiSettingsPath
     if (-not (Test-Path $parentDir)) {
-        [void]New-Item -ItemType Directory -Path $parentDir -Force
+        [void](New-Item -ItemType Directory -Path $parentDir -Force)
     }
 
     try {
@@ -1136,7 +1136,7 @@ function Initialize-CustomizeView {
 
             $parentDir = Split-Path -Parent $configPath
             if (-not (Test-Path $parentDir)) {
-                [void]New-Item -ItemType Directory -Path $parentDir -Force
+                [void](New-Item -ItemType Directory -Path $parentDir -Force)
             }
             $configObj | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath -Encoding UTF8
 
@@ -1698,7 +1698,7 @@ function Initialize-SettingsView {
 
             $parentDir = Split-Path -Parent $configJsonPath
             if (-not (Test-Path $parentDir)) {
-                [void]New-Item -ItemType Directory -Path $parentDir -Force
+                [void](New-Item -ItemType Directory -Path $parentDir -Force)
             }
             $configJson | ConvertTo-Json -Depth 10 | Set-Content -Path $configJsonPath -Encoding UTF8
 
