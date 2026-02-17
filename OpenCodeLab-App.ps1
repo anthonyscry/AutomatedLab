@@ -182,7 +182,7 @@ function Invoke-OrchestrationActionCore {
     switch ($OrchestrationAction) {
         'deploy' {
             if ($Intent.RunQuickStartupSequence) {
-                Invoke-QuickDeploy
+                Invoke-LabQuickDeploy -DryRun:$DryRun -ScriptDir $ScriptDir -RunEvents $RunEvents
             }
             else {
                 $deployArgs = Get-LabDeployArgs -Mode $Mode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
@@ -191,7 +191,7 @@ function Invoke-OrchestrationActionCore {
         }
         'teardown' {
             if ($Intent.RunQuickReset) {
-                Invoke-QuickTeardown
+                Invoke-LabQuickTeardown -DryRun:$DryRun -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames) -LabConfig $GlobalLabConfig -RunEvents $RunEvents
             }
             else {
                 Invoke-LabBlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun -LabConfig $GlobalLabConfig -SwitchName $SwitchName -RunEvents $RunEvents
@@ -284,49 +284,8 @@ function Invoke-Setup {
     Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
 }
 
-function Invoke-QuickDeploy {
-    if ($DryRun) {
-        Write-Host "`n=== DRY RUN: QUICK DEPLOY ===" -ForegroundColor Yellow
-        Write-Host '  Would run quick startup sequence: Start-LabDay -> Lab-Status -> Test-OpenCodeLabHealth' -ForegroundColor DarkGray
-        Add-LabRunEvent -Step 'deploy-quick' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
-        return
-    }
-
-    Write-Host "`n=== QUICK DEPLOY ===" -ForegroundColor Cyan
-    Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents
-    Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
-    $healthArgs = Get-LabHealthArgs
-    Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-}
-
-function Invoke-QuickTeardown {
-    if ($DryRun) {
-        Write-Host "`n=== DRY RUN: QUICK TEARDOWN ===" -ForegroundColor Yellow
-        Write-Host '  Would stop VMs and restore LabReady snapshot when available' -ForegroundColor DarkGray
-        Add-LabRunEvent -Step 'teardown-quick' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
-        return
-    }
-
-    Write-Host "`n=== QUICK TEARDOWN ===" -ForegroundColor Cyan
-    Add-LabRunEvent -Step 'teardown-quick' -Status 'start' -Message 'stop + optional restore' -RunEvents $RunEvents
-    Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)
-
-    try {
-        if (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig) -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)) {
-            Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-            Add-LabRunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
-            Write-LabStatus -Status OK -Message 'Quick teardown complete (LabReady restored)' -Indent 0
-        }
-        else {
-            Add-LabRunEvent -Step 'teardown-quick' -Status 'warn' -Message 'LabReady not found; VMs stopped only' -RunEvents $RunEvents
-            Write-LabStatus -Status WARN -Message 'LabReady snapshot missing; quick teardown stopped VMs only.' -Indent 0
-        }
-    }
-    catch {
-        Add-LabRunEvent -Step 'teardown-quick' -Status 'fail' -Message 'Restore skipped after stop' -RunEvents $RunEvents
-        Write-LabStatus -Status WARN -Message "Quick teardown restored no snapshot: $($_.Exception.Message)" -Indent 0
-    }
-}
+# Invoke-QuickDeploy extracted to Private/Invoke-LabQuickDeploy.ps1
+# Invoke-QuickTeardown extracted to Private/Invoke-LabQuickTeardown.ps1
 
 function Pause-Menu {
     Read-Host "`n  Press Enter to continue" | Out-Null
