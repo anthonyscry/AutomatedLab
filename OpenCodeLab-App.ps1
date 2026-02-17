@@ -281,40 +281,6 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
 }
 
-function Get-PreflightArgs {
-    return @()
-}
-
-function Get-BootstrapArgs {
-    param(
-        [ValidateSet('quick', 'full')]
-        [string]$Mode = 'full'
-    )
-
-    $scriptArgs = @()
-    $scriptArgs += @('-Mode', $Mode)
-    if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
-    if ($AutoFixSubnetConflict) { $scriptArgs += '-AutoFixSubnetConflict' }
-    return $scriptArgs
-}
-
-function Get-DeployArgs {
-    param(
-        [ValidateSet('quick', 'full')]
-        [string]$Mode = 'full'
-    )
-
-    $scriptArgs = @()
-    $scriptArgs += @('-Mode', $Mode)
-    if ($NonInteractive) { $scriptArgs += '-NonInteractive' }
-    if ($AutoFixSubnetConflict) { $scriptArgs += '-AutoFixSubnetConflict' }
-    return $scriptArgs
-}
-
-function Get-HealthArgs {
-    return @()
-}
-
 function Invoke-OrchestrationActionCore {
     param(
         [Parameter(Mandatory)]
@@ -335,7 +301,7 @@ function Invoke-OrchestrationActionCore {
                 Invoke-QuickDeploy
             }
             else {
-                $deployArgs = Get-DeployArgs -Mode $Mode
+                $deployArgs = Get-LabDeployArgs -Mode $Mode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
                 Invoke-LabRepoScript -BaseName 'Deploy' -Arguments $deployArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
             }
         }
@@ -621,8 +587,8 @@ function Invoke-OneButtonSetup {
     Write-Host "  Mode: WINDOWS CORE (DC1 + SVR1 + WS1)" -ForegroundColor Green
     Write-Host "  Bootstrapping prerequisites + deploying lab + start + status" -ForegroundColor Gray
 
-    $preflightArgs = Get-PreflightArgs
-    $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
+    $preflightArgs = Get-LabPreflightArgs
+    $bootstrapArgs = Get-LabBootstrapArgs -Mode $EffectiveMode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
 
     Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
     Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
@@ -637,7 +603,7 @@ function Invoke-OneButtonSetup {
     Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents
     Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
 
-    $healthArgs = Get-HealthArgs
+    $healthArgs = Get-LabHealthArgs
     try {
         Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         Write-LabStatus -Status OK -Message "Post-deploy health gate passed"
@@ -686,8 +652,8 @@ function Invoke-OneButtonReset {
 }
 
 function Invoke-Setup {
-    $preflightArgs = Get-PreflightArgs
-    $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
+    $preflightArgs = Get-LabPreflightArgs
+    $bootstrapArgs = Get-LabBootstrapArgs -Mode $EffectiveMode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
 
     Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
     Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
@@ -704,7 +670,7 @@ function Invoke-QuickDeploy {
     Write-Host "`n=== QUICK DEPLOY ===" -ForegroundColor Cyan
     Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents
     Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
-    $healthArgs = Get-HealthArgs
+    $healthArgs = Get-LabHealthArgs
     Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
 }
 
@@ -1159,7 +1125,7 @@ function Invoke-InteractiveMenu {
                     Write-LabStatus -Status OK -Message "Restored to LabReady"
                 }
             }
-            '5' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '5' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-LabHealthArgs; Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '6' {
                 Write-Host "  [P] Push to WS1  [S] Save Work" -ForegroundColor Cyan
                 $sub = (Read-Host "  Select").Trim().ToUpperInvariant()
@@ -1775,11 +1741,11 @@ $skipLegacyOrchestration = $false
         'one-button-setup' { Invoke-OneButtonSetup }
         'one-button-reset' { Invoke-OneButtonReset -DropNetwork:$RemoveNetwork }
         'preflight' {
-            $preflightArgs = Get-PreflightArgs
+            $preflightArgs = Get-LabPreflightArgs
             Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'bootstrap' {
-            $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
+            $bootstrapArgs = Get-LabBootstrapArgs -Mode $EffectiveMode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
             Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'deploy' {
@@ -1811,7 +1777,7 @@ $skipLegacyOrchestration = $false
             Invoke-LabRepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'health' {
-            $healthArgs = Get-HealthArgs
+            $healthArgs = Get-LabHealthArgs
             Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
 
