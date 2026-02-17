@@ -21,14 +21,14 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### GUI
 
-- [ ] **GUI-01**: Dashboard view loads and polls VM status every 5 seconds without crashes
-- [ ] **GUI-02**: Actions view populates dropdown with all available actions and executes them correctly
-- [ ] **GUI-03**: Customize view loads template editor, creates/saves/applies templates without errors
-- [ ] **GUI-04**: Settings view persists theme, admin username, and preferences to gui-settings.json
-- [ ] **GUI-05**: Logs view displays color-coded log entries from in-memory log list
-- [ ] **GUI-06**: View switching works reliably between all views without state corruption
-- [ ] **GUI-07**: GUI achieves feature parity with CLI — all actions accessible from both interfaces
-- [ ] **GUI-08**: Script-scoped variable closures captured correctly in all event handlers
+- [x] **GUI-01**: Dashboard view loads and polls VM status every 5 seconds without crashes
+- [x] **GUI-02**: Actions view populates dropdown with all available actions and executes them correctly
+- [x] **GUI-03**: Customize view loads template editor, creates/saves/applies templates without errors
+- [x] **GUI-04**: Settings view persists theme, admin username, and preferences to gui-settings.json
+- [x] **GUI-05**: Logs view displays color-coded log entries from in-memory log list
+- [x] **GUI-06**: View switching works reliably between all views without state corruption
+- [x] **GUI-07**: GUI achieves feature parity with CLI — all actions accessible from both interfaces
+- [x] **GUI-08**: Script-scoped variable closures captured correctly in all event handlers
 
 ### Lifecycle
 
@@ -163,14 +163,14 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 | ROLE-09 | Phase 4 | Done |
 | ROLE-10 | Phase 4 | Done |
 | ROLE-11 | Phase 4 | Done |
-| GUI-01 | Phase 5 | Pending |
-| GUI-02 | Phase 5 | Pending |
-| GUI-03 | Phase 5 | Pending |
-| GUI-04 | Phase 5 | Pending |
-| GUI-05 | Phase 5 | Pending |
-| GUI-06 | Phase 5 | Pending |
-| GUI-07 | Phase 5 | Pending |
-| GUI-08 | Phase 5 | Pending |
+| GUI-01 | Phase 5 | Done |
+| GUI-02 | Phase 5 | Done |
+| GUI-03 | Phase 5 | Done |
+| GUI-04 | Phase 5 | Done |
+| GUI-05 | Phase 5 | Done |
+| GUI-06 | Phase 5 | Done |
+| GUI-07 | Phase 5 | Done |
+| GUI-08 | Phase 5 | Done |
 | MH-01 | Phase 6 | Pending |
 | MH-02 | Phase 6 | Pending |
 | MH-03 | Phase 6 | Pending |
