@@ -30,8 +30,8 @@ function Invoke-LabSetupMenu {
     Write-Host '  SETUP LAB' -ForegroundColor Cyan
     Write-Host '  Core build always includes DC1 + SVR1 + WS1.' -ForegroundColor DarkGray
 
-    $serverCount = Read-MenuCount -Prompt 'Additional server VMs to provision' -DefaultValue 0
-    $workstationCount = Read-MenuCount -Prompt 'Additional workstation VMs to provision' -DefaultValue 0
+    $serverCount = Read-LabMenuCount -Prompt 'Additional server VMs to provision' -DefaultValue 0
+    $workstationCount = Read-LabMenuCount -Prompt 'Additional workstation VMs to provision' -DefaultValue 0
 
     $serverIso = ''
     $workstationIso = ''
