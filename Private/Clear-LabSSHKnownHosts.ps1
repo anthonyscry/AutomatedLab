@@ -9,16 +9,28 @@ function Clear-LabSSHKnownHosts {
     [CmdletBinding()]
     param()
 
-    $knownHostsPath = $GlobalLabConfig.SSH.KnownHostsPath
-    if ([string]::IsNullOrWhiteSpace($knownHostsPath)) {
-        Write-Warning '[Clear-LabSSHKnownHosts] SSH.KnownHostsPath not configured.'
-        return
-    }
+    try {
+        $knownHostsPath = $GlobalLabConfig.SSH.KnownHostsPath
+        if ([string]::IsNullOrWhiteSpace($knownHostsPath)) {
+            Write-Warning '[Clear-LabSSHKnownHosts] SSH.KnownHostsPath not configured.'
+            return
+        }
 
-    if (Test-Path $knownHostsPath) {
-        Remove-Item -Path $knownHostsPath -Force
-        Write-Host "  [OK] Cleared lab SSH known_hosts: $knownHostsPath" -ForegroundColor Green
-    } else {
-        Write-Verbose "Lab SSH known_hosts not found (already clean): $knownHostsPath"
+        if (Test-Path $knownHostsPath) {
+            Remove-Item -Path $knownHostsPath -Force
+            Write-Host "  [OK] Cleared lab SSH known_hosts: $knownHostsPath" -ForegroundColor Green
+        } else {
+            Write-Verbose "Lab SSH known_hosts not found (already clean): $knownHostsPath"
+        }
+    }
+    catch {
+        $PSCmdlet.WriteError(
+            [System.Management.Automation.ErrorRecord]::new(
+                [System.Exception]::new("Clear-LabSSHKnownHosts: failed to clear SSH known hosts - $_", $_.Exception),
+                'Clear-LabSSHKnownHosts.Failure',
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+        )
     }
 }

@@ -5,14 +5,20 @@ function Ensure-VMsReady {
         [switch]$NonInteractive,
         [switch]$AutoStart
     )
-    if (-not (Ensure-VMRunning -VMNames $VMNames)) {
-        if ($NonInteractive -or $AutoStart) {
-            Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
-        } else {
-            $vmList = $VMNames -join ', '
-            $start = Read-Host "  $vmList not running. Start now? (y/n)"
-            if ($start -ne 'y') { return }
-            Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
+
+    try {
+        if (-not (Ensure-VMRunning -VMNames $VMNames)) {
+            if ($NonInteractive -or $AutoStart) {
+                Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
+            } else {
+                $vmList = $VMNames -join ', '
+                $start = Read-Host "  $vmList not running. Start now? (y/n)"
+                if ($start -ne 'y') { return }
+                Ensure-VMRunning -VMNames $VMNames -AutoStart | Out-Null
+            }
         }
+    }
+    catch {
+        throw "Ensure-VMsReady: VM readiness check failed - $_"
     }
 }
