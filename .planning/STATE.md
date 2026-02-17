@@ -29,7 +29,7 @@ Progress: [███████████████████████
 - Phase 7: 2 plans, ~6.5 min avg, 24 new tests (566 total)
 - Phase 8: 4 plans, ~25 min avg, 133 new tests (699 total)
 - Phase 9: 4 plans, ~19 min avg, 138 new tests (837 total)
-- Phase 10: 3 plans complete — Plan 01: 13 min / 10 tests (847 total), Plan 02: Private+Public Out-Null sweep, Plan 03: 11 min / 99 instances replaced / 58 tests pass
+- Phase 10: 3 plans complete — Plan 01: 13 min / 10 tests (847 total), Plan 02: 28 min / 34 files / ~68 Out-Null replaced (Private+Public sweep), Plan 03: 11 min / 99 instances replaced / 58 tests pass
 
 ## Accumulated Context
 
@@ -57,7 +57,7 @@ None. v1.1 milestone complete. All Out-Null instances replaced with diagnostic-p
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 10 Plan 03 complete — v1.1 milestone done
+Stopped at: Phase 10 Plan 02 complete (re-executed for SUMMARY + commits)
 Resume file: None
 
 ---
