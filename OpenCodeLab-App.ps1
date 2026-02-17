@@ -149,21 +149,6 @@ elseif ($PSBoundParameters.ContainsKey('DispatchMode')) {
     $ResolvedDispatchMode = [string]$DispatchMode
 }
 
-function Add-RunEvent {
-    param(
-        [Parameter(Mandatory)][string]$Step,
-        [Parameter(Mandatory)][string]$Status,
-        [string]$Message = ''
-    )
-
-    $RunEvents.Add([pscustomobject]@{
-        Time = (Get-Date).ToString('o')
-        Step = $Step
-        Status = $Status
-        Message = $Message
-    }) | Out-Null
-}
-
 function Write-RunArtifacts {
     param(
         [Parameter(Mandatory)][bool]$Success,
@@ -306,7 +291,7 @@ function Invoke-RepoScript {
 
     $path = Resolve-LabScriptPath -BaseName $BaseName -ScriptDir $ScriptDir
     $argText = if ($Arguments -and $Arguments.Count -gt 0) { $Arguments -join ' ' } else { '' }
-    Add-RunEvent -Step $BaseName -Status 'start' -Message $argText
+    Add-LabRunEvent -Step $BaseName -Status 'start' -Message $argText -RunEvents $RunEvents
     Write-Host "  Running: $([System.IO.Path]::GetFileName($path))" -ForegroundColor Gray
     try {
         if ($Arguments -and $Arguments.Count -gt 0) {
@@ -315,9 +300,9 @@ function Invoke-RepoScript {
         } else {
             & $path
         }
-        Add-RunEvent -Step $BaseName -Status 'ok' -Message 'completed'
+        Add-LabRunEvent -Step $BaseName -Status 'ok' -Message 'completed' -RunEvents $RunEvents
     } catch {
-        Add-RunEvent -Step $BaseName -Status 'fail' -Message $_.Exception.Message
+        Add-LabRunEvent -Step $BaseName -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
         throw
     }
 }
@@ -543,7 +528,7 @@ function Invoke-BlowAway {
         if ($DropNetwork) {
             Write-Host "  Would remove network: $SwitchName / $($GlobalLabConfig.Network.NatName)" -ForegroundColor DarkGray
         }
-        Add-RunEvent -Step 'blow-away' -Status 'dry-run' -Message 'No changes made'
+        Add-LabRunEvent -Step 'blow-away' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
         return
     }
 
@@ -692,18 +677,18 @@ function Invoke-OneButtonSetup {
         try {
             Ensure-LabImported
             if (-not (Test-LabReadySnapshot)) {
-                Add-RunEvent -Step 'rollback' -Status 'fail' -Message 'LabReady snapshot missing'
+                Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message 'LabReady snapshot missing' -RunEvents $RunEvents
                 Write-LabStatus -Status WARN -Message "LabReady snapshot missing. Cannot auto-rollback."
                 Write-Host "  Run deploy once to recreate LabReady checkpoint." -ForegroundColor Yellow
             } else {
-                Add-RunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady'
+                Add-LabRunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady' -RunEvents $RunEvents
                 Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-                Add-RunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored'
+                Add-LabRunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
                 Write-LabStatus -Status OK -Message "Automatic rollback completed"
                 Invoke-RepoScript -BaseName 'Lab-Status'
             }
         } catch {
-            Add-RunEvent -Step 'rollback' -Status 'fail' -Message $_.Exception.Message
+            Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
             Write-LabStatus -Status WARN -Message "Automatic rollback failed: $($_.Exception.Message)"
         }
         throw
@@ -720,7 +705,7 @@ function Invoke-OneButtonReset {
     if ($DryRun) {
         Write-Host "  Dry run enabled: reset/rebuild actions will not execute." -ForegroundColor Yellow
         Invoke-BlowAway -BypassPrompt -DropNetwork:$DropNetwork -Simulate
-        Add-RunEvent -Step 'one-button-reset' -Status 'dry-run' -Message 'No changes made'
+        Add-LabRunEvent -Step 'one-button-reset' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
         return
     }
 
@@ -742,7 +727,7 @@ function Invoke-QuickDeploy {
     if ($DryRun) {
         Write-Host "`n=== DRY RUN: QUICK DEPLOY ===" -ForegroundColor Yellow
         Write-Host '  Would run quick startup sequence: Start-LabDay -> Lab-Status -> Test-OpenCodeLabHealth' -ForegroundColor DarkGray
-        Add-RunEvent -Step 'deploy-quick' -Status 'dry-run' -Message 'No changes made'
+        Add-LabRunEvent -Step 'deploy-quick' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
         return
     }
 
@@ -757,28 +742,28 @@ function Invoke-QuickTeardown {
     if ($DryRun) {
         Write-Host "`n=== DRY RUN: QUICK TEARDOWN ===" -ForegroundColor Yellow
         Write-Host '  Would stop VMs and restore LabReady snapshot when available' -ForegroundColor DarkGray
-        Add-RunEvent -Step 'teardown-quick' -Status 'dry-run' -Message 'No changes made'
+        Add-LabRunEvent -Step 'teardown-quick' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
         return
     }
 
     Write-Host "`n=== QUICK TEARDOWN ===" -ForegroundColor Cyan
-    Add-RunEvent -Step 'teardown-quick' -Status 'start' -Message 'stop + optional restore'
+    Add-LabRunEvent -Step 'teardown-quick' -Status 'start' -Message 'stop + optional restore' -RunEvents $RunEvents
     Stop-LabVMsSafe
 
     try {
         Ensure-LabImported
         if (Test-LabReadySnapshot -VMNames (Get-ExpectedVMs)) {
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-            Add-RunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored'
+            Add-LabRunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message 'Quick teardown complete (LabReady restored)' -Indent 0
         }
         else {
-            Add-RunEvent -Step 'teardown-quick' -Status 'warn' -Message 'LabReady not found; VMs stopped only'
+            Add-LabRunEvent -Step 'teardown-quick' -Status 'warn' -Message 'LabReady not found; VMs stopped only' -RunEvents $RunEvents
             Write-LabStatus -Status WARN -Message 'LabReady snapshot missing; quick teardown stopped VMs only.' -Indent 0
         }
     }
     catch {
-        Add-RunEvent -Step 'teardown-quick' -Status 'fail' -Message 'Restore skipped after stop'
+        Add-LabRunEvent -Step 'teardown-quick' -Status 'fail' -Message 'Restore skipped after stop' -RunEvents $RunEvents
         Write-LabStatus -Status WARN -Message "Quick teardown restored no snapshot: $($_.Exception.Message)" -Indent 0
     }
 }
@@ -794,12 +779,12 @@ function Invoke-MenuCommand {
         [switch]$NoPause
     )
 
-    Add-RunEvent -Step "menu:$Name" -Status 'start' -Message 'interactive'
+    Add-LabRunEvent -Step "menu:$Name" -Status 'start' -Message 'interactive' -RunEvents $RunEvents
     try {
         & $Command
-        Add-RunEvent -Step "menu:$Name" -Status 'ok' -Message 'completed'
+        Add-LabRunEvent -Step "menu:$Name" -Status 'ok' -Message 'completed' -RunEvents $RunEvents
     } catch {
-        Add-RunEvent -Step "menu:$Name" -Status 'fail' -Message $_.Exception.Message
+        Add-LabRunEvent -Step "menu:$Name" -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
         Write-LabStatus -Status FAIL -Message "$($_.Exception.Message)"
     }
 
@@ -897,7 +882,7 @@ function Invoke-ConfigureRoleMenu {
         return
     }
 
-    Add-RunEvent -Step 'configure-role' -Status 'ok' -Message ("Role={0}; Mode={1}; Target={2}" -f $selectedRole.Name, $roleMode, $targetVM)
+    Add-LabRunEvent -Step 'configure-role' -Status 'ok' -Message ("Role={0}; Mode={1}; Target={2}" -f $selectedRole.Name, $roleMode, $targetVM) -RunEvents $RunEvents
 
     Write-Host ''
     Write-LabStatus -Status OK -Message ("Role plan captured: {0} ({1}) on {2}" -f $selectedRole.Name, $roleMode, $targetVM)
@@ -993,10 +978,10 @@ function Invoke-AddVMWizard {
     }
 
     if ($vmResult.Status -eq 'OK' -or $vmResult.Status -eq 'AlreadyExists') {
-        Add-RunEvent -Step 'add-vm' -Status 'ok' -Message ("Type={0}; VM={1}; Status={2}" -f $VMType, $vmName, $vmResult.Status)
+        Add-LabRunEvent -Step 'add-vm' -Status 'ok' -Message ("Type={0}; VM={1}; Status={2}" -f $VMType, $vmName, $vmResult.Status) -RunEvents $RunEvents
         Write-LabStatus -Status OK -Message $vmResult.Message
     } else {
-        Add-RunEvent -Step 'add-vm' -Status 'fail' -Message ("Type={0}; VM={1}; Status={2}; Msg={3}" -f $VMType, $vmName, $vmResult.Status, $vmResult.Message)
+        Add-LabRunEvent -Step 'add-vm' -Status 'fail' -Message ("Type={0}; VM={1}; Status={2}; Msg={3}" -f $VMType, $vmName, $vmResult.Status, $vmResult.Message) -RunEvents $RunEvents
         Write-LabStatus -Status FAIL -Message $vmResult.Message
     }
 }
@@ -1084,10 +1069,10 @@ function Invoke-BulkAdditionalVMProvision {
         }
 
         if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
-            Add-RunEvent -Step 'setup-add-server-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status)
+            Add-LabRunEvent -Step 'setup-add-server-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status) -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message ("Provisioned server VM {0}: {1}" -f $vmName, $result.Status)
         } else {
-            Add-RunEvent -Step 'setup-add-server-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message)
+            Add-LabRunEvent -Step 'setup-add-server-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message) -RunEvents $RunEvents
             Write-LabStatus -Status FAIL -Message ("Failed to provision server VM {0}: {1}" -f $vmName, $result.Message)
         }
     }
@@ -1106,10 +1091,10 @@ function Invoke-BulkAdditionalVMProvision {
         }
 
         if ($result.Status -eq 'OK' -or $result.Status -eq 'AlreadyExists') {
-            Add-RunEvent -Step 'setup-add-workstation-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status)
+            Add-LabRunEvent -Step 'setup-add-workstation-vm' -Status 'ok' -Message ("{0}: {1}" -f $vmName, $result.Status) -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message ("Provisioned workstation VM {0}: {1}" -f $vmName, $result.Status)
         } else {
-            Add-RunEvent -Step 'setup-add-workstation-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message)
+            Add-LabRunEvent -Step 'setup-add-workstation-vm' -Status 'fail' -Message ("{0}: {1} {2}" -f $vmName, $result.Status, $result.Message) -RunEvents $RunEvents
             Write-LabStatus -Status FAIL -Message ("Failed to provision workstation VM {0}: {1}" -f $vmName, $result.Message)
         }
     }
@@ -1132,7 +1117,7 @@ function Invoke-SetupLabMenu {
         $workstationIso = (Read-Host '  Workstation ISO path (optional)').Trim()
     }
 
-    Add-RunEvent -Step 'setup-plan' -Status 'ok' -Message ("ExtraServers={0}; ExtraWorkstations={1}" -f $serverCount, $workstationCount)
+    Add-LabRunEvent -Step 'setup-plan' -Status 'ok' -Message ("ExtraServers={0}; ExtraWorkstations={1}" -f $serverCount, $workstationCount) -RunEvents $RunEvents
 
     Invoke-OneButtonSetup
 
@@ -1295,11 +1280,11 @@ $skipLegacyOrchestration = $false
             $policyOutcome = 'PolicyBlocked'
             $policyReason = 'target_hosts_empty'
             $EffectiveMode = $RequestedMode
-            Add-RunEvent -Step 'policy' -Status 'blocked' -Message $policyReason
+            Add-LabRunEvent -Step 'policy' -Status 'blocked' -Message $policyReason -RunEvents $RunEvents
 
             if ($NoExecute) {
                 $runSuccess = $true
-                Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)'
+                Add-LabRunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)' -RunEvents $RunEvents
                 return [pscustomobject]@{
                     RawAction = $rawAction
                     RawMode = $rawMode
@@ -1463,11 +1448,11 @@ $skipLegacyOrchestration = $false
             if ($policyDecision.PSObject.Properties.Name -contains 'EffectiveMode' -and -not [string]::IsNullOrWhiteSpace([string]$policyDecision.EffectiveMode)) {
                 $EffectiveMode = [string]$policyDecision.EffectiveMode
             }
-            Add-RunEvent -Step 'policy' -Status 'blocked' -Message $policyReason
+            Add-LabRunEvent -Step 'policy' -Status 'blocked' -Message $policyReason -RunEvents $RunEvents
 
             if ($NoExecute) {
                 $runSuccess = $true
-                Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)'
+                Add-LabRunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)' -RunEvents $RunEvents
                 return [pscustomobject]@{
                     RawAction = $rawAction
                     RawMode = $rawMode
@@ -1496,7 +1481,7 @@ $skipLegacyOrchestration = $false
             throw "Policy blocked execution: $policyReason"
         }
 
-        Add-RunEvent -Step 'policy' -Status 'ok' -Message ("outcome={0}; reason={1}; requested_mode={2}; effective_mode={3}" -f $policyOutcome, $policyReason, $RequestedMode, $policyDecision.EffectiveMode)
+        Add-LabRunEvent -Step 'policy' -Status 'ok' -Message ("outcome={0}; reason={1}; requested_mode={2}; effective_mode={3}" -f $policyOutcome, $policyReason, $RequestedMode, $policyDecision.EffectiveMode) -RunEvents $RunEvents
 
         $stateProbe = $null
         $firstReachable = @($fleetProbe | Where-Object {
@@ -1551,11 +1536,11 @@ $skipLegacyOrchestration = $false
             if ($healResult.HealAttempted) {
                 foreach ($repair in $healResult.RepairsApplied) {
                     Write-Host "[AutoHeal] Repaired: $repair" -ForegroundColor Green
-                    Add-RunEvent -Step 'auto_heal' -Status 'ok' -Message "repaired: $repair"
+                    Add-LabRunEvent -Step 'auto_heal' -Status 'ok' -Message "repaired: $repair" -RunEvents $RunEvents
                 }
                 foreach ($issue in $healResult.RemainingIssues) {
                     Write-Host "[AutoHeal] Unresolved: $issue" -ForegroundColor Yellow
-                    Add-RunEvent -Step 'auto_heal' -Status 'warn' -Message "unresolved: $issue"
+                    Add-LabRunEvent -Step 'auto_heal' -Status 'warn' -Message "unresolved: $issue" -RunEvents $RunEvents
                 }
                 if ($healResult.HealSucceeded) {
                     Write-Host "[AutoHeal] All issues healed. Continuing with quick mode." -ForegroundColor Green
@@ -1632,11 +1617,11 @@ $skipLegacyOrchestration = $false
                     $EffectiveMode = [string]$policyDecisionAfterOverride.EffectiveMode
                 }
 
-                Add-RunEvent -Step 'policy' -Status 'blocked' -Message $policyReason
+                Add-LabRunEvent -Step 'policy' -Status 'blocked' -Message $policyReason -RunEvents $RunEvents
 
                 if ($NoExecute) {
                     $runSuccess = $true
-                    Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)'
+                    Add-LabRunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only (policy blocked)' -RunEvents $RunEvents
                     return [pscustomobject]@{
                         RawAction = $rawAction
                         RawMode = $rawMode
@@ -1665,20 +1650,20 @@ $skipLegacyOrchestration = $false
                 throw "Policy blocked execution: $policyReason"
             }
 
-            Add-RunEvent -Step 'policy' -Status 'ok' -Message ("outcome={0}; reason={1}; requested_mode={2}; effective_mode={3}" -f $policyOutcome, $policyReason, $EffectiveMode, $policyDecisionAfterOverride.EffectiveMode)
+            Add-LabRunEvent -Step 'policy' -Status 'ok' -Message ("outcome={0}; reason={1}; requested_mode={2}; effective_mode={3}" -f $policyOutcome, $policyReason, $EffectiveMode, $policyDecisionAfterOverride.EffectiveMode) -RunEvents $RunEvents
         }
 
         $orchestrationIntent = Resolve-LabOrchestrationIntent -Action $orchestrationAction -EffectiveMode $EffectiveMode
-        Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; orchestration_action={2}; requested_mode={3}; effective_mode={4}; strategy={5}; fallback={6}; profile_source={7}" -f $rawAction, $Action, $orchestrationAction, $RequestedMode, $EffectiveMode, $orchestrationIntent.Strategy, $FallbackReason, $ProfileSource)
+        Add-LabRunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; orchestration_action={2}; requested_mode={3}; effective_mode={4}; strategy={5}; fallback={6}; profile_source={7}" -f $rawAction, $Action, $orchestrationAction, $RequestedMode, $EffectiveMode, $orchestrationIntent.Strategy, $FallbackReason, $ProfileSource) -RunEvents $RunEvents
     }
     else {
         $EffectiveMode = $RequestedMode
-        Add-RunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; requested_mode={2}; effective_mode={3}; profile_source={4}" -f $rawAction, $Action, $RequestedMode, $EffectiveMode, $ProfileSource)
+        Add-LabRunEvent -Step 'orchestration' -Status 'ok' -Message ("raw_action={0}; action={1}; requested_mode={2}; effective_mode={3}; profile_source={4}" -f $rawAction, $Action, $RequestedMode, $EffectiveMode, $ProfileSource) -RunEvents $RunEvents
     }
 
     if ($NoExecute) {
         $runSuccess = $true
-        Add-RunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only'
+        Add-LabRunEvent -Step 'run' -Status 'ok' -Message 'no-execute routing only' -RunEvents $RunEvents
         return [pscustomobject]@{
             RawAction = $rawAction
             RawMode = $rawMode
@@ -1723,7 +1708,7 @@ $skipLegacyOrchestration = $false
         $dispatcherAvailable
 
     if ($canInvokeCoordinatorDispatch) {
-        Add-RunEvent -Step 'dispatch' -Status 'start' -Message ("action={0}; mode={1}; dispatch_mode={2}; targets={3}" -f $orchestrationAction, $EffectiveMode, $ResolvedDispatchMode, (@($operationIntent.TargetHosts).Count))
+        Add-LabRunEvent -Step 'dispatch' -Status 'start' -Message ("action={0}; mode={1}; dispatch_mode={2}; targets={3}" -f $orchestrationAction, $EffectiveMode, $ResolvedDispatchMode, (@($operationIntent.TargetHosts).Count)) -RunEvents $RunEvents
 
         $dispatchSplat = @{
             Action = $orchestrationAction
@@ -1797,18 +1782,18 @@ $skipLegacyOrchestration = $false
             $executionStartedAt = $dispatchResult.ExecutionStartedAt
             $executionCompletedAt = $dispatchResult.ExecutionCompletedAt
 
-            Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("outcome={0}; host_outcomes={1}" -f $executionOutcome, (@($hostOutcomes).Count))
+            Add-LabRunEvent -Step 'dispatch' -Status 'ok' -Message ("outcome={0}; host_outcomes={1}" -f $executionOutcome, (@($hostOutcomes).Count)) -RunEvents $RunEvents
         }
 
         $skipLegacyOrchestration = $true
-        Add-RunEvent -Step 'dispatch' -Status 'ok' -Message ("legacy_orchestration_skipped=true; dispatch_mode={0}" -f $ResolvedDispatchMode)
+        Add-LabRunEvent -Step 'dispatch' -Status 'ok' -Message ("legacy_orchestration_skipped=true; dispatch_mode={0}" -f $ResolvedDispatchMode) -RunEvents $RunEvents
     }
 
     if (-not $skipLegacyOrchestration) {
         $executionStartedAt = (Get-Date).ToUniversalTime().ToString('o')
         $executionOutcome = 'in_progress'
     }
-    Add-RunEvent -Step 'run' -Status 'start' -Message "Action=$Action; Mode=$EffectiveMode"
+    Add-LabRunEvent -Step 'run' -Status 'start' -Message "Action=$Action; Mode=$EffectiveMode" -RunEvents $RunEvents
     switch ($Action) {
         'menu' {
             if ($NonInteractive) {
@@ -1829,7 +1814,7 @@ $skipLegacyOrchestration = $false
         }
         'deploy' {
             if ($skipLegacyOrchestration -and $orchestrationAction -eq 'deploy') {
-                Add-RunEvent -Step 'deploy' -Status 'ok' -Message 'skipped legacy deploy path (dispatcher handled orchestration action)'
+                Add-LabRunEvent -Step 'deploy' -Status 'ok' -Message 'skipped legacy deploy path (dispatcher handled orchestration action)' -RunEvents $RunEvents
             }
             else {
                 Invoke-OrchestrationActionCore -OrchestrationAction 'deploy' -Mode $EffectiveMode -Intent $orchestrationIntent
@@ -1837,7 +1822,7 @@ $skipLegacyOrchestration = $false
         }
         'teardown' {
             if ($skipLegacyOrchestration -and $orchestrationAction -eq 'teardown') {
-                Add-RunEvent -Step 'teardown' -Status 'ok' -Message 'skipped legacy teardown path (dispatcher handled orchestration action)'
+                Add-LabRunEvent -Step 'teardown' -Status 'ok' -Message 'skipped legacy teardown path (dispatcher handled orchestration action)' -RunEvents $RunEvents
             }
             else {
                 Invoke-OrchestrationActionCore -OrchestrationAction 'teardown' -Mode $EffectiveMode -Intent $orchestrationIntent
@@ -1886,19 +1871,19 @@ $skipLegacyOrchestration = $false
             Invoke-RepoScript -BaseName 'Save-LabWork' -Arguments $scriptArgs
         }
         'stop' {
-            Add-RunEvent -Step 'stop' -Status 'start' -Message 'Stop-LabVMsSafe'
+            Add-LabRunEvent -Step 'stop' -Status 'start' -Message 'Stop-LabVMsSafe' -RunEvents $RunEvents
             Stop-LabVMsSafe
-            Add-RunEvent -Step 'stop' -Status 'ok' -Message 'requested'
+            Add-LabRunEvent -Step 'stop' -Status 'ok' -Message 'requested' -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message "Stop requested for all lab VMs" -Indent 0
         }
         'rollback' {
-            Add-RunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady'
+            Add-LabRunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady' -RunEvents $RunEvents
             Ensure-LabImported
             if (-not (Test-LabReadySnapshot)) {
                 throw "LabReady snapshot not found on one or more VMs. Re-run deploy to recreate baseline."
             }
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
-            Add-RunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored'
+            Add-LabRunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message "Restored to LabReady" -Indent 0
         }
         'blow-away' { Invoke-BlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun }
@@ -1947,13 +1932,13 @@ $skipLegacyOrchestration = $false
         }
 
         $runSuccess = $true
-        Add-RunEvent -Step 'run' -Status 'ok' -Message 'completed (dispatcher)'
+        Add-LabRunEvent -Step 'run' -Status 'ok' -Message 'completed (dispatcher)' -RunEvents $RunEvents
     }
     else {
         $executionCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
         $executionOutcome = 'succeeded'
         $runSuccess = $true
-        Add-RunEvent -Step 'run' -Status 'ok' -Message 'completed'
+        Add-LabRunEvent -Step 'run' -Status 'ok' -Message 'completed' -RunEvents $RunEvents
     }
 } catch {
     if ($executionOutcome -eq 'in_progress') {
@@ -1965,7 +1950,7 @@ $skipLegacyOrchestration = $false
     }
 
     $runError = $_.Exception.Message
-    Add-RunEvent -Step 'run' -Status 'fail' -Message $runError
+    Add-LabRunEvent -Step 'run' -Status 'fail' -Message $runError -RunEvents $RunEvents
     throw
 } finally {
     if ((-not $NoExecute) -or $WriteArtifactsInNoExecute) {
