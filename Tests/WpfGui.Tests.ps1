@@ -222,3 +222,33 @@ Describe 'GUI-CLI Action Parity' {
         }
     }
 }
+
+Describe 'Timer Lifecycle' {
+
+    BeforeAll {
+        $guiContent = Get-Content -Raw -Path (Join-Path $guiRoot 'Start-OpenCodeLabGUI.ps1')
+    }
+
+    It 'VMPollTimer is stopped when leaving Dashboard view' {
+        $guiContent | Should -Match 'VMPollTimer.*Stop'
+    }
+
+    It 'Window Closing handler is registered' {
+        $guiContent | Should -Match 'Add_Closing'
+    }
+}
+
+Describe 'Customize View Hardening' {
+
+    BeforeAll {
+        $guiContent = Get-Content -Raw -Path (Join-Path $guiRoot 'Start-OpenCodeLabGUI.ps1')
+    }
+
+    It 'validates VM names are non-empty before template save' {
+        $guiContent | Should -Match 'All VMs must have a name'
+    }
+
+    It 'Initialize-CustomizeView has error handling' {
+        $guiContent | Should -Match 'Customize view failed to initialize'
+    }
+}
