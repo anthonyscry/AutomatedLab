@@ -39,14 +39,15 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 - ✓ Security gaps S1-S4 closed with regression tests (24 tests) — Phase 7
 - ✓ Reliability gaps R1-R4 closed with regression tests (24 tests) — Phase 7
 - ✓ 566 Pester tests passing — Phase 7
+- ✓ 34 inline functions extracted from OpenCodeLab-App.ps1 to Private/ (App.ps1: 2,012 → 977 lines) — Phase 8
+- ✓ Orchestrator is modular — each extracted helper independently testable with 133 new tests — Phase 8
+- ✓ 699 Pester tests passing — Phase 8
 
 ### Active
 
-- [ ] 31 inline functions extracted from OpenCodeLab-App.ps1 to Private/ helpers
 - [ ] All 39 functions without try-catch get explicit error handling
 - [ ] Module export list reconciled between .psd1 and .psm1
 - [ ] Out-Null replaced with Write-Verbose across codebase
-- [ ] Orchestrator is modular — each extracted helper independently testable
 
 ### Out of Scope
 
@@ -61,7 +62,7 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 
 - v1.0 Hardening milestone complete (2026-02-17): 6 phases, 56 requirements, 542 tests
 - Remaining production gaps documented in `docs/plans/2026-02-16-remaining-production-gaps-design.md`
-- OpenCodeLab-App.ps1 is 2,012 lines with 31 inline functions — extraction is prerequisite for testability
+- OpenCodeLab-App.ps1 reduced to 977 lines (thin orchestrator) — 34 functions extracted to Private/ in Phase 8
 - 39 functions (28 Private, 11 Public) lack try-catch error handling
 - 65 Out-Null instances suppress diagnostic information
 - Module export mismatch between SimpleLab.psd1 (47 functions) and SimpleLab.psm1
@@ -78,7 +79,7 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Extract inline functions before adding error handling | Can't properly test inline functions; extraction enables unit testing | — Pending |
+| Extract inline functions before adding error handling | Can't properly test inline functions; extraction enables unit testing | ✓ Phase 8 — 34 functions extracted, 133 new tests |
 | Fix all 10 production gaps, not just security | Reliability gaps (exit 0, missing validation) affect daily use | ✓ 8/10 closed in Phase 7 (S1-S4, R1-R4); M1-M2 in Phases 9-10 |
 | Replace Out-Null with Write-Verbose | Suppressed output hides diagnostics; Verbose is opt-in | — Pending |
 | Clean up dead code and archive | Reduce repo noise and search pollution | ✓ v1.0 |
@@ -88,4 +89,4 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 | Credential scrubbing in log output | Multi-layer scrubber wired into Write-RunArtifact | ✓ v1.0 |
 
 ---
-*Last updated: 2026-02-17 after Phase 7*
+*Last updated: 2026-02-17 after Phase 8*
