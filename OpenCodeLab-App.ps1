@@ -283,30 +283,6 @@ if ($DefaultsFile) {
     if ($null -ne $defaults.CoreOnly) { $CoreOnly = [bool]$defaults.CoreOnly }
 }
 
-function Invoke-RepoScript {
-    param(
-        [Parameter(Mandatory)][string]$BaseName,
-        [string[]]$Arguments
-    )
-
-    $path = Resolve-LabScriptPath -BaseName $BaseName -ScriptDir $ScriptDir
-    $argText = if ($Arguments -and $Arguments.Count -gt 0) { $Arguments -join ' ' } else { '' }
-    Add-LabRunEvent -Step $BaseName -Status 'start' -Message $argText -RunEvents $RunEvents
-    Write-Host "  Running: $([System.IO.Path]::GetFileName($path))" -ForegroundColor Gray
-    try {
-        if ($Arguments -and $Arguments.Count -gt 0) {
-            $scriptSplat = Convert-LabArgumentArrayToSplat -ArgumentList $Arguments
-            & $path @scriptSplat
-        } else {
-            & $path
-        }
-        Add-LabRunEvent -Step $BaseName -Status 'ok' -Message 'completed' -RunEvents $RunEvents
-    } catch {
-        Add-LabRunEvent -Step $BaseName -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
-        throw
-    }
-}
-
 function Get-ExpectedVMs {
     return @(@($GlobalLabConfig.Lab.CoreVMNames))
 }
@@ -366,7 +342,7 @@ function Invoke-OrchestrationActionCore {
             }
             else {
                 $deployArgs = Get-DeployArgs -Mode $Mode
-                Invoke-RepoScript -BaseName 'Deploy' -Arguments $deployArgs
+                Invoke-LabRepoScript -BaseName 'Deploy' -Arguments $deployArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
             }
         }
         'teardown' {
@@ -654,8 +630,8 @@ function Invoke-OneButtonSetup {
     $preflightArgs = Get-PreflightArgs
     $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
 
-    Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
-    Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
+    Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
+    Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
 
     # Verify expected VMs exist after bootstrap (bootstrap chains into deploy)
     $expectedVMs = Get-ExpectedVMs
@@ -664,12 +640,12 @@ function Invoke-OneButtonSetup {
         throw "VMs not found after bootstrap: $($missingVMs -join ', '). Deploy may have failed."
     }
 
-    Invoke-RepoScript -BaseName 'Start-LabDay'
-    Invoke-RepoScript -BaseName 'Lab-Status'
+    Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents
+    Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
 
     $healthArgs = Get-HealthArgs
     try {
-        Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
+        Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         Write-LabStatus -Status OK -Message "Post-deploy health gate passed"
     } catch {
         Write-LabStatus -Status FAIL -Message "Post-deploy health gate failed"
@@ -685,7 +661,7 @@ function Invoke-OneButtonSetup {
                 Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
                 Add-LabRunEvent -Step 'rollback' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
                 Write-LabStatus -Status OK -Message "Automatic rollback completed"
-                Invoke-RepoScript -BaseName 'Lab-Status'
+                Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
             }
         } catch {
             Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
@@ -719,8 +695,8 @@ function Invoke-Setup {
     $preflightArgs = Get-PreflightArgs
     $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
 
-    Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
-    Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
+    Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
+    Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
 }
 
 function Invoke-QuickDeploy {
@@ -732,10 +708,10 @@ function Invoke-QuickDeploy {
     }
 
     Write-Host "`n=== QUICK DEPLOY ===" -ForegroundColor Cyan
-    Invoke-RepoScript -BaseName 'Start-LabDay'
-    Invoke-RepoScript -BaseName 'Lab-Status'
+    Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents
+    Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents
     $healthArgs = Get-HealthArgs
-    Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
+    Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
 }
 
 function Invoke-QuickTeardown {
@@ -1175,9 +1151,9 @@ function Invoke-InteractiveMenu {
                     }
                 }
             }
-            '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-RepoScript -BaseName 'Start-LabDay' } }
+            '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '2' { Invoke-MenuCommand -Name 'stop' -Command { Stop-LabVMsSafe; Write-LabStatus -Status OK -Message "Lab stopped" } }
-            '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-RepoScript -BaseName 'Lab-Status' } }
+            '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '4' {
                 Invoke-MenuCommand -Name 'rollback' -Command {
                     Ensure-LabImported
@@ -1189,23 +1165,23 @@ function Invoke-InteractiveMenu {
                     Write-LabStatus -Status OK -Message "Restored to LabReady"
                 }
             }
-            '5' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs } }
+            '5' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-HealthArgs; Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '6' {
                 Write-Host "  [P] Push to WS1  [S] Save Work" -ForegroundColor Cyan
                 $sub = (Read-Host "  Select").Trim().ToUpperInvariant()
-                if ($sub -eq 'P') { Invoke-RepoScript -BaseName 'Push-ToWS1' }
-                elseif ($sub -eq 'S') { Invoke-RepoScript -BaseName 'Save-LabWork' }
+                if ($sub -eq 'P') { Invoke-LabRepoScript -BaseName 'Push-ToWS1' -ScriptDir $ScriptDir -RunEvents $RunEvents }
+                elseif ($sub -eq 'S') { Invoke-LabRepoScript -BaseName 'Save-LabWork' -ScriptDir $ScriptDir -RunEvents $RunEvents }
             }
-            '7' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-RepoScript -BaseName 'Open-LabTerminal' } }
-            '8' { Invoke-MenuCommand -Name 'new-project' -Command { Invoke-RepoScript -BaseName 'New-LabProject' } }
-            '9' { Invoke-MenuCommand -Name 'test' -Command { Invoke-RepoScript -BaseName 'Test-OnWS1' } }
-            'A' { Invoke-MenuCommand -Name 'asset-report' -Command { Invoke-RepoScript -BaseName 'Asset-Report' } }
-            'F' { Invoke-MenuCommand -Name 'offline-bundle' -Command { Invoke-RepoScript -BaseName 'Build-OfflineAutomatedLabBundle' } }
+            '7' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-LabRepoScript -BaseName 'Open-LabTerminal' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '8' { Invoke-MenuCommand -Name 'new-project' -Command { Invoke-LabRepoScript -BaseName 'New-LabProject' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '9' { Invoke-MenuCommand -Name 'test' -Command { Invoke-LabRepoScript -BaseName 'Test-OnWS1' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'A' { Invoke-MenuCommand -Name 'asset-report' -Command { Invoke-LabRepoScript -BaseName 'Asset-Report' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'F' { Invoke-MenuCommand -Name 'offline-bundle' -Command { Invoke-LabRepoScript -BaseName 'Build-OfflineAutomatedLabBundle' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             'O' { Invoke-MenuCommand -Name 'configure-role' -Command { Invoke-ConfigureRoleMenu } }
             'V' { Invoke-MenuCommand -Name 'add-vm' -Command { Invoke-AddVMMenu } }
-            'L' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-RepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') } }
-            'C' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-RepoScript -BaseName 'Configure-LIN1' } }
-            'N' { Invoke-MenuCommand -Name 'ansible' -Command { Invoke-RepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') } }
+            'L' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-LabRepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'C' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-LabRepoScript -BaseName 'Configure-LIN1' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'N' { Invoke-MenuCommand -Name 'ansible' -Command { Invoke-LabRepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             'X' { break }
             default { Write-Host "  Invalid" -ForegroundColor Red; Start-Sleep -Seconds 1 }
         }
@@ -1806,11 +1782,11 @@ $skipLegacyOrchestration = $false
         'one-button-reset' { Invoke-OneButtonReset -DropNetwork:$RemoveNetwork }
         'preflight' {
             $preflightArgs = Get-PreflightArgs
-            Invoke-RepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs
+            Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'bootstrap' {
             $bootstrapArgs = Get-BootstrapArgs -Mode $EffectiveMode
-            Invoke-RepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs
+            Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'deploy' {
             if ($skipLegacyOrchestration -and $orchestrationAction -eq 'deploy') {
@@ -1830,45 +1806,45 @@ $skipLegacyOrchestration = $false
         }
         'add-lin1' {
             $linArgs = @('-NonInteractive')
-            Invoke-RepoScript -BaseName 'Add-LIN1' -Arguments $linArgs
+            Invoke-LabRepoScript -BaseName 'Add-LIN1' -Arguments $linArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'lin1-config' {
             $linArgs = @()
             if ($NonInteractive) { $linArgs += '-NonInteractive' }
-            Invoke-RepoScript -BaseName 'Configure-LIN1' -Arguments $linArgs
+            Invoke-LabRepoScript -BaseName 'Configure-LIN1' -Arguments $linArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'ansible' {
-            Invoke-RepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive')
+            Invoke-LabRepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'health' {
             $healthArgs = Get-HealthArgs
-            Invoke-RepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs
+            Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
 
-        'start' { Invoke-RepoScript -BaseName 'Start-LabDay' }
-        'status' { Invoke-RepoScript -BaseName 'Lab-Status' }
-        'asset-report' { Invoke-RepoScript -BaseName 'Asset-Report' }
-        'offline-bundle' { Invoke-RepoScript -BaseName 'Build-OfflineAutomatedLabBundle' }
-        'terminal' { Invoke-RepoScript -BaseName 'Open-LabTerminal' }
+        'start' { Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents }
+        'status' { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents }
+        'asset-report' { Invoke-LabRepoScript -BaseName 'Asset-Report' -ScriptDir $ScriptDir -RunEvents $RunEvents }
+        'offline-bundle' { Invoke-LabRepoScript -BaseName 'Build-OfflineAutomatedLabBundle' -ScriptDir $ScriptDir -RunEvents $RunEvents }
+        'terminal' { Invoke-LabRepoScript -BaseName 'Open-LabTerminal' -ScriptDir $ScriptDir -RunEvents $RunEvents }
         'new-project' {
             $scriptArgs = @()
             if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart', '-Force') }
-            Invoke-RepoScript -BaseName 'New-LabProject' -Arguments $scriptArgs
+            Invoke-LabRepoScript -BaseName 'New-LabProject' -Arguments $scriptArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'push' {
             $scriptArgs = @()
             if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart', '-Force') }
-            Invoke-RepoScript -BaseName 'Push-ToWS1' -Arguments $scriptArgs
+            Invoke-LabRepoScript -BaseName 'Push-ToWS1' -Arguments $scriptArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'test' {
             $scriptArgs = @()
             if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart') }
-            Invoke-RepoScript -BaseName 'Test-OnWS1' -Arguments $scriptArgs
+            Invoke-LabRepoScript -BaseName 'Test-OnWS1' -Arguments $scriptArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'save' {
             $scriptArgs = @()
             if ($NonInteractive) { $scriptArgs += @('-NonInteractive', '-AutoStart') }
-            Invoke-RepoScript -BaseName 'Save-LabWork' -Arguments $scriptArgs
+            Invoke-LabRepoScript -BaseName 'Save-LabWork' -Arguments $scriptArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
         }
         'stop' {
             Add-LabRunEvent -Step 'stop' -Status 'start' -Message 'Stop-LabVMsSafe' -RunEvents $RunEvents
