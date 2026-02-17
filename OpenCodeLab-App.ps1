@@ -234,16 +234,6 @@ function Write-RunArtifacts {
     Write-Host "  Run summary: $txtPath" -ForegroundColor DarkGray
 }
 
-function Invoke-LogRetention {
-    if ($LogRetentionDays -lt 1) { return }
-    if (-not (Test-Path $RunLogRoot)) { return }
-
-    $cutoff = (Get-Date).AddDays(-$LogRetentionDays)
-    Get-ChildItem -Path $RunLogRoot -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.LastWriteTime -lt $cutoff } |
-        Remove-Item -Force -ErrorAction SilentlyContinue
-}
-
 function Test-LabReadySnapshot {
     param([string[]]$VMNames)
 
@@ -1867,6 +1857,6 @@ $skipLegacyOrchestration = $false
 } finally {
     if ((-not $NoExecute) -or $WriteArtifactsInNoExecute) {
         Write-RunArtifacts -Success:$runSuccess -ErrorMessage $runError
-        Invoke-LogRetention
+        Invoke-LabLogRetention -RetentionDays $LogRetentionDays -LogRoot $RunLogRoot
     }
 }
