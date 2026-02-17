@@ -36,23 +36,35 @@ function Invoke-LabOrchestrationActionCore {
         [switch]$AutoFixSubnetConflict
     )
 
-    switch ($OrchestrationAction) {
-        'deploy' {
-            if ($Intent.RunQuickStartupSequence) {
-                Invoke-LabQuickDeploy -DryRun:$DryRun -ScriptDir $ScriptDir -RunEvents $RunEvents
+    try {
+        switch ($OrchestrationAction) {
+            'deploy' {
+                if ($Intent.RunQuickStartupSequence) {
+                    Invoke-LabQuickDeploy -DryRun:$DryRun -ScriptDir $ScriptDir -RunEvents $RunEvents
+                }
+                else {
+                    $deployArgs = Get-LabDeployArgs -Mode $Mode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
+                    Invoke-LabRepoScript -BaseName 'Deploy' -Arguments $deployArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
+                }
             }
-            else {
-                $deployArgs = Get-LabDeployArgs -Mode $Mode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
-                Invoke-LabRepoScript -BaseName 'Deploy' -Arguments $deployArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
+            'teardown' {
+                if ($Intent.RunQuickReset) {
+                    Invoke-LabQuickTeardown -DryRun:$DryRun -LabName $LabConfig.Lab.Name -CoreVMNames @($LabConfig.Lab.CoreVMNames) -LabConfig $LabConfig -RunEvents $RunEvents
+                }
+                else {
+                    Invoke-LabBlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun -LabConfig $LabConfig -SwitchName $SwitchName -RunEvents $RunEvents
+                }
             }
         }
-        'teardown' {
-            if ($Intent.RunQuickReset) {
-                Invoke-LabQuickTeardown -DryRun:$DryRun -LabName $LabConfig.Lab.Name -CoreVMNames @($LabConfig.Lab.CoreVMNames) -LabConfig $LabConfig -RunEvents $RunEvents
-            }
-            else {
-                Invoke-LabBlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun -LabConfig $LabConfig -SwitchName $SwitchName -RunEvents $RunEvents
-            }
-        }
+    }
+    catch {
+        $PSCmdlet.WriteError(
+            [System.Management.Automation.ErrorRecord]::new(
+                [System.Exception]::new("Invoke-LabOrchestrationActionCore: failed to execute action '$OrchestrationAction' - $_", $_.Exception),
+                'Invoke-LabOrchestrationActionCore.Failure',
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+        )
     }
 }
