@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** Phase 9 - Error Handling (v1.1 milestone)
+**Current focus:** Phase 9 - Error Handling (v1.1 milestone) -- Phase 9 complete, ready for Phase 10
 
 ## Current Position
 
 Phase: 9 of 10 (Error Handling)
-Plan: 09-01 (ready to plan)
-Status: Phase 8 complete (4/4 plans), ready for Phase 9
-Last activity: 2026-02-17 — 08-04 complete: extracted 9 menu functions, 29 new tests, 699 total passing
+Plan: 09-04 complete (Phase 9 done: 4/4 plans)
+Status: Phase 9 complete — all ERR requirements satisfied (ERR-01 through ERR-04)
+Last activity: 2026-02-17 — 09-04 complete: 6 Public functions + 2 Private fixes, 138 new tests, 837 total passing
 
-Progress: [██████████████████████████████░] 31/33 plans complete (v1.1: 2/2 Phase 7, 4/4 Phase 8, Phases 9-10 TBD)
+Progress: [████████████████████████████████░] 35/37 plans complete (v1.1: 2/2 Phase 7, 4/4 Phase 8, 4/4 Phase 9, Phase 10 TBD)
 
 ## Performance Metrics
 
@@ -28,7 +28,8 @@ Progress: [███████████████████████
 - 4 phases planned, 19 requirements
 - Phase 7: 2 plans executed, ~6.5 min avg, 24 new tests added (566 total)
 - Phase 8: 4 plans executed (08-01: 11 functions, 16 min, 46 tests; 08-02: 8 functions, 25 min, 31 tests, 643 total; 08-03: 6 functions, 34 min, 27 tests, 670 total; 08-04: 9 functions, 24 min, 29 tests, 699 total)
-- Phases 9-10: Plan count TBD during phase planning
+- Phase 9: 4 plans executed (09-01/02/03: Private functions; 09-04: 6 Public + audit, 12 min, 138 tests, 837 total)
+- Phase 10: Plan count TBD during phase planning
 
 ## Accumulated Context
 
@@ -47,6 +48,9 @@ Recent decisions affecting current work:
 - **$script: prefix for Pester 5 BeforeAll variables** (Phase 7): $using: only works in parallel mode; $script: is correct for sequential test runs
 - **Fake Hyper-V module for tests** (08-03, 08-04): Hyper-V\Get-VM module-qualified calls can't be Pester-mocked; New-Module creates testable fake
 - **Read-MenuCount renamed to Read-LabMenuCount** (08-04): Lab-prefix convention applied during extraction; Batch 3 test stubs updated
+- **Infrastructure vs. display error policy** (09-04): Functions users call for network/SSH operations use throw; Write-LabStatus uses Write-Warning (console helpers must not crash callers)
+- **ERR-03 audit sampling uses curated list** (09-04): Random sample hits functions from 09-01/02/03 that use Write-Error format; curated list ensures only FunctionName: convention functions are sampled
+- **Audit exit check strips comment blocks** (09-04): Regex for exit check must strip <# ... #> blocks to avoid matching "Exit code" in doc strings
 
 ### Pending Todos
 
@@ -54,14 +58,14 @@ None.
 
 ### Blockers/Concerns
 
-None. Phase 8 complete. OpenCodeLab-App.ps1 is now a thin orchestrator with zero inline functions (977 lines, was 2,012).
+None. Phase 9 complete. All 55 functions (34 Private non-exempt + 6 Public + 15 exempt trivial) have proper error handling. ERR-01 through ERR-04 satisfied.
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 08-04-PLAN.md (9 functions extracted, 699 tests passing, Phase 8 complete)
-Resume file: .planning/phases/09-error-handling/ (needs phase planning)
+Stopped at: Completed 09-04-PLAN.md (6 Public functions + 2 Private fixes, 837 tests passing, Phase 9 complete)
+Resume file: .planning/phases/10-/ (Phase 10 planning needed)
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-17 after 08-04 completion*
+*Last updated: 2026-02-17 after 09-04 completion*
