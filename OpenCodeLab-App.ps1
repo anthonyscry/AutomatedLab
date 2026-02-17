@@ -234,29 +234,7 @@ function Write-RunArtifacts {
     Write-Host "  Run summary: $txtPath" -ForegroundColor DarkGray
 }
 
-function Test-LabReadySnapshot {
-    param([string[]]$VMNames)
-
-    try {
-        Import-LabModule -LabName $GlobalLabConfig.Lab.Name
-        $targets = @()
-        if ($VMNames -and $VMNames.Count -gt 0) {
-            $targets = @($VMNames)
-        } else {
-            $targets = @(Get-LabExpectedVMs -LabConfig $GlobalLabConfig)
-        }
-
-        foreach ($vmName in $targets) {
-            $snap = Get-VMSnapshot -VMName $vmName -Name 'LabReady' -ErrorAction SilentlyContinue
-            if (-not $snap) {
-                return $false
-            }
-        }
-        return $true
-    } catch {
-        return $false
-    }
-}
+# Test-LabReadySnapshot extracted to Private/Test-LabReadySnapshot.ps1
 
 if ($DefaultsFile) {
     if (-not (Test-Path $DefaultsFile)) {
@@ -484,8 +462,7 @@ function Invoke-OneButtonSetup {
         Write-LabStatus -Status FAIL -Message "Post-deploy health gate failed"
         Write-Host "  Attempting automatic rollback to LabReady..." -ForegroundColor Yellow
         try {
-            Import-LabModule -LabName $GlobalLabConfig.Lab.Name
-            if (-not (Test-LabReadySnapshot)) {
+            if (-not (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames))) {
                 Add-LabRunEvent -Step 'rollback' -Status 'fail' -Message 'LabReady snapshot missing' -RunEvents $RunEvents
                 Write-LabStatus -Status WARN -Message "LabReady snapshot missing. Cannot auto-rollback."
                 Write-Host "  Run deploy once to recreate LabReady checkpoint." -ForegroundColor Yellow
@@ -560,8 +537,7 @@ function Invoke-QuickTeardown {
     Stop-LabVMsSafe
 
     try {
-        Import-LabModule -LabName $GlobalLabConfig.Lab.Name
-        if (Test-LabReadySnapshot -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig)) {
+        if (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -VMNames (Get-LabExpectedVMs -LabConfig $GlobalLabConfig) -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames)) {
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
             Add-LabRunEvent -Step 'teardown-quick' -Status 'ok' -Message 'LabReady restored' -RunEvents $RunEvents
             Write-LabStatus -Status OK -Message 'Quick teardown complete (LabReady restored)' -Indent 0
@@ -989,8 +965,7 @@ function Invoke-InteractiveMenu {
             '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '4' {
                 Invoke-MenuCommand -Name 'rollback' -Command {
-                    Import-LabModule -LabName $GlobalLabConfig.Lab.Name
-                    if (-not (Test-LabReadySnapshot)) {
+                    if (-not (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames))) {
                         Write-LabStatus -Status WARN -Message "LabReady snapshot not found"
                         return
                     }
@@ -1687,8 +1662,7 @@ $skipLegacyOrchestration = $false
         }
         'rollback' {
             Add-LabRunEvent -Step 'rollback' -Status 'start' -Message 'Restore-LabVMSnapshot LabReady' -RunEvents $RunEvents
-            Import-LabModule -LabName $GlobalLabConfig.Lab.Name
-            if (-not (Test-LabReadySnapshot)) {
+            if (-not (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames))) {
                 throw "LabReady snapshot not found on one or more VMs. Re-run deploy to recreate baseline."
             }
             Restore-LabVMSnapshot -All -SnapshotName 'LabReady'
