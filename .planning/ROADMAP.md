@@ -164,19 +164,22 @@ Plans:
 - [ ] 07-02-PLAN.md -- Close reliability gaps R1-R4: control flow, validation, config paths + tests
 
 ### Phase 8: Orchestrator Extraction
-**Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 31 inline functions extracted to Private/ helpers
+**Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 34 inline functions extracted to Private/ helpers
 **Depends on**: Phase 7
 **Requirements**: EXT-01, EXT-02, EXT-03, EXT-04
 **Success Criteria** (what must be TRUE):
-  1. All 31 inline functions moved from OpenCodeLab-App.ps1 to Private/ helpers with proper naming conventions
-  2. OpenCodeLab-App.ps1 sources extracted helpers via $OrchestrationHelperPaths array in Lab-Common.ps1
+  1. All 34 inline functions moved from OpenCodeLab-App.ps1 to Private/ helpers with proper naming conventions
+  2. Lab-Common.ps1 auto-loads extracted helpers via Get-LabScriptFiles (no explicit registration needed)
   3. Each extracted helper has [CmdletBinding()], explicit parameters, and no script-scope variable dependencies
-  4. All 542 existing Pester tests continue passing after extraction (no behavior regression)
+  4. All 566 existing Pester tests continue passing after extraction (no behavior regression)
   5. Extracted helpers are independently testable with unit tests
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- TBD
+- [x] 08-01-PLAN.md -- Extract 11 pure utility functions (arg builders, script resolver, run events, log retention)
+- [x] 08-02-PLAN.md -- Extract 8 state/operation functions (state overrides, snapshots, VM stop, artifacts, blow-away, quick ops)
+- [x] 08-03-PLAN.md -- Extract 6 lifecycle orchestration functions (action core, one-button setup/reset, setup, bulk VM)
+- [x] 08-04-PLAN.md -- Extract 9 interactive menu functions (menu display, commands, role config, VM wizard)
 
 ### Phase 9: Error Handling
 **Goal**: All 39 functions without try-catch get explicit error handling with context-aware messages
@@ -220,8 +223,8 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 4. Role Provisioning | v1.0 | 4/4 | Complete | 2026-02-17 |
 | 5. GUI Integration | v1.0 | 4/4 | Complete | 2026-02-17 |
 | 6. Multi-Host Coordination | v1.0 | 5/5 | Complete | 2026-02-17 |
-| 7. Security & Reliability Fixes | v1.1 | 0/2 | Planned | - |
-| 8. Orchestrator Extraction | v1.1 | 0/TBD | Not started | - |
+| 7. Security & Reliability Fixes | v1.1 | 2/2 | Complete | 2026-02-17 |
+| 8. Orchestrator Extraction | v1.1 | 4/4 | Complete | 2026-02-17 |
 | 9. Error Handling | v1.1 | 0/TBD | Not started | - |
 | 10. Module Diagnostics | v1.1 | 0/TBD | Not started | - |
 
