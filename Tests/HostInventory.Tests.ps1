@@ -83,4 +83,95 @@ Describe 'Get-LabHostInventory' {
             Get-LabHostInventory -InventoryPath 'env:PATH'
         } | Should -Throw "InventoryPath must resolve to a filesystem file*"
     }
+
+    It 'rejects duplicate host names' {
+        $inventoryPath = Join-Path $TestDrive 'dup-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "HV-01", "role": "primary", "connection": "winrm" },
+    { "name": "hv-01", "role": "secondary", "connection": "ssh" }
+  ]
+}
+'@ | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
+
+        {
+            Get-LabHostInventory -InventoryPath $inventoryPath
+        } | Should -Throw "*duplicate host name*HV-01*"
+    }
+
+    It 'rejects invalid connection type' {
+        $inventoryPath = Join-Path $TestDrive 'bad-connection-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "HV-01", "role": "primary", "connection": "telnet" }
+  ]
+}
+'@ | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
+
+        {
+            Get-LabHostInventory -InventoryPath $inventoryPath
+        } | Should -Throw "*connection value*telnet*not supported*"
+    }
+
+    It 'defaults connection to local when missing' {
+        $inventoryPath = Join-Path $TestDrive 'no-connection-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "HV-01", "role": "primary" }
+  ]
+}
+'@ | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
+
+        $result = Get-LabHostInventory -InventoryPath $inventoryPath
+
+        $result.Hosts[0].Connection | Should -Be 'local'
+    }
+
+    It 'defaults role to primary for first host and secondary for subsequent' {
+        $inventoryPath = Join-Path $TestDrive 'no-role-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "HV-01", "connection": "winrm" },
+    { "name": "HV-02", "connection": "ssh" }
+  ]
+}
+'@ | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
+
+        $result = Get-LabHostInventory -InventoryPath $inventoryPath
+
+        $result.Hosts[0].Role | Should -Be 'primary'
+        $result.Hosts[1].Role | Should -Be 'secondary'
+    }
+
+    It 'rejects empty hosts array' {
+        $inventoryPath = Join-Path $TestDrive 'empty-hosts-inventory.json'
+        @'
+{
+  "hosts": []
+}
+'@ | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
+
+        {
+            Get-LabHostInventory -InventoryPath $inventoryPath
+        } | Should -Throw "*hosts array is empty*"
+    }
+
+    It 'normalizes connection type to lowercase' {
+        $inventoryPath = Join-Path $TestDrive 'case-connection-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "HV-01", "role": "primary", "connection": "WinRM" }
+  ]
+}
+'@ | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
+
+        $result = Get-LabHostInventory -InventoryPath $inventoryPath
+
+        $result.Hosts[0].Connection | Should -Be 'winrm'
+    }
 }

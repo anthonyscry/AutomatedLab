@@ -77,6 +77,13 @@ function Get-LabHostInventory {
 
     $normalizedHosts = New-Object System.Collections.Generic.List[object]
     $rawHosts = @($parsedInventory.hosts)
+
+    if ($rawHosts.Count -eq 0) {
+        throw "Invalid inventory JSON in '$InventoryPath': hosts array is empty."
+    }
+
+    $seenNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
     for ($index = 0; $index -lt $rawHosts.Count; $index++) {
         $hostEntry = $rawHosts[$index]
         $name = [string]$hostEntry.name
@@ -84,10 +91,32 @@ function Get-LabHostInventory {
             throw "Invalid inventory JSON in '$InventoryPath': hosts[$index].name is required."
         }
 
+        $trimmedName = $name.Trim()
+        if (-not $seenNames.Add($trimmedName)) {
+            throw "Invalid inventory JSON in '$InventoryPath': duplicate host name '$trimmedName' at hosts[$index]."
+        }
+
+        # Validate and default connection field
+        $allowedConnections = @('local', 'winrm', 'ssh', 'psremoting')
+        $rawConnection = ([string]$hostEntry.connection).Trim()
+        if ([string]::IsNullOrWhiteSpace($rawConnection)) {
+            $rawConnection = 'local'
+        }
+        $connectionLower = $rawConnection.ToLowerInvariant()
+        if ($allowedConnections -notcontains $connectionLower) {
+            throw "Invalid inventory JSON in '$InventoryPath': hosts[$index].connection value '$rawConnection' is not supported. Allowed: $($allowedConnections -join ', ')."
+        }
+
+        # Default role when empty
+        $rawRole = ([string]$hostEntry.role).Trim()
+        if ([string]::IsNullOrWhiteSpace($rawRole)) {
+            $rawRole = if ($index -eq 0) { 'primary' } else { 'secondary' }
+        }
+
         $hostObject = [pscustomobject]@{
-            Name = $name.Trim()
-            Role = ([string]$hostEntry.role).Trim()
-            Connection = ([string]$hostEntry.connection).Trim()
+            Name = $trimmedName
+            Role = $rawRole
+            Connection = $connectionLower
         }
 
         if (($null -eq $targetLookup) -or $targetLookup.Contains($hostObject.Name)) {
