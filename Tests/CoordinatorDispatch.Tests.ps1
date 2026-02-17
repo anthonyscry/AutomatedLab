@@ -129,4 +129,45 @@ Describe 'Invoke-LabCoordinatorDispatch' {
 
         $result.HostOutcomes[0].DispatchStatus | Should -Be 'succeeded'
     }
+
+    It 'exhausts retries on persistent transient failure and reports failed with attempt count' {
+        $result = Invoke-LabCoordinatorDispatch -Action 'deploy' -EffectiveMode 'quick' -DispatchMode 'enforced' -TargetHosts @('host-a') -MaxRetryCount 2 -RetryDelayMilliseconds 0 -HostStepRunner {
+            param($HostName, $Action, $EffectiveMode, $Attempt)
+            throw 'ssh: connect to host 10.0.0.5 port 22: Connection refused'
+        }
+
+        $hostOutcome = $result.HostOutcomes[0]
+        $hostOutcome.DispatchStatus | Should -Be 'failed'
+        $hostOutcome.AttemptCount | Should -Be 3
+        $hostOutcome.LastFailureClass | Should -Be 'transient'
+        $hostOutcome.LastFailureMessage | Should -BeLike '*Connection refused*'
+        $result.ExecutionOutcome | Should -Be 'failed'
+    }
+
+    It 'does not retry non-transient auth failure and reports single attempt' {
+        $result = Invoke-LabCoordinatorDispatch -Action 'deploy' -EffectiveMode 'quick' -DispatchMode 'enforced' -TargetHosts @('host-a') -MaxRetryCount 2 -RetryDelayMilliseconds 0 -HostStepRunner {
+            param($HostName, $Action, $EffectiveMode, $Attempt)
+            throw 'Access is denied.'
+        }
+
+        $hostOutcome = $result.HostOutcomes[0]
+        $hostOutcome.DispatchStatus | Should -Be 'failed'
+        $hostOutcome.AttemptCount | Should -Be 1
+        $hostOutcome.LastFailureClass | Should -Be 'non_transient'
+        $hostOutcome.LastFailureMessage | Should -Be 'Access is denied.'
+    }
+
+    It 'includes host name in every outcome even when all hosts fail' {
+        $result = Invoke-LabCoordinatorDispatch -Action 'deploy' -EffectiveMode 'full' -DispatchMode 'enforced' -TargetHosts @('host-a', 'host-b') -HostStepRunner {
+            param($HostName, $Action, $EffectiveMode, $Attempt)
+            throw "Failed on $HostName"
+        }
+
+        @($result.HostOutcomes).Count | Should -Be 2
+        $result.HostOutcomes[0].HostName | Should -Be 'host-a'
+        $result.HostOutcomes[0].LastFailureMessage | Should -Be 'Failed on host-a'
+        $result.HostOutcomes[1].HostName | Should -Be 'host-b'
+        $result.HostOutcomes[1].LastFailureMessage | Should -Be 'Failed on host-b'
+        $result.ExecutionOutcome | Should -Be 'failed'
+    }
 }
