@@ -183,7 +183,11 @@ function Build-LabFromSelection {
             PrintServer = @{ File = 'PrintServer.ps1';   Function = 'Get-LabRole_PrintServer' }
             Jumpbox    = @{ File = 'Jumpbox.ps1';        Function = 'Get-LabRole_Jumpbox' }
             Client     = @{ File = 'Client.ps1';         Function = 'Get-LabRole_Client' }
-            Ubuntu     = @{ File = 'Ubuntu.ps1';         Function = 'Get-LabRole_Ubuntu' }
+            Ubuntu          = @{ File = 'Ubuntu.ps1';            Function = 'Get-LabRole_Ubuntu' }
+            WebServerUbuntu = @{ File = 'WebServer.Ubuntu.ps1'; Function = 'Get-LabRole_WebServerUbuntu' }
+            DatabaseUbuntu  = @{ File = 'Database.Ubuntu.ps1';  Function = 'Get-LabRole_DatabaseUbuntu' }
+            DockerUbuntu    = @{ File = 'Docker.Ubuntu.ps1';    Function = 'Get-LabRole_DockerUbuntu' }
+            K8sUbuntu       = @{ File = 'K8s.Ubuntu.ps1';       Function = 'Get-LabRole_K8sUbuntu' }
         }
 
         $roleDefs = @()
@@ -385,14 +389,21 @@ function Build-LabFromSelection {
         Write-Host '  [Phase 11] Running post-install scripts...' -ForegroundColor Yellow
         $phaseStart = Get-Date
 
-        # DC must run first (AD services needed by other post-installs)
+        # DC must run first (AD services needed by other post-installs) — DC failure is FATAL
         $dcRole = $roleDefs | Where-Object { $_.Tag -eq 'DC' }
         if ($dcRole -and $dcRole.PostInstall) {
-            Write-Host "    Running post-install: $($dcRole.VMName)..." -ForegroundColor Yellow
-            & $dcRole.PostInstall $Config
+            Write-Host "    Running post-install: $($dcRole.VMName) [CRITICAL - AD services]..." -ForegroundColor Yellow
+            try {
+                & $dcRole.PostInstall $Config
+                Write-Host "    [OK] DC post-install complete: $($dcRole.VMName)" -ForegroundColor Green
+            }
+            catch {
+                throw "FATAL: DC role post-install failed. AD services are required for all other roles. Error: $($_.Exception.Message). Aborting build."
+            }
         }
 
         # Then all other Windows roles (not DC) in parallel
+        $postInstallResults = @()
         $windowsPostInstallRoles = @($roleDefs | Where-Object { $_.Tag -ne 'DC' -and -not $_.IsLinux -and $_.PostInstall })
         if ($windowsPostInstallRoles.Count -gt 0) {
             $postInstallJobs = @()
@@ -410,10 +421,10 @@ function Build-LabFromSelection {
 
                         $block = [scriptblock]::Create($roleDef.PostInstall.ToString())
                         & $block $cfg
-                        [pscustomobject]@{ VMName = $roleDef.VMName; Success = $true; Error = '' }
+                        [pscustomobject]@{ VMName = $roleDef.VMName; Tag = $roleDef.Tag; Success = $true; Error = '' }
                     }
                     catch {
-                        [pscustomobject]@{ VMName = $roleDef.VMName; Success = $false; Error = $_.Exception.Message }
+                        [pscustomobject]@{ VMName = $roleDef.VMName; Tag = $roleDef.Tag; Success = $false; Error = $_.Exception.Message }
                     }
                 } -ArgumentList $rd, $Config, (Join-Path $PSScriptRoot '..\Lab-Common.ps1'), (Join-Path $PSScriptRoot '..\Lab-Config.ps1')
 
@@ -426,12 +437,14 @@ function Build-LabFromSelection {
                     $jobResult = Receive-Job -Job $job -ErrorAction SilentlyContinue
                     if ($jobResult -and $jobResult.Success) {
                         Write-Host "    [OK] Post-install complete: $($jobResult.VMName)" -ForegroundColor Green
+                        $postInstallResults += @{ VMName = $jobResult.VMName; Tag = $jobResult.Tag; Status = 'OK'; Error = '' }
                     }
                     else {
                         $jobName = if ($jobResult) { $jobResult.VMName } else { $job.Name }
-                        $jobErr = if ($jobResult) { $jobResult.Error } else { 'Unknown post-install failure.' }
+                        $jobTag  = if ($jobResult) { $jobResult.Tag }    else { '?' }
+                        $jobErr  = if ($jobResult) { $jobResult.Error }  else { 'Unknown post-install failure.' }
                         Write-Warning "Post-install for $jobName failed: $jobErr"
-                        Write-Host '    Continuing with remaining post-installs...' -ForegroundColor Yellow
+                        $postInstallResults += @{ VMName = $jobName; Tag = $jobTag; Status = 'FAIL'; Error = $jobErr }
                     }
                     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
                 }
@@ -445,12 +458,31 @@ function Build-LabFromSelection {
                 Write-Host "    Running post-install: $($rd.VMName) [Linux]..." -ForegroundColor Yellow
                 try {
                     & $rd.PostInstall $Config
+                    $postInstallResults += @{ VMName = $rd.VMName; Tag = $rd.Tag; Status = 'OK'; Error = '' }
                 }
                 catch {
                     Write-Warning "Post-install for $($rd.VMName) failed: $($_.Exception.Message)"
-                    Write-Host '    Continuing with remaining post-installs...' -ForegroundColor Yellow
+                    $postInstallResults += @{ VMName = $rd.VMName; Tag = $rd.Tag; Status = 'FAIL'; Error = $_.Exception.Message }
                 }
             }
+        }
+
+        # Post-Install Summary
+        if ($postInstallResults.Count -gt 0) {
+            Write-Host ''
+            Write-Host '    Post-Install Summary:' -ForegroundColor Cyan
+            Write-Host '    VM Name      Role            Status' -ForegroundColor White
+            Write-Host '    -------      ----            ------' -ForegroundColor Gray
+            foreach ($r in $postInstallResults) {
+                $statusColor = switch ($r.Status) { 'OK' { 'Green' } 'WARN' { 'Yellow' } default { 'Red' } }
+                $statusText = if ($r.Status -eq 'FAIL' -and $r.Error) { "FAIL: $($r.Error.Substring(0, [math]::Min(60, $r.Error.Length)))" } else { $r.Status }
+                Write-Host "    $($r.VMName.PadRight(13))$($r.Tag.PadRight(16))$statusText" -ForegroundColor $statusColor
+            }
+            $failCount = @($postInstallResults | Where-Object { $_.Status -eq 'FAIL' }).Count
+            if ($failCount -gt 0) {
+                Write-Warning "$failCount of $($postInstallResults.Count) role post-installs failed. Lab may be partially configured."
+            }
+            Write-Host ''
         }
 
         $timings['PostInstall'] = (Get-Date) - $phaseStart
@@ -517,10 +549,11 @@ function Build-LabFromSelection {
                 Display = $totalDuration.ToString('hh\:mm\:ss')
             }
             SelectedRoles = $SelectedRoles
-            Machines      = $machinePlan
-            Timings       = $timingData
-            TranscriptLog = $transcriptPath
-            Success       = $true
+            Machines           = $machinePlan
+            PostInstallResults = $postInstallResults
+            Timings            = $timingData
+            TranscriptLog      = $transcriptPath
+            Success            = $true
         }
 
         $summary | ConvertTo-Json -Depth 5 | Set-Content -Path $summaryPath -Encoding UTF8
