@@ -185,27 +185,7 @@ if ($DefaultsFile) {
 # Invoke-QuickTeardown extracted to Private/Invoke-LabQuickTeardown.ps1
 
 # Pause-Menu extracted to Private/Suspend-LabMenuPrompt.ps1
-
-function Invoke-MenuCommand {
-    param(
-        [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][scriptblock]$Command,
-        [switch]$NoPause
-    )
-
-    Add-LabRunEvent -Step "menu:$Name" -Status 'start' -Message 'interactive' -RunEvents $RunEvents
-    try {
-        & $Command
-        Add-LabRunEvent -Step "menu:$Name" -Status 'ok' -Message 'completed' -RunEvents $RunEvents
-    } catch {
-        Add-LabRunEvent -Step "menu:$Name" -Status 'fail' -Message $_.Exception.Message -RunEvents $RunEvents
-        Write-LabStatus -Status FAIL -Message "$($_.Exception.Message)"
-    }
-
-    if (-not $NoPause) {
-        Suspend-LabMenuPrompt
-    }
-}
+# Invoke-MenuCommand extracted to Private/Invoke-LabMenuCommand.ps1
 
 function Get-MenuVmSelection {
     param([string]$SuggestedVM = '')
@@ -475,9 +455,9 @@ function Invoke-InteractiveMenu {
         Show-Menu
         $choice = (Read-Host "  Select").Trim().ToUpperInvariant()
         switch ($choice) {
-            'S' { Invoke-MenuCommand -Name 'setup' -Command { Invoke-LabSetupMenu -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -EffectiveMode $EffectiveMode -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict } }
+            'S' { Invoke-LabMenuCommand -Name 'setup' -Command { Invoke-LabSetupMenu -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -EffectiveMode $EffectiveMode -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict } }
             'R' {
-                Invoke-MenuCommand -Name 'reset' -Command {
+                Invoke-LabMenuCommand -Name 'reset' -Command {
                     $confirm = (Read-Host "  Type REBUILD to confirm").Trim()
                     if ($confirm -eq 'REBUILD') {
                         $dropNet = (Read-Host "  Remove network? (y/n)").Trim().ToLowerInvariant() -eq 'y'
@@ -487,11 +467,11 @@ function Invoke-InteractiveMenu {
                     }
                 }
             }
-            '1' { Invoke-MenuCommand -Name 'start' -Command { Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            '2' { Invoke-MenuCommand -Name 'stop' -Command { Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames); Write-LabStatus -Status OK -Message "Lab stopped" } }
-            '3' { Invoke-MenuCommand -Name 'status' -Command { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '1' { Invoke-LabMenuCommand -Name 'start' -Command { Invoke-LabRepoScript -BaseName 'Start-LabDay' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '2' { Invoke-LabMenuCommand -Name 'stop' -Command { Stop-LabVMsSafe -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames); Write-LabStatus -Status OK -Message "Lab stopped" } }
+            '3' { Invoke-LabMenuCommand -Name 'status' -Command { Invoke-LabRepoScript -BaseName 'Lab-Status' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '4' {
-                Invoke-MenuCommand -Name 'rollback' -Command {
+                Invoke-LabMenuCommand -Name 'rollback' -Command {
                     if (-not (Test-LabReadySnapshot -LabName $GlobalLabConfig.Lab.Name -CoreVMNames @($GlobalLabConfig.Lab.CoreVMNames))) {
                         Write-LabStatus -Status WARN -Message "LabReady snapshot not found"
                         return
@@ -500,23 +480,23 @@ function Invoke-InteractiveMenu {
                     Write-LabStatus -Status OK -Message "Restored to LabReady"
                 }
             }
-            '5' { Invoke-MenuCommand -Name 'health' -Command { $healthArgs = Get-LabHealthArgs; Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '5' { Invoke-LabMenuCommand -Name 'health' -Command { $healthArgs = Get-LabHealthArgs; Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabHealth' -Arguments $healthArgs -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             '6' {
                 Write-Host "  [P] Push to WS1  [S] Save Work" -ForegroundColor Cyan
                 $sub = (Read-Host "  Select").Trim().ToUpperInvariant()
                 if ($sub -eq 'P') { Invoke-LabRepoScript -BaseName 'Push-ToWS1' -ScriptDir $ScriptDir -RunEvents $RunEvents }
                 elseif ($sub -eq 'S') { Invoke-LabRepoScript -BaseName 'Save-LabWork' -ScriptDir $ScriptDir -RunEvents $RunEvents }
             }
-            '7' { Invoke-MenuCommand -Name 'terminal' -Command { Invoke-LabRepoScript -BaseName 'Open-LabTerminal' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            '8' { Invoke-MenuCommand -Name 'new-project' -Command { Invoke-LabRepoScript -BaseName 'New-LabProject' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            '9' { Invoke-MenuCommand -Name 'test' -Command { Invoke-LabRepoScript -BaseName 'Test-OnWS1' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            'A' { Invoke-MenuCommand -Name 'asset-report' -Command { Invoke-LabRepoScript -BaseName 'Asset-Report' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            'F' { Invoke-MenuCommand -Name 'offline-bundle' -Command { Invoke-LabRepoScript -BaseName 'Build-OfflineAutomatedLabBundle' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            'O' { Invoke-MenuCommand -Name 'configure-role' -Command { Invoke-ConfigureRoleMenu } }
-            'V' { Invoke-MenuCommand -Name 'add-vm' -Command { Invoke-AddVMMenu } }
-            'L' { Invoke-MenuCommand -Name 'add-lin1' -Command { Invoke-LabRepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            'C' { Invoke-MenuCommand -Name 'lin1-config' -Command { Invoke-LabRepoScript -BaseName 'Configure-LIN1' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
-            'N' { Invoke-MenuCommand -Name 'ansible' -Command { Invoke-LabRepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '7' { Invoke-LabMenuCommand -Name 'terminal' -Command { Invoke-LabRepoScript -BaseName 'Open-LabTerminal' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '8' { Invoke-LabMenuCommand -Name 'new-project' -Command { Invoke-LabRepoScript -BaseName 'New-LabProject' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            '9' { Invoke-LabMenuCommand -Name 'test' -Command { Invoke-LabRepoScript -BaseName 'Test-OnWS1' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'A' { Invoke-LabMenuCommand -Name 'asset-report' -Command { Invoke-LabRepoScript -BaseName 'Asset-Report' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'F' { Invoke-LabMenuCommand -Name 'offline-bundle' -Command { Invoke-LabRepoScript -BaseName 'Build-OfflineAutomatedLabBundle' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'O' { Invoke-LabMenuCommand -Name 'configure-role' -Command { Invoke-ConfigureRoleMenu } }
+            'V' { Invoke-LabMenuCommand -Name 'add-vm' -Command { Invoke-AddVMMenu } }
+            'L' { Invoke-LabMenuCommand -Name 'add-lin1' -Command { Invoke-LabRepoScript -BaseName 'Add-LIN1' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'C' { Invoke-LabMenuCommand -Name 'lin1-config' -Command { Invoke-LabRepoScript -BaseName 'Configure-LIN1' -ScriptDir $ScriptDir -RunEvents $RunEvents } }
+            'N' { Invoke-LabMenuCommand -Name 'ansible' -Command { Invoke-LabRepoScript -BaseName 'Install-Ansible' -Arguments @('-NonInteractive') -ScriptDir $ScriptDir -RunEvents $RunEvents } }
             'X' { break }
             default { Write-Host "  Invalid" -ForegroundColor Red; Start-Sleep -Seconds 1 }
         }
