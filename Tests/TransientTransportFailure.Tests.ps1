@@ -15,7 +15,12 @@ Describe 'Test-LabTransientTransportFailure' {
         @{ Message = 'The WinRM operation timed out while waiting for a response from the remote host.' },
         @{ Message = 'The WSMan provider host process did not return a proper response. The operation has timed out.' },
         @{ Message = 'Scoped confirmation completed, but the WinRM operation timed out while waiting for a response from the remote host.' },
-        @{ Message = 'The WSMan request timed out while negotiating a remote session.' }
+        @{ Message = 'The WSMan request timed out while negotiating a remote session.' },
+        @{ Message = 'ssh: connect to host 10.0.0.5 port 22: Connection refused' },
+        @{ Message = 'ssh: connect to host 10.0.0.5 port 22: No route to host' },
+        @{ Message = 'ssh: connect to host 10.0.0.5 port 22: Host is unreachable' },
+        @{ Message = 'ssh: connect to host 10.0.0.5 port 22: Network is unreachable' },
+        @{ Message = 'ssh: connect to host 10.0.0.5 port 22: Connection timed out' }
     ) {
         param($Message)
 
@@ -30,7 +35,10 @@ Describe 'Test-LabTransientTransportFailure' {
         @{ Message = 'Execution policy restricts running scripts on this system.' },
         @{ Message = 'WinRM cannot process the request. The following error occurred while using Kerberos authentication: Access is denied.' },
         @{ Message = 'The WSMan provider host process did not return a proper response. The client cannot connect because the server rejected the credentials.' },
-        @{ Message = 'WinRM cannot process the request because authentication failed for the remote endpoint.' }
+        @{ Message = 'WinRM cannot process the request because authentication failed for the remote endpoint.' },
+        @{ Message = 'Host key verification failed.' },
+        @{ Message = 'Permission denied (publickey).' },
+        @{ Message = 'Received disconnect from 10.0.0.5 port 22:2: Too many authentication failures' }
     ) {
         param($Message)
 
