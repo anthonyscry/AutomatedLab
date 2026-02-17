@@ -6,9 +6,11 @@ function Set-VMStaticIP {
         [string]$VMName,
 
         [Parameter(Mandatory = $true)]
+        [ValidatePattern('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')]
         [string]$IPAddress,
 
         [Parameter()]
+        [ValidateRange(1,32)]
         [int]$PrefixLength = 24,
 
         [Parameter()]

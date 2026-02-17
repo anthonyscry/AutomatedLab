@@ -76,6 +76,17 @@ function New-LabNAT {
         24
     }
 
+    # Validate prefix length
+    if ($prefixLength -lt 1 -or $prefixLength -gt 32) {
+        return [PSCustomObject]@{
+            OverallStatus = 'Failed'
+            Message = "Invalid CIDR prefix length '$prefixLength' in AddressSpace '$AddressSpace'. Must be 1-32."
+            SwitchCreated = $false
+            GatewayConfigured = $false
+            NATCreated = $false
+        }
+    }
+
     $results = @{
         SwitchCreated = $false
         GatewayConfigured = $false
