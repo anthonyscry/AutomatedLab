@@ -88,10 +88,13 @@ Plans:
   3. IIS, WSUS, DHCP, FileServer, PrintServer, DSC, Jumpbox roles install and configure correctly
   4. Client role joins domain as workstation
   5. All roles handle missing prerequisites gracefully with clear error messages
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
 
 Plans:
-- [ ] 04-01: [To be planned]
+- [ ] 04-01-PLAN.md -- Fix param syntax bugs, add prerequisite validation to DHCP/DSC, create role tests (ROLE-05, ROLE-06, ROLE-08, ROLE-10, ROLE-11)
+- [ ] 04-02-PLAN.md -- Add error handling and post-install verification to DC/SQL/IIS/WSUS/PrintServer/Jumpbox (ROLE-01, ROLE-02, ROLE-03, ROLE-04, ROLE-07, ROLE-09, ROLE-11)
+- [ ] 04-03-PLAN.md -- Harden Build-LabFromSelection orchestrator with enhanced reporting and DC-fatal logic (ROLE-11)
+- [ ] 04-04-PLAN.md -- Add null-guards to Linux role scripts for graceful degradation (ROLE-11)
 
 ### Phase 5: GUI Integration
 **Goal**: WPF GUI provides full feature parity with CLI — all actions accessible and functional from both interfaces
