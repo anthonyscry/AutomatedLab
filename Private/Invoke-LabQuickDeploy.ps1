@@ -7,7 +7,7 @@ function Invoke-LabQuickDeploy {
     param(
         [switch]$DryRun,
         [Parameter(Mandatory)][string]$ScriptDir,
-        [Parameter(Mandatory)][System.Collections.Generic.List[object]]$RunEvents
+        [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[object]]$RunEvents
     )
 
     if ($DryRun) {

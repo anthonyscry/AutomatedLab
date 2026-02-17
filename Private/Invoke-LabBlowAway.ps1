@@ -10,7 +10,7 @@ function Invoke-LabBlowAway {
         [switch]$Simulate,
         [Parameter(Mandatory)][hashtable]$LabConfig,
         [Parameter(Mandatory)][string]$SwitchName,
-        [Parameter(Mandatory)][System.Collections.Generic.List[object]]$RunEvents
+        [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[object]]$RunEvents
     )
 
     if ($Simulate) {

@@ -9,7 +9,7 @@ function Invoke-LabQuickTeardown {
         [Parameter(Mandatory)][string]$LabName,
         [Parameter(Mandatory)][string[]]$CoreVMNames,
         [Parameter(Mandatory)][hashtable]$LabConfig,
-        [Parameter(Mandatory)][System.Collections.Generic.List[object]]$RunEvents
+        [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[object]]$RunEvents
     )
 
     if ($DryRun) {
