@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 Phase: 7 of 10 (Security & Reliability Fixes)
 Plan: 02 of 02 complete (both plans executed)
-Status: Phase 7 complete — all REL requirements closed
-Last activity: 2026-02-17 — Phase 7 plans 01 and 02 executed; all 4 reliability gaps (R1-R4) closed
+Status: Phase 7 complete — all SEC and REL requirements closed
+Last activity: 2026-02-17 — Phase 7 plan 01 (07-01-SUMMARY.md) executed; all 4 security gaps (S1-S4) regression-guarded with Pester tests
 
 Progress: [████████████████████░░] 60% (25/42+ total plans across all phases)
 
@@ -39,6 +39,9 @@ Recent decisions affecting current work:
 - **Fix all 10 production gaps, not just security** (pending): Reliability gaps (exit 0, missing validation) affect daily use
 - **Replace Out-Null with Write-Verbose** (pending): Suppressed output hides diagnostics; Verbose is opt-in
 - **No behavior changes during extraction** (pending): Observable output must remain identical
+- **Use script: scope in Pester BeforeAll for variable access** (07-01): $using: only valid in remote/parallel contexts; $script: is correct for sequential It blocks
+- **Cross-platform path filters need [IO.Path]::DirectorySeparatorChar** (07-01): Backslash path patterns fail on Linux/WSL; use system separator char
+- **Test-Path variable: pattern in default param values** (07-01): Required for StrictMode compliance when referencing optional script-scope vars
 - **Accumulated check pattern over early return** (07-02): Test-DCPromotionPrereqs restructured so all checks run; canProceedToVMChecks flag gates in-VM checks without early return
 - **CanPromote derived from failCount** (07-02): More explicit than assuming true if no return hit
 - **$script: prefix for Pester 5 BeforeAll variables** (07-02): $using: only works in parallel mode; $script: is correct for sequential test runs
@@ -57,9 +60,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 07-02-PLAN.md — Phase 7 complete (both plans executed)
-Resume file: None — ready to begin Phase 8
+Stopped at: Completed 07-01-PLAN.md — Security gaps S1-S4 regression-guarded; 07-01-SUMMARY.md created
+Resume file: None — Phase 7 fully complete, ready to begin Phase 8
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-17 after Phase 7 Plan 02 execution (reliability gaps closed)*
+*Last updated: 2026-02-17 after Phase 7 Plan 01 execution (security gaps regression-guarded)*
