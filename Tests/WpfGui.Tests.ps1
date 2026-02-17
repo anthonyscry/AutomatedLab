@@ -169,3 +169,56 @@ Describe 'GUI Settings Persistence' {
         $scriptContent | Should -Match 'catch\s*\{\s*Write-Warning.*Failed to read GUI settings'
     }
 }
+
+Describe 'GUI-CLI Action Parity' {
+
+    BeforeAll {
+        $guiScript = Join-Path $guiRoot 'Start-OpenCodeLabGUI.ps1'
+        $cliScript = Join-Path (Split-Path -Parent $guiRoot) 'OpenCodeLab-App.ps1'
+    }
+
+    It 'WPF GUI actions list matches CLI ValidateSet (excluding menu)' {
+        # Extract CLI actions from ValidateSet
+        $cliContent = Get-Content -Raw -Path $cliScript
+        $cliActions = @()
+        if ($cliContent -match "ValidateSet\(([\s\S]*?)\)") {
+            $cliActions = @([regex]::Matches($matches[1], "'([^']+)'") | ForEach-Object { $_.Groups[1].Value }) |
+                Where-Object { $_ -ne 'menu' } | Sort-Object
+        }
+
+        # Extract GUI actions from Initialize-ActionsView
+        $guiContent = Get-Content -Raw -Path $guiScript
+        $guiActions = @()
+        if ($guiContent -match '\$actions\s*=\s*@\(([\s\S]*?)\)') {
+            $guiActions = @([regex]::Matches($matches[1], "'([^']+)'") | ForEach-Object { $_.Groups[1].Value }) |
+                Sort-Object
+        }
+
+        $cliActions.Count | Should -BeGreaterThan 0 -Because 'CLI should have action list'
+        $guiActions.Count | Should -BeGreaterThan 0 -Because 'GUI should have action list'
+        $guiActions | Should -Be $cliActions -Because 'GUI and CLI action lists should match'
+    }
+
+    It 'GUI defines descriptions for all actions' {
+        $guiContent = Get-Content -Raw -Path $guiScript
+
+        # Extract action list
+        $guiActions = @()
+        if ($guiContent -match '\$actions\s*=\s*@\(([\s\S]*?)\)') {
+            $guiActions = @([regex]::Matches($matches[1], "'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+        }
+
+        # Extract actionDescriptions hashtable
+        $descriptionBlock = ''
+        if ($guiContent -match '\$actionDescriptions\s*=\s*@\{([\s\S]*?)\n\s*\}') {
+            $descriptionBlock = $matches[1]
+        }
+
+        $guiActions.Count | Should -BeGreaterThan 0
+        $descriptionBlock | Should -Not -BeNullOrEmpty
+
+        foreach ($action in $guiActions) {
+            $descriptionBlock | Should -Match "'$action'\s*=" -Because "Action '$action' should have a description"
+        }
+    }
+}
