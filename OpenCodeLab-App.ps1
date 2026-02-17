@@ -179,13 +179,7 @@ if ($DefaultsFile) {
 
 # Invoke-OneButtonReset extracted to Private/Invoke-LabOneButtonReset.ps1
 
-function Invoke-Setup {
-    $preflightArgs = Get-LabPreflightArgs
-    $bootstrapArgs = Get-LabBootstrapArgs -Mode $EffectiveMode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
-
-    Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-    Invoke-LabRepoScript -BaseName 'Bootstrap' -Arguments $bootstrapArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
-}
+# Invoke-Setup extracted to Private/Invoke-LabSetup.ps1
 
 # Invoke-QuickDeploy extracted to Private/Invoke-LabQuickDeploy.ps1
 # Invoke-QuickTeardown extracted to Private/Invoke-LabQuickTeardown.ps1
@@ -1222,7 +1216,7 @@ $skipLegacyOrchestration = $false
             }
             Invoke-InteractiveMenu
         }
-        'setup' { Invoke-Setup }
+        'setup' { Invoke-LabSetup -EffectiveMode $EffectiveMode -ScriptDir $ScriptDir -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict }
         'one-button-setup' { Invoke-LabOneButtonSetup -EffectiveMode $EffectiveMode -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict }
         'one-button-reset' { Invoke-LabOneButtonReset -DropNetwork:$RemoveNetwork -DryRun:$DryRun -Force:$Force -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -LabName $GlobalLabConfig.Lab.Name -EffectiveMode $EffectiveMode -RunEvents $RunEvents }
         'preflight' {
