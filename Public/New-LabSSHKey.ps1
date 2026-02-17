@@ -26,17 +26,13 @@ function New-LabSSHKey {
         [switch]$Force
     )
 
-    $labConfig = Get-LabConfig
     $sshKeyDir = if ($OutputPath) {
         $OutputPath
-    } elseif ($labConfig -and $labConfig.PSObject.Properties.Name -contains 'LabSettings') {
-        if ($labConfig.LabSettings.PSObject.Properties.Name -contains 'SSHKeyDir') {
-            $labConfig.LabSettings.SSHKeyDir
-        } else {
-            "C:\LabSources\SSHKeys"
-        }
+    } elseif ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Linux.SSHKeyDir) {
+        $GlobalLabConfig.Linux.SSHKeyDir
     } else {
-        "C:\LabSources\SSHKeys"
+        Write-Warning "No SSH key directory configured. Set `$GlobalLabConfig.Linux.SSHKeyDir in Lab-Config.ps1. Falling back to C:\LabSources\SSHKeys."
+        'C:\LabSources\SSHKeys'
     }
 
     $privateKey = Join-Path $sshKeyDir 'id_ed25519'
