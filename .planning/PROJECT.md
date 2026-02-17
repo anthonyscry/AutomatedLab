@@ -48,8 +48,13 @@ Every function handles errors explicitly, surfaces clear diagnostics, and the co
 
 ### Active
 
-- [ ] Module export list reconciled between .psd1 and .psm1
-- [ ] Out-Null replaced with Write-Verbose across codebase
+None — v1.1 milestone complete.
+
+### Recently Completed (Phase 10)
+
+- ✓ Module export list reconciled — .psd1 and .psm1 both export 47 functions, ghost exports removed — Phase 10
+- ✓ Out-Null replaced with context-aware patterns across ~170 instances in 60+ files — Phase 10
+- ✓ 10 regression tests in ModuleDiagnostics.Tests.ps1 guard export consistency and [void] patterns — Phase 10
 
 ### Out of Scope
 

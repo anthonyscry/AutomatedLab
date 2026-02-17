@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Brownfield Hardening & Integration** - Phases 1-6 (shipped 2026-02-17)
-- 🚧 **v1.1 Production Robustness** - Phases 7-10 (in progress)
+- ✅ **v1.1 Production Robustness** - Phases 7-10 (shipped 2026-02-17)
 
 ## Phases
 
@@ -127,7 +127,7 @@ Plans:
 
 </details>
 
-### v1.1 Production Robustness (In Progress)
+### v1.1 Production Robustness (Complete)
 
 **Milestone Goal:** Every function handles errors explicitly, the orchestrator is modular and testable, and all 10 known production gaps are closed — so deploys either succeed or explain exactly why they failed.
 
@@ -137,10 +137,10 @@ Plans:
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 7: Security & Reliability Fixes** - Close 8 production gaps in security and reliability (S1-S4, R1-R4)
-- [ ] **Phase 8: Orchestrator Extraction** - Extract 31 inline functions from OpenCodeLab-App.ps1 to Private/ helpers
-- [ ] **Phase 9: Error Handling** - Add try-catch error handling to all 39 functions currently missing it
-- [ ] **Phase 10: Module Diagnostics** - Reconcile module exports and replace Out-Null with Write-Verbose
+- [x] **Phase 7: Security & Reliability Fixes** - Close 8 production gaps in security and reliability (S1-S4, R1-R4)
+- [x] **Phase 8: Orchestrator Extraction** - Extract 31 inline functions from OpenCodeLab-App.ps1 to Private/ helpers
+- [x] **Phase 9: Error Handling** - Add try-catch error handling to all 39 functions currently missing it
+- [x] **Phase 10: Module Diagnostics** - Reconcile module exports and replace Out-Null with Write-Verbose
 
 ## Phase Details
 
@@ -211,9 +211,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10-01-PLAN.md -- GUI [void] cast conversion + module export reconciliation + regression tests (DIAG-02, DIAG-03)
-- [ ] 10-02-PLAN.md -- Replace Out-Null in Private/ and Public/ files with context-aware patterns (DIAG-01)
-- [ ] 10-03-PLAN.md -- Replace Out-Null in Deploy, Bootstrap, LabBuilder, Scripts with context-aware patterns (DIAG-01)
+- [x] 10-01-PLAN.md -- GUI [void] cast conversion + module export reconciliation + regression tests (DIAG-02, DIAG-03)
+- [x] 10-02-PLAN.md -- Replace Out-Null in Private/ and Public/ files with context-aware patterns (DIAG-01)
+- [x] 10-03-PLAN.md -- Replace Out-Null in Deploy, Bootstrap, LabBuilder, Scripts with context-aware patterns (DIAG-01)
 
 ## Progress
 
@@ -231,7 +231,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 7. Security & Reliability Fixes | v1.1 | 2/2 | Complete | 2026-02-17 |
 | 8. Orchestrator Extraction | v1.1 | 4/4 | Complete | 2026-02-17 |
 | 9. Error Handling | v1.1 | 4/4 | Complete | 2026-02-17 |
-| 10. Module Diagnostics | v1.1 | 0/3 | Not started | - |
+| 10. Module Diagnostics | v1.1 | 3/3 | Complete | 2026-02-17 |
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
