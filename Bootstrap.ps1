@@ -83,7 +83,8 @@ Write-Step "1/10" "NuGet provider"
 
 $nuget = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
 if (-not $nuget -or $nuget.Version -lt [version]'2.8.5.201') {
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+    Write-Verbose "Installing NuGet provider (MinimumVersion 2.8.5.201)..."
+    $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Write-OK "NuGet provider installed"
 } else {
     Write-Skip "NuGet provider already installed (v$($nuget.Version))"
@@ -149,7 +150,8 @@ Write-Step "6/10" "LabSources folder structure"
 
 foreach ($folder in $RequiredFolders) {
     if (-not (Test-Path $folder)) {
-        New-Item -Path $folder -ItemType Directory -Force | Out-Null
+        $null = New-Item -Path $folder -ItemType Directory -Force
+        Write-Verbose "Created directory: $folder"
         Write-OK "Created $folder"
     } else {
         Write-Skip "$folder exists"
@@ -177,7 +179,8 @@ if ($hyperv.State -eq 'Enabled') {
 } else {
     Write-Warn "Hyper-V is not enabled. Attempting to enable..."
     try {
-        Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart -ErrorAction Stop | Out-Null
+        Write-Verbose "Enabling Hyper-V optional feature (no restart)..."
+        $null = Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart -ErrorAction Stop
         Write-OK "Hyper-V enabled. A REBOOT IS REQUIRED before deploying the lab."
         Write-Host "`n  Reboot your machine, then re-run this script." -ForegroundColor Yellow
         if (-not $NonInteractive) {
@@ -203,7 +206,8 @@ try {
     # Create/reuse internal vSwitch
     $sw = Get-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -ErrorAction SilentlyContinue
     if (-not $sw) {
-        New-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -SwitchType Internal | Out-Null
+        Write-Verbose "Creating Hyper-V vSwitch '$($GlobalLabConfig.Network.SwitchName)' (Internal)..."
+        $null = New-VMSwitch -Name $GlobalLabConfig.Network.SwitchName -SwitchType Internal
         Write-OK "Created Hyper-V vSwitch: $($GlobalLabConfig.Network.SwitchName) (Internal)"
     } else {
         Write-Skip "vSwitch exists: $($GlobalLabConfig.Network.SwitchName)"
@@ -219,7 +223,8 @@ try {
         Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
 
-        New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GlobalLabConfig.Network.GatewayIp -PrefixLength 24 | Out-Null
+        Write-Verbose "Assigning gateway IP $($GlobalLabConfig.Network.GatewayIp) on $ifAlias..."
+        $null = New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GlobalLabConfig.Network.GatewayIp -PrefixLength 24
         Write-OK "Assigned host gateway IP: $($GlobalLabConfig.Network.GatewayIp) on $ifAlias"
     } else {
         Write-Skip "Host gateway IP already set: $($GlobalLabConfig.Network.GatewayIp) on $ifAlias"
@@ -228,7 +233,8 @@ try {
     # Create/reuse NAT
     $nat = Get-NetNat -Name $GlobalLabConfig.Network.NatName -ErrorAction SilentlyContinue
     if (-not $nat) {
-        New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace | Out-Null
+        Write-Verbose "Creating NAT '$($GlobalLabConfig.Network.NatName)' for $($GlobalLabConfig.Network.AddressSpace)..."
+        $null = New-NetNat -Name $GlobalLabConfig.Network.NatName -InternalIPInterfaceAddressPrefix $GlobalLabConfig.Network.AddressSpace
         Write-OK "Created NAT: $($GlobalLabConfig.Network.NatName) for $($GlobalLabConfig.Network.AddressSpace)"
     } else {
         Write-Skip "NAT exists: $($GlobalLabConfig.Network.NatName)"
