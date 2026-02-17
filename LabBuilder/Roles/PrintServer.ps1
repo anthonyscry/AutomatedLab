@@ -30,26 +30,43 @@ function Get-LabRole_PrintServer {
         PostInstall = {
             param([hashtable]$LabConfig)
 
-            $target = Get-LabVM -ComputerName $LabConfig.VMNames.PrintServer -ErrorAction SilentlyContinue
-            if ($target) {
-                Install-LabWindowsFeature -ComputerName $target -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools | Out-Null
-            } else {
-                Install-LabWindowsFeature -ComputerName $LabConfig.VMNames.PrintServer -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools | Out-Null
+            $printVMName = $LabConfig.VMNames.PrintServer
+
+            try {
+                $target = Get-LabVM -ComputerName $printVMName -ErrorAction SilentlyContinue
+                if ($target) {
+                    Install-LabWindowsFeature -ComputerName $target -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools | Out-Null
+                } else {
+                    Install-LabWindowsFeature -ComputerName $printVMName -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools | Out-Null
+                }
+
+                Invoke-LabCommand -ComputerName $printVMName -ActivityName 'PrintServer-Verify' -ScriptBlock {
+                    $feature = Get-WindowsFeature -Name Print-Server -ErrorAction SilentlyContinue
+                    if (-not $feature -or $feature.InstallState -ne 'Installed') {
+                        throw 'Print-Server feature is not installed.'
+                    }
+
+                    $rule = Get-NetFirewallRule -DisplayName 'Print Server RPC (135)' -ErrorAction SilentlyContinue
+                    if (-not $rule) {
+                        New-NetFirewallRule -DisplayName 'Print Server RPC (135)' -Direction Inbound -Protocol TCP -LocalPort 135 -Action Allow | Out-Null
+                    }
+                } -Retries 2 -RetryIntervalInSeconds 10
+
+                # Verify Spooler service is running
+                $spoolerVerify = Invoke-LabCommand -ComputerName $printVMName -ActivityName 'PrintServer-Verify-Spooler' -PassThru -ScriptBlock {
+                    $svc = Get-Service Spooler -ErrorAction SilentlyContinue
+                    @{ Running = ($null -ne $svc -and $svc.Status -eq 'Running') }
+                }
+                if (-not $spoolerVerify.Running) {
+                    Write-Warning "PrintServer role: Spooler service is not running on $printVMName. Run on PrintServer VM: Get-Service Spooler | Format-Table Name,Status"
+                }
+                else {
+                    Write-Host "    [OK] Print Server installed and Spooler verified running on $printVMName." -ForegroundColor Green
+                }
             }
-
-            Invoke-LabCommand -ComputerName $LabConfig.VMNames.PrintServer -ActivityName 'PrintServer-Verify' -ScriptBlock {
-                $feature = Get-WindowsFeature -Name Print-Server -ErrorAction SilentlyContinue
-                if (-not $feature -or $feature.InstallState -ne 'Installed') {
-                    throw 'Print-Server feature is not installed.'
-                }
-
-                $rule = Get-NetFirewallRule -DisplayName 'Print Server RPC (135)' -ErrorAction SilentlyContinue
-                if (-not $rule) {
-                    New-NetFirewallRule -DisplayName 'Print Server RPC (135)' -Direction Inbound -Protocol TCP -LocalPort 135 -Action Allow | Out-Null
-                }
-            } -Retries 2 -RetryIntervalInSeconds 10
-
-            Write-Host "    [OK] Print Server installed on $($LabConfig.VMNames.PrintServer)." -ForegroundColor Green
+            catch {
+                Write-Warning "PrintServer role post-install failed on ${printVMName}: $($_.Exception.Message). Check: Print-Server feature available. Run on PrintServer VM: Get-WindowsFeature Print-Server"
+            }
         }
     }
 }

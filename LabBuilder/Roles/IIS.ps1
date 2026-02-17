@@ -30,27 +30,30 @@ function Get-LabRole_IIS {
         PostInstall = {
             param([hashtable]$LabConfig)
 
-            Invoke-LabCommand -ComputerName $LabConfig.VMNames.IIS -ActivityName 'IIS-Install-WebServer' -ScriptBlock {
-                # Install IIS (idempotent)
-                $feat = Get-WindowsFeature Web-Server -ErrorAction SilentlyContinue
-                if ($feat.InstallState -ne 'Installed') {
-                    Install-WindowsFeature Web-Server -IncludeManagementTools -ErrorAction Stop
-                    Write-Host '    [OK] IIS Web Server installed.' -ForegroundColor Green
-                }
-                else {
-                    Write-Host '    [OK] IIS Web Server already installed.' -ForegroundColor Green
-                }
+            $iisVMName = $LabConfig.VMNames.IIS
 
-                # Create sample site directory (idempotent)
-                $sitePath = 'C:\inetpub\LabSite'
-                if (-not (Test-Path $sitePath)) {
-                    New-Item -Path $sitePath -ItemType Directory -Force | Out-Null
-                }
+            try {
+                Invoke-LabCommand -ComputerName $iisVMName -ActivityName 'IIS-Install-WebServer' -ScriptBlock {
+                    # Install IIS (idempotent)
+                    $feat = Get-WindowsFeature Web-Server -ErrorAction SilentlyContinue
+                    if ($feat.InstallState -ne 'Installed') {
+                        Install-WindowsFeature Web-Server -IncludeManagementTools -ErrorAction Stop
+                        Write-Host '    [OK] IIS Web Server installed.' -ForegroundColor Green
+                    }
+                    else {
+                        Write-Host '    [OK] IIS Web Server already installed.' -ForegroundColor Green
+                    }
 
-                # Default page (idempotent)
-                $indexPath = Join-Path $sitePath 'index.html'
-                if (-not (Test-Path $indexPath)) {
-                    $html = @'
+                    # Create sample site directory (idempotent)
+                    $sitePath = 'C:\inetpub\LabSite'
+                    if (-not (Test-Path $sitePath)) {
+                        New-Item -Path $sitePath -ItemType Directory -Force | Out-Null
+                    }
+
+                    # Default page (idempotent)
+                    $indexPath = Join-Path $sitePath 'index.html'
+                    if (-not (Test-Path $indexPath)) {
+                        $html = @'
 <!DOCTYPE html>
 <html>
 <head><title>LabBuilder IIS</title></head>
@@ -60,18 +63,34 @@ function Get-LabRole_IIS {
 </body>
 </html>
 '@
-                    Set-Content -Path $indexPath -Value $html -Encoding UTF8
-                    Write-Host '    [OK] Sample site created at C:\inetpub\LabSite' -ForegroundColor Green
-                }
+                        Set-Content -Path $indexPath -Value $html -Encoding UTF8
+                        Write-Host '    [OK] Sample site created at C:\inetpub\LabSite' -ForegroundColor Green
+                    }
 
-                # Firewall rule (idempotent)
-                $rule = Get-NetFirewallRule -DisplayName 'IIS HTTP (80)' -ErrorAction SilentlyContinue
-                if (-not $rule) {
-                    New-NetFirewallRule -DisplayName 'IIS HTTP (80)' `
-                        -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow | Out-Null
-                    Write-Host '    [OK] Firewall rule created for port 80.' -ForegroundColor Green
+                    # Firewall rule (idempotent)
+                    $rule = Get-NetFirewallRule -DisplayName 'IIS HTTP (80)' -ErrorAction SilentlyContinue
+                    if (-not $rule) {
+                        New-NetFirewallRule -DisplayName 'IIS HTTP (80)' `
+                            -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow | Out-Null
+                        Write-Host '    [OK] Firewall rule created for port 80.' -ForegroundColor Green
+                    }
+                } -Retries 2 -RetryIntervalInSeconds 10
+
+                # Verify W3SVC service is running
+                $iisVerify = Invoke-LabCommand -ComputerName $iisVMName -ActivityName 'IIS-Verify-Service' -PassThru -ScriptBlock {
+                    $svc = Get-Service W3SVC -ErrorAction SilentlyContinue
+                    @{ Running = ($null -ne $svc -and $svc.Status -eq 'Running') }
                 }
-            } -Retries 2 -RetryIntervalInSeconds 10
+                if (-not $iisVerify.Running) {
+                    Write-Warning "IIS role: W3SVC service is not running on $iisVMName after installation. Run on IIS VM: Get-Service W3SVC | Format-Table Name,Status"
+                }
+                else {
+                    Write-Host '    [OK] IIS W3SVC service verified running.' -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Warning "IIS role post-install failed on ${iisVMName}: $($_.Exception.Message). Check: Web-Server feature available, VM has sufficient disk space. Run on IIS VM: Get-Service W3SVC | Format-Table Name,Status"
+            }
         }
     }
 }
