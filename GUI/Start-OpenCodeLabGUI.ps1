@@ -139,7 +139,12 @@ function Save-GuiSettings {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
     }
 
-    $Settings | ConvertTo-Json -Depth 10 | Set-Content -Path $script:GuiSettingsPath -Encoding UTF8
+    try {
+        $Settings | ConvertTo-Json -Depth 10 | Set-Content -Path $script:GuiSettingsPath -Encoding UTF8
+    }
+    catch {
+        Write-Warning "Failed to save GUI settings: $_"
+    }
 }
 
 # ── Theme switching ──────────────────────────────────────────────────────
@@ -1117,7 +1122,11 @@ function Initialize-ActionsView {
 
     # ── Populate combo boxes ──────────────────────────────────────
     $actions = @('deploy', 'teardown', 'status', 'health', 'setup',
-                 'one-button-setup', 'one-button-reset', 'blow-away')
+                 'one-button-setup', 'one-button-reset', 'blow-away',
+                 'preflight', 'bootstrap', 'add-lin1', 'lin1-config',
+                 'ansible', 'start', 'stop', 'asset-report',
+                 'offline-bundle', 'terminal', 'new-project',
+                 'push', 'test', 'save', 'rollback')
     foreach ($a in $actions) { $cmbAction.Items.Add($a) | Out-Null }
     $cmbAction.SelectedIndex = 0
 
@@ -1278,6 +1287,7 @@ function Initialize-ActionsView {
 
 # ── Log management ──────────────────────────────────────────────────────
 $script:LogEntries        = [System.Collections.Generic.List[PSCustomObject]]::new()
+$script:LogEntriesMaxCount = 2000
 $script:LogFilter         = 'All'
 $script:LogOutputElement  = $null
 $script:LogScrollerElement = $null
@@ -1302,6 +1312,11 @@ function Add-LogEntry {
         Message   = $Message
     }
     $script:LogEntries.Add($entry)
+
+    # Enforce size cap using FIFO trimming
+    while ($script:LogEntries.Count -gt $script:LogEntriesMaxCount) {
+        $script:LogEntries.RemoveAt(0)
+    }
 
     if ($script:LogOutputElement) {
         Render-LogEntries
@@ -1334,7 +1349,7 @@ function Render-LogEntries {
             'Success' { 'SuccessBrush' }
             default   { 'TextPrimaryBrush' }
         }
-        $run.Foreground = $mainWindow.FindResource($brushKey)
+        $run.Foreground = [System.Windows.Application]::Current.FindResource($brushKey)
 
         $script:LogOutputElement.Inlines.Add($run)
     }
@@ -1416,6 +1431,8 @@ function Initialize-SettingsView {
     $btnSaveSettings  = $viewElement.FindName('btnSaveSettings')
 
     # ── Populate from GlobalLabConfig ─────────────────────────────
+    $configJsonPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'config.json'
+
     if (Test-Path variable:GlobalLabConfig) {
         $txtLabRoot.Text    = $GlobalLabConfig.Paths.LabRoot
         $txtSwitchName.Text = $GlobalLabConfig.Network.SwitchName
@@ -1424,9 +1441,25 @@ function Initialize-SettingsView {
         $txtAdminUsername.Text = $GlobalLabConfig.Credentials.InstallUser
         $txtAdminPassword.Password = $GlobalLabConfig.Credentials.AdminPassword
     }
+    else {
+        # Fall back to config.json for network and credential settings
+        if (Test-Path $configJsonPath) {
+            try {
+                $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
+                if ($configJson.Network) {
+                    $txtSwitchName.Text = if ($configJson.Network.SwitchName) { $configJson.Network.SwitchName } else { '' }
+                    $txtSubnet.Text     = if ($configJson.Network.Subnet) { $configJson.Network.Subnet } else { '' }
+                    $txtGatewayIP.Text  = if ($configJson.Network.GatewayIP) { $configJson.Network.GatewayIP } else { '' }
+                }
+                if ($configJson.AdminUsername) {
+                    $txtAdminUsername.Text = $configJson.AdminUsername
+                }
+            }
+            catch { }
+        }
+    }
 
     # ── Populate ISO paths from .planning/config.json ─────────────
-    $configJsonPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'config.json'
     if (Test-Path $configJsonPath) {
         try {
             $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
@@ -1478,6 +1511,18 @@ function Initialize-SettingsView {
 
     # ── Save button handler ───────────────────────────────────────
     $btnSaveSettings.Add_Click({
+        # Validate subnet format
+        $subnet = $txtSubnet.Text.Trim()
+        if ($subnet -and $subnet -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$') {
+            [System.Windows.MessageBox]::Show(
+                "Invalid subnet format. Please enter CIDR notation (e.g. 10.0.10.0/24).",
+                'Validation Error',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+            return
+        }
+
         # Validate gateway IP format
         $gwIP = $txtGatewayIP.Text.Trim()
         if ($gwIP -and $gwIP -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
@@ -1502,11 +1547,41 @@ function Initialize-SettingsView {
             $configJson.IsoPaths.Server2019 = $txtIsoServer.Text
             $configJson.IsoPaths.Windows11  = $txtIsoWin11.Text
 
+            # Persist network settings
+            $existingProps = @($configJson.PSObject.Properties | ForEach-Object { $_.Name })
+
+            $networkSettings = [PSCustomObject]@{
+                SwitchName  = $txtSwitchName.Text.Trim()
+                Subnet      = $txtSubnet.Text.Trim()
+                GatewayIP   = $gwIP
+            }
+
+            if ($existingProps -contains 'Network') {
+                $configJson.Network = $networkSettings
+            } else {
+                $configJson | Add-Member -MemberType NoteProperty -Name 'Network' -Value $networkSettings
+            }
+
+            # Persist admin username (password stays in memory only -- never written to disk)
+            $adminUser = $txtAdminUsername.Text.Trim()
+            if (-not [string]::IsNullOrWhiteSpace($adminUser)) {
+                if ($existingProps -contains 'AdminUsername') {
+                    $configJson.AdminUsername = $adminUser
+                } else {
+                    $configJson | Add-Member -MemberType NoteProperty -Name 'AdminUsername' -Value $adminUser
+                }
+            }
+
             $parentDir = Split-Path -Parent $configJsonPath
             if (-not (Test-Path $parentDir)) {
                 New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
             }
             $configJson | ConvertTo-Json -Depth 10 | Set-Content -Path $configJsonPath -Encoding UTF8
+
+            # Also persist admin username to gui-settings.json for cross-session recall
+            $guiSettings = Get-GuiSettings
+            $guiSettings['AdminUsername'] = $txtAdminUsername.Text.Trim()
+            Save-GuiSettings -Settings $guiSettings
 
             [System.Windows.MessageBox]::Show(
                 'Settings saved successfully.',
