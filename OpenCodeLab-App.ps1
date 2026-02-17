@@ -149,91 +149,7 @@ elseif ($PSBoundParameters.ContainsKey('DispatchMode')) {
     $ResolvedDispatchMode = [string]$DispatchMode
 }
 
-function Write-RunArtifacts {
-    param(
-        [Parameter(Mandatory)][bool]$Success,
-        [string]$ErrorMessage = ''
-    )
-
-    if (-not (Test-Path $RunLogRoot)) {
-        New-Item -Path $RunLogRoot -ItemType Directory -Force | Out-Null
-    }
-
-    $ended = Get-Date
-    $duration = [int]($ended - $RunStart).TotalSeconds
-    $baseName = "OpenCodeLab-Run-$RunId"
-    $jsonPath = Join-Path $RunLogRoot "$baseName.json"
-    $txtPath = Join-Path $RunLogRoot "$baseName.txt"
-
-    $report = [pscustomobject]@{
-        run_id = $RunId
-        action = $Action
-        dispatch_mode = $ResolvedDispatchMode
-        execution_outcome = $executionOutcome
-        execution_started_at = $executionStartedAt
-        execution_completed_at = $executionCompletedAt
-        requested_mode = $RequestedMode
-        effective_mode = $EffectiveMode
-        fallback_reason = $FallbackReason
-        profile_source = $ProfileSource
-        noninteractive = [bool]$NonInteractive
-        core_only = [bool]$CoreOnly
-        force = [bool]$Force
-        remove_network = [bool]$RemoveNetwork
-        dry_run = [bool]$DryRun
-        auto_heal = if ((Test-Path variable:healResult) -and $null -ne $healResult) { $healResult } else { $null }
-        defaults_file = $DefaultsFile
-        started_utc = $RunStart.ToUniversalTime().ToString('o')
-        ended_utc = $ended.ToUniversalTime().ToString('o')
-        duration_seconds = $duration
-        success = $Success
-        error = $ErrorMessage
-        policy_outcome = $policyOutcome
-        policy_reason = $policyReason
-        host_outcomes = @($hostOutcomes)
-        blast_radius = @($blastRadius)
-        host = $env:COMPUTERNAME
-        user = "$env:USERDOMAIN\$env:USERNAME"
-        events = $RunEvents
-    }
-
-    $report | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
-
-    $lines = @(
-        "run_id: $RunId",
-        "action: $Action",
-        "dispatch_mode: $ResolvedDispatchMode",
-        "execution_outcome: $executionOutcome",
-        "execution_started_at: $executionStartedAt",
-        "execution_completed_at: $executionCompletedAt",
-        "requested_mode: $RequestedMode",
-        "effective_mode: $EffectiveMode",
-        "fallback_reason: $FallbackReason",
-        "profile_source: $ProfileSource",
-        "core_only: $CoreOnly",
-        "success: $Success",
-        "started_utc: $($RunStart.ToUniversalTime().ToString('o'))",
-        "ended_utc: $($ended.ToUniversalTime().ToString('o'))",
-        "duration_seconds: $duration",
-        "error: $ErrorMessage",
-        "policy_outcome: $policyOutcome",
-        "policy_reason: $policyReason",
-        "host_outcomes: $((@($hostOutcomes | ForEach-Object { if ($_.PSObject.Properties.Name -contains 'HostName') { [string]$_.HostName } else { 'unknown' } }) -join ','))",
-        "blast_radius: $($blastRadius -join ',')",
-        "host: $env:COMPUTERNAME",
-        "user: $env:USERDOMAIN\$env:USERNAME",
-        "events:"
-    )
-
-    foreach ($runEvent in $RunEvents) {
-        $lines += "- [$($runEvent.Time)] $($runEvent.Step) :: $($runEvent.Status) :: $($runEvent.Message)"
-    }
-
-    $lines | Set-Content -Path $txtPath -Encoding UTF8
-    Write-Host "`n  Run report: $jsonPath" -ForegroundColor DarkGray
-    Write-Host "  Run summary: $txtPath" -ForegroundColor DarkGray
-}
-
+# Write-RunArtifacts extracted to Private/Write-LabRunArtifacts.ps1
 # Test-LabReadySnapshot extracted to Private/Test-LabReadySnapshot.ps1
 
 if ($DefaultsFile) {
@@ -1728,7 +1644,33 @@ $skipLegacyOrchestration = $false
     throw
 } finally {
     if ((-not $NoExecute) -or $WriteArtifactsInNoExecute) {
-        Write-RunArtifacts -Success:$runSuccess -ErrorMessage $runError
+        $reportData = @{
+            RunId                = $RunId
+            Action               = $Action
+            ResolvedDispatchMode = $ResolvedDispatchMode
+            ExecutionOutcome     = $executionOutcome
+            ExecutionStartedAt   = $executionStartedAt
+            ExecutionCompletedAt = $executionCompletedAt
+            RequestedMode        = $RequestedMode
+            EffectiveMode        = $EffectiveMode
+            FallbackReason       = $FallbackReason
+            ProfileSource        = $ProfileSource
+            NonInteractive       = [bool]$NonInteractive
+            CoreOnly             = [bool]$CoreOnly
+            Force                = [bool]$Force
+            RemoveNetwork        = [bool]$RemoveNetwork
+            DryRun               = [bool]$DryRun
+            AutoHeal             = if ((Test-Path variable:healResult) -and $null -ne $healResult) { $healResult } else { $null }
+            DefaultsFile         = $DefaultsFile
+            RunStart             = $RunStart
+            RunLogRoot           = $RunLogRoot
+            PolicyOutcome        = if (Test-Path variable:policyOutcome) { $policyOutcome } else { $null }
+            PolicyReason         = if (Test-Path variable:policyReason) { $policyReason } else { $null }
+            HostOutcomes         = if (Test-Path variable:hostOutcomes) { @($hostOutcomes) } else { @() }
+            BlastRadius          = if (Test-Path variable:blastRadius) { @($blastRadius) } else { @() }
+            RunEvents            = $RunEvents
+        }
+        Write-LabRunArtifacts -ReportData $reportData -Success:$runSuccess -ErrorMessage $runError
         Invoke-LabLogRetention -RetentionDays $LogRetentionDays -LogRoot $RunLogRoot
     }
 }
