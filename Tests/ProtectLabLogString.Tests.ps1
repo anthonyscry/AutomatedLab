@@ -66,9 +66,9 @@ Describe "Protect-LabLogString" {
 
     Context "GlobalLabConfig password scrubbing" {
         BeforeEach {
-            # Create mock GlobalLabConfig
-            $script:GlobalLabConfig = [PSCustomObject]@{
-                Credentials = [PSCustomObject]@{
+            # Create mock GlobalLabConfig (must be hashtable to match production config)
+            $script:GlobalLabConfig = @{
+                Credentials = @{
                     AdminPassword = "ConfigAdminPwd789"
                     SqlSaPassword = "ConfigSqlPwd999"
                 }

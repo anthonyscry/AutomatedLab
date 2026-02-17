@@ -1,16 +1,17 @@
 BeforeAll {
     Set-StrictMode -Version Latest
-    $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $repoRoot = Split-Path $PSScriptRoot -Parent
     . (Join-Path $repoRoot 'Lab-Config.ps1')
-    . (Join-Path $repoRoot 'Private\Clear-LabSSHKnownHosts.ps1')
+    . (Join-Path (Join-Path $repoRoot 'Private') 'Clear-LabSSHKnownHosts.ps1')
 }
 
 Describe 'SSH Known Hosts Configuration' {
     Context 'No UserKnownHostsFile=NUL in codebase' {
         It 'should not contain UserKnownHostsFile=NUL in any PowerShell file' {
-            $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+            $repoRoot = Split-Path $PSScriptRoot -Parent
             $matches = Get-ChildItem -Path $repoRoot -Filter '*.ps1' -Recurse -File |
                 Where-Object { $_.FullName -notmatch '[\\/]\.planning-archive[\\/]' } |
+                Where-Object { $_.FullName -notmatch '[\\/]Tests[\\/]' } |
                 Select-String -Pattern 'UserKnownHostsFile=NUL' -SimpleMatch
 
             $matches | Should -BeNullOrEmpty -Because "all SSH operations should use lab-specific known_hosts path"
@@ -30,7 +31,7 @@ Describe 'SSH Known Hosts Configuration' {
 
     Context 'All SSH operations use lab-specific known_hosts' {
         It 'should use lab_known_hosts in all SSH/SCP calls' {
-            $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+            $repoRoot = Split-Path $PSScriptRoot -Parent
             $sshFiles = @(
                 'Private\Linux\Invoke-LinuxSSH.ps1'
                 'Private\Linux\Copy-LinuxFile.ps1'
@@ -51,15 +52,15 @@ Describe 'SSH Known Hosts Configuration' {
 
     Context 'StrictHostKeyChecking preserved' {
         It 'should still use accept-new for all SSH operations' {
-            $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+            $repoRoot = Split-Path $PSScriptRoot -Parent
             $sshFiles = Get-ChildItem -Path $repoRoot -Filter '*.ps1' -Recurse -File |
                 Where-Object { $_.FullName -notmatch '[\\/]\.planning-archive[\\/]' } |
                 Where-Object { $_.FullName -notmatch '[\\/]Tests[\\/]' }
 
             $acceptNewCount = 0
             foreach ($file in $sshFiles) {
-                $matches = Select-String -Path $file.FullName -Pattern 'StrictHostKeyChecking=accept-new' -SimpleMatch
-                $acceptNewCount += $matches.Count
+                $fileMatches = Select-String -Path $file.FullName -Pattern 'StrictHostKeyChecking=accept-new' -SimpleMatch
+                if ($fileMatches) { $acceptNewCount += @($fileMatches).Count }
             }
 
             $acceptNewCount | Should -BeGreaterThan 0 -Because "StrictHostKeyChecking=accept-new should be preserved in SSH calls"

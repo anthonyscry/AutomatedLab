@@ -187,9 +187,9 @@ try {
     if (-not (Test-Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)) -or -not (Test-Path (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub))) {
         Write-Host "  Generating host SSH keypair..." -ForegroundColor Yellow
         Invoke-WindowsSshKeygen -PrivateKeyPath (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) -Comment "lab-opencode"
-        Write-Host "  SSH keypair ready at (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys)" -ForegroundColor Green
+        Write-Host "  SSH keypair ready at $(Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys)" -ForegroundColor Green
     } else {
-        Write-Host "  SSH keypair found: (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)" -ForegroundColor Green
+        Write-Host "  SSH keypair found: $(Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519)" -ForegroundColor Green
     }
 
     # ============================================================
@@ -229,7 +229,7 @@ try {
         Write-LabStatus -Status OK -Message "VMSwitch exists: $($GlobalLabConfig.Network.SwitchName)" -Indent 2
     }
 
-    $ifAlias = "vEthernet ($GlobalLabConfig.Network.SwitchName)"
+    $ifAlias = "vEthernet ($($GlobalLabConfig.Network.SwitchName))"
     $hasGw = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
              Where-Object { $_.IPAddress -eq $GlobalLabConfig.Network.GatewayIp }
     if (-not $hasGw) {
@@ -572,7 +572,7 @@ try {
     Write-Host "`n[VALIDATE] Verifying host-to-DC1 network connectivity..." -ForegroundColor Cyan
 
     # 1. Ensure host adapter still has the gateway IP (Install-Lab may have interfered)
-    $ifAlias = "vEthernet ($GlobalLabConfig.Network.SwitchName)"
+    $ifAlias = "vEthernet ($($GlobalLabConfig.Network.SwitchName))"
     $hostIp = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
               Where-Object { $_.IPAddress -eq $GlobalLabConfig.Network.GatewayIp }
     if (-not $hostIp) {
@@ -600,12 +600,12 @@ try {
     if (-not $pingOk) {
         throw "Cannot ping DC1 ($GlobalLabConfig.IPPlan.DC1) from host after Stage 1. Check vSwitch '$($GlobalLabConfig.Network.SwitchName)' and host adapter '$ifAlias'. Aborting before Stage 2."
     }
-    Write-LabStatus -Status OK -Message "DC1 ($GlobalLabConfig.IPPlan.DC1) responds to ping"
+    Write-LabStatus -Status OK -Message "DC1 ($($GlobalLabConfig.IPPlan.DC1)) responds to ping"
 
     # 4. Verify WinRM connectivity (this is what AutomatedLab uses internally)
     $winrmOk = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
     if (-not $winrmOk.TcpTestSucceeded) {
-        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($GlobalLabConfig.IPPlan.DC1). AD may still be starting."
+        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($($GlobalLabConfig.IPPlan.DC1)). AD may still be starting."
         Write-Host "  Waiting 60s for WinRM to become available..." -ForegroundColor Yellow
         $retries = 6
         $winrmUp = $false
@@ -616,10 +616,10 @@ try {
             Write-Host "    Retry $i/$retries..." -ForegroundColor Gray
         }
         if (-not $winrmUp) {
-            throw "WinRM (port 5985) on DC1 ($GlobalLabConfig.IPPlan.DC1) is unreachable after 60s. Cannot proceed to Stage 2."
+            throw "WinRM (port 5985) on DC1 ($($GlobalLabConfig.IPPlan.DC1)) is unreachable after 60s. Cannot proceed to Stage 2."
         }
     }
-    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($GlobalLabConfig.IPPlan.DC1):5985"
+    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($($GlobalLabConfig.IPPlan.DC1)):5985"
     Write-LabStatus -Status OK -Message "Stage 1 validation passed - proceeding to DHCP + Stage 2"
 
     # ============================================================

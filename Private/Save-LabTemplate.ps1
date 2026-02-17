@@ -25,8 +25,14 @@ function Save-LabTemplate {
         [string]$Description = '',
 
         [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         [array]$VMs
     )
+
+    # Validate VMs array is not empty
+    if ($null -eq $VMs -or @($VMs).Count -eq 0) {
+        throw "Template validation failed: At least one VM is required."
+    }
 
     # Validate template name is filesystem-safe
     if ($Name -notmatch '^[a-zA-Z0-9_-]+$') {

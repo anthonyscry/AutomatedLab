@@ -32,14 +32,9 @@ function Test-LabTemplateData {
         'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu'
     )
 
-    # Structure validation - must have VMs array
-    if (-not $Template.vms) {
-        throw "${errorPrefix}: Missing 'vms' array."
-    }
-
-    # VMs array must not be empty
-    if (@($Template.vms).Count -eq 0) {
-        throw "${errorPrefix}: 'vms' array is empty. At least one VM is required."
+    # Structure validation - must have VMs array with at least one entry
+    if (-not $Template.vms -or @($Template.vms).Count -eq 0) {
+        throw "${errorPrefix}: At least one VM is required."
     }
 
     # Validate each VM
@@ -97,7 +92,7 @@ function Test-LabTemplateData {
         }
 
         # Memory validation (1-64 GB range)
-        if ($vm.memoryGB) {
+        if ($null -ne $vm.memoryGB) {
             try {
                 $memoryValue = [int]$vm.memoryGB
             }
@@ -111,7 +106,7 @@ function Test-LabTemplateData {
         }
 
         # Processor validation (1-16 range)
-        if ($vm.processors) {
+        if ($null -ne $vm.processors) {
             try {
                 $processorValue = [int]$vm.processors
             }

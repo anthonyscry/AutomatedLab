@@ -31,8 +31,8 @@ Describe 'String Interpolation Validation' {
             # Filter out false positives (already wrapped in subexpressions)
             $realIssues = $bareInterpolations | Where-Object {
                 $line = $_.Line
-                # Skip if it's already wrapped: $($GlobalLabConfig...)
-                $line -notmatch '\$\(\$GlobalLabConfig\.'
+                # Skip if it's already wrapped: $($GlobalLabConfig...) or $(expression $GlobalLabConfig...)
+                $line -notmatch '\$\([^)]*\$GlobalLabConfig\.'
             }
 
             if ($realIssues) {
@@ -80,8 +80,8 @@ Describe 'String Interpolation Validation' {
             # Filter out false positives (already wrapped in subexpressions)
             $realIssues = $bareInterpolations | Where-Object {
                 $line = $_.Line
-                # Skip if it's already wrapped: $($GlobalLabConfig...)
-                $line -notmatch '\$\(\$GlobalLabConfig\.'
+                # Skip if it's already wrapped: $($GlobalLabConfig...) or $(expression $GlobalLabConfig...)
+                $line -notmatch '\$\([^)]*\$GlobalLabConfig\.'
             }
 
             if ($realIssues) {

@@ -109,7 +109,7 @@ Describe 'Save-LabTemplate' {
             $repoRoot = New-TestRepoRoot
             try {
                 { Save-LabTemplate -RepoRoot $repoRoot -Name 'test' -VMs @(@{ name='this-is-way-too-long-name'; ip='10.0.0.1'; role='DC'; memoryGB=4; processors=2 }) } |
-                    Should -Throw -ExpectedMessage '*exceeds 15 characters*'
+                    Should -Throw -ExpectedMessage '*is invalid*'
             }
             finally {
                 Remove-TestRepoRoot $repoRoot
@@ -335,7 +335,7 @@ Describe 'Test-LabTemplateData' {
         It 'throws when vms array is missing' {
             $template = @{ name = 'test'; description = 'test' }
             { Test-LabTemplateData -Template $template } |
-                Should -Throw -ExpectedMessage "*Missing 'vms' array*"
+                Should -Throw -ExpectedMessage "*At least one VM is required*"
         }
 
         It 'throws when vms array is empty' {

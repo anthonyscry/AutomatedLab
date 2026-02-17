@@ -40,14 +40,16 @@ function Protect-LabLogString {
     }
 
     # Scrub GlobalLabConfig passwords if available
-    if (Test-Path variable:GlobalLabConfig) {
-        $configPasswords = @(
-            $GlobalLabConfig.Credentials.AdminPassword,
-            $GlobalLabConfig.Credentials.SqlSaPassword
-        )
-        foreach ($cp in $configPasswords) {
-            if (-not [string]::IsNullOrEmpty($cp) -and $result.Contains($cp)) {
-                $result = $result.Replace($cp, '***REDACTED***')
+    if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig -is [hashtable] -and $GlobalLabConfig.ContainsKey('Credentials')) {
+        $creds = $GlobalLabConfig.Credentials
+        if ($creds -is [hashtable]) {
+            $configPasswords = @()
+            if ($creds.ContainsKey('AdminPassword')) { $configPasswords += $creds.AdminPassword }
+            if ($creds.ContainsKey('SqlSaPassword')) { $configPasswords += $creds.SqlSaPassword }
+            foreach ($cp in $configPasswords) {
+                if (-not [string]::IsNullOrEmpty($cp) -and $result.Contains($cp)) {
+                    $result = $result.Replace($cp, '***REDACTED***')
+                }
             }
         }
     }
