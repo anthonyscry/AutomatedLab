@@ -13,14 +13,16 @@ function Remove-HyperVVMStale {
 
         Write-LabStatus -Status WARN -Message "Found VM '$VMName' during $Context (attempt $attempt/$MaxAttempts). Removing..." -Indent 2
 
-        Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue | Out-Null
+        Write-Verbose "Removing snapshots for VM '$VMName'..."
+        $null = Hyper-V\Get-VMSnapshot -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMSnapshot -ErrorAction SilentlyContinue
 
-        Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
-            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue | Out-Null
+        $null = Hyper-V\Get-VMDvdDrive -VMName $VMName -ErrorAction SilentlyContinue |
+            Hyper-V\Remove-VMDvdDrive -ErrorAction SilentlyContinue
 
         if ($vm.State -like 'Saved*') {
-            Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue | Out-Null
+            Write-Verbose "Removing saved state for VM '$VMName'..."
+            $null = Hyper-V\Remove-VMSavedState -VMName $VMName -ErrorAction SilentlyContinue
             $savedStateDeadline = [datetime]::Now.AddSeconds(10)
             while ([datetime]::Now -lt $savedStateDeadline) {
                 $savedStateVm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue
@@ -31,7 +33,8 @@ function Remove-HyperVVMStale {
         }
 
         if ($vm -and $vm.State -ne 'Off') {
-            Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue | Out-Null
+            Write-Verbose "Force stopping VM '$VMName'..."
+            $null = Hyper-V\Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue
             $stopDeadline = [datetime]::Now.AddSeconds(20)
             while ([datetime]::Now -lt $stopDeadline) {
                 $stoppedVm = Hyper-V\Get-VM -Name $VMName -ErrorAction SilentlyContinue

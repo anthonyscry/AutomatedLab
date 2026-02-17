@@ -132,7 +132,8 @@ function Restart-LabVM {
                 if (-not $offStateReached) {
                     Write-Warning "VM '$VMName' did not reach Off state within ${stopTimeout}s, attempting force turn off"
                     try {
-                        Stop-VM -Name $VMName -TurnOff -Force -ErrorAction Stop | Out-Null
+                        Write-Verbose "Force stopping VM '$VMName'..."
+                        $null = Stop-VM -Name $VMName -TurnOff -Force -ErrorAction Stop
                         Start-Sleep -Seconds 2
                     }
                     catch {

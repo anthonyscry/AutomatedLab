@@ -94,15 +94,17 @@ function Initialize-LabDNS {
             # If Force specified, remove existing forwarders first
             if ($Force -and $forwarderList.Count -gt 0) {
                 Write-Verbose "Removing existing forwarders..."
-                Invoke-Command -VMName $VMName -ScriptBlock {
+                Write-Verbose "Removing existing DNS forwarders on '$VMName'..."
+                $null = Invoke-Command -VMName $VMName -ScriptBlock {
                     Remove-DnsServerForwarder -All -Force -ErrorAction Stop
-                } -ErrorAction Stop | Out-Null
+                } -ErrorAction Stop
             }
 
             Write-Verbose "Configuring forwarders: $($Forwarder -join ', ')"
 
             # Step 3: Add new forwarders
-            Invoke-Command -VMName $VMName -ScriptBlock {
+            Write-Verbose "Configuring DNS forwarders on '$VMName'..."
+            $null = Invoke-Command -VMName $VMName -ScriptBlock {
                 param($forwarders)
 
                 # Add each forwarder
@@ -112,7 +114,7 @@ function Initialize-LabDNS {
                 }
 
                 return $forwarders
-            } -ArgumentList $Forwarder -ErrorAction Stop | Out-Null
+            } -ArgumentList $Forwarder -ErrorAction Stop
 
             $result.ForwardersConfigured = [string[]]$Forwarder
 

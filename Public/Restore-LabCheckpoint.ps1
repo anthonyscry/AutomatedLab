@@ -110,7 +110,7 @@ function Restore-LabCheckpoint {
             $vmName = $job.Name -replace '^restore-', ''
             if ($job.State -eq 'Completed') {
                 try {
-                    Receive-Job -Job $job -ErrorAction Stop | Out-Null
+                    $null = Receive-Job -Job $job -ErrorAction Stop
                     $result.VMsRestored += $vmName
                     Write-Verbose "Checkpoint restored for VM '$vmName'"
                 }
