@@ -42,44 +42,49 @@ function Resolve-LabPassword {
         [string]$PasswordLabel = 'AdminPassword'
     )
 
-    $resolvedPassword = ''
+    try {
+        $resolvedPassword = ''
 
-    # Priority 1: Explicit non-empty parameter
-    if (-not [string]::IsNullOrWhiteSpace($Password)) {
-        $resolvedPassword = $Password
-    }
-    # Priority 2: Environment variable
-    elseif (Test-Path env:$EnvVarName) {
-        $envValue = [System.Environment]::GetEnvironmentVariable($EnvVarName)
-        if (-not [string]::IsNullOrWhiteSpace($envValue)) {
-            $resolvedPassword = $envValue
+        # Priority 1: Explicit non-empty parameter
+        if (-not [string]::IsNullOrWhiteSpace($Password)) {
+            $resolvedPassword = $Password
         }
-    }
-
-    # Priority 3: Interactive prompt (if no password yet and running interactively)
-    if ([string]::IsNullOrWhiteSpace($resolvedPassword)) {
-        if ([Environment]::UserInteractive) {
-            Write-Host "[Security] No $PasswordLabel provided. Prompting interactively..." -ForegroundColor Yellow
-            $securePassword = Read-Host -Prompt "Enter $PasswordLabel" -AsSecureString
-            # Convert SecureString to plain text (same pattern as LabBuilder/Build-LabFromSelection.ps1:60-62)
-            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-            try {
-                $resolvedPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-            } finally {
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+        # Priority 2: Environment variable
+        elseif (Test-Path env:$EnvVarName) {
+            $envValue = [System.Environment]::GetEnvironmentVariable($EnvVarName)
+            if (-not [string]::IsNullOrWhiteSpace($envValue)) {
+                $resolvedPassword = $envValue
             }
         }
-    }
 
-    # Priority 4: Throw error if still empty
-    if ([string]::IsNullOrWhiteSpace($resolvedPassword)) {
-        throw "$PasswordLabel is required. Set it in Lab-Config.ps1, pass -$PasswordLabel parameter, or set `$env:$EnvVarName."
-    }
+        # Priority 3: Interactive prompt (if no password yet and running interactively)
+        if ([string]::IsNullOrWhiteSpace($resolvedPassword)) {
+            if ([Environment]::UserInteractive) {
+                Write-Host "[Security] No $PasswordLabel provided. Prompting interactively..." -ForegroundColor Yellow
+                $securePassword = Read-Host -Prompt "Enter $PasswordLabel" -AsSecureString
+                # Convert SecureString to plain text (same pattern as LabBuilder/Build-LabFromSelection.ps1:60-62)
+                $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+                try {
+                    $resolvedPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+                } finally {
+                    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+                }
+            }
+        }
 
-    # Warn if resolved password matches the well-known default
-    if (-not [string]::IsNullOrWhiteSpace($DefaultPassword) -and $resolvedPassword -eq $DefaultPassword) {
-        Write-Warning "[Security] Using default $PasswordLabel ('$DefaultPassword'). Set `$env:$EnvVarName or pass -$PasswordLabel for production use."
-    }
+        # Priority 4: Throw error if still empty
+        if ([string]::IsNullOrWhiteSpace($resolvedPassword)) {
+            throw "$PasswordLabel is required. Set it in Lab-Config.ps1, pass -$PasswordLabel parameter, or set `$env:$EnvVarName."
+        }
 
-    return $resolvedPassword
+        # Warn if resolved password matches the well-known default
+        if (-not [string]::IsNullOrWhiteSpace($DefaultPassword) -and $resolvedPassword -eq $DefaultPassword) {
+            Write-Warning "[Security] Using default $PasswordLabel ('$DefaultPassword'). Set `$env:$EnvVarName or pass -$PasswordLabel for production use."
+        }
+
+        return $resolvedPassword
+    }
+    catch {
+        throw "Resolve-LabPassword: failed to resolve lab password - $_"
+    }
 }
