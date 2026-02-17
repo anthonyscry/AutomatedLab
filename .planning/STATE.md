@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 8 of 10 (Orchestrator Extraction)
-Plan: 08-02 (ready to execute)
-Status: Phase 8 in progress (4 plans), 08-01 complete
-Last activity: 2026-02-17 — 08-01 complete: extracted 11 utility functions, 46 new tests, 612 total passing
+Plan: 08-03 (ready to execute)
+Status: Phase 8 in progress (4 plans), 08-01 and 08-02 complete
+Last activity: 2026-02-17 — 08-02 complete: extracted 8 state/ops functions, 31 new tests, 643 total passing
 
-Progress: [███████████████████████████░░░] 28/33 plans complete (v1.1: 2/2 Phase 7 done, 1/4 Phase 8, Phases 9-10 TBD)
+Progress: [████████████████████████████░░] 29/33 plans complete (v1.1: 2/2 Phase 7 done, 2/4 Phase 8, Phases 9-10 TBD)
 
 ## Performance Metrics
 
@@ -27,7 +27,7 @@ Progress: [███████████████████████
 **Current milestone (v1.1):**
 - 4 phases planned, 19 requirements
 - Phase 7: 2 plans executed, ~6.5 min avg, 24 new tests added (566 total)
-- Phase 8: 4 plans created, 1 executed (08-01: 11 functions, 16 min, 46 new tests, 612 total)
+- Phase 8: 4 plans created, 2 executed (08-01: 11 functions, 16 min, 46 tests; 08-02: 8 functions, 25 min, 31 tests, 643 total)
 - Phases 9-10: Plan count TBD during phase planning
 
 ## Accumulated Context
@@ -40,7 +40,9 @@ Recent decisions affecting current work:
 - **Extract inline functions before adding error handling** (pending): Can't properly test inline functions; extraction enables unit testing
 - **No behavior changes during extraction** (pending): Observable output must remain identical
 - **Replace Out-Null with Write-Verbose** (pending): Suppressed output hides diagnostics; Verbose is opt-in
-- **AllowEmptyCollection() for Generic List mandatory params** (08-01): PowerShell Mandatory binding rejects empty Generic List; AllowEmptyCollection() required
+- **AllowEmptyCollection() for Generic List mandatory params** (08-01, 08-02): PowerShell Mandatory binding rejects empty Generic List; AllowEmptyCollection() required
+- **Write-LabRunArtifacts uses ReportData hashtable** (08-02): Single hashtable param replaces 20+ script-scope reads; enables independent testability
+- **Tests updated to check Private/ files after extraction** (08-02): Existing tests checking App.ps1 inline definitions must be redirected to new Private/ locations
 - **Accumulated check pattern over early return** (Phase 7): Test-DCPromotionPrereqs restructured so all checks run without early return
 - **$script: prefix for Pester 5 BeforeAll variables** (Phase 7): $using: only works in parallel mode; $script: is correct for sequential test runs
 
@@ -50,16 +52,16 @@ None yet.
 
 ### Blockers/Concerns
 
-- OpenCodeLab-App.ps1 extraction in progress (1,862 lines, ~23 remaining inline functions after 08-01)
-- Batch 2-4 extraction will involve higher-risk functions with more script-scope dependencies
-- Module export mismatch could cause runtime failures if not reconciled carefully
+- OpenCodeLab-App.ps1 extraction in progress (~15 remaining inline functions after 08-02)
+- Batch 3 functions (Invoke-OrchestrationActionCore, Invoke-OneButtonSetup, Invoke-OneButtonReset, etc.) have moderate script-scope deps
+- Batch 4 (interactive menu system) has $GlobalLabConfig deps throughout
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 08-01-PLAN.md (11 functions extracted, 612 tests passing)
-Resume file: .planning/phases/08-orchestrator-extraction/08-02-PLAN.md
+Stopped at: Completed 08-02-PLAN.md (8 functions extracted, 643 tests passing)
+Resume file: .planning/phases/08-orchestrator-extraction/08-03-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-17 after 08-01 completion*
+*Last updated: 2026-02-17 after 08-02 completion*
