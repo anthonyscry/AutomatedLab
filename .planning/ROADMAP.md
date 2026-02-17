@@ -109,10 +109,13 @@ Plans:
   6. View switching works reliably between all views without state corruption
   7. Script-scoped variable closures captured correctly in all event handlers
   8. CLI and GUI achieve feature parity — no capability gaps between interfaces
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
 
 Plans:
-- [ ] 05-01: [To be planned]
+- [ ] 05-01-PLAN.md -- Actions parity (23 actions), timer lifecycle, view switching try-catch (GUI-01, GUI-02, GUI-06, GUI-07)
+- [ ] 05-02-PLAN.md -- Logs cap + color fix, full settings persistence, defensive JSON handling (GUI-04, GUI-05)
+- [ ] 05-03-PLAN.md -- Customize template hardening, blow-away token validation, script path fix (GUI-03, GUI-08)
+- [ ] 05-04-PLAN.md -- Comprehensive Pester tests for all GUI changes (GUI-01..08)
 
 ### Phase 6: Multi-Host Coordination
 **Goal**: Coordinator dispatch routes operations to correct target hosts with scoped safety gates
