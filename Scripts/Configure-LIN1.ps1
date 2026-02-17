@@ -30,7 +30,8 @@ if (-not $lin1Vm) {
     throw "LIN1 VM not found. Create LIN1 first (e.g. Deploy.ps1 -IncludeLIN1), then re-run Configure-LIN1.ps1."
 }
 if ($lin1Vm.State -ne 'Running') {
-    Start-VM -Name 'LIN1' | Out-Null
+    Write-Verbose "Starting LIN1 VM..."
+    $null = Start-VM -Name 'LIN1'
 }
 
 Write-Host "[LIN1] Waiting for SSH reachability (up to 30 min)..." -ForegroundColor Cyan
@@ -83,9 +84,11 @@ $vars = @{
     HOST_PUBKEY = $HostPublicKeyFileName
     PASS = $escapedPassword
 }
-Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars | Out-Null
+Write-Verbose "Running LIN1 SSH configuration script..."
+$null = Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $script -ActivityName 'Configure-LIN1-PostDeploy' -Variables $vars
 
 Write-Host "[LIN1] Finalizing boot media (detach installer + seed disk)..." -ForegroundColor Cyan
-Finalize-LinuxInstallMedia -VMName 'LIN1' | Out-Null
+Write-Verbose "Detaching LIN1 installer and seed disk..."
+$null = Finalize-LinuxInstallMedia -VMName 'LIN1'
 
 Write-LabStatus -Status OK -Message "LIN1 SSH bootstrap complete." -Indent 0

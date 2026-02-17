@@ -45,7 +45,8 @@ function Get-LabRole_WSUS {
                     )
 
                     if (-not (Test-Path $ContentDir)) {
-                        New-Item -Path $ContentDir -ItemType Directory -Force | Out-Null
+                        $null = New-Item -Path $ContentDir -ItemType Directory -Force
+                        Write-Verbose "Created WSUS content directory: $ContentDir"
                     }
 
                     $wsusUtil = 'C:\Program Files\Update Services\Tools\wsusutil.exe'
@@ -70,7 +71,8 @@ function Get-LabRole_WSUS {
 
                     $ruleName = "WSUS HTTP ($WsusPort)"
                     if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
-                        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $WsusPort -Action Allow | Out-Null
+                        Write-Verbose "Creating firewall rule for WSUS HTTP port $WsusPort..."
+                        $null = New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $WsusPort -Action Allow
                         Write-Host "    [OK] Firewall rule created for WSUS port $WsusPort." -ForegroundColor Green
                     }
                 } -ArgumentList $contentDir, $wsusPort -Retries 2 -RetryIntervalInSeconds 20

@@ -122,7 +122,8 @@ fi
         COMMIT_MSG = $CommitMsg
     }
 
-    Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $saveScript -ActivityName "Save-$proj" -Variables $saveVars | Out-Null
+    Write-Verbose "Committing and pushing project '$proj' on LIN1..."
+    $null = Invoke-BashOnLinuxVM -VMName 'LIN1' -BashScript $saveScript -ActivityName "Save-$proj" -Variables $saveVars
 }
 
 # Snapshot?

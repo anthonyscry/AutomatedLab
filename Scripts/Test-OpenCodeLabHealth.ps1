@@ -69,8 +69,9 @@ if ($IncludeLIN1) {
 }
 
 try {
-    Import-Module AutomatedLab -ErrorAction Stop | Out-Null
-    Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop | Out-Null
+    $null = Import-Module AutomatedLab -ErrorAction Stop
+    Write-Verbose "Importing lab '$($GlobalLabConfig.Lab.Name)'..."
+    $null = Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction Stop
     Add-Ok "Imported lab '$($GlobalLabConfig.Lab.Name)'"
 } catch {
     Add-Issue "Unable to import lab '$($GlobalLabConfig.Lab.Name)': $($_.Exception.Message)"

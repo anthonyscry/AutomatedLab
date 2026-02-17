@@ -9,14 +9,16 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path $OutputRoot)) {
-    New-Item -Path $OutputRoot -ItemType Directory -Force | Out-Null
+    $null = New-Item -Path $OutputRoot -ItemType Directory -Force
+    Write-Verbose "Created offline bundle output root: $OutputRoot"
 }
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $bundlePath = Join-Path $OutputRoot ("AutomatedLab-Offline-{0}" -f $stamp)
 $modulesPath = Join-Path $bundlePath 'Modules'
 
-New-Item -Path $modulesPath -ItemType Directory -Force | Out-Null
+$null = New-Item -Path $modulesPath -ItemType Directory -Force
+Write-Verbose "Created bundle modules directory: $modulesPath"
 
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -57,12 +59,12 @@ if (-not (Test-Path $source)) {
 }
 
 if (-not (Test-Path $Destination)) {
-    New-Item -Path $Destination -ItemType Directory -Force | Out-Null
+    $null = New-Item -Path $Destination -ItemType Directory -Force
 }
 
 Copy-Item -Path (Join-Path $source '*') -Destination $Destination -Recurse -Force
 
-Import-Module AutomatedLab -ErrorAction Stop | Out-Null
+$null = Import-Module AutomatedLab -ErrorAction Stop
 $module = Get-Module -ListAvailable -Name AutomatedLab | Sort-Object Version -Descending | Select-Object -First 1
 
 Write-Host ''

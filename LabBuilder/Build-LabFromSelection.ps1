@@ -67,7 +67,8 @@ function Build-LabFromSelection {
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $logDir = Join-Path $PSScriptRoot 'Logs'
     if (-not (Test-Path $logDir)) {
-        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+        $null = New-Item -Path $logDir -ItemType Directory -Force
+        Write-Verbose "Created log directory: $logDir"
     }
     $transcriptPath = Join-Path $logDir "LabBuild-$timestamp.log"
     $summaryPath    = Join-Path $logDir "LabBuild-$timestamp.summary.json"
@@ -149,7 +150,8 @@ function Build-LabFromSelection {
         foreach ($tag in $SelectedRoles) {
             $vmName = $Config.VMNames[$tag]
             if (Get-Command Remove-HyperVVMStale -ErrorAction SilentlyContinue) {
-                Remove-HyperVVMStale -VMName $vmName -Context 'LabBuilder cleanup' | Out-Null
+                Write-Verbose "Removing stale VM '$vmName' (LabBuilder cleanup)..."
+            $null = Remove-HyperVVMStale -VMName $vmName -Context 'LabBuilder cleanup'
             }
             else {
                 # Fallback if Lab-Common.ps1 not found
@@ -228,7 +230,8 @@ function Build-LabFromSelection {
 
         # Ensure vSwitch exists
         if (-not (Get-VMSwitch -Name $net.SwitchName -ErrorAction SilentlyContinue)) {
-            New-VMSwitch -Name $net.SwitchName -SwitchType Internal | Out-Null
+            Write-Verbose "Creating vSwitch '$($net.SwitchName)' (Internal)..."
+            $null = New-VMSwitch -Name $net.SwitchName -SwitchType Internal
             Write-Host "    [OK] Created vSwitch: $($net.SwitchName)" -ForegroundColor Green
         }
 
@@ -239,14 +242,16 @@ function Build-LabFromSelection {
         if (-not $hasGw) {
             Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
                 Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-            New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $net.Gateway -PrefixLength 24 | Out-Null
+            Write-Verbose "Setting host gateway IP $($net.Gateway) on $ifAlias..."
+            $null = New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $net.Gateway -PrefixLength 24
             Write-Host "    [OK] Set host gateway IP: $($net.Gateway)" -ForegroundColor Green
         }
 
         # Ensure NAT
         $nat = Get-NetNat -Name $net.NatName -ErrorAction SilentlyContinue
         if (-not $nat) {
-            New-NetNat -Name $net.NatName -InternalIPInterfaceAddressPrefix $net.AddressSpace | Out-Null
+            Write-Verbose "Creating NAT '$($net.NatName)' for $($net.AddressSpace)..."
+            $null = New-NetNat -Name $net.NatName -InternalIPInterfaceAddressPrefix $net.AddressSpace
             Write-Host "    [OK] Created NAT: $($net.NatName)" -ForegroundColor Green
         }
 
@@ -417,7 +422,7 @@ function Build-LabFromSelection {
                     try {
                         if (Test-Path $labCfgPath) { . $labCfgPath }
                         if (Test-Path $commonPath) { . $commonPath }
-                        Import-Module AutomatedLab -ErrorAction Stop | Out-Null
+                        $null = Import-Module AutomatedLab -ErrorAction Stop
 
                         $block = [scriptblock]::Create($roleDef.PostInstall.ToString())
                         & $block $cfg
@@ -432,7 +437,7 @@ function Build-LabFromSelection {
             }
 
             if ($postInstallJobs.Count -gt 0) {
-                Wait-Job -Job $postInstallJobs | Out-Null
+                $null = Wait-Job -Job $postInstallJobs
                 foreach ($job in $postInstallJobs) {
                     $jobResult = Receive-Job -Job $job -ErrorAction SilentlyContinue
                     if ($jobResult -and $jobResult.Success) {

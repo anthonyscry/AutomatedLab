@@ -35,9 +35,11 @@ function Get-LabRole_PrintServer {
             try {
                 $target = Get-LabVM -ComputerName $printVMName -ErrorAction SilentlyContinue
                 if ($target) {
-                    Install-LabWindowsFeature -ComputerName $target -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools | Out-Null
+                    Write-Verbose "Installing Print-Server feature on $printVMName (via LabVM object)..."
+                    $null = Install-LabWindowsFeature -ComputerName $target -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools
                 } else {
-                    Install-LabWindowsFeature -ComputerName $printVMName -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools | Out-Null
+                    Write-Verbose "Installing Print-Server feature on $printVMName (via name)..."
+                    $null = Install-LabWindowsFeature -ComputerName $printVMName -FeatureName Print-Server -IncludeAllSubFeature -IncludeManagementTools
                 }
 
                 Invoke-LabCommand -ComputerName $printVMName -ActivityName 'PrintServer-Verify' -ScriptBlock {
@@ -48,7 +50,8 @@ function Get-LabRole_PrintServer {
 
                     $rule = Get-NetFirewallRule -DisplayName 'Print Server RPC (135)' -ErrorAction SilentlyContinue
                     if (-not $rule) {
-                        New-NetFirewallRule -DisplayName 'Print Server RPC (135)' -Direction Inbound -Protocol TCP -LocalPort 135 -Action Allow | Out-Null
+                        Write-Verbose "Creating firewall rule for Print Server RPC port 135..."
+                        $null = New-NetFirewallRule -DisplayName 'Print Server RPC (135)' -Direction Inbound -Protocol TCP -LocalPort 135 -Action Allow
                     }
                 } -Retries 2 -RetryIntervalInSeconds 10
 

@@ -66,15 +66,17 @@ $builderConfig = $null
 $builderConfig = Resolve-AssetReportBuilderConfig -Path $LabBuilderConfigPath
 
 try {
-    Import-Module AutomatedLab -ErrorAction SilentlyContinue | Out-Null
+    $null = Import-Module AutomatedLab -ErrorAction SilentlyContinue
     if ($GlobalLabConfig.Lab.Name) {
-        Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction SilentlyContinue | Out-Null
+        Write-Verbose "Importing lab '$($GlobalLabConfig.Lab.Name)'..."
+        $null = Import-Lab -Name $GlobalLabConfig.Lab.Name -ErrorAction SilentlyContinue
     }
 } catch {
 }
 
 if (-not (Test-Path $OutputRoot)) {
-    New-Item -Path $OutputRoot -ItemType Directory -Force | Out-Null
+    $null = New-Item -Path $OutputRoot -ItemType Directory -Force
+    Write-Verbose "Created report output directory: $OutputRoot"
 }
 
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -88,7 +90,7 @@ if ($builderConfig) {
         if (-not $roleByVm.ContainsKey($vmName)) {
             $roleByVm[$vmName] = New-Object System.Collections.Generic.List[string]
         }
-        $roleByVm[$vmName].Add($tag) | Out-Null
+        [void]$roleByVm[$vmName].Add($tag)
 
         if ($builderConfig.IPPlan.ContainsKey($tag)) {
             $plannedIpByVm[$vmName] = [string]$builderConfig.IPPlan[$tag]
@@ -101,7 +103,7 @@ if (@($GlobalLabConfig.Lab.CoreVMNames)) {
         $upper = $vm.ToUpperInvariant()
         if (-not $roleByVm.ContainsKey($upper)) {
             $roleByVm[$upper] = New-Object System.Collections.Generic.List[string]
-            $roleByVm[$upper].Add($upper) | Out-Null
+            [void]$roleByVm[$upper].Add($upper)
         }
     }
 }
