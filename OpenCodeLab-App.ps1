@@ -177,22 +177,7 @@ if ($DefaultsFile) {
 
 # Invoke-OneButtonSetup extracted to Private/Invoke-LabOneButtonSetup.ps1
 
-function Invoke-OneButtonReset {
-    param([switch]$DropNetwork)
-
-    Write-Host "`n=== ONE-BUTTON RESET/REBUILD ===" -ForegroundColor Red
-    if ($DryRun) {
-        Write-Host "  Dry run enabled: reset/rebuild actions will not execute." -ForegroundColor Yellow
-        Invoke-LabBlowAway -BypassPrompt -DropNetwork:$DropNetwork -Simulate -LabConfig $GlobalLabConfig -SwitchName $SwitchName -RunEvents $RunEvents
-        Add-LabRunEvent -Step 'one-button-reset' -Status 'dry-run' -Message 'No changes made' -RunEvents $RunEvents
-        return
-    }
-
-    # For direct action calls (not from menu), require confirmation unless Force/NonInteractive
-    $shouldBypassPrompt = $Force -or $NonInteractive
-    Invoke-LabBlowAway -BypassPrompt:$shouldBypassPrompt -DropNetwork:$DropNetwork -LabConfig $GlobalLabConfig -SwitchName $SwitchName -RunEvents $RunEvents
-    Invoke-OneButtonSetup
-}
+# Invoke-OneButtonReset extracted to Private/Invoke-LabOneButtonReset.ps1
 
 function Invoke-Setup {
     $preflightArgs = Get-LabPreflightArgs
@@ -606,7 +591,7 @@ function Invoke-InteractiveMenu {
                     $confirm = (Read-Host "  Type REBUILD to confirm").Trim()
                     if ($confirm -eq 'REBUILD') {
                         $dropNet = (Read-Host "  Remove network? (y/n)").Trim().ToLowerInvariant() -eq 'y'
-                        Invoke-OneButtonReset -DropNetwork:$dropNet
+                        Invoke-LabOneButtonReset -DropNetwork:$dropNet -DryRun:$DryRun -Force:$Force -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -LabName $GlobalLabConfig.Lab.Name -EffectiveMode $EffectiveMode -RunEvents $RunEvents
                     } else {
                         Write-Host "  Cancelled" -ForegroundColor Yellow
                     }
@@ -1239,7 +1224,7 @@ $skipLegacyOrchestration = $false
         }
         'setup' { Invoke-Setup }
         'one-button-setup' { Invoke-LabOneButtonSetup -EffectiveMode $EffectiveMode -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict }
-        'one-button-reset' { Invoke-OneButtonReset -DropNetwork:$RemoveNetwork }
+        'one-button-reset' { Invoke-LabOneButtonReset -DropNetwork:$RemoveNetwork -DryRun:$DryRun -Force:$Force -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -LabName $GlobalLabConfig.Lab.Name -EffectiveMode $EffectiveMode -RunEvents $RunEvents }
         'preflight' {
             $preflightArgs = Get-LabPreflightArgs
             Invoke-LabRepoScript -BaseName 'Test-OpenCodeLabPreflight' -Arguments $preflightArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
