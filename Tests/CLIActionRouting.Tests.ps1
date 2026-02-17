@@ -137,20 +137,22 @@ Describe 'CLI Action Routing' {
     }
 
     Context 'Quick Mode Functions' {
-        It 'Invoke-QuickDeploy function is defined' {
-            $ScriptContent | Should -Match 'function Invoke-QuickDeploy' -Because 'Quick mode deploy function must exist'
+        It 'Invoke-LabQuickDeploy function exists in Private/' {
+            $quickDeployPath = Join-Path $PSScriptRoot '..' 'Private/Invoke-LabQuickDeploy.ps1'
+            $content = Get-Content $quickDeployPath -Raw
+            $content | Should -Match 'function Invoke-LabQuickDeploy' -Because 'Quick mode deploy function must exist in Private/'
         }
 
-        It 'Invoke-QuickTeardown function is defined' {
-            $ScriptContent | Should -Match 'function Invoke-QuickTeardown' -Because 'Quick mode teardown function must exist'
+        It 'Invoke-LabQuickTeardown function exists in Private/' {
+            $quickTeardownPath = Join-Path $PSScriptRoot '..' 'Private/Invoke-LabQuickTeardown.ps1'
+            $content = Get-Content $quickTeardownPath -Raw
+            $content | Should -Match 'function Invoke-LabQuickTeardown' -Because 'Quick mode teardown function must exist in Private/'
         }
 
-        It 'Invoke-QuickDeploy calls Start-LabDay' {
-            $quickDeployMatch = [regex]::Match($ScriptContent, '(?s)function Invoke-QuickDeploy\s*\{(.*?)\n\}')
-            $quickDeployMatch.Success | Should -Be $true
-
-            $functionBody = $quickDeployMatch.Groups[1].Value
-            $functionBody | Should -Match "Start-LabDay|Invoke-RepoScript.*Start-LabDay" -Because 'Quick deploy should start lab VMs'
+        It 'Invoke-LabQuickDeploy calls Start-LabDay' {
+            $quickDeployPath = Join-Path $PSScriptRoot '..' 'Private/Invoke-LabQuickDeploy.ps1'
+            $content = Get-Content $quickDeployPath -Raw
+            $content | Should -Match "Start-LabDay|Invoke-LabRepoScript.*Start-LabDay" -Because 'Quick deploy should start lab VMs'
         }
     }
 }

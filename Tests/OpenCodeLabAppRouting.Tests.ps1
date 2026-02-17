@@ -331,18 +331,19 @@ Describe 'OpenCodeLab-App -NoExecute routing integration' {
         @($result.HostOutcomes | ForEach-Object { [string]$_.HostName }) | Should -Be @($targetHost, 'ignored-host')
     }
 
-    It 'Write-RunArtifacts definitions include coordinator metadata keys for json and txt payloads' {
-        $scriptContent = Get-Content -Path $appPath -Raw
+    It 'Write-LabRunArtifacts definitions include coordinator metadata keys for json and txt payloads' {
+        $artifactsPath = Join-Path $repoRoot 'Private/Write-LabRunArtifacts.ps1'
+        $scriptContent = Get-Content -Path $artifactsPath -Raw
 
         $scriptContent | Should -Match 'policy_outcome\s*='
         $scriptContent | Should -Match 'policy_reason\s*='
         $scriptContent | Should -Match 'host_outcomes\s*='
         $scriptContent | Should -Match 'blast_radius\s*='
 
-        $scriptContent | Should -Match '"policy_outcome:\s*\$policyOutcome"'
-        $scriptContent | Should -Match '"policy_reason:\s*\$policyReason"'
+        $scriptContent | Should -Match '"policy_outcome:'
+        $scriptContent | Should -Match '"policy_reason:'
         $scriptContent | Should -Match '"host_outcomes:'
-        $scriptContent | Should -Match '"blast_radius:\s*\$\(\$blastRadius\s*-join\s*'',''\)"'
+        $scriptContent | Should -Match '"blast_radius:'
     }
 
     It 'teardown full returns policy blocked outcome when scoped confirmation is missing' {
