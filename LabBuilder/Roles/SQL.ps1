@@ -48,47 +48,70 @@ function Get-LabRole_SQL {
         PostInstall = {
             param([hashtable]$LabConfig)
 
-            $sqlConfig = if ($LabConfig.ContainsKey('SQL') -and $LabConfig.SQL) { $LabConfig.SQL } else { @{} }
-            $instanceName = if ($sqlConfig.ContainsKey('InstanceName') -and -not [string]::IsNullOrWhiteSpace([string]$sqlConfig.InstanceName)) { [string]$sqlConfig.InstanceName } else { 'MSSQLSERVER' }
-            $saPassword = if ($sqlConfig.ContainsKey('SaPassword') -and -not [string]::IsNullOrWhiteSpace([string]$sqlConfig.SaPassword)) { [string]$sqlConfig.SaPassword } else { '' }
+            $sqlVMName = $LabConfig.VMNames.SQL
 
-            if ([string]::IsNullOrWhiteSpace($saPassword)) {
-                Write-Host '    [OK] SQL installed. SA password was not configured (empty value).' -ForegroundColor Green
-                return
-            }
+            try {
+                $sqlConfig = if ($LabConfig.ContainsKey('SQL') -and $LabConfig.SQL) { $LabConfig.SQL } else { @{} }
+                $instanceName = if ($sqlConfig.ContainsKey('InstanceName') -and -not [string]::IsNullOrWhiteSpace([string]$sqlConfig.InstanceName)) { [string]$sqlConfig.InstanceName } else { 'MSSQLSERVER' }
+                $saPassword = if ($sqlConfig.ContainsKey('SaPassword') -and -not [string]::IsNullOrWhiteSpace([string]$sqlConfig.SaPassword)) { [string]$sqlConfig.SaPassword } else { '' }
+                $serviceName = if ($instanceName -ieq 'MSSQLSERVER') { 'MSSQLSERVER' } else { "MSSQL`$$instanceName" }
 
-            $serviceName = if ($instanceName -ieq 'MSSQLSERVER') { 'MSSQLSERVER' } else { "MSSQL`$$instanceName" }
-
-            Invoke-LabCommand -ComputerName $LabConfig.VMNames.SQL -ActivityName 'SQL-Apply-SA-Password' -ScriptBlock {
-                param(
-                    [string]$InstanceName,
-                    [string]$SaPassword,
-                    [string]$ServiceName
-                )
-
-                $sqlcmdPath = (Get-Command sqlcmd.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)
-                if ([string]::IsNullOrWhiteSpace($sqlcmdPath)) {
-                    Write-Warning 'sqlcmd.exe not found. Skipping SA password configuration.'
-                    return
+                if (-not $LabConfig.ContainsKey('SQL') -or -not $LabConfig.SQL) {
+                    Write-Warning "SQL config section not found in config. SA password will not be configured."
                 }
 
-                $targetInstance = if ($InstanceName -ieq 'MSSQLSERVER') { '.' } else { ".\$InstanceName" }
-                $escapedPassword = $SaPassword -replace "'", "''"
+                if ([string]::IsNullOrWhiteSpace($saPassword)) {
+                    Write-Host '    [OK] SQL installed. SA password was not configured (empty value).' -ForegroundColor Green
+                }
+                else {
+                    Invoke-LabCommand -ComputerName $sqlVMName -ActivityName 'SQL-Apply-SA-Password' -ScriptBlock {
+                        param(
+                            [string]$InstanceName,
+                            [string]$SaPassword,
+                            [string]$ServiceName
+                        )
 
-                $query = @"
+                        $sqlcmdPath = (Get-Command sqlcmd.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)
+                        if ([string]::IsNullOrWhiteSpace($sqlcmdPath)) {
+                            Write-Warning 'sqlcmd.exe not found. Skipping SA password configuration.'
+                            return
+                        }
+
+                        $targetInstance = if ($InstanceName -ieq 'MSSQLSERVER') { '.' } else { ".\$InstanceName" }
+                        $escapedPassword = $SaPassword -replace "'", "''"
+
+                        $query = @"
 EXEC xp_instance_regwrite N'HKEY_LOCAL_MACHINE', N'Software\\Microsoft\\MSSQLServer\\MSSQLServer', N'LoginMode', REG_DWORD, 2;
 ALTER LOGIN [sa] ENABLE;
 ALTER LOGIN [sa] WITH PASSWORD = '$escapedPassword';
 "@
 
-                & $sqlcmdPath -S $targetInstance -E -b -Q $query
-                if ($LASTEXITCODE -ne 0) {
-                    throw "sqlcmd exited with code $LASTEXITCODE while applying SA password."
+                        & $sqlcmdPath -S $targetInstance -E -b -Q $query
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "sqlcmd exited with code $LASTEXITCODE while applying SA password."
+                        }
+
+                        Restart-Service -Name $ServiceName -ErrorAction SilentlyContinue
+                        Write-Host "    [OK] SQL mixed mode + SA password applied for $targetInstance." -ForegroundColor Green
+                    } -ArgumentList $instanceName, $saPassword, $serviceName -Retries 1 -RetryIntervalInSeconds 20
                 }
 
-                Restart-Service -Name $ServiceName -ErrorAction SilentlyContinue
-                Write-Host "    [OK] SQL mixed mode + SA password applied for $targetInstance." -ForegroundColor Green
-            } -ArgumentList $instanceName, $saPassword, $serviceName -Retries 1 -RetryIntervalInSeconds 20
+                # Verify SQL Server service is running
+                $sqlVerify = Invoke-LabCommand -ComputerName $sqlVMName -ActivityName 'SQL-Verify-Service' -PassThru -ScriptBlock {
+                    param([string]$ServiceName)
+                    $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+                    @{ Running = ($null -ne $svc -and $svc.Status -eq 'Running') }
+                } -ArgumentList $serviceName
+                if (-not $sqlVerify.Running) {
+                    Write-Warning "SQL role: $serviceName service is not running on $sqlVMName after installation. Run on SQL VM: Get-Service $serviceName | Format-Table Name,Status"
+                }
+                else {
+                    Write-Host "    [OK] SQL Server service ($serviceName) verified running." -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Warning "SQL role post-install failed on ${sqlVMName}: $($_.Exception.Message). Check: SQL ISO mounted, installation media accessible, SA account configuration. Run on SQL VM: Get-Service MSSQLSERVER | Format-Table Name,Status"
+            }
         }
     }
 }

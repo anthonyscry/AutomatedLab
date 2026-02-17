@@ -29,48 +29,67 @@ function Get-LabRole_WSUS {
         PostInstall = {
             param([hashtable]$LabConfig)
 
-            $wsusConfig = if ($LabConfig.ContainsKey('WSUS') -and $LabConfig.WSUS) { $LabConfig.WSUS } else { @{} }
-            $contentDir = if ($wsusConfig.ContainsKey('ContentDir') -and -not [string]::IsNullOrWhiteSpace([string]$wsusConfig.ContentDir)) { [string]$wsusConfig.ContentDir } else { 'C:\WSUS' }
-            $wsusPort = if ($wsusConfig.ContainsKey('Port') -and [int]$wsusConfig.Port -gt 0) { [int]$wsusConfig.Port } else { 8530 }
+            $wsusVMName = $LabConfig.VMNames.WSUS
 
-            Install-LabWindowsFeature -ComputerName $LabConfig.VMNames.WSUS -FeatureName 'UpdateServices-Services,UpdateServices-DB' -IncludeManagementTools
+            try {
+                $wsusConfig = if ($LabConfig.ContainsKey('WSUS') -and $LabConfig.WSUS) { $LabConfig.WSUS } else { @{} }
+                $contentDir = if ($wsusConfig.ContainsKey('ContentDir') -and -not [string]::IsNullOrWhiteSpace([string]$wsusConfig.ContentDir)) { [string]$wsusConfig.ContentDir } else { 'C:\WSUS' }
+                $wsusPort = if ($wsusConfig.ContainsKey('Port') -and [int]$wsusConfig.Port -gt 0) { [int]$wsusConfig.Port } else { 8530 }
 
-            Invoke-LabCommand -ComputerName $LabConfig.VMNames.WSUS -ActivityName 'WSUS-PostInstall' -ScriptBlock {
-                param(
-                    [string]$ContentDir,
-                    [int]$WsusPort
-                )
+                Install-LabWindowsFeature -ComputerName $wsusVMName -FeatureName 'UpdateServices-Services,UpdateServices-DB' -IncludeManagementTools
 
-                if (-not (Test-Path $ContentDir)) {
-                    New-Item -Path $ContentDir -ItemType Directory -Force | Out-Null
-                }
+                Invoke-LabCommand -ComputerName $wsusVMName -ActivityName 'WSUS-PostInstall' -ScriptBlock {
+                    param(
+                        [string]$ContentDir,
+                        [int]$WsusPort
+                    )
 
-                $wsusUtil = 'C:\Program Files\Update Services\Tools\wsusutil.exe'
-                if (-not (Test-Path $wsusUtil)) {
-                    throw "wsusutil.exe not found at $wsusUtil"
-                }
-
-                $alreadyConfigured = Test-Path 'HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup'
-                if (-not $alreadyConfigured) {
-                    Start-Process -FilePath $wsusUtil -ArgumentList 'postinstall', "CONTENT_DIR=\"$ContentDir\"" -Wait -NoNewWindow
-                    if ($LASTEXITCODE -ne 0) {
-                        throw "wsusutil postinstall failed with exit code $LASTEXITCODE"
+                    if (-not (Test-Path $ContentDir)) {
+                        New-Item -Path $ContentDir -ItemType Directory -Force | Out-Null
                     }
-                    Write-Host "    [OK] WSUS postinstall completed (ContentDir=$ContentDir)." -ForegroundColor Green
+
+                    $wsusUtil = 'C:\Program Files\Update Services\Tools\wsusutil.exe'
+                    if (-not (Test-Path $wsusUtil)) {
+                        throw "wsusutil.exe not found at $wsusUtil"
+                    }
+
+                    $alreadyConfigured = Test-Path 'HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup'
+                    if (-not $alreadyConfigured) {
+                        Start-Process -FilePath $wsusUtil -ArgumentList 'postinstall', "CONTENT_DIR=`"$ContentDir`"" -Wait -NoNewWindow
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "wsusutil postinstall failed with exit code $LASTEXITCODE"
+                        }
+                        Write-Host "    [OK] WSUS postinstall completed (ContentDir=$ContentDir)." -ForegroundColor Green
+                    }
+                    else {
+                        Write-Host '    [OK] WSUS already configured (postinstall skipped).' -ForegroundColor Green
+                    }
+
+                    Set-Service -Name WsusService -StartupType Automatic -ErrorAction SilentlyContinue
+                    Start-Service -Name WsusService -ErrorAction SilentlyContinue
+
+                    $ruleName = "WSUS HTTP ($WsusPort)"
+                    if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+                        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $WsusPort -Action Allow | Out-Null
+                        Write-Host "    [OK] Firewall rule created for WSUS port $WsusPort." -ForegroundColor Green
+                    }
+                } -ArgumentList $contentDir, $wsusPort -Retries 2 -RetryIntervalInSeconds 20
+
+                # Verify WsusService is running
+                $wsusVerify = Invoke-LabCommand -ComputerName $wsusVMName -ActivityName 'WSUS-Verify-Service' -PassThru -ScriptBlock {
+                    $svc = Get-Service WsusService -ErrorAction SilentlyContinue
+                    @{ Running = ($null -ne $svc -and $svc.Status -eq 'Running') }
+                }
+                if (-not $wsusVerify.Running) {
+                    Write-Warning "WSUS role: WsusService is not running on $wsusVMName after installation. Run on WSUS VM: Get-Service WsusService | Format-Table Name,Status"
                 }
                 else {
-                    Write-Host '    [OK] WSUS already configured (postinstall skipped).' -ForegroundColor Green
+                    Write-Host '    [OK] WsusService verified running.' -ForegroundColor Green
                 }
-
-                Set-Service -Name WsusService -StartupType Automatic -ErrorAction SilentlyContinue
-                Start-Service -Name WsusService -ErrorAction SilentlyContinue
-
-                $ruleName = "WSUS HTTP ($WsusPort)"
-                if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
-                    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $WsusPort -Action Allow | Out-Null
-                    Write-Host "    [OK] Firewall rule created for WSUS port $WsusPort." -ForegroundColor Green
-                }
-            } -ArgumentList $contentDir, $wsusPort -Retries 2 -RetryIntervalInSeconds 20
+            }
+            catch {
+                Write-Warning "WSUS role post-install failed on ${wsusVMName}: $($_.Exception.Message). Check: UpdateServices feature available, sufficient disk space for WSUS content directory. Run on WSUS VM: Get-Service WsusService | Format-Table Name,Status"
+            }
         }
     }
 }
