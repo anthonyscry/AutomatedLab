@@ -45,7 +45,8 @@ function Invoke-LabBlowAway {
 
     Write-Host "  [2/5] Removing AutomatedLab definition..." -ForegroundColor Cyan
     try {
-        Import-Module AutomatedLab -ErrorAction SilentlyContinue | Out-Null
+        Write-Verbose "Importing module: AutomatedLab"
+        $null = Import-Module AutomatedLab -ErrorAction SilentlyContinue
 
         # Remove-Lab can emit noisy non-terminating errors for already-missing
         # metadata files (for example Network_<switch>.xml). Those are benign

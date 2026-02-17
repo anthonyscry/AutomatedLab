@@ -34,7 +34,8 @@ function Invoke-LabBulkVMProvision {
 
     $diskRoot = Join-Path (Join-Path $LabConfig.Paths.LabRoot $LabConfig.Lab.Name) 'Disks'
     if (-not (Test-Path $diskRoot)) {
-        New-Item -Path $diskRoot -ItemType Directory -Force | Out-Null
+        $null = New-Item -Path $diskRoot -ItemType Directory -Force
+        Write-Verbose "Created directory: $diskRoot"
     }
 
     $existingNames = @()

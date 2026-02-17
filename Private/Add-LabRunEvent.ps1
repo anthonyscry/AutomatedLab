@@ -7,10 +7,10 @@ function Add-LabRunEvent {
         [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[object]]$RunEvents
     )
 
-    $RunEvents.Add([pscustomobject]@{
+    [void]$RunEvents.Add([pscustomobject]@{
         Time    = (Get-Date).ToString('o')
         Step    = $Step
         Status  = $Status
         Message = $Message
-    }) | Out-Null
+    })
 }

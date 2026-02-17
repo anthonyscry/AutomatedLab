@@ -3,13 +3,15 @@ function Import-OpenCodeLab {
     param([string]$Name)
 
     try {
-        Import-Module AutomatedLab -ErrorAction Stop | Out-Null
+        Write-Verbose "Importing module: AutomatedLab"
+        $null = Import-Module AutomatedLab -ErrorAction Stop
     } catch {
         throw "AutomatedLab module not available. Install AutomatedLab first."
     }
 
     try {
-        Import-Lab -Name $Name -ErrorAction Stop | Out-Null
+        Write-Verbose "Importing lab: $Name"
+        $null = Import-Lab -Name $Name -ErrorAction Stop
         return $true
     } catch {
         return $false

@@ -11,7 +11,8 @@ function Stop-LabVMsSafe {
 
     try {
         Import-LabModule -LabName $LabName
-        Stop-LabVM -All -ErrorAction SilentlyContinue | Out-Null
+        Write-Verbose "Stopping all lab VMs in lab '$LabName'..."
+        $null = Stop-LabVM -All -ErrorAction SilentlyContinue
     }
     catch {
         Get-VM -ErrorAction SilentlyContinue |

@@ -15,13 +15,15 @@ function Import-LabModule {
     }
 
     try {
-        Import-Module AutomatedLab -ErrorAction Stop | Out-Null
+        Write-Verbose "Importing module: AutomatedLab"
+        $null = Import-Module AutomatedLab -ErrorAction Stop
     } catch {
         throw "AutomatedLab module is not installed. Run setup first."
     }
 
     try {
-        Import-Lab -Name $LabName -ErrorAction Stop | Out-Null
+        Write-Verbose "Importing lab: $LabName"
+        $null = Import-Lab -Name $LabName -ErrorAction Stop
     } catch {
         throw "Lab '$LabName' is not registered. Run setup first."
     }

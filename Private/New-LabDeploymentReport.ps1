@@ -67,7 +67,8 @@ function New-LabDeploymentReport {
 
         if ($OutputPath) {
             $htmlDir = $OutputPath
-            New-Item -ItemType Directory -Path $htmlDir -Force | Out-Null
+            $null = New-Item -ItemType Directory -Path $htmlDir -Force
+            Write-Verbose "Created directory: $htmlDir"
             $htmlPath = Join-Path $htmlDir ("DeployReport-{0}.html" -f $dateStamp)
 
             $machineRows = ($Machines | ForEach-Object {

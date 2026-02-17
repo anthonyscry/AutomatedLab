@@ -16,7 +16,8 @@ function Write-LabRunArtifacts {
         $runStart = $ReportData.RunStart
 
         if (-not (Test-Path $runLogRoot)) {
-            New-Item -Path $runLogRoot -ItemType Directory -Force | Out-Null
+            $null = New-Item -Path $runLogRoot -ItemType Directory -Force
+            Write-Verbose "Created directory: $runLogRoot"
         }
 
         $ended = Get-Date

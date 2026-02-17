@@ -10,16 +10,16 @@ function New-LabGuiCommandPreview {
     $argList = New-LabAppArgumentList -Options $Options
     $scriptLeaf = Split-Path -Leaf $AppScriptPath
     $parts = New-Object System.Collections.Generic.List[string]
-    $parts.Add(".\\$scriptLeaf") | Out-Null
+    [void]$parts.Add(".\\$scriptLeaf")
 
     foreach ($token in $argList) {
         if ($token -match '^[A-Za-z0-9_\-./]+$') {
-            $parts.Add($token) | Out-Null
+            [void]$parts.Add($token)
             continue
         }
 
         $escaped = [string]$token -replace "'", "''"
-        $parts.Add("'$escaped'") | Out-Null
+        [void]$parts.Add("'$escaped'")
     }
 
     return ($parts -join ' ')
@@ -45,10 +45,10 @@ function Get-LabLatestRunArtifactPath {
 
         try {
             $resolved = (Resolve-Path -Path $excluded -ErrorAction Stop).Path
-            $excludeSet.Add($resolved) | Out-Null
+            [void]$excludeSet.Add($resolved)
         }
         catch {
-            $excludeSet.Add([System.IO.Path]::GetFullPath($excluded)) | Out-Null
+            [void]$excludeSet.Add([System.IO.Path]::GetFullPath($excluded))
         }
     }
 

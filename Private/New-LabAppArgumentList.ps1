@@ -41,38 +41,38 @@ function New-LabAppArgumentList {
         }
 
         if ($safeOptions.ContainsKey('Action') -and $null -ne $safeOptions.Action) {
-            $argumentList.Add('-Action') | Out-Null
-            $argumentList.Add([string]$safeOptions.Action) | Out-Null
+            [void]$argumentList.Add('-Action')
+            [void]$argumentList.Add([string]$safeOptions.Action)
         }
 
         if ($safeOptions.ContainsKey('Mode') -and $null -ne $safeOptions.Mode) {
-            $argumentList.Add('-Mode') | Out-Null
-            $argumentList.Add([string]$safeOptions.Mode) | Out-Null
+            [void]$argumentList.Add('-Mode')
+            [void]$argumentList.Add([string]$safeOptions.Mode)
         }
 
         $switchOptionOrder = @('NonInteractive', 'Force', 'RemoveNetwork', 'DryRun')
         foreach ($name in $switchOptionOrder) {
             if ($safeOptions.ContainsKey($name) -and (ConvertTo-SafeBoolean -Value $safeOptions[$name])) {
-                $argumentList.Add("-$name") | Out-Null
+                [void]$argumentList.Add("-$name")
             }
         }
 
         if ($safeOptions.ContainsKey('ProfilePath') -and $null -ne $safeOptions.ProfilePath) {
-            $argumentList.Add('-ProfilePath') | Out-Null
-            $argumentList.Add([string]$safeOptions.ProfilePath) | Out-Null
+            [void]$argumentList.Add('-ProfilePath')
+            [void]$argumentList.Add([string]$safeOptions.ProfilePath)
         }
 
         if ($safeOptions.ContainsKey('DefaultsFile') -and $null -ne $safeOptions.DefaultsFile) {
-            $argumentList.Add('-DefaultsFile') | Out-Null
-            $argumentList.Add([string]$safeOptions.DefaultsFile) | Out-Null
+            [void]$argumentList.Add('-DefaultsFile')
+            [void]$argumentList.Add([string]$safeOptions.DefaultsFile)
         }
 
         if ($safeOptions.ContainsKey('TargetHosts') -and $null -ne $safeOptions.TargetHosts) {
             $targetHosts = @($safeOptions.TargetHosts | ConvertTo-LabTargetHostList)
             if ($targetHosts.Count -gt 0) {
-                $argumentList.Add('-TargetHosts') | Out-Null
+                [void]$argumentList.Add('-TargetHosts')
                 foreach ($targetHost in $targetHosts) {
-                    $argumentList.Add($targetHost) | Out-Null
+                    [void]$argumentList.Add($targetHost)
                 }
             }
         }
@@ -80,13 +80,13 @@ function New-LabAppArgumentList {
         if ($safeOptions.ContainsKey('ConfirmationToken') -and $null -ne $safeOptions.ConfirmationToken) {
             $confirmationToken = [string]$safeOptions.ConfirmationToken
             if (-not [string]::IsNullOrWhiteSpace($confirmationToken)) {
-                $argumentList.Add('-ConfirmationToken') | Out-Null
-                $argumentList.Add($confirmationToken.Trim()) | Out-Null
+                [void]$argumentList.Add('-ConfirmationToken')
+                [void]$argumentList.Add($confirmationToken.Trim())
             }
         }
 
         if ($safeOptions.ContainsKey('CoreOnly') -and (ConvertTo-SafeBoolean -Value $safeOptions.CoreOnly)) {
-            $argumentList.Add('-CoreOnly') | Out-Null
+            [void]$argumentList.Add('-CoreOnly')
         }
 
         return $argumentList.ToArray()
