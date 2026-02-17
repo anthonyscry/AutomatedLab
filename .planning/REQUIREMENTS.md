@@ -9,15 +9,15 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### CLI Orchestrator
 
-- [ ] **CLI-01**: User can run all 25+ actions in OpenCodeLab-App.ps1 without unhandled errors
-- [ ] **CLI-02**: Deploy action provisions VMs from template with correct hardware specs and network config
-- [ ] **CLI-03**: Teardown action removes all lab resources cleanly (VMs, checkpoints, vSwitch, NAT)
-- [ ] **CLI-04**: Bootstrap action installs prerequisites, creates directories, validates environment
-- [ ] **CLI-05**: Quick mode restores from LabReady snapshot and auto-heals infrastructure gaps
-- [ ] **CLI-06**: Health check action reports accurate lab status with actionable diagnostics
-- [ ] **CLI-07**: All destructive actions require confirmation tokens before executing
-- [ ] **CLI-08**: Error handling uses try-catch on all critical operations with context-aware messages
-- [ ] **CLI-09**: Menu system displays correct options and routes to correct handlers
+- [x] **CLI-01**: User can run all 25+ actions in OpenCodeLab-App.ps1 without unhandled errors
+- [x] **CLI-02**: Deploy action provisions VMs from template with correct hardware specs and network config
+- [x] **CLI-03**: Teardown action removes all lab resources cleanly (VMs, checkpoints, vSwitch, NAT)
+- [x] **CLI-04**: Bootstrap action installs prerequisites, creates directories, validates environment
+- [x] **CLI-05**: Quick mode restores from LabReady snapshot and auto-heals infrastructure gaps
+- [x] **CLI-06**: Health check action reports accurate lab status with actionable diagnostics
+- [x] **CLI-07**: All destructive actions require confirmation tokens before executing
+- [x] **CLI-08**: Error handling uses try-catch on all critical operations with context-aware messages
+- [x] **CLI-09**: Menu system displays correct options and routes to correct handlers
 
 ### GUI
 
@@ -32,11 +32,11 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Lifecycle
 
-- [ ] **LIFE-01**: Bootstrap → Deploy → Use → Teardown completes end-to-end on clean Windows host
-- [ ] **LIFE-02**: Full mode creates VMs, configures network, promotes DC, joins domain, applies roles
-- [ ] **LIFE-03**: Quick mode restores LabReady checkpoint and heals any infrastructure gaps
-- [ ] **LIFE-04**: Teardown cleans all resources with no orphaned VMs, switches, or NAT rules
-- [ ] **LIFE-05**: Re-deploy after teardown succeeds (idempotent infrastructure creation)
+- [x] **LIFE-01**: Bootstrap → Deploy → Use → Teardown completes end-to-end on clean Windows host
+- [x] **LIFE-02**: Full mode creates VMs, configures network, promotes DC, joins domain, applies roles
+- [x] **LIFE-03**: Quick mode restores LabReady checkpoint and heals any infrastructure gaps
+- [x] **LIFE-04**: Teardown cleans all resources with no orphaned VMs, switches, or NAT rules
+- [x] **LIFE-05**: Re-deploy after teardown succeeds (idempotent infrastructure creation)
 
 ### Roles
 
@@ -54,11 +54,11 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 
 ### Network
 
-- [ ] **NET-01**: vSwitch creation is idempotent (create if missing, skip if exists)
-- [ ] **NET-02**: NAT configuration applies correctly with no subnet conflicts
-- [ ] **NET-03**: Static IP assignment configures VMs via PowerShell Direct
-- [ ] **NET-04**: DNS configuration sets forwarders and validates resolution
-- [ ] **NET-05**: Network health check validates VM-to-VM connectivity
+- [x] **NET-01**: vSwitch creation is idempotent (create if missing, skip if exists)
+- [x] **NET-02**: NAT configuration applies correctly with no subnet conflicts
+- [x] **NET-03**: Static IP assignment configures VMs via PowerShell Direct
+- [x] **NET-04**: DNS configuration sets forwarders and validates resolution
+- [x] **NET-05**: Network health check validates VM-to-VM connectivity
 
 ### Multi-Host
 
@@ -133,25 +133,25 @@ Requirements for this hardening milestone. Each maps to roadmap phases.
 | SEC-02 | Phase 2 | Done |
 | SEC-03 | Phase 2 | Done |
 | SEC-04 | Phase 2 | Done |
-| LIFE-01 | Phase 3 | Pending |
-| LIFE-02 | Phase 3 | Pending |
-| LIFE-03 | Phase 3 | Pending |
-| LIFE-04 | Phase 3 | Pending |
-| LIFE-05 | Phase 3 | Pending |
-| CLI-01 | Phase 3 | Pending |
-| CLI-02 | Phase 3 | Pending |
-| CLI-03 | Phase 3 | Pending |
-| CLI-04 | Phase 3 | Pending |
-| CLI-05 | Phase 3 | Pending |
-| CLI-06 | Phase 3 | Pending |
-| CLI-07 | Phase 3 | Pending |
-| CLI-08 | Phase 3 | Pending |
-| CLI-09 | Phase 3 | Pending |
-| NET-01 | Phase 3 | Pending |
-| NET-02 | Phase 3 | Pending |
-| NET-03 | Phase 3 | Pending |
-| NET-04 | Phase 3 | Pending |
-| NET-05 | Phase 3 | Pending |
+| LIFE-01 | Phase 3 | Done |
+| LIFE-02 | Phase 3 | Done |
+| LIFE-03 | Phase 3 | Done |
+| LIFE-04 | Phase 3 | Done |
+| LIFE-05 | Phase 3 | Done |
+| CLI-01 | Phase 3 | Done |
+| CLI-02 | Phase 3 | Done |
+| CLI-03 | Phase 3 | Done |
+| CLI-04 | Phase 3 | Done |
+| CLI-05 | Phase 3 | Done |
+| CLI-06 | Phase 3 | Done |
+| CLI-07 | Phase 3 | Done |
+| CLI-08 | Phase 3 | Done |
+| CLI-09 | Phase 3 | Done |
+| NET-01 | Phase 3 | Done |
+| NET-02 | Phase 3 | Done |
+| NET-03 | Phase 3 | Done |
+| NET-04 | Phase 3 | Done |
+| NET-05 | Phase 3 | Done |
 | ROLE-01 | Phase 4 | Pending |
 | ROLE-02 | Phase 4 | Pending |
 | ROLE-03 | Phase 4 | Pending |
