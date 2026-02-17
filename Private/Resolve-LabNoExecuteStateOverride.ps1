@@ -10,50 +10,55 @@ function Resolve-LabNoExecuteStateOverride {
         [string]$NoExecuteStatePath
     )
 
-    if (-not $NoExecute) {
-        return $null
-    }
-
-    $state = $null
-
-    if (-not [string]::IsNullOrWhiteSpace($NoExecuteStateJson)) {
-        $state = ($NoExecuteStateJson | ConvertFrom-Json)
-    }
-    elseif (-not [string]::IsNullOrWhiteSpace($NoExecuteStatePath)) {
-        if (-not (Test-Path $NoExecuteStatePath)) {
-            throw "NoExecute state path not found: $NoExecuteStatePath"
+    try {
+        if (-not $NoExecute) {
+            return $null
         }
 
-        $state = (Get-Content -Raw -Path $NoExecuteStatePath | ConvertFrom-Json)
-    }
+        $state = $null
 
-    if ($null -eq $state) {
-        return $null
-    }
+        if (-not [string]::IsNullOrWhiteSpace($NoExecuteStateJson)) {
+            $state = ($NoExecuteStateJson | ConvertFrom-Json)
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($NoExecuteStatePath)) {
+            if (-not (Test-Path $NoExecuteStatePath)) {
+                throw "NoExecute state path not found: $NoExecuteStatePath"
+            }
 
-    if ($state -is [System.Array]) {
-        return @($state)
-    }
+            $state = (Get-Content -Raw -Path $NoExecuteStatePath | ConvertFrom-Json)
+        }
 
-    if ($state -is [System.Collections.IEnumerable] -and $state -isnot [string] -and $state.PSObject.TypeNames -contains 'System.Object[]') {
-        return @($state)
-    }
+        if ($null -eq $state) {
+            return $null
+        }
 
-    $statePropertyNames = @($state.PSObject.Properties.Name)
-    if (($statePropertyNames -contains 'Reachable') -or ($statePropertyNames -contains 'HostName')) {
-        return @($state)
-    }
+        if ($state -is [System.Array]) {
+            return @($state)
+        }
 
-    if ($statePropertyNames -contains 'HostProbes') {
-        return @($state.HostProbes)
-    }
+        if ($state -is [System.Collections.IEnumerable] -and $state -isnot [string] -and $state.PSObject.TypeNames -contains 'System.Object[]') {
+            return @($state)
+        }
 
-    if ($statePropertyNames -contains 'MissingVMs') {
-        $state.MissingVMs = @($state.MissingVMs)
-    }
-    else {
-        $state | Add-Member -NotePropertyName 'MissingVMs' -NotePropertyValue @()
-    }
+        $statePropertyNames = @($state.PSObject.Properties.Name)
+        if (($statePropertyNames -contains 'Reachable') -or ($statePropertyNames -contains 'HostName')) {
+            return @($state)
+        }
 
-    return $state
+        if ($statePropertyNames -contains 'HostProbes') {
+            return @($state.HostProbes)
+        }
+
+        if ($statePropertyNames -contains 'MissingVMs') {
+            $state.MissingVMs = @($state.MissingVMs)
+        }
+        else {
+            $state | Add-Member -NotePropertyName 'MissingVMs' -NotePropertyValue @()
+        }
+
+        return $state
+    }
+    catch {
+        throw "Resolve-LabNoExecuteStateOverride: failed to resolve no-execute state override - $_"
+    }
 }

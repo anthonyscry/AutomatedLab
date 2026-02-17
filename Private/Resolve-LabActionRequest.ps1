@@ -8,15 +8,20 @@ function Resolve-LabActionRequest {
         [string]$Mode = 'full'
     )
 
-    $resolvedAction = $Action
-    $resolvedMode = $Mode
+    try {
+        $resolvedAction = $Action
+        $resolvedMode = $Mode
 
-    if ($Action -in @('setup', 'one-button-setup', 'one-button-reset', 'blow-away')) {
-        $resolvedMode = 'full'
+        if ($Action -in @('setup', 'one-button-setup', 'one-button-reset', 'blow-away')) {
+            $resolvedMode = 'full'
+        }
+
+        return [pscustomobject]@{
+            Action = $resolvedAction
+            Mode = $resolvedMode
+        }
     }
-
-    return [pscustomobject]@{
-        Action = $resolvedAction
-        Mode = $resolvedMode
+    catch {
+        throw "Resolve-LabActionRequest: failed to resolve action request - $_"
     }
 }
