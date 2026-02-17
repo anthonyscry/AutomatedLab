@@ -698,4 +698,129 @@ Describe 'OpenCodeLab-App coordinator pipeline integration' {
         $report = Get-LatestRunReport -LogRoot $logRoot
         $report.execution_outcome | Should -Be 'failed'
     }
+
+    It 'rejects inventory with invalid connection type before reaching policy' {
+        $inventoryPath = Join-Path $TestDrive 'invalid-connection-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "telnet" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        {
+            & $appPath -Action deploy -Mode quick -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-a')
+        } | Should -Throw "*connection value*telnet*not supported*"
+    }
+
+    It 'rejects inventory with duplicate host names before reaching policy' {
+        $inventoryPath = Join-Path $TestDrive 'dup-host-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "winrm" },
+    { "name": "HV-A", "role": "secondary", "connection": "ssh" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        {
+            & $appPath -Action deploy -Mode quick -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-a')
+        } | Should -Throw "*duplicate host name*"
+    }
+
+    It 'enforced deploy with 2 hosts writes complete artifacts with dispatch metadata' {
+        $logRoot = Join-Path $TestDrive 'run-logs-integration-hardened'
+        $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
+        $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $env:OPENCODELAB_TEST_ALLOW_SIMULATED_REMOTE_SUCCESS = '1'
+        $markerPath = Join-Path $TestDrive 'dispatch-hardened-marker.log'
+        $env:OPENCODELAB_TEST_DISPATCH_EXECUTION_MARKER = $markerPath
+        $inventoryPath = Join-Path $TestDrive 'hardened-integration-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" },
+    { "name": "hv-b", "role": "secondary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            },
+            [pscustomobject]@{
+                HostName = 'hv-b'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        & $appPath -Action deploy -Mode quick -NonInteractive -DispatchMode enforced -TargetHosts @('hv-a', 'hv-b') -InventoryPath $inventoryPath
+
+        $report = Get-LatestRunReport -LogRoot $logRoot
+
+        $report.dispatch_mode | Should -Be 'enforced'
+        $report.execution_outcome | Should -Be 'succeeded'
+        $report.success | Should -BeTrue
+        @($report.host_outcomes).Count | Should -Be 2
+        @($report.host_outcomes | ForEach-Object { [string]$_.HostName }) | Should -Be @('hv-a', 'hv-b')
+        @($report.host_outcomes | ForEach-Object { [string]$_.DispatchStatus }) | Should -Be @('succeeded', 'succeeded')
+        @($report.blast_radius).Count | Should -Be 2
+    }
+
+    It 'dispatch mode off produces not_dispatched and writes artifact with zero execution' {
+        $logRoot = Join-Path $TestDrive 'run-logs-off-mode-artifact'
+        $env:OPENCODELAB_RUN_LOG_ROOT = $logRoot
+        $env:OPENCODELAB_SKIP_RUNTIME_BOOTSTRAP = '1'
+        $inventoryPath = Join-Path $TestDrive 'off-mode-inventory.json'
+        @'
+{
+  "hosts": [
+    { "name": "hv-a", "role": "primary", "connection": "psremoting" }
+  ]
+}
+'@ | Set-Content -Path $inventoryPath -Encoding UTF8
+
+        $hostProbes = @(
+            [pscustomobject]@{
+                HostName = 'hv-a'
+                Reachable = $true
+                Probe = [pscustomobject]@{
+                    LabRegistered = $true
+                    MissingVMs = @()
+                    LabReadyAvailable = $true
+                    SwitchPresent = $true
+                    NatPresent = $true
+                }
+                Failure = $null
+            }
+        )
+        $env:OPENCODELAB_RUNTIME_STATE_JSON = ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        $result = & $appPath -Action deploy -Mode quick -NoExecute -InventoryPath $inventoryPath -TargetHosts @('hv-a') -NoExecuteStateJson ($hostProbes | ConvertTo-Json -Depth 10 -Compress)
+
+        $result.DispatchMode | Should -Be 'off'
+        $result.ExecutionOutcome | Should -Be 'not_dispatched'
+        $result.PolicyOutcome | Should -Be 'Approved'
+    }
 }
