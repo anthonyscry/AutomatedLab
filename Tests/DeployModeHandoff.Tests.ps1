@@ -5,10 +5,14 @@ BeforeAll {
     $deployPath = Join-Path $repoRoot 'Deploy.ps1'
     $bootstrapPath = Join-Path $repoRoot 'Bootstrap.ps1'
     $appPath = Join-Path $repoRoot 'OpenCodeLab-App.ps1'
+    $bootstrapArgsPath = Join-Path $repoRoot 'Private/Get-LabBootstrapArgs.ps1'
+    $deployArgsPath = Join-Path $repoRoot 'Private/Get-LabDeployArgs.ps1'
 
     $deployText = Get-Content -Raw -Path $deployPath
     $bootstrapText = Get-Content -Raw -Path $bootstrapPath
     $appText = Get-Content -Raw -Path $appPath
+    $bootstrapArgsText = Get-Content -Raw -Path $bootstrapArgsPath
+    $deployArgsText = Get-Content -Raw -Path $deployArgsPath
 }
 
 Describe 'Deploy and bootstrap mode defaults' {
@@ -41,19 +45,23 @@ Describe 'OpenCodeLab app deploy handoff' {
     }
 
     It 'passes effective mode explicitly into Bootstrap.ps1 for all bootstrap entry paths' {
-        $matches = [regex]::Matches($appText, 'Get-BootstrapArgs\s+-Mode\s+\$EffectiveMode')
+        # Get-BootstrapArgs was extracted to Private/Get-LabBootstrapArgs.ps1
+        # App.ps1 calls Get-LabBootstrapArgs -Mode $EffectiveMode at all bootstrap entry paths
+        $matches = [regex]::Matches($appText, 'Get-LabBootstrapArgs\s+-Mode\s+\$EffectiveMode')
         $matches.Count | Should -Be 3
     }
 
-    It 'Get-BootstrapArgs accepts mode and forwards it to Bootstrap.ps1' {
-        $appText | Should -Match 'function\s+Get-BootstrapArgs\s*\{\s*param\('
-        $appText | Should -Match 'Get-BootstrapArgs\s*\{[\s\S]*\$scriptArgs\s*\+=\s*@\(''-Mode'',\s*\$Mode\)'
+    It 'Get-LabBootstrapArgs accepts mode and forwards it to Bootstrap.ps1' {
+        # Function now lives in Private/Get-LabBootstrapArgs.ps1 (extracted from App.ps1)
+        $bootstrapArgsText | Should -Match 'function\s+Get-LabBootstrapArgs'
+        $bootstrapArgsText | Should -Match '\$scriptArgs\s*\+=\s*@\(''-Mode'',\s*\$Mode\)'
     }
 
     It 'OpenCodeLab-App supports and forwards subnet conflict auto-fix opt-in switch' {
         $appText | Should -Match '\[switch\]\$AutoFixSubnetConflict'
-        $appText | Should -Match 'Get-BootstrapArgs\s*\{[\s\S]*if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
-        $appText | Should -Match 'Get-DeployArgs\s*\{[\s\S]*if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
+        # Functions extracted to Private/ - verify they handle AutoFixSubnetConflict
+        $bootstrapArgsText | Should -Match 'if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
+        $deployArgsText | Should -Match 'if\s*\(\$AutoFixSubnetConflict\)\s*\{\s*\$scriptArgs\s*\+=\s*''-AutoFixSubnetConflict''\s*\}'
         $appText | Should -Match '\$defaults\.AutoFixSubnetConflict'
     }
 }
