@@ -127,7 +127,7 @@ Plans:
 
 </details>
 
-### 🚧 v1.1 Production Robustness (In Progress)
+### v1.1 Production Robustness (In Progress)
 
 **Milestone Goal:** Every function handles errors explicitly, the orchestrator is modular and testable, and all 10 known production gaps are closed — so deploys either succeed or explain exactly why they failed.
 
@@ -204,14 +204,16 @@ Plans:
 **Depends on**: Phase 9
 **Requirements**: DIAG-01, DIAG-02, DIAG-03
 **Success Criteria** (what must be TRUE):
-  1. All 65 Out-Null instances replaced with Write-Verbose in operational paths (diagnostic visibility)
+  1. All Out-Null instances replaced with context-appropriate patterns in operational paths (diagnostic visibility)
   2. SimpleLab.psd1 FunctionsToExport matches actual Public/ function count (export reconciliation)
   3. SimpleLab.psm1 Export-ModuleMember matches .psd1 FunctionsToExport list (consistency)
   4. Module loads without warnings about missing or extra exported functions
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- TBD
+- [ ] 10-01-PLAN.md -- GUI [void] cast conversion + module export reconciliation + regression tests (DIAG-02, DIAG-03)
+- [ ] 10-02-PLAN.md -- Replace Out-Null in Private/ and Public/ files with context-aware patterns (DIAG-01)
+- [ ] 10-03-PLAN.md -- Replace Out-Null in Deploy, Bootstrap, LabBuilder, Scripts with context-aware patterns (DIAG-01)
 
 ## Progress
 
@@ -229,7 +231,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 7. Security & Reliability Fixes | v1.1 | 2/2 | Complete | 2026-02-17 |
 | 8. Orchestrator Extraction | v1.1 | 4/4 | Complete | 2026-02-17 |
 | 9. Error Handling | v1.1 | 4/4 | Complete | 2026-02-17 |
-| 10. Module Diagnostics | v1.1 | 0/TBD | Not started | - |
+| 10. Module Diagnostics | v1.1 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
