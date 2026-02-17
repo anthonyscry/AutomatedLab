@@ -440,33 +440,7 @@ function Read-MenuCount {
 
 # Invoke-BulkAdditionalVMProvision extracted to Private/Invoke-LabBulkVMProvision.ps1
 
-function Invoke-SetupLabMenu {
-    Write-Host ''
-    Write-Host '  SETUP LAB' -ForegroundColor Cyan
-    Write-Host '  Core build always includes DC1 + SVR1 + WS1.' -ForegroundColor DarkGray
-
-    $serverCount = Read-MenuCount -Prompt 'Additional server VMs to provision' -DefaultValue 0
-    $workstationCount = Read-MenuCount -Prompt 'Additional workstation VMs to provision' -DefaultValue 0
-
-    $serverIso = ''
-    $workstationIso = ''
-    if ($serverCount -gt 0) {
-        $serverIso = (Read-Host '  Server ISO path (optional)').Trim()
-    }
-    if ($workstationCount -gt 0) {
-        $workstationIso = (Read-Host '  Workstation ISO path (optional)').Trim()
-    }
-
-    Add-LabRunEvent -Step 'setup-plan' -Status 'ok' -Message ("ExtraServers={0}; ExtraWorkstations={1}" -f $serverCount, $workstationCount) -RunEvents $RunEvents
-
-    Invoke-LabOneButtonSetup -EffectiveMode $EffectiveMode -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
-
-    if (($serverCount + $workstationCount) -gt 0) {
-        Write-Host ''
-        Write-Host '  Provisioning additional VMs...' -ForegroundColor Cyan
-        Invoke-LabBulkVMProvision -ServerCount $serverCount -WorkstationCount $workstationCount -ServerIsoPath $serverIso -WorkstationIsoPath $workstationIso -LabConfig $GlobalLabConfig -RunEvents $RunEvents
-    }
-}
+# Invoke-SetupLabMenu extracted to Private/Invoke-LabSetupMenu.ps1
 
 function Show-Menu {
     Clear-Host
@@ -503,7 +477,7 @@ function Invoke-InteractiveMenu {
         Show-Menu
         $choice = (Read-Host "  Select").Trim().ToUpperInvariant()
         switch ($choice) {
-            'S' { Invoke-MenuCommand -Name 'setup' -Command { Invoke-SetupLabMenu } }
+            'S' { Invoke-MenuCommand -Name 'setup' -Command { Invoke-LabSetupMenu -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -LabName $GlobalLabConfig.Lab.Name -EffectiveMode $EffectiveMode -RunEvents $RunEvents -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict } }
             'R' {
                 Invoke-MenuCommand -Name 'reset' -Command {
                     $confirm = (Read-Host "  Type REBUILD to confirm").Trim()
