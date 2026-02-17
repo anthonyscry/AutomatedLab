@@ -40,15 +40,13 @@ Progress: [█████████░] 87%
 **Plan Details:**
 | Plan | Duration | Tasks | Files Changed |
 |------|----------|-------|---------------|
+| Phase 06-03 | 1.2 min | 1 task | 1 file |
+| Phase 06-01 | 1.1 min | 1 task | 2 files |
 | Phase 05-04 | 1.2 min | 1 task | 1 file |
 | Phase 05-03 | 3.2 min | 2 tasks | 1 file |
 | Phase 05-02 | 3.7 min | 2 tasks | 2 files |
-| Phase 05-01 | 4.1 min | 2 tasks | 2 files |
-| Phase 03-05 | 4.5 min | 2 tasks | 2 files |
 
 *Updated after each plan completion*
-| Phase 06 P01 | 1.1 | 1 tasks | 2 files |
-| Phase 06 P03 | 1.2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -85,9 +83,10 @@ Recent decisions affecting current work:
 - [Phase 05-01]: Timer lifecycle managed in Switch-View for clean resource cleanup and WPF dispatcher safety
 - [Phase 05-02]: Log buffer capped at 2000 entries with FIFO trimming, Application.Current.FindResource for theme-safe color resolution, network settings and admin username persist to both config.json and gui-settings.json
 - [Phase 05-03]: Template error display uses inline TextBlock instead of MessageBox, VM names validated client-side, script path unified to OpenCodeLab-App.ps1 for preview and execution consistency
-- [Phase 06]: Use case-insensitive HashSet for duplicate name detection
-- [Phase 06]: Default connection to 'local' when missing for safety
-- [Phase 06]: Normalize connection type to lowercase for consistency
+- [Phase 06-01]: Use case-insensitive HashSet for duplicate name detection
+- [Phase 06-01]: Default connection to 'local' when missing for safety
+- [Phase 06-01]: Normalize connection type to lowercase for consistency
+- [Phase 06-03]: Per-host safety gates require explicit subset/superset rejection tests for scoped confirmation tokens
 
 ### Pending Todos
 
@@ -105,5 +104,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 5 complete, advancing to Phase 6 (Multi-Host Coordination)
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
