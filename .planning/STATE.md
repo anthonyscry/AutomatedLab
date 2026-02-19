@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-17)
+See: .planning/PROJECT.md (updated 2026-02-18)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.1 milestone complete
+**Current focus:** v1.2 milestone planning
 
 ## Current Position
 
-Phase: 10 of 10 (Module Diagnostics) — COMPLETE
-Plan: 3 of 3 complete
-Status: v1.1 milestone complete — all phases done
-Last activity: 2026-02-17 — Phase 10 verified PASSED (4/4 must-haves). v1.1 milestone complete. All 13 plans across 4 phases executed successfully.
+Phase: 11 of 13 (Documentation and Onboarding) — NOT STARTED
+Plan: —
+Status: v1.2 milestone started — requirements & roadmap in progress
+Last activity: 2026-02-18 — v1.2 initialized and requirements draft started
 
-Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1 milestone done: Phase 7, 8, 9, 10 all complete)
+Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 0/11 mapped requirements started in v1.2
 
 ## Performance Metrics
 
@@ -25,11 +25,13 @@ Progress: [███████████████████████
 - 542 Pester tests passing
 
 **Current milestone (v1.1):**
-- 4 phases planned, 19 requirements
-- Phase 7: 2 plans, ~6.5 min avg, 24 new tests (566 total)
-- Phase 8: 4 plans, ~25 min avg, 133 new tests (699 total)
-- Phase 9: 4 plans, ~19 min avg, 138 new tests (837 total)
-- Phase 10: 3 plans complete — Plan 01: 13 min / 10 tests (847 total), Plan 02: 28 min / 34 files / ~68 Out-Null replaced (Private+Public sweep), Plan 03: 11 min / 99 instances replaced / 58 tests pass
+- 4 phases, 19 requirements
+- Phases complete: 7:2 plans, 8:4 plans, 9:4 plans, 10:3 plans
+- Test count after v1.1: 847 passing
+
+**Current milestone (v1.2):**
+- 3 planned phases (11-13), 11 requirements
+- 0 plans started
 
 ## Accumulated Context
 
@@ -38,28 +40,25 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Write-Verbose before $null= for significant cmdlets** (Phase 10, Plan 03): vSwitch, NAT, DHCP scope, firewalls — verbose message documents the action before suppression
-- **[void] for .NET methods, $null= for cmdlets** (Phase 10): [void] cast for .NET method return values; $null= assignment for cmdlet output suppression; 2>&1 | Out-Null preserved for external processes
-- **[void] cast with parens for cmdlet calls** (Phase 10, Plan 01): `[void](cmdlet -Param value)` not `[void]cmdlet -Param value`; plain `[void]` cast requires an expression
-- **Canonical module export list is derived from Public/ files** (Phase 10, Plan 01): 35 top-level + 12 Linux = 47; ghost functions (Test-LabCleanup, Test-LabPrereqs, Write-ValidationReport) removed
-- **Non-critical functions use PSCmdlet.WriteError; critical use throw** (Phase 9): Side-effect functions use WriteError; pipeline-critical functions throw
-- **TestCases must be at discovery time for Pester 5** (Phase 9): -TestCases values in file scope, not BeforeAll
-- **Resolution errors throw, menu errors Write-Warning** (Phase 9): Wrong resolution = wrong operation; menus degrade gracefully
+- **Extraction before optimization**: isolate inline logic before changing behavior (v1.1)
+- **Error propagation discipline**: prefer explicit returns/throws over script exits (v1.1)
+- **Export contract source of truth**: Public directory drives export list (v1.1)
+- **Delivery readiness first**: docs/CI/tests before new features (v1.2)
 
 ### Pending Todos
 
-None.
+- Define final wording for each v1.2 requirement and map to implementation order
 
 ### Blockers/Concerns
 
-None. v1.1 milestone complete. All Out-Null instances replaced with diagnostic-preserving patterns.
+- None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: v1.1 milestone complete — all phases verified, branch ready for merge
-Resume file: None
+Last session: 2026-02-18
+Stopped at: v1.2 milestone started (requirements + roadmap definition)
+Resume file: .planning/ROADMAP.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-17 after Phase 10 verification passed (v1.1 milestone complete)*
+*Last updated: 2026-02-18 after v1.2 milestone initialization*
