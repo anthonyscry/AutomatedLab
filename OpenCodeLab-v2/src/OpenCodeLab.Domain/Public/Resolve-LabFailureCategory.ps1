@@ -4,8 +4,14 @@ function Resolve-LabFailureCategory {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [ValidateNotNull()]
         [System.Exception]$Exception
     )
 
-    return 'UnexpectedException'
+    switch ($Exception) {
+        { $_ -is [System.UnauthorizedAccessException] } { return 'PolicyBlocked' }
+        { $_ -is [System.TimeoutException] } { return 'TimeoutExceeded' }
+        { $_ -is [System.ArgumentException] } { return 'ConfigError' }
+        default { return 'UnexpectedException' }
+    }
 }

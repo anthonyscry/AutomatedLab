@@ -25,6 +25,58 @@ Describe 'Action result contract' {
         $result.PSObject.Properties.Name | Should -Contain 'DurationMs'
     }
 
+    It 'returns a stable typed result contract with defaults' {
+        $result = New-LabActionResult -Action 'deploy' -RequestedMode 'full'
+
+        $parsedGuid = [guid]::Empty
+
+        @($result.PSObject.Properties.Name) | Should -Be @(
+            'RunId',
+            'Action',
+            'RequestedMode',
+            'EffectiveMode',
+            'PolicyOutcome',
+            'Succeeded',
+            'FailureCategory',
+            'ErrorCode',
+            'RecoveryHint',
+            'ArtifactPath',
+            'DurationMs'
+        )
+        [guid]::TryParse($result.RunId, [ref]$parsedGuid) | Should -BeTrue
+
+        $result.Action | Should -BeOfType [string]
+        $result.RequestedMode | Should -BeOfType [string]
+        $result.EffectiveMode | Should -BeOfType [string]
+        $result.PolicyOutcome | Should -BeOfType [string]
+        $result.Succeeded | Should -BeOfType [bool]
+        $result.DurationMs | Should -BeOfType [int]
+
+        $result.EffectiveMode | Should -Be 'full'
+        $result.PolicyOutcome | Should -Be 'Approved'
+        $result.Succeeded | Should -BeFalse
+        $result.FailureCategory | Should -BeNullOrEmpty
+        $result.ErrorCode | Should -BeNullOrEmpty
+        $result.RecoveryHint | Should -BeNullOrEmpty
+        $result.ArtifactPath | Should -BeNullOrEmpty
+        $result.DurationMs | Should -Be 0
+    }
+
+    It 'validates action result inputs defensively' {
+        { New-LabActionResult -Action '' -RequestedMode 'full' } | Should -Throw
+        { New-LabActionResult -Action 'deploy' -RequestedMode '' } | Should -Throw
+    }
+
+    It 'maps common exception types to failure categories' {
+        Resolve-LabFailureCategory -Exception ([System.UnauthorizedAccessException]::new('denied')) | Should -Be 'PolicyBlocked'
+        Resolve-LabFailureCategory -Exception ([System.TimeoutException]::new('slow')) | Should -Be 'TimeoutExceeded'
+        Resolve-LabFailureCategory -Exception ([System.ArgumentException]::new('bad arg')) | Should -Be 'ConfigError'
+    }
+
+    It 'validates failure category inputs defensively' {
+        { Resolve-LabFailureCategory -Exception $null } | Should -Throw
+    }
+
     It 'maps unknown exceptions to UnexpectedException' {
         $err = [System.Exception]::new('boom')
 
