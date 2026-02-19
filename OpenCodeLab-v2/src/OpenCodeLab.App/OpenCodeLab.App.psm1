@@ -1,3 +1,5 @@
+Set-StrictMode -Version Latest
+
 function Get-LabCommandMap {
     return [ordered]@{
         preflight = 'Invoke-LabPreflight'
@@ -8,5 +10,3 @@ function Get-LabCommandMap {
         dashboard = 'Start-LabDashboard'
     }
 }
-
-Export-ModuleMember -Function Get-LabCommandMap
