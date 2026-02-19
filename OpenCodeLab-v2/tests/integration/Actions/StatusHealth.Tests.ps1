@@ -35,6 +35,7 @@ Describe 'Status and health actions' {
         $result.Data | Should -Not -BeNullOrEmpty
         $result.Data.Count | Should -Be 2
         $result.Data[0].Name | Should -Be 'DC1'
+        Assert-MockCalled Get-LabVmSnapshot -Times 1 -Exactly -Scope It
     }
 
     It 'fails health action with VM_NOT_RUNNING when any VM is not running' {
@@ -51,6 +52,7 @@ Describe 'Status and health actions' {
         $result.Action | Should -Be 'health'
         $result.ErrorCode | Should -Be 'VM_NOT_RUNNING'
         $result.FailureCategory | Should -Be 'OperationFailed'
+        Assert-MockCalled Get-LabVmSnapshot -Times 1 -Exactly -Scope It
     }
 
     It 'returns success when all VMs are running' {
@@ -67,5 +69,54 @@ Describe 'Status and health actions' {
         $result.Succeeded | Should -BeTrue
         $result.ErrorCode | Should -BeNullOrEmpty
         $result.FailureCategory | Should -BeNullOrEmpty
+        Assert-MockCalled Get-LabVmSnapshot -Times 1 -Exactly -Scope It
+    }
+
+    It 'returns structured failure for status when snapshot retrieval throws' {
+        Mock Get-LabVmSnapshot {
+            throw 'snapshot backend failed'
+        }
+
+        { Invoke-LabStatusAction } | Should -Not -Throw
+
+        $result = Invoke-LabStatusAction
+
+        $result.Succeeded | Should -BeFalse
+        $result.Action | Should -Be 'status'
+        $result.FailureCategory | Should -Be 'OperationFailed'
+        $result.ErrorCode | Should -Be 'STATUS_SNAPSHOT_FAILED'
+        $result.RecoveryHint | Should -Match 'snapshot backend failed'
+        Assert-MockCalled Get-LabVmSnapshot -Times 2 -Exactly -Scope It
+    }
+
+    It 'returns structured failure for health when snapshot retrieval throws' {
+        Mock Get-LabVmSnapshot {
+            throw 'snapshot backend failed'
+        }
+
+        { Invoke-LabHealthAction } | Should -Not -Throw
+
+        $result = Invoke-LabHealthAction
+
+        $result.Succeeded | Should -BeFalse
+        $result.Action | Should -Be 'health'
+        $result.FailureCategory | Should -Be 'OperationFailed'
+        $result.ErrorCode | Should -Be 'HEALTH_SNAPSHOT_FAILED'
+        $result.RecoveryHint | Should -Match 'snapshot backend failed'
+        Assert-MockCalled Get-LabVmSnapshot -Times 2 -Exactly -Scope It
+    }
+
+    It 'fails health action when Hyper-V tooling is unavailable' {
+        Mock Get-Command {
+            $null
+        } -ParameterFilter { $Name -eq 'Get-VM' }
+
+        $result = Invoke-LabHealthAction
+
+        $result.Succeeded | Should -BeFalse
+        $result.Action | Should -Be 'health'
+        $result.FailureCategory | Should -Be 'OperationFailed'
+        $result.ErrorCode | Should -Be 'HYPERV_TOOLING_UNAVAILABLE'
+        $result.RecoveryHint | Should -Match 'Get-VM'
     }
 }
