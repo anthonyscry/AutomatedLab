@@ -47,7 +47,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Define final wording for each v1.2 requirement and map to implementation order
+- None — awaiting implementation after roadmap approval
 
 ### Blockers/Concerns
 
