@@ -4,15 +4,33 @@ function Invoke-LabPreflightAction {
     [CmdletBinding()]
     param()
 
-    $probe = Test-HyperVPrereqs
     $result = New-LabActionResult -Action 'preflight' -RequestedMode 'full'
+    $remediation = 'Enable Hyper-V and rerun preflight.'
+
+    try {
+        $probe = Test-HyperVPrereqs
+    } catch {
+        $result.FailureCategory = 'PreflightFailed'
+        $probeError = $_.Exception.Message
+        $result.RecoveryHint = if ([string]::IsNullOrWhiteSpace($probeError)) {
+            $remediation
+        } elseif ($probeError -match '(?i)Enable Hyper-V') {
+            $probeError
+        } else {
+            "$probeError $remediation"
+        }
+
+        return $result
+    }
 
     if (-not $probe.Ready) {
         $result.FailureCategory = 'PreflightFailed'
         $result.RecoveryHint = if ([string]::IsNullOrWhiteSpace($probe.Reason)) {
-            'Enable Hyper-V and rerun preflight.'
+            $remediation
+        } elseif ($probe.Reason -match '(?i)Enable Hyper-V') {
+            $probe.Reason
         } else {
-            "$($probe.Reason) Enable Hyper-V and rerun preflight."
+            "$($probe.Reason) $remediation"
         }
 
         return $result
