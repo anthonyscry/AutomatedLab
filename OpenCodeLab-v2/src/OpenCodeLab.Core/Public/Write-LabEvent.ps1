@@ -12,7 +12,12 @@ function Write-LabEvent {
         [psobject]$Event
     )
 
-    $eventsFilePath = [string]$ArtifactSet.EventsFilePath
+    $eventsFileProperty = $ArtifactSet.PSObject.Properties['EventsFilePath']
+    if ($null -eq $eventsFileProperty) {
+        throw 'ArtifactSet.EventsFilePath is required'
+    }
+
+    $eventsFilePath = [string]$eventsFileProperty.Value
     if ([string]::IsNullOrWhiteSpace($eventsFilePath)) {
         throw 'ArtifactSet.EventsFilePath is required'
     }
@@ -21,15 +26,28 @@ function Write-LabEvent {
         timestamp = [DateTimeOffset]::UtcNow.ToString('o')
     }
 
-    if ($Event -is [System.Collections.IDictionary]) {
-        foreach ($key in $Event.Keys) {
-            $payload[[string]$key] = $Event[$key]
+    $eventBaseObject = $Event.PSObject.BaseObject
+
+    if ($eventBaseObject -is [System.Collections.IDictionary]) {
+        foreach ($key in $eventBaseObject.Keys) {
+            if ([string]::Equals([string]$key, 'timestamp', [System.StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+
+            $payload[[string]$key] = $eventBaseObject[$key]
+        }
+    }
+    elseif ($eventBaseObject -is [pscustomobject]) {
+        foreach ($property in $Event.PSObject.Properties) {
+            if ([string]::Equals($property.Name, 'timestamp', [System.StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+
+            $payload[$property.Name] = $property.Value
         }
     }
     else {
-        foreach ($property in $Event.PSObject.Properties) {
-            $payload[$property.Name] = $property.Value
-        }
+        throw 'Event must be a dictionary or object with named properties'
     }
 
     $line = $payload | ConvertTo-Json -Compress -Depth 10

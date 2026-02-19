@@ -27,6 +27,16 @@ Describe 'Artifact writer' {
         Split-Path -Path $set.RunFilePath -Leaf | Should -Be 'run.json'
         Split-Path -Path $set.EventsFilePath -Leaf | Should -Be 'events.jsonl'
         Split-Path -Path $set.SummaryFilePath -Leaf | Should -Be 'summary.txt'
+
+        Get-Content -Path $set.RunFilePath -Raw | Should -Be '{}'
+        (Get-Item -Path $set.EventsFilePath).Length | Should -Be 0
+        (Get-Item -Path $set.SummaryFilePath).Length | Should -Be 0
+    }
+
+    It 'rejects RunId values that traverse outside LogRoot' {
+        $root = Join-Path -Path $TestDrive -ChildPath 'logs'
+
+        { New-LabRunArtifactSet -LogRoot $root -RunId '..' } | Should -Throw -ExpectedMessage 'RunId must resolve within LogRoot'
     }
 
     It 'writes newline-delimited event records to events.jsonl' {
@@ -47,5 +57,29 @@ Describe 'Artifact writer' {
         $first.timestamp | Should -Not -BeNullOrEmpty
 
         $second.status | Should -Be 'done'
+    }
+
+    It 'keeps generated timestamp when Event includes timestamp field' {
+        $root = Join-Path -Path $TestDrive -ChildPath 'logs'
+        $set = New-LabRunArtifactSet -LogRoot $root -RunId 'run-3'
+
+        $result = Write-LabEvent -ArtifactSet $set -Event @{ type = 'step'; timestamp = 'override' }
+
+        $result.timestamp | Should -Not -Be 'override'
+        ([DateTimeOffset]::Parse($result.timestamp).Offset.TotalMinutes) | Should -Be 0
+
+        $line = (Get-Content -Path $set.EventsFilePath | Select-Object -First 1) | ConvertFrom-Json
+        $line.timestamp | Should -Not -Be 'override'
+    }
+
+    It 'rejects scalar event values' {
+        $root = Join-Path -Path $TestDrive -ChildPath 'logs'
+        $set = New-LabRunArtifactSet -LogRoot $root -RunId 'run-4'
+
+        { Write-LabEvent -ArtifactSet $set -Event 'bad-event' } | Should -Throw -ExpectedMessage 'Event must be a dictionary or object with named properties'
+    }
+
+    It 'throws when ArtifactSet.EventsFilePath is missing' {
+        { Write-LabEvent -ArtifactSet ([pscustomobject]@{}) -Event @{ type = 'step' } } | Should -Throw -ExpectedMessage 'ArtifactSet.EventsFilePath is required'
     }
 }

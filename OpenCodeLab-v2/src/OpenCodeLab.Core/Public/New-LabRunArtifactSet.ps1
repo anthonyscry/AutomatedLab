@@ -14,7 +14,21 @@ function New-LabRunArtifactSet {
 
     $null = New-Item -Path $LogRoot -ItemType Directory -Force
 
-    $runPath = Join-Path -Path $LogRoot -ChildPath $RunId
+    $logRootPath = [System.IO.Path]::GetFullPath((Resolve-Path -Path $LogRoot).ProviderPath)
+    $runPath = [System.IO.Path]::GetFullPath((Join-Path -Path $logRootPath -ChildPath $RunId))
+
+    $comparison = if ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+
+    $logRootPrefix = $logRootPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $runPath.StartsWith($logRootPrefix, $comparison)) {
+        throw 'RunId must resolve within LogRoot'
+    }
+
     $null = New-Item -Path $runPath -ItemType Directory -Force
 
     $runFilePath = Join-Path -Path $runPath -ChildPath 'run.json'
