@@ -26,3 +26,44 @@
 - Mandatory download checksum validation
 
 **Last phase number:** 6
+
+### v1.1 — Production Robustness (2026-02-17 → 2026-02-17)
+
+**Goal:** Close production gaps in security, reliability, orchestration, error handling, and diagnostics.
+
+**Phases:** 7–10
+**Requirements:** 19/19 complete
+**Tests:** 847 passing
+
+**What shipped:**
+- Security & reliability gap closure (S1-S4, R1-R4)
+- Orchestrator extraction and helper modularization
+- Private/Public error handling completion
+- Module export and diagnostic cleanup
+
+**Key decisions:**
+- Stabilize foundation before adding new feature capabilities
+- Prioritize behavior-safe refactors and test coverage for each phase
+
+**Last phase number:** 10
+
+## In-Progress Milestone
+
+### v1.2 — Delivery Readiness (2026-02-18 → in progress)
+
+**Goal:** Improve documentation, release automation, and coverage readiness for reliable production delivery.
+
+**Phases:** 11–13 (planned)
+**Requirements:** 11 planned
+**Tests:** 847 passing baseline
+
+**Planned scope:**
+- Documentation refresh and onboarding guidance
+- CI/CD and release workflow hardening
+- Additional Public function test coverage and smoke verification
+
+**Key decisions:**
+- Hold feature expansion while improving shipping confidence
+- Keep phase order aligned: docs -> CI/CD -> coverage
+
+**Last phase number:** 13

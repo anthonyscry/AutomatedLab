@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Brownfield Hardening & Integration** - Phases 1-6 (shipped 2026-02-17)
 - ✅ **v1.1 Production Robustness** - Phases 7-10 (shipped 2026-02-17)
+- ▶ **v1.2 Delivery Readiness** - Phases 11-13 (in progress, started 2026-02-18)
 
 ## Phases
 
@@ -160,8 +161,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Close security gaps S1-S4: plaintext password warning + verification tests
-- [ ] 07-02-PLAN.md -- Close reliability gaps R1-R4: control flow, validation, config paths + tests
+- [x] 07-01-PLAN.md -- Close security gaps S1-S4: plaintext password warning + verification tests
+- [x] 07-02-PLAN.md -- Close reliability gaps R1-R4: control flow, validation, config paths + tests
 
 ### Phase 8: Orchestrator Extraction
 **Goal**: OpenCodeLab-App.ps1 orchestrator is modular and testable with all 34 inline functions extracted to Private/ helpers
@@ -215,10 +216,61 @@ Plans:
 - [x] 10-02-PLAN.md -- Replace Out-Null in Private/ and Public/ files with context-aware patterns (DIAG-01)
 - [x] 10-03-PLAN.md -- Replace Out-Null in Deploy, Bootstrap, LabBuilder, Scripts with context-aware patterns (DIAG-01)
 
+## v1.2 Delivery Readiness (In Progress)
+
+**Milestone Goal:** Prepare for safe shipping and adoption by improving delivery docs, release automation, and public API test coverage.
+
+### Phase 11: Documentation and Onboarding
+
+**Goal:** Ensure users and operators have clear, current documentation for all key workflows.
+**Depends on**: Phase 10
+**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04
+**Success Criteria** (what must be TRUE):
+  1. README/entry docs match current CLI and GUI behavior.
+  2. User guide includes bootstrap, deploy, quick mode, and teardown workflows with expected outputs.
+  3. Troubleshooting guide covers common production failure modes and recovery sequence.
+  4. Every Public function includes help comments with example usage.
+  5. Documentation accuracy is validated against runtime behavior in at least one integration check.
+**Plans**:
+- [ ] 11-01-PLAN.md -- Refresh README and onboarding docs to reflect v1.1 behavior
+- [ ] 11-02-PLAN.md -- Write lifecycle user guide and troubleshooting playbook
+- [ ] 11-03-PLAN.md -- Add/update Public function help comments and examples
+
+### Phase 12: CI/CD and Release Automation
+
+**Goal:** Add release-quality automation so quality gates run automatically before changes ship.
+**Depends on**: Phase 11
+**Requirements**: CICD-01, CICD-02, CICD-03, CICD-04
+**Success Criteria** (what must be TRUE):
+  1. PR pipeline runs full Pester suite and fails with actionable logs.
+  2. Static analysis runs in CI with project-specific baseline exceptions only.
+  3. Release workflow verifies versioning, build, and artifact integrity.
+  4. Publish flow for PowerShell Gallery includes reviewable metadata and permissions controls.
+  5. CI can run on clean agents without manual intervention.
+**Plans**:
+- [ ] 12-01-PLAN.md -- Add PR test workflow for Pester and failure reporting
+- [ ] 12-02-PLAN.md -- Add ScriptAnalyzer workflow with lint baseline
+- [ ] 12-03-PLAN.md -- Build and release automation with version/artifact checks
+
+### Phase 13: Test Coverage Expansion
+
+**Goal:** Improve confidence in public APIs and end-to-end reliability with focused tests.
+**Depends on**: Phase 12
+**Requirements**: TEST-01, TEST-02, TEST-03
+**Success Criteria** (what must be TRUE):
+  1. 20+ previously untested Public functions have passing unit tests.
+  2. Coverage reporting runs in CI and enforces a defined threshold.
+  3. E2E smoke test validates bootstrap/deploy/teardown outcome with stable exit conditions.
+  4. Traceability from requirements to test artifacts is explicit.
+**Plans**:
+- [ ] 13-01-PLAN.md -- Add tests for untested Public functions and coverage baselines
+- [ ] 13-02-PLAN.md -- Add coverage reporting and CI enforcement
+- [ ] 13-03-PLAN.md -- Add smoke E2E suite for lifecycle path
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 7 → 8 → 9 → 10
+Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -232,9 +284,13 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 8. Orchestrator Extraction | v1.1 | 4/4 | Complete | 2026-02-17 |
 | 9. Error Handling | v1.1 | 4/4 | Complete | 2026-02-17 |
 | 10. Module Diagnostics | v1.1 | 3/3 | Complete | 2026-02-17 |
+| 11. Documentation and Onboarding | v1.2 | 0/3 | In progress | — |
+| 12. CI/CD and Release Automation | v1.2 | 0/3 | In progress | — |
+| 13. Test Coverage Expansion | v1.2 | 0/3 | In progress | — |
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
 *v1.1 milestone added: 2026-02-17*
-*Depth: standard (4 phases for v1.1)*
-*Coverage: 19/19 v1.1 requirements mapped*
+*v1.2 milestone started: 2026-02-18*
+*Depth: standard (4 phases for v1.1, 3 phases for v1.2 planned)*
+*Coverage: 19/19 v1.1 + 11/11 v1.2 requirements mapped*
