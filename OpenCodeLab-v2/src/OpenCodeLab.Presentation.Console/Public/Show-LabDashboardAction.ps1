@@ -10,11 +10,17 @@ function Show-LabDashboardAction {
         [object[]]$Events,
 
         [Parameter()]
-        [object[]]$Diagnostics
+        [object[]]$Diagnostics,
+
+        [Parameter()]
+        [switch]$Render
     )
 
     $frame = Format-LabDashboardFrame -Status $Status -Events $Events -Diagnostics $Diagnostics
-    Write-Host $frame
+
+    if ($Render) {
+        Write-Host $frame
+    }
 
     return $frame
 }
