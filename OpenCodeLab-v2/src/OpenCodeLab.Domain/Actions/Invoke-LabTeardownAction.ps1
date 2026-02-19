@@ -10,7 +10,17 @@ function Invoke-LabTeardownAction {
     )
 
     $result = New-LabActionResult -Action 'teardown' -RequestedMode $Mode
-    $policy = Resolve-LabTeardownPolicy -Mode $Mode -Force:$Force
+
+    try {
+        $policy = Resolve-LabTeardownPolicy -Mode $Mode -Force:$Force
+    }
+    catch {
+        $result.PolicyOutcome = 'PolicyBlocked'
+        $result.FailureCategory = 'PolicyBlocked'
+        $result.ErrorCode = 'POLICY_EVALUATION_FAILED'
+        $result.RecoveryHint = "Policy evaluation failed: $($_.Exception.Message)"
+        return $result
+    }
 
     $result.PolicyOutcome = $policy.Outcome
     $result.ErrorCode = $policy.ErrorCode
