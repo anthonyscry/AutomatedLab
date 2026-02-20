@@ -45,6 +45,8 @@ Export-ModuleMember -Function @(
     'Start-LabVMs', 'Stop-LabVMs', 'Suspend-LabVM', 'Suspend-LabVMs',
     'Test-HyperVEnabled', 'Test-LabDomainHealth', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
     'Wait-LabVMReady', 'Write-LabStatus', 'Write-RunArtifact',
+    # Run history
+    'Get-LabRunHistory',
     # Linux VM helpers (Public/Linux)
     'Add-LinuxDhcpReservation', 'Finalize-LinuxInstallMedia', 'Get-LinuxSSHConnectionInfo',
     'Get-LinuxVMIPv4', 'Get-Sha512PasswordHash', 'Invoke-BashOnLinuxVM',
