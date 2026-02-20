@@ -1,42 +1,126 @@
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="2*" MinWidth="280" />
-        <ColumnDefinition Width="3*" MinWidth="400" />
-    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
 
-    <!-- Column 0: VM Cards area -->
-    <DockPanel Grid.Column="0" Margin="0,0,12,0">
-        <TextBlock DockPanel.Dock="Top"
-                   Text="Virtual Machines"
-                   Style="{DynamicResource HeaderLabel}"
-                   Margin="0,0,0,12" />
+    <!-- Row 0: Health Banner -->
+    <Border x:Name="healthBanner"
+            Grid.Row="0"
+            Background="{DynamicResource CardBackgroundBrush}"
+            CornerRadius="8"
+            Padding="12"
+            Margin="0,0,0,12">
+        <StackPanel>
+            <TextBlock x:Name="txtHealthState"
+                       Text="No Lab"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <TextBlock x:Name="txtHealthDetail"
+                       Text="Checking lab status..."
+                       FontSize="12"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+    </Border>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
+    <!-- Row 1: Resource Summary + Bulk Actions -->
+    <Grid Grid.Row="1" Margin="0,0,0,12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: Resource Summary -->
+        <Border x:Name="pnlResourceSummary"
+                Grid.Column="0"
+                Style="{DynamicResource CardBorder}"
+                Margin="0,0,6,0">
             <StackPanel>
-                <StackPanel x:Name="vmCardContainer" />
-                <TextBlock x:Name="txtNoVMs"
-                           Text="No virtual machines found. Configure a lab to get started."
-                           Foreground="{DynamicResource TextSecondaryBrush}"
+                <TextBlock Text="Resource Usage"
+                           Style="{DynamicResource HeaderLabel}"
+                           Margin="0,0,0,8" />
+                <TextBlock x:Name="txtRAMUsage"
+                           Text="RAM: checking..."
                            FontSize="13"
-                           TextWrapping="Wrap"
-                           Margin="0,8,0,0" />
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock x:Name="txtCPUUsage"
+                           Text="CPU: checking..."
+                           FontSize="13"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
             </StackPanel>
-        </ScrollViewer>
-    </DockPanel>
-
-    <!-- Column 1: Topology area -->
-    <DockPanel Grid.Column="1" Margin="12,0,0,0">
-        <TextBlock DockPanel.Dock="Top"
-                   Text="Network Topology"
-                   Style="{DynamicResource HeaderLabel}"
-                   Margin="0,0,0,12" />
-
-        <Border Style="{DynamicResource CardBorder}">
-            <Canvas x:Name="topologyCanvas"
-                    MinHeight="300" />
         </Border>
-    </DockPanel>
+
+        <!-- Right: Quick Actions -->
+        <Border Grid.Column="1"
+                Style="{DynamicResource CardBorder}"
+                Margin="6,0,0,0">
+            <StackPanel>
+                <TextBlock Text="Quick Actions"
+                           Style="{DynamicResource HeaderLabel}"
+                           Margin="0,0,0,8" />
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="btnStartAll"
+                            Content="Start All"
+                            Style="{DynamicResource ModernButton}"
+                            Padding="12,6"
+                            Margin="0,0,8,0" />
+                    <Button x:Name="btnStopAll"
+                            Content="Stop All"
+                            Style="{DynamicResource ModernButton}"
+                            Padding="12,6"
+                            Margin="0,0,8,0" />
+                    <Button x:Name="btnSaveCheckpoint"
+                            Content="Save Checkpoint"
+                            Style="{DynamicResource ModernButton}"
+                            Padding="12,6" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+
+    <!-- Row 2: Existing VM Cards + Topology layout -->
+    <Grid Grid.Row="2">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" MinWidth="280" />
+            <ColumnDefinition Width="3*" MinWidth="400" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Column 0: VM Cards area -->
+        <DockPanel Grid.Column="0" Margin="0,0,12,0">
+            <TextBlock DockPanel.Dock="Top"
+                       Text="Virtual Machines"
+                       Style="{DynamicResource HeaderLabel}"
+                       Margin="0,0,0,12" />
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <StackPanel x:Name="vmCardContainer" />
+                    <TextBlock x:Name="txtNoVMs"
+                               Text="No virtual machines found. Configure a lab to get started."
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="13"
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- Column 1: Topology area -->
+        <DockPanel Grid.Column="1" Margin="12,0,0,0">
+            <TextBlock DockPanel.Dock="Top"
+                       Text="Network Topology"
+                       Style="{DynamicResource HeaderLabel}"
+                       Margin="0,0,0,12" />
+
+            <Border Style="{DynamicResource CardBorder}">
+                <Canvas x:Name="topologyCanvas"
+                        MinHeight="300" />
+            </Border>
+        </DockPanel>
+    </Grid>
 </Grid>
