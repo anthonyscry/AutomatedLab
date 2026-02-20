@@ -36,6 +36,7 @@ All 4 milestones shipped:
 - ✓ v1.3 DASH-01 through DASH-03: Dashboard health banner, resource summary, bulk actions (Phase 17)
 - ✓ v1.4 PROF-01 through PROF-04: Named configuration profiles with save, load, list, delete (Phase 18)
 - ✓ v1.4 HIST-01 through HIST-03: Run history tracking with automatic logging and query cmdlet (Phase 19)
+- ✓ v1.4 LOGV-01 through LOGV-03: GUI log viewer with filtering and export (Phase 20)
 
 ### Active
 
@@ -91,6 +92,8 @@ v1.4 Configuration Management & Reporting:
 | Recursive PSCustomObject-to-hashtable | Handles JSON round-trip for PS 5.1 ConvertFrom-Json | ✓ v1.4 |
 | Get-LabRunHistory wraps existing helpers | No new logging infra needed, reuses Write-LabRunArtifacts | ✓ v1.4 |
 | ISO 8601 string sort for run ordering | Avoids DateTime parsing overhead and PS version differences | ✓ v1.4 |
+| Cached run history with filter-without-reload | Avoids repeated disk reads when switching action filter | ✓ v1.4 |
+| Raw string matching for GUI tests | Validates XAML structure without WPF runtime dependency | ✓ v1.4 |
 
 ---
-*Last updated: 2026-02-20 after Phase 19*
+*Last updated: 2026-02-20 after Phase 20*
