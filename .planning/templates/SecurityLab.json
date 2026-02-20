@@ -1,0 +1,27 @@
+{
+    "name":  "SecurityLab",
+    "description":  "Security testing lab: DC, Windows client, Ubuntu attack VM",
+    "vms":  [
+                {
+                    "name":  "dc1",
+                    "role":  "DC",
+                    "ip":  "10.0.10.10",
+                    "memoryGB":  4,
+                    "processors":  4
+                },
+                {
+                    "name":  "ws1",
+                    "role":  "Client",
+                    "ip":  "10.0.10.30",
+                    "memoryGB":  4,
+                    "processors":  2
+                },
+                {
+                    "name":  "attack1",
+                    "role":  "Ubuntu",
+                    "ip":  "10.0.10.50",
+                    "memoryGB":  2,
+                    "processors":  2
+                }
+            ]
+}
