@@ -92,11 +92,11 @@ Plans:
   1. Operator can list all snapshots across lab VMs and see age, creation date, and parent checkpoint name for each
   2. Operator can prune snapshots older than N days (default 7) with a single command and see what was removed
   3. Lab status output includes a snapshot inventory summary (count, oldest, newest) without extra commands
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 16-01: TBD
-- [ ] 16-02: TBD
+- [ ] 16-01-PLAN.md — Snapshot inventory and age-based pruning functions with Pester tests
+- [ ] 16-02-PLAN.md — CLI snapshot actions and status integration with integration tests
 
 ### Phase 17: GUI Dashboard Enhancements
 **Goal**: Operators see lab health and resource state at a glance on the dashboard and can perform common bulk operations without switching to CLI
@@ -121,7 +121,7 @@ Plans:
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
 | 15. Configuration Validation | 2/2 | Complete    | 2026-02-20 | - |
-| 16. Snapshot Lifecycle | v1.3 | 0/TBD | Not started | - |
+| 16. Snapshot Lifecycle | v1.3 | 0/2 | Planned | - |
 | 17. GUI Dashboard Enhancements | v1.3 | 0/TBD | Not started | - |
 
 **Total: 54 plans across 13 phases, 3 milestones shipped. v1.3: 4 phases planned.**
