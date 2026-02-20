@@ -96,8 +96,8 @@ function Import-LabPackage {
     # Convert PSCustomObject config to hashtable for Save-LabProfile
     $configHashtable = ConvertTo-PackageHashtable $data.config
 
-    # Save as profile via Save-LabProfile
-    Save-LabProfile -Name $resolvedName -Config $configHashtable -RepoRoot $RepoRoot -Description "Imported from package: $($data.sourceName)"
+    # Save as profile via Save-LabProfile (suppress output to avoid polluting pipeline)
+    $null = Save-LabProfile -Name $resolvedName -Config $configHashtable -RepoRoot $RepoRoot -Description "Imported from package: $($data.sourceName)"
 
     return [pscustomobject]@{
         Success     = $true
