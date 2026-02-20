@@ -90,7 +90,10 @@ Plans:
   1. After a deploy or teardown completes, a run log entry exists with timestamp, action type, outcome, and duration
   2. Operator runs `Get-LabRunHistory` and sees a formatted table of the last N runs without manual log parsing
   3. Operator runs `Get-LabRunHistory -RunId <id>` and sees the full detail log for that specific run
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Get-LabRunHistory Public cmdlet with list and detail modes, module export registration
+- [ ] 19-02-PLAN.md — Comprehensive Pester tests for run history (list, detail, error handling, corrupt file resilience)
 
 ### Phase 20: GUI Log Viewer
 **Goal**: Operators can review, search, and export run history directly from the GUI without switching to a terminal
@@ -121,7 +124,7 @@ Plans:
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14-17 | v1.3 | 8/8 | Complete | 2026-02-20 |
 | 18 | 2/2 | Complete    | 2026-02-20 | - |
-| 19 | v1.4 | 0/TBD | Not started | - |
+| 19 | v1.4 | 0/2 | Planning complete | - |
 | 20 | v1.4 | 0/TBD | Not started | - |
 | 21 | v1.4 | 0/TBD | Not started | - |
 
