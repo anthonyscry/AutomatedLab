@@ -55,8 +55,18 @@ $config.CodeCoverage.OutputPath = (Join-Path $PSScriptRoot "coverage.xml")
 $config.CodeCoverage.OutputFormat = 'JaCoCo'
 $config.CodeCoverage.CoveragePercentTarget = 15
 
-# Display settings
-$config.Output.CIFormat = 'Auto'
+# Display settings — use GitHub Actions format when running in CI
+if ($env:GITHUB_ACTIONS) {
+    $config.Output.CIFormat = 'GithubActions'
+} else {
+    $config.Output.CIFormat = 'Auto'
+}
+
+# Ensure output directory exists
+$resultsDir = Split-Path $OutputPath
+if ($resultsDir -and -not (Test-Path $resultsDir)) {
+    New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
+}
 
 Write-Host "Running SimpleLab tests..." -ForegroundColor Cyan
 Write-Host "Module Root: $moduleRoot" -ForegroundColor Gray
