@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 ## Current Position
 
 Phase: 11 of 13 (Documentation and Onboarding) — IN PROGRESS
-Plan: 10 of 11
+Plan: 11 of 11
 Status: v1.2 milestone active — phase 11 documentation plans executing
-Last activity: 2026-02-20 — 11-10 reset/ISO/Linux helper help blocks complete
+Last activity: 2026-02-20 — 11-03 VM lifecycle control help verification complete
 
-Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 10/11 phase-11 plans complete in v1.2
+Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 11/11 phase-11 plans complete in v1.2
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [███████████████████████
 
 **Current milestone (v1.2):**
 - 3 planned phases (11-13), 11 requirements
-- Phase 11: 10/11 plans complete (plans 01-10 done)
+- Phase 11: 11/11 plans complete (all plans done)
 
 ## Accumulated Context
 
@@ -50,6 +50,7 @@ Recent decisions affecting current work:
 - [Phase 11-documentation-and-onboarding]: Write-LabStatus.ps1 was missing .DESCRIPTION and .EXAMPLE entirely; added both to meet DOC-04 coverage
 - [Phase 11-documentation-and-onboarding]: Enhanced thinner example sections in Show-LabStatus, Write-RunArtifact, Save-LabCheckpoint, Restore-LabCheckpoint for practical operator value
 - [Phase 11-10]: Reset-Lab.ps1 and Test-LabIso.ps1 already had complete help; four Linux helpers (DHCP, install media, SSH info, VMIPv4) updated with missing .PARAMETER and .EXAMPLE entries
+- [Phase 11-01]: README already had all required CLI entry-point tokens; only [Getting Started] cross-link was added; EntryDocs tests use regex anchors for stable drift-resistant coverage
 
 ### Pending Todos
 
@@ -62,9 +63,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-05-PLAN.md (reporting/checkpoint help blocks — 11-05 executed after 11-10 to close remaining DOC-04 gap)
+Stopped at: Completed 11-03-PLAN.md (VM lifecycle control help verification — Start/Stop/Restart/Suspend/Resume)
 Resume file: .planning/phases/11-documentation-and-onboarding/11-11-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 11-05 reporting/checkpoint help blocks (all phase-11 plans now complete)*
+*Last updated: 2026-02-20 after 11-03 VM lifecycle control help verification*
