@@ -55,4 +55,26 @@ Describe 'Launcher process exit codes' {
         & pwsh -NoProfile -File $copiedLauncherPath -Command dashboard -ConfigPath $configPath | Out-Null
         $LASTEXITCODE | Should -Be 3
     }
+
+    It 'creates startup failure artifact files and reports artifact path in process output' {
+        $isolatedRoot = Join-Path -Path $TestDrive -ChildPath 'isolated-launcher-artifacts'
+        $scriptsPath = Join-Path -Path $isolatedRoot -ChildPath 'scripts'
+        $null = New-Item -Path $scriptsPath -ItemType Directory -Force
+
+        $copiedLauncherPath = Join-Path -Path $scriptsPath -ChildPath 'opencodelab.ps1'
+        $launcherContent = Get-Content -Path $launcherPath -Raw
+        $launcherContent = $launcherContent -replace [regex]::Escape("../src/OpenCodeLab.App/OpenCodeLab.App.psd1"), "../src/OpenCodeLab.App/DoesNotExist.psd1"
+        Set-Content -Path $copiedLauncherPath -Value $launcherContent -Encoding utf8
+
+        $json = & pwsh -NoProfile -File $copiedLauncherPath -Command dashboard -ConfigPath $configPath -Output json | Out-String
+        $LASTEXITCODE | Should -Be 3
+
+        $parsed = $json | ConvertFrom-Json
+        $parsed.ArtifactPath | Should -Not -BeNullOrEmpty
+        Test-Path -Path $parsed.ArtifactPath | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'run.json') | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'summary.txt') | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'errors.json') | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'events.jsonl') | Should -BeTrue
+    }
 }

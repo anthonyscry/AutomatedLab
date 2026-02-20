@@ -133,4 +133,36 @@ Describe 'CLI runtime execution' {
             [System.IO.Path]::IsPathRooted($LockPath)
         }
     }
+
+    It 'resolves relative config log root and lock path independently of current directory' {
+        $configDir = Join-Path -Path $TestDrive -ChildPath 'config-root'
+        $otherDir = Join-Path -Path $TestDrive -ChildPath 'other-working-dir'
+        $null = New-Item -Path $configDir -ItemType Directory -Force
+        $null = New-Item -Path $otherDir -ItemType Directory -Force
+        $configPath = Join-Path -Path $configDir -ChildPath 'lab.settings.psd1'
+
+        @"
+@{
+    Lab = @{ Name = 'OpenCodeLab-v2' }
+    Paths = @{ LogRoot = 'logs' }
+}
+"@ | Set-Content -Path $configPath -Encoding utf8
+
+        Mock Invoke-LabDeployAction -ModuleName OpenCodeLab.App {
+            New-LabActionResult -Action 'deploy' -RequestedMode $Mode
+        }
+
+        Push-Location -Path $otherDir
+        try {
+            Invoke-LabCliCommand -Command deploy -ConfigPath $configPath | Out-Null
+        }
+        finally {
+            Pop-Location
+        }
+
+        Assert-MockCalled Invoke-LabDeployAction -ModuleName OpenCodeLab.App -Times 1 -Exactly -Scope It -ParameterFilter {
+            $LockPath -eq (Join-Path -Path ([System.IO.Path]::GetFullPath((Join-Path -Path $configDir -ChildPath 'logs'))) -ChildPath 'run.lock') -and
+            [System.IO.Path]::IsPathRooted($LockPath)
+        }
+    }
 }

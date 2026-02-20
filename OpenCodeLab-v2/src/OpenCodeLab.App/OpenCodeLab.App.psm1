@@ -122,7 +122,15 @@ function Invoke-LabCliCommand {
 
     try {
         $config = Get-LabConfig -Path $ConfigPath
-        $resolvedLogRoot = [System.IO.Path]::GetFullPath([string]$config.Paths.LogRoot)
+        $configuredLogRoot = [string]$config.Paths.LogRoot
+        $resolvedConfigPath = [System.IO.Path]::GetFullPath((Resolve-Path -Path $ConfigPath).ProviderPath)
+        $configDirectory = Split-Path -Path $resolvedConfigPath -Parent
+        if ([System.IO.Path]::IsPathRooted($configuredLogRoot)) {
+            $resolvedLogRoot = [System.IO.Path]::GetFullPath($configuredLogRoot)
+        }
+        else {
+            $resolvedLogRoot = [System.IO.Path]::GetFullPath((Join-Path -Path $configDirectory -ChildPath $configuredLogRoot))
+        }
     }
     catch {
         $result = New-LabActionResult -Action $Command -RequestedMode $Mode
