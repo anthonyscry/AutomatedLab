@@ -78,11 +78,11 @@ Plans:
   1. Operator can run a validation command and see a consolidated pass/fail report covering all preflight checks
   2. Operator sees host free RAM, disk space, and logical CPUs compared against what the selected scenario requires
   3. Every failed check includes a message explaining the problem and a concrete remediation step
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 15-01: TBD
-- [ ] 15-02: TBD
+- [ ] 15-01-PLAN.md — Host resource probe, validation engine, and Pester tests
+- [ ] 15-02-PLAN.md — CLI validate action and pre-deploy validation wiring
 
 ### Phase 16: Snapshot Lifecycle
 **Goal**: Operators can manage checkpoint accumulation across lab VMs instead of manually hunting through Hyper-V Manager
@@ -120,7 +120,7 @@ Plans:
 | 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
-| 15. Configuration Validation | v1.3 | 0/TBD | Not started | - |
+| 15. Configuration Validation | v1.3 | 0/2 | Planned | - |
 | 16. Snapshot Lifecycle | v1.3 | 0/TBD | Not started | - |
 | 17. GUI Dashboard Enhancements | v1.3 | 0/TBD | Not started | - |
 
