@@ -12,7 +12,8 @@ param(
     [switch]$ForceRebuild,
     [switch]$AutoFixSubnetConflict,
     [switch]$IncludeLIN1,
-    [string]$AdminPassword
+    [string]$AdminPassword,
+    [string]$Scenario
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -24,6 +25,12 @@ if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
 if (Test-Path $switchSubnetConflictHelperPath) { . $switchSubnetConflictHelperPath }
 if (Test-Path $templateHelperPath) { . $templateHelperPath }
+$scenarioHelperPath = Join-Path $ScriptDir 'Private\Get-LabScenarioTemplate.ps1'
+$resourceEstimateHelperPath = Join-Path $ScriptDir 'Private\Get-LabScenarioResourceEstimate.ps1'
+$templateValidationHelperPath = Join-Path $ScriptDir 'Private\Test-LabTemplateData.ps1'
+if (Test-Path $scenarioHelperPath) { . $scenarioHelperPath }
+if (Test-Path $resourceEstimateHelperPath) { . $resourceEstimateHelperPath }
+if (Test-Path $templateValidationHelperPath) { . $templateValidationHelperPath }
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -274,9 +281,30 @@ try {
     # ============================================================
     # MACHINE DEFINITIONS (template-aware or hardcoded fallback)
     # ============================================================
-    $templateConfig = $null
-    if (Get-Command -Name 'Get-ActiveTemplateConfig' -ErrorAction SilentlyContinue) {
-        $templateConfig = Get-ActiveTemplateConfig -RepoRoot $ScriptDir
+
+    # Scenario template override -- takes precedence over active template
+    if (-not [string]::IsNullOrWhiteSpace($Scenario)) {
+        $templatesRoot = Join-Path (Join-Path $ScriptDir '.planning') 'templates'
+        if (Get-Command -Name 'Get-LabScenarioResourceEstimate' -ErrorAction SilentlyContinue) {
+            $estimate = Get-LabScenarioResourceEstimate -Scenario $Scenario -TemplatesRoot $templatesRoot
+            Write-Host "`n===== Scenario Resource Requirements: $Scenario =====" -ForegroundColor Cyan
+            Write-Host "  VMs:         $($estimate.VMCount)" -ForegroundColor White
+            Write-Host "  Total RAM:   $($estimate.TotalRAMGB) GB" -ForegroundColor White
+            Write-Host "  Total Disk:  $($estimate.TotalDiskGB) GB (estimated)" -ForegroundColor White
+            Write-Host "  Total CPUs:  $($estimate.TotalProcessors)" -ForegroundColor White
+            Write-Host "=================================================" -ForegroundColor Cyan
+            Write-Host ""
+        }
+        if (Get-Command -Name 'Get-LabScenarioTemplate' -ErrorAction SilentlyContinue) {
+            $templateConfig = Get-LabScenarioTemplate -Scenario $Scenario -TemplatesRoot $templatesRoot
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Scenario)) {
+        $templateConfig = $null
+        if (Get-Command -Name 'Get-ActiveTemplateConfig' -ErrorAction SilentlyContinue) {
+            $templateConfig = Get-ActiveTemplateConfig -RepoRoot $ScriptDir
+        }
     }
 
     if ($templateConfig) {

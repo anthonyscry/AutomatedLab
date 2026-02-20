@@ -33,7 +33,10 @@ function Invoke-LabOrchestrationActionCore {
         [switch]$NonInteractive,
         [switch]$RemoveNetwork,
         [switch]$DryRun,
-        [switch]$AutoFixSubnetConflict
+        [switch]$AutoFixSubnetConflict,
+
+        [Parameter()]
+        [string]$Scenario
     )
 
     try {
@@ -44,6 +47,9 @@ function Invoke-LabOrchestrationActionCore {
                 }
                 else {
                     $deployArgs = Get-LabDeployArgs -Mode $Mode -NonInteractive:$NonInteractive -AutoFixSubnetConflict:$AutoFixSubnetConflict
+                    if (-not [string]::IsNullOrWhiteSpace($Scenario)) {
+                        $deployArgs += @('-Scenario', $Scenario)
+                    }
                     Invoke-LabRepoScript -BaseName 'Deploy' -Arguments $deployArgs -ScriptDir $ScriptDir -RunEvents $RunEvents
                 }
             }
