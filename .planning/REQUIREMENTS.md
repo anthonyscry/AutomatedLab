@@ -63,26 +63,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TMPL-01 | — | Pending |
-| TMPL-02 | — | Pending |
-| TMPL-03 | — | Pending |
-| TMPL-04 | — | Pending |
-| TMPL-05 | — | Pending |
-| CONF-01 | — | Pending |
-| CONF-02 | — | Pending |
-| CONF-03 | — | Pending |
-| SNAP-01 | — | Pending |
-| SNAP-02 | — | Pending |
-| SNAP-03 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
+| TMPL-01 | Phase 14 | Pending |
+| TMPL-02 | Phase 14 | Pending |
+| TMPL-03 | Phase 14 | Pending |
+| TMPL-04 | Phase 14 | Pending |
+| TMPL-05 | Phase 14 | Pending |
+| CONF-01 | Phase 15 | Pending |
+| CONF-02 | Phase 15 | Pending |
+| CONF-03 | Phase 15 | Pending |
+| SNAP-01 | Phase 16 | Pending |
+| SNAP-02 | Phase 16 | Pending |
+| SNAP-03 | Phase 16 | Pending |
+| DASH-01 | Phase 17 | Pending |
+| DASH-02 | Phase 17 | Pending |
+| DASH-03 | Phase 17 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-19 after initial definition*
+*Last updated: 2026-02-19 after roadmap creation*
