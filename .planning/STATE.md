@@ -52,6 +52,8 @@ Recent decisions affecting current work:
 - [Phase 11-10]: Reset-Lab.ps1 and Test-LabIso.ps1 already had complete help; four Linux helpers (DHCP, install media, SSH info, VMIPv4) updated with missing .PARAMETER and .EXAMPLE entries
 - [Phase 11-01]: README already had all required CLI entry-point tokens; only [Getting Started] cross-link was added; EntryDocs tests use regex anchors for stable drift-resistant coverage
 - [Phase 11-04]: New-LabNAT and New-LabSSHKey were missing .PARAMETER docs; all 9 network/domain/provisioning files had .EXAMPLE enhanced with descriptive text and a third operator example
+- [Phase 11]: Numbered scenario entries in RUNBOOK-ROLLBACK.md use bare numbered lines to match verify regex
+- [Phase 11]: Expected outcome fields documented per workflow in LIFECYCLE-WORKFLOWS.md
 
 ### Pending Todos
 
@@ -64,9 +66,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-04-PLAN.md (network/domain/provisioning command help — 9 files updated)
-Resume file: .planning/phases/11-documentation-and-onboarding/11-11-PLAN.md
+Stopped at: Completed 11-02-PLAN.md (lifecycle user guide, troubleshooting runbook, 25-test Pester gate)
+Resume file: .planning/phases/11-documentation-and-onboarding/11-03-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 11-03 VM lifecycle control help verification*
+*Last updated: 2026-02-20 after 11-02 lifecycle guide and troubleshooting runbook*
