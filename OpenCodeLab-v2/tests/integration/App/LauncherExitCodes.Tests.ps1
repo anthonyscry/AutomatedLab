@@ -76,6 +76,28 @@ Describe 'Launcher process exit codes' {
         Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'summary.txt') | Should -BeTrue
         Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'errors.json') | Should -BeTrue
         Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'events.jsonl') | Should -BeTrue
+
+        $run = Get-Content -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'run.json') -Raw | ConvertFrom-Json
+        $run.RunId | Should -Not -BeNullOrEmpty
+        $run.Action | Should -Be 'dashboard'
+        $run.RequestedMode | Should -Be 'full'
+        $run.EffectiveMode | Should -Be 'full'
+        $run.PolicyOutcome | Should -Be 'Approved'
+        $run.Succeeded | Should -BeFalse
+        $run.FailureCategory | Should -Be 'StartupError'
+        $run.ErrorCode | Should -Be 'STARTUP_FAILURE'
+        $run.RecoveryHint | Should -Not -BeNullOrEmpty
+        $run.ArtifactPath | Should -Be $parsed.ArtifactPath
+        $run.DurationMs | Should -Be 0
+
+        $events = Get-Content -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'events.jsonl') | ForEach-Object { $_ | ConvertFrom-Json }
+        $events.Count | Should -Be 2
+        @($events.type) | Should -Contain 'run-started'
+        @($events.type) | Should -Contain 'run-finished'
+        foreach ($event in $events) {
+            $event.timestamp | Should -Not -BeNullOrEmpty
+            { [DateTimeOffset]::Parse($event.timestamp) } | Should -Not -Throw
+        }
     }
 
     It 'falls back to default startup artifact location when config is malformed during import failure' {

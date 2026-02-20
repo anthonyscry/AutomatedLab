@@ -86,7 +86,10 @@ function New-LauncherFailureArtifactSet {
     $null = New-Item -Path $logRoot -ItemType Directory -Force
     $resolvedLogRoot = [System.IO.Path]::GetFullPath((Resolve-Path -Path $logRoot -ErrorAction Stop).ProviderPath)
 
-    $runId = ([guid]::NewGuid()).ToString()
+    $runId = [string]$Result.RunId
+    if ([string]::IsNullOrWhiteSpace($runId)) {
+        $runId = ([guid]::NewGuid()).ToString()
+    }
     $artifactPath = [System.IO.Path]::GetFullPath((Join-Path -Path $resolvedLogRoot -ChildPath $runId))
     $null = New-Item -Path $artifactPath -ItemType Directory -Force
 
@@ -111,9 +114,11 @@ function New-LauncherFailureArtifactSet {
         FailureCategory = $Result.FailureCategory
         RecoveryHint = $Result.RecoveryHint
     }) | ConvertTo-Json -Depth 10) -Encoding utf8 -NoNewline
+    $runStartedTimestamp = [DateTimeOffset]::UtcNow.ToString('o')
+    $runFinishedTimestamp = [DateTimeOffset]::UtcNow.ToString('o')
     Set-Content -Path $eventsFilePath -Value (@(
-        (@{ type = 'run-started'; action = $Result.Action; mode = $Mode } | ConvertTo-Json -Compress),
-        (@{ type = 'run-finished'; succeeded = $false; failureCategory = $Result.FailureCategory; durationMs = $Result.DurationMs } | ConvertTo-Json -Compress)
+        (@{ timestamp = $runStartedTimestamp; type = 'run-started'; action = $Result.Action; mode = $Mode } | ConvertTo-Json -Compress),
+        (@{ timestamp = $runFinishedTimestamp; type = 'run-finished'; succeeded = $false; failureCategory = $Result.FailureCategory; durationMs = $Result.DurationMs } | ConvertTo-Json -Compress)
     ) -join [Environment]::NewLine) -Encoding utf8 -NoNewline
 }
 
@@ -141,13 +146,17 @@ catch {
     }
 
     $result = [pscustomobject][ordered]@{
+        RunId           = ([guid]::NewGuid()).ToString()
         Action          = $Command
+        RequestedMode   = $Mode
+        EffectiveMode   = $Mode
+        PolicyOutcome   = 'Approved'
         Succeeded       = $false
         FailureCategory = $failureCategory
         ErrorCode       = $errorCode
         RecoveryHint    = $_.Exception.Message
-        DurationMs      = [int]0
         ArtifactPath    = $null
+        DurationMs      = [int]0
     }
 
     $artifactMessages = @()
