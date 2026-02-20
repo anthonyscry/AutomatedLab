@@ -2,33 +2,24 @@
 
 ## What This Is
 
-A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual machines for domain and role scenarios, usable through CLI, GUI, and module APIs. Ships with full operator documentation, CI/CD pipelines, and comprehensive test coverage.
+A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual machines for domain and role scenarios, usable through CLI, GUI, and module APIs. Ships with scenario templates, pre-deployment validation, snapshot management, full operator documentation, CI/CD pipelines, and comprehensive test coverage.
 
 ## Core Value
 
 Every function handles errors explicitly, surfaces clear diagnostics, and stays modular enough that each piece can be tested and maintained independently.
 
-## Current Milestone: v1.3 Lab Scenarios & Operator Tooling
-
-**Goal:** Make labs easier to create and manage by providing scenario templates, configuration validation, snapshot lifecycle tools, and GUI dashboard improvements.
-
-**Target features:**
-- Pre-built lab scenario templates (basic AD, security testing, multi-tier app)
-- Configuration validation with guided diagnostics before deployment
-- Snapshot lifecycle management (list, compare, prune stale snapshots)
-- GUI dashboard improvements for operational visibility
-
 ## Current State
 
-**Version:** v1.3 in progress (started 2026-02-19)
-**Tests:** 847+ Pester tests passing (unit + integration + E2E smoke)
+**Version:** v1.3 shipped (2026-02-20)
+**Tests:** 847+ Pester tests passing + ~189 new tests (unit + integration + E2E smoke)
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help
 
-All 3 prior milestones shipped:
+All 4 milestones shipped:
 - v1.0 Brownfield Hardening & Integration (6 phases, 25 plans)
 - v1.1 Production Robustness (4 phases, 13 plans)
 - v1.2 Delivery Readiness (3 phases, 16 plans)
+- v1.3 Lab Scenarios & Operator Tooling (4 phases, 8 plans)
 
 ## Requirements
 
@@ -39,19 +30,22 @@ All 3 prior milestones shipped:
 - ✓ v1.2 DOC-01 through DOC-04: Full documentation suite with quality gates (Phase 11)
 - ✓ v1.2 CICD-01 through CICD-04: CI/CD pipelines and release automation (Phase 12)
 - ✓ v1.2 TEST-01 through TEST-03: Public function tests, coverage reporting, E2E smoke (Phase 13)
+- ✓ v1.3 TMPL-01 through TMPL-05: Scenario templates with CLI integration and resource estimation (Phase 14)
+- ✓ v1.3 CONF-01 through CONF-03: Pre-deployment validation with guided diagnostics (Phase 15)
+- ✓ v1.3 SNAP-01 through SNAP-03: Snapshot inventory, pruning, and status integration (Phase 16)
+- ✓ v1.3 DASH-01 through DASH-03: Dashboard health banner, resource summary, bulk actions (Phase 17)
 
 ### Active
 
-- [ ] Lab scenario templates for common use cases
-- [ ] Configuration validation with guided diagnostics
-- [ ] Snapshot lifecycle management tools
-- [ ] GUI dashboard operational improvements
+(No active requirements — awaiting next milestone definition)
 
 ### Out of Scope
 
 - Azure/cloud backend support — Hyper-V local only
 - Multi-domain forest scenarios — niche, document manual approach
-- Custom role plugin system — validate core use cases first
+- Custom role plugin system — validate core scenario templates first
+- Custom scenario builder GUI wizard — CLI + JSON templates sufficient
+- Snapshot diff/comparison — list and prune sufficient for operator needs
 - Linux VM behavior expansion — maintain compatibility only
 - Deep performance optimization — correctness and reliability first
 
@@ -60,8 +54,9 @@ All 3 prior milestones shipped:
 - v1.0 established baseline automation for lifecycle, roles, GUI integration, and multi-host coordination
 - v1.1 closed production robustness gaps and stabilized modular foundations
 - v1.2 delivered shipping infrastructure: docs, CI/CD, and test coverage
-- v1.3 focuses on reducing friction for new users and improving daily operator experience
-- Lab-Config.ps1 drives all lab topology — scenario templates will generate valid configs for common patterns
+- v1.3 reduced friction with scenario templates, validation, snapshot tools, and dashboard improvements
+- Lab-Config.ps1 drives all lab topology — scenario templates generate valid configs for common patterns
+- Project is mature across 4 milestones with comprehensive test coverage and documentation
 
 ## Constraints
 
@@ -81,6 +76,10 @@ All 3 prior milestones shipped:
 | GitHub Actions on windows-latest | Hyper-V module compatibility in CI | ✓ v1.2 |
 | Tag-based releases with .psd1 version source | Clean release flow | ✓ v1.2 |
 | Simulation-mode E2E testing | Exercises orchestration without Hyper-V | ✓ v1.2 |
+| Scenario templates as JSON files | New scenarios via file drop, no code changes | ✓ v1.3 |
+| No ValidateSet on -Scenario | Runtime validation auto-discovers templates | ✓ v1.3 |
+| CPU check warns not fails | VMs can share CPU time, only RAM/disk are hard constraints | ✓ v1.3 |
+| ShouldProcess on snapshot pruning | -WhatIf safety for destructive operations | ✓ v1.3 |
 
 ---
-*Last updated: 2026-02-19 after v1.3 milestone start*
+*Last updated: 2026-02-20 after v1.3 milestone*

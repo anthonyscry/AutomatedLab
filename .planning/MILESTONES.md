@@ -75,3 +75,13 @@
 **Last phase number:** 13
 
 ---
+
+## v1.3 Lab Scenarios & Operator Tooling (Shipped: 2026-02-20)
+
+**Phases completed:** 7 phases, 14 plans, 6 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
