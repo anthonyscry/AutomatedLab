@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 16 (Snapshot Lifecycle) — third of 4 phases in v1.3
-Plan: 01 complete (2 plans in phase)
+Plan: 02 complete (2 plans in phase) -- PHASE COMPLETE
 Status: In progress
-Last activity: 2026-02-20 — Completed 16-01 (Snapshot Inventory & Pruning Functions)
+Last activity: 2026-02-20 — Completed 16-02 (Snapshot CLI Actions & Status Integration)
 
-Progress: [████████████████████████████████░░░░░░░░] 80% (v1.3: Phase 14-15 complete, Phase 16 plan 01 done)
+Progress: [█████████████████████████████████████░░░] 90% (v1.3: Phase 14-16 complete, Phase 17 remaining)
 
 ## Performance Metrics
 
@@ -35,6 +35,7 @@ Progress: [███████████████████████
 - Phase 15 Plan 01: 2 tasks, 3 files, 3min, 37 Pester tests
 - Phase 15 Plan 02: 2 tasks, 3 files, 2min, 17 integration tests
 - Phase 16 Plan 01: 2 tasks, 3 files, 3min, 17 Pester tests
+- Phase 16 Plan 02: 2 tasks, 3 files, 2min, 15 integration tests
 
 ## Accumulated Context
 
@@ -54,6 +55,9 @@ Full log in PROJECT.md Key Decisions table.
 - Phase 16-01: Per-snapshot try/catch in Remove-LabStaleSnapshots so one failure does not block others
 - Phase 16-01: OverallStatus enum OK/Partial/NoStale for structured CLI consumption
 - Phase 16-01: Hyper-V cmdlet stubs in tests for cross-platform Pester compatibility
+- Phase 16-02: PruneDays defaults to 7 inside action block via PSBoundParameters.ContainsKey
+- Phase 16-02: Lab-Status.ps1 try/catch fallback to Get-VMSnapshot when inventory function unavailable
+- Phase 16-02: IndexOf-based block extraction in tests avoids fragile multi-line regex
 
 ### Pending Todos
 
@@ -66,9 +70,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 16-01-PLAN.md
+Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 16-01 plan execution*
+*Last updated: 2026-02-20 after 16-02 plan execution*

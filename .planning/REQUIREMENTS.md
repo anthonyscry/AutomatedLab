@@ -25,7 +25,7 @@ Requirements for lab scenarios and operator tooling milestone. Each maps to road
 
 - [x] **SNAP-01**: Operator can list all snapshots with age, creation date, and parent checkpoint name across all lab VMs
 - [x] **SNAP-02**: Operator can prune stale snapshots older than a configurable threshold (default 7 days)
-- [ ] **SNAP-03**: Operator sees snapshot inventory summary when running lab status command
+- [x] **SNAP-03**: Operator sees snapshot inventory summary when running lab status command
 
 ### GUI Dashboard
 
@@ -73,7 +73,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONF-03 | Phase 15 | Complete |
 | SNAP-01 | Phase 16 | Complete |
 | SNAP-02 | Phase 16 | Complete |
-| SNAP-03 | Phase 16 | Pending |
+| SNAP-03 | Phase 16 | Complete |
 | DASH-01 | Phase 17 | Pending |
 | DASH-02 | Phase 17 | Pending |
 | DASH-03 | Phase 17 | Pending |
