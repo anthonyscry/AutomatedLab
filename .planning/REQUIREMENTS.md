@@ -12,7 +12,7 @@ Requirements for lab scenarios and operator tooling milestone. Each maps to road
 - [x] **TMPL-01**: Operator can deploy a security testing lab template (DC + client + Linux attack VM) via single scenario selection
 - [x] **TMPL-02**: Operator can deploy a multi-tier application lab template (DC + SQL + IIS web server + client) via single scenario selection
 - [x] **TMPL-03**: Operator can deploy a minimal AD lab template (DC only, minimum resources) for quick testing
-- [ ] **TMPL-04**: Operator can select a scenario template via CLI `-Scenario` parameter on deploy action
+- [x] **TMPL-04**: Operator can select a scenario template via CLI `-Scenario` parameter on deploy action
 - [x] **TMPL-05**: Operator sees resource requirements (RAM, disk, CPU) before deploying a scenario template
 
 ### Configuration Validation
@@ -66,7 +66,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TMPL-01 | Phase 14 | Complete |
 | TMPL-02 | Phase 14 | Complete |
 | TMPL-03 | Phase 14 | Complete |
-| TMPL-04 | Phase 14 | Pending |
+| TMPL-04 | Phase 14 | Complete |
 | TMPL-05 | Phase 14 | Complete |
 | CONF-01 | Phase 15 | Pending |
 | CONF-02 | Phase 15 | Pending |
