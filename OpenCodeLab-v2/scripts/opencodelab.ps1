@@ -16,6 +16,13 @@ param(
 
 Set-StrictMode -Version Latest
 
+function Get-DefaultLauncherLogRoot {
+    [CmdletBinding()]
+    param()
+
+    return [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '../artifacts/logs'))
+}
+
 function Resolve-LauncherLogRoot {
     [CmdletBinding()]
     param(
@@ -23,30 +30,35 @@ function Resolve-LauncherLogRoot {
         [string]$ConfigPath
     )
 
-    $resolvedLogRoot = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '../artifacts/logs'))
+    $resolvedLogRoot = Get-DefaultLauncherLogRoot
 
     if (-not (Test-Path -Path $ConfigPath -PathType Leaf)) {
         return $resolvedLogRoot
     }
 
-    $config = Import-PowerShellDataFile -Path $ConfigPath
-    if ($config -isnot [hashtable]) {
+    try {
+        $config = Import-PowerShellDataFile -Path $ConfigPath -ErrorAction Stop
+        if ($config -isnot [hashtable]) {
+            return $resolvedLogRoot
+        }
+
+        $configuredLogRoot = [string]$config.Paths.LogRoot
+        if ([string]::IsNullOrWhiteSpace($configuredLogRoot)) {
+            return $resolvedLogRoot
+        }
+
+        $resolvedConfigPath = [System.IO.Path]::GetFullPath((Resolve-Path -Path $ConfigPath -ErrorAction Stop).ProviderPath)
+        $configDirectory = Split-Path -Path $resolvedConfigPath -Parent
+
+        if ([System.IO.Path]::IsPathRooted($configuredLogRoot)) {
+            return [System.IO.Path]::GetFullPath($configuredLogRoot)
+        }
+
+        return [System.IO.Path]::GetFullPath((Join-Path -Path $configDirectory -ChildPath $configuredLogRoot))
+    }
+    catch {
         return $resolvedLogRoot
     }
-
-    $configuredLogRoot = [string]$config.Paths.LogRoot
-    if ([string]::IsNullOrWhiteSpace($configuredLogRoot)) {
-        return $resolvedLogRoot
-    }
-
-    $resolvedConfigPath = [System.IO.Path]::GetFullPath((Resolve-Path -Path $ConfigPath).ProviderPath)
-    $configDirectory = Split-Path -Path $resolvedConfigPath -Parent
-
-    if ([System.IO.Path]::IsPathRooted($configuredLogRoot)) {
-        return [System.IO.Path]::GetFullPath($configuredLogRoot)
-    }
-
-    return [System.IO.Path]::GetFullPath((Join-Path -Path $configDirectory -ChildPath $configuredLogRoot))
 }
 
 function New-LauncherFailureArtifactSet {
@@ -59,12 +71,20 @@ function New-LauncherFailureArtifactSet {
         [string]$Mode,
 
         [Parameter(Mandatory)]
-        [psobject]$Result
+        [psobject]$Result,
+
+        [string]$LogRootOverride
     )
 
-    $logRoot = Resolve-LauncherLogRoot -ConfigPath $ConfigPath
+    $logRoot = if ([string]::IsNullOrWhiteSpace($LogRootOverride)) {
+        Resolve-LauncherLogRoot -ConfigPath $ConfigPath
+    }
+    else {
+        [System.IO.Path]::GetFullPath($LogRootOverride)
+    }
+
     $null = New-Item -Path $logRoot -ItemType Directory -Force
-    $resolvedLogRoot = [System.IO.Path]::GetFullPath((Resolve-Path -Path $logRoot).ProviderPath)
+    $resolvedLogRoot = [System.IO.Path]::GetFullPath((Resolve-Path -Path $logRoot -ErrorAction Stop).ProviderPath)
 
     $runId = ([guid]::NewGuid()).ToString()
     $artifactPath = [System.IO.Path]::GetFullPath((Join-Path -Path $resolvedLogRoot -ChildPath $runId))
@@ -103,7 +123,7 @@ $result = $null
 $exitCode = 4
 
 try {
-    Import-Module $moduleManifestPath -Force
+    Import-Module $moduleManifestPath -Force -ErrorAction Stop
     $result = Invoke-LabCliCommand -Command $Command -Mode $Mode -Force:$Force -ConfigPath $ConfigPath
     $exitCode = Resolve-LabExitCode -Result $result
 }
@@ -130,10 +150,29 @@ catch {
         ArtifactPath    = $null
     }
 
+    $artifactMessages = @()
     try {
         New-LauncherFailureArtifactSet -ConfigPath $ConfigPath -Mode $Mode -Result $result
     }
     catch {
+        $artifactMessages += "Primary artifact creation failed: $($_.Exception.Message)"
+
+        try {
+            New-LauncherFailureArtifactSet -ConfigPath $ConfigPath -Mode $Mode -Result $result -LogRootOverride (Get-DefaultLauncherLogRoot)
+        }
+        catch {
+            $artifactMessages += "Fallback artifact creation failed: $($_.Exception.Message)"
+        }
+    }
+
+    if ($artifactMessages.Count -gt 0) {
+        $artifactHint = $artifactMessages -join ' '
+        if ([string]::IsNullOrWhiteSpace($result.RecoveryHint)) {
+            $result.RecoveryHint = $artifactHint
+        }
+        else {
+            $result.RecoveryHint = "$($result.RecoveryHint) $artifactHint"
+        }
     }
 
     if (Get-Command -Name Resolve-LabExitCode -ErrorAction SilentlyContinue) {

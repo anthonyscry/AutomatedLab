@@ -77,4 +77,30 @@ Describe 'Launcher process exit codes' {
         Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'errors.json') | Should -BeTrue
         Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'events.jsonl') | Should -BeTrue
     }
+
+    It 'falls back to default startup artifact location when config is malformed during import failure' {
+        $isolatedRoot = Join-Path -Path $TestDrive -ChildPath 'isolated-launcher-malformed-config'
+        $scriptsPath = Join-Path -Path $isolatedRoot -ChildPath 'scripts'
+        $null = New-Item -Path $scriptsPath -ItemType Directory -Force
+
+        $malformedConfigPath = Join-Path -Path $TestDrive -ChildPath 'malformed.settings.psd1'
+        '@{ Paths = ' | Set-Content -Path $malformedConfigPath -Encoding utf8
+
+        $copiedLauncherPath = Join-Path -Path $scriptsPath -ChildPath 'opencodelab.ps1'
+        $launcherContent = Get-Content -Path $launcherPath -Raw
+        $launcherContent = $launcherContent -replace [regex]::Escape("../src/OpenCodeLab.App/OpenCodeLab.App.psd1"), "../src/OpenCodeLab.App/DoesNotExist.psd1"
+        Set-Content -Path $copiedLauncherPath -Value $launcherContent -Encoding utf8
+
+        $rawOutput = (& pwsh -NoProfile -File $copiedLauncherPath -Command dashboard -ConfigPath $malformedConfigPath -Output json 2>&1 | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+        $LASTEXITCODE | Should -Be 3
+        $rawOutput | Should -Not -Match 'Import-PowerShellDataFile'
+
+        $parsed = $rawOutput | ConvertFrom-Json
+        $parsed.ArtifactPath | Should -Not -BeNullOrEmpty
+        Test-Path -Path $parsed.ArtifactPath | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'run.json') | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'summary.txt') | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'errors.json') | Should -BeTrue
+        Test-Path -Path (Join-Path -Path $parsed.ArtifactPath -ChildPath 'events.jsonl') | Should -BeTrue
+    }
 }

@@ -9,6 +9,7 @@ $script:RuntimePaths = @(
         '../OpenCodeLab.Core/Public/Write-LabEvent.ps1',
         '../OpenCodeLab.Core/Public/Enter-LabRunLock.ps1',
         '../OpenCodeLab.Core/Public/Exit-LabRunLock.ps1',
+        '../OpenCodeLab.Domain/Public/Resolve-LabFailureCategory.ps1',
         '../OpenCodeLab.Domain/Policy/Resolve-LabTeardownPolicy.ps1',
         '../OpenCodeLab.Domain/State/Invoke-LabDeployStateMachine.ps1',
         '../OpenCodeLab.Infrastructure.HyperV/Public/Test-HyperVPrereqs.ps1',
@@ -77,6 +78,22 @@ function Resolve-LabExitCode {
         'StartupError' { return 3 }
         'UnexpectedException' { return 4 }
         default { return 1 }
+    }
+}
+
+function Resolve-LabExceptionErrorCode {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$FailureCategory
+    )
+
+    switch ($FailureCategory) {
+        'PolicyBlocked' { return 'POLICY_BLOCKED' }
+        'TimeoutExceeded' { return 'TIMEOUT_EXCEEDED' }
+        'ConfigError' { return 'CONFIG_ERROR' }
+        default { return 'UNEXPECTED_EXCEPTION' }
     }
 }
 
@@ -169,8 +186,8 @@ function Invoke-LabCliCommand {
             }
             catch {
                 $result = New-LabActionResult -Action $Command -RequestedMode $Mode
-                $result.FailureCategory = 'UnexpectedException'
-                $result.ErrorCode = 'UNEXPECTED_EXCEPTION'
+                $result.FailureCategory = Resolve-LabFailureCategory -Exception $_.Exception
+                $result.ErrorCode = Resolve-LabExceptionErrorCode -FailureCategory $result.FailureCategory
                 $result.RecoveryHint = $_.Exception.Message
             }
         }

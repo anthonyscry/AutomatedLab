@@ -165,4 +165,28 @@ Describe 'CLI runtime execution' {
             [System.IO.Path]::IsPathRooted($LockPath)
         }
     }
+
+    It 'maps typed action exceptions to failure category and exit code semantics' {
+        $configPath = Join-Path -Path $TestDrive -ChildPath 'lab.settings.psd1'
+        $logRoot = Join-Path -Path $TestDrive -ChildPath 'logs'
+
+@"
+@{
+    Lab = @{ Name = 'OpenCodeLab-v2' }
+    Paths = @{ LogRoot = '$logRoot' }
+}
+"@ | Set-Content -Path $configPath -Encoding utf8
+
+        Mock Invoke-LabDeployAction -ModuleName OpenCodeLab.App {
+            throw [System.ArgumentException]::new('bad deploy input')
+        }
+
+        $result = Invoke-LabCliCommand -Command deploy -Mode full -ConfigPath $configPath
+
+        $result.Succeeded | Should -BeFalse
+        $result.FailureCategory | Should -Be 'ConfigError'
+        $result.ErrorCode | Should -Be 'CONFIG_ERROR'
+        $result.RecoveryHint | Should -Be 'bad deploy input'
+        (Resolve-LabExitCode -Result $result) | Should -Be 3
+    }
 }
