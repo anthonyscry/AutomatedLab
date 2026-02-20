@@ -5,16 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** Between milestones — v1.3 shipped, awaiting next milestone definition
+**Current focus:** v1.4 Configuration Management & Reporting — defining requirements
 
 ## Current Position
 
-Phase: None (between milestones)
-Plan: N/A
-Status: v1.3 milestone archived
-Last activity: 2026-02-20 — Archived v1.3 Lab Scenarios & Operator Tooling
-
-Progress: All 4 milestones shipped (v1.0, v1.1, v1.2, v1.3)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-20 — Milestone v1.4 started
 
 ## Performance Metrics
 
@@ -49,9 +47,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Milestone v1.3 archived
+Stopped at: Milestone v1.4 requirements definition
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after v1.3 milestone completion*
+*Last updated: 2026-02-20 after v1.4 milestone start*

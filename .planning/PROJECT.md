@@ -37,7 +37,11 @@ All 4 milestones shipped:
 
 ### Active
 
-(No active requirements — awaiting next milestone definition)
+v1.4 Configuration Management & Reporting:
+- Named configuration profiles (save, load, list, delete lab configs)
+- Run history tracking (deployment logs, outcomes, timestamps)
+- Enhanced GUI log viewer (search, filter, export run logs)
+- Lab export/import (portable lab definition packages)
 
 ### Out of Scope
 
@@ -82,4 +86,4 @@ All 4 milestones shipped:
 | ShouldProcess on snapshot pruning | -WhatIf safety for destructive operations | ✓ v1.3 |
 
 ---
-*Last updated: 2026-02-20 after v1.3 milestone*
+*Last updated: 2026-02-20 after v1.4 milestone start*
