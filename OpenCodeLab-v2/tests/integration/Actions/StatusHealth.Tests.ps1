@@ -52,6 +52,7 @@ Describe 'Status and health actions' {
         $result.Action | Should -Be 'health'
         $result.ErrorCode | Should -Be 'VM_NOT_RUNNING'
         $result.FailureCategory | Should -Be 'OperationFailed'
+        $result.RecoveryHint | Should -Match 'Start all lab VMs'
         Assert-MockCalled Get-LabVmSnapshot -Times 1 -Exactly -Scope It
     }
 

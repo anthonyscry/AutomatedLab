@@ -46,6 +46,7 @@ Describe 'Preflight action' {
 
         $result.Succeeded | Should -BeFalse
         $result.FailureCategory | Should -Be 'PreflightFailed'
+        $result.ErrorCode | Should -Be 'PREFLIGHT_PREREQ_NOT_READY'
         $result.RecoveryHint | Should -Match 'Enable Hyper-V'
 
         $result.Action | Should -Be 'preflight'
@@ -66,6 +67,7 @@ Describe 'Preflight action' {
 
             $result.Succeeded | Should -BeFalse
             $result.FailureCategory | Should -Be 'PreflightFailed'
+            $result.ErrorCode | Should -Be 'PREFLIGHT_PREREQ_NOT_READY'
             $result.RecoveryHint | Should -Be 'Enable Hyper-V and rerun preflight.'
         }
     }
@@ -82,6 +84,7 @@ Describe 'Preflight action' {
 
         $result.Succeeded | Should -BeFalse
         $result.FailureCategory | Should -Be 'PreflightFailed'
+        $result.ErrorCode | Should -Be 'PREFLIGHT_PREREQ_NOT_READY'
         $result.RecoveryHint | Should -Be 'Hyper-V cmdlets are unavailable. Enable Hyper-V and rerun preflight.'
     }
 
@@ -95,6 +98,7 @@ Describe 'Preflight action' {
 
         $result.Succeeded | Should -BeFalse
         $result.FailureCategory | Should -Be 'PreflightFailed'
+        $result.ErrorCode | Should -Be 'PREFLIGHT_PROBE_FAILED'
         $result.RecoveryHint | Should -Match 'Get-VM failed unexpectedly'
         $result.RecoveryHint | Should -Match 'Enable Hyper-V'
     }

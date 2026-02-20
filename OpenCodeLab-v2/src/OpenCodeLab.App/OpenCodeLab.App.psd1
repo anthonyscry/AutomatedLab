@@ -7,7 +7,7 @@
     Copyright         = '(c) OpenCodeLab. All rights reserved.'
     Description       = 'OpenCodeLab v2 application module.'
     PowerShellVersion = '7.0'
-    FunctionsToExport = @('Get-LabCommandMap')
+    FunctionsToExport = @('Get-LabCommandMap', 'Invoke-LabCliCommand', 'Resolve-LabExitCode')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()
