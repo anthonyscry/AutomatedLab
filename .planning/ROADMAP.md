@@ -113,7 +113,7 @@ Plans:
 **Depends on**: Phase 18 (profiles are the unit of export), Phase 19 (import integrates with run logging)
 **Requirements**: XFER-01, XFER-02, XFER-03
 **Success Criteria** (what must be TRUE):
-  1. Operator runs `Export-LabPackage -Name "dev-cluster" -Path ./export` and receives a self-contained JSON package containing the config and template
+  1. Operator runs `Export-LabPackage -Name "dev-cluster" -Path ./export` and receives a self-contained JSON package containing the profile config and metadata
   2. Operator runs `Import-LabPackage -Path ./export/dev-cluster.json` on a different host and can deploy from it without manual file editing
   3. Import command rejects a malformed or incomplete package before any configuration is applied, displaying which fields failed validation
 **Plans**: 2 plans
