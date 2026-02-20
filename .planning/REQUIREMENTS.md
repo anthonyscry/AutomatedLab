@@ -22,9 +22,9 @@ Requirements for configuration management and reporting milestone. Each maps to 
 
 ### GUI Log Viewer
 
-- [ ] **LOGV-01**: GUI includes a dedicated log viewer panel showing recent run history
-- [ ] **LOGV-02**: Operator can filter log entries by action type (deploy, teardown, snapshot) in the GUI
-- [ ] **LOGV-03**: Operator can export visible log entries to a text file from the GUI
+- [x] **LOGV-01**: GUI includes a dedicated log viewer panel showing recent run history
+- [x] **LOGV-02**: Operator can filter log entries by action type (deploy, teardown, snapshot) in the GUI
+- [x] **LOGV-03**: Operator can export visible log entries to a text file from the GUI
 
 ### Lab Export/Import
 
@@ -69,9 +69,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIST-01 | Phase 19 | Complete |
 | HIST-02 | Phase 19 | Complete |
 | HIST-03 | Phase 19 | Complete |
-| LOGV-01 | Phase 20 | Pending |
-| LOGV-02 | Phase 20 | Pending |
-| LOGV-03 | Phase 20 | Pending |
+| LOGV-01 | Phase 20 | Complete |
+| LOGV-02 | Phase 20 | Complete |
+| LOGV-03 | Phase 20 | Complete |
 | XFER-01 | Phase 21 | Pending |
 | XFER-02 | Phase 21 | Pending |
 | XFER-03 | Phase 21 | Pending |
