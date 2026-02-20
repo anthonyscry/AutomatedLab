@@ -10,8 +10,8 @@ Requirements for delivery readiness milestone. Each maps to roadmap phases.
 ### Documentation
 
 - [x] **DOC-01**: README and entry-point documentation match current CLI/GUI workflows and multi-host behavior
-- [ ] **DOC-02**: User guide covers end-to-end lifecycle workflows for bootstrap, deploy, quick mode, and teardown
-- [ ] **DOC-03**: Troubleshooting guide documents common failures and recovery steps
+- [x] **DOC-02**: User guide covers end-to-end lifecycle workflows for bootstrap, deploy, quick mode, and teardown
+- [x] **DOC-03**: Troubleshooting guide documents common failures and recovery steps
 - [x] **DOC-04**: Public functions include concise help comments with examples
 
 ### CI/CD
@@ -52,8 +52,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DOC-01 | Phase 11 | Complete |
-| DOC-02 | Phase 11 | Pending |
-| DOC-03 | Phase 11 | Pending |
+| DOC-02 | Phase 11 | Complete |
+| DOC-03 | Phase 11 | Complete |
 | DOC-04 | Phase 11 | Complete |
 | CICD-01 | Phase 12 | Pending |
 | CICD-02 | Phase 12 | Pending |
