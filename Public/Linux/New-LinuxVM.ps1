@@ -4,8 +4,13 @@ function New-LinuxVM {
     .SYNOPSIS
     Create Hyper-V Gen2 VM for a Linux Ubuntu 24.04 guest.
 
-    Creates the VM, attaches the Ubuntu ISO as DVD for boot, and attaches
-    the CIDATA VHDX as a second SCSI disk for cloud-init NoCloud discovery.
+    .DESCRIPTION
+    Creates a Generation 2 Hyper-V VM with Secure Boot disabled (required for
+    Ubuntu), attaches the Ubuntu ISO as a DVD drive for the initial boot, and
+    attaches the CIDATA VHDX as a second SCSI disk so cloud-init can discover
+    the NoCloud datasource automatically.  Boot order is set to DVD-first so
+    the installer starts on the first power-on.  Memory and CPU defaults are
+    read from GlobalLabConfig when available.
 
     .PARAMETER UbuntuIsoPath
     Path to Ubuntu 24.04 installation ISO.
@@ -39,6 +44,29 @@ function New-LinuxVM {
 
     .OUTPUTS
     Microsoft.HyperV.PowerShell.VirtualMachine object.
+
+    .EXAMPLE
+    $hash = Get-Sha512PasswordHash -Password 'P@ssw0rd!'
+    $cidata = New-CidataVhdx -OutputPath 'C:\LabSources\cidata-lin1.vhdx' `
+        -Hostname 'LIN1' -Username 'labadmin' -PasswordHash $hash
+    New-LinuxVM -UbuntuIsoPath 'C:\iso\ubuntu-24.04.iso' -CidataVhdxPath $cidata
+    # Creates VM 'LIN1' with default settings from GlobalLabConfig.
+
+    .EXAMPLE
+    New-LinuxVM -UbuntuIsoPath 'C:\iso\ubuntu-24.04.iso' `
+        -CidataVhdxPath 'C:\LabSources\cidata-lin2.vhdx' `
+        -VMName 'LIN2' -VhdxPath 'C:\VMs\LIN2\LIN2.vhdx' `
+        -Memory 4GB -Processors 4
+    Start-VM -Name 'LIN2'
+
+    .EXAMPLE
+    # Full pipeline: hash, cidata, VM, start, wait
+    $hash   = Get-Sha512PasswordHash -Password $GlobalLabConfig.Credentials.AdminPassword
+    $cidata = New-CidataVhdx -OutputPath 'C:\LabSources\cidata-lin3.vhdx' `
+                -Hostname 'LIN3' -Username 'labadmin' -PasswordHash $hash
+    $vm     = New-LinuxVM -UbuntuIsoPath $GlobalLabConfig.Paths.UbuntuIso -CidataVhdxPath $cidata -VMName 'LIN3'
+    Start-VM -Name 'LIN3'
+    Wait-LinuxVMReady -VMName 'LIN3'
     #>
     [CmdletBinding()]
     param(

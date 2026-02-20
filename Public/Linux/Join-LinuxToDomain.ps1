@@ -3,10 +3,48 @@ function Join-LinuxToDomain {
     <#
     .SYNOPSIS
     Joins a Linux VM to the Active Directory domain via SSSD.
+
     .DESCRIPTION
     Connects via SSH and installs/configures realmd + SSSD for AD integration.
     Requires the domain controller to be reachable from the Linux VM.
     NOTE: Uses direct SSH — does not require AutomatedLab lab import.
+    The join script installs realmd, sssd, adcli, and krb5-user; discovers the
+    domain; runs realm join; writes a minimal sssd.conf; and enables automatic
+    home-directory creation via pam-auth-update.
+
+    .PARAMETER VMName
+    Name of the Linux VM in Hyper-V (used to resolve its IP address).
+
+    .PARAMETER DomainName
+    Active Directory domain FQDN to join (default: simplelab.local).
+
+    .PARAMETER DomainAdmin
+    AD user account with join rights (default: from GlobalLabConfig or Administrator).
+
+    .PARAMETER DomainPassword
+    Password for the domain admin account (default: from GlobalLabConfig).
+
+    .PARAMETER User
+    Linux user used for the SSH connection (default: labadmin).
+
+    .PARAMETER KeyPath
+    Path to the SSH private key file used for authentication.
+
+    .PARAMETER SSHTimeout
+    SSH connection timeout in seconds (default: from GlobalLabConfig or 8).
+
+    .EXAMPLE
+    Join-LinuxToDomain -VMName 'LIN1'
+    # Joins LIN1 to simplelab.local using values from GlobalLabConfig.
+
+    .EXAMPLE
+    Join-LinuxToDomain -VMName 'LIN2' -DomainName 'corp.contoso.com' `
+        -DomainAdmin 'Administrator' -DomainPassword 'Pa$$w0rd' `
+        -User 'labadmin' -KeyPath 'C:\LabSources\SSHKeys\id_ed25519'
+
+    .EXAMPLE
+    $joined = Join-LinuxToDomain -VMName 'LIN1'
+    if (-not $joined) { Write-Warning 'Domain join failed — check DC reachability.' }
     #>
     [CmdletBinding()]
     param(

@@ -4,9 +4,13 @@ function New-CidataVhdx {
     .SYNOPSIS
     Create a CIDATA VHDX seed disk for Linux cloud-init.
 
+    .DESCRIPTION
     Uses a small FAT32-formatted VHDX with volume label "CIDATA" containing
     user-data and meta-data files. Cloud-init NoCloud datasource detects any
     filesystem labeled "CIDATA"/"cidata" -- no ISO tools (oscdimg) required.
+    Supports Ubuntu 24.04, Ubuntu 22.04, and Rocky Linux 9 autoinstall formats.
+    If the output VHDX already exists the function returns its path immediately
+    (cache hit) without overwriting the existing disk.
 
     .PARAMETER OutputPath
     Path where the VHDX file will be created.
@@ -23,8 +27,29 @@ function New-CidataVhdx {
     .PARAMETER SSHPublicKey
     Optional SSH public key content to add to authorized_keys.
 
+    .PARAMETER Distro
+    Target Linux distribution format: Ubuntu2404, Ubuntu2204, or Rocky9
+    (default: Ubuntu2404).
+
     .OUTPUTS
     Path to the created VHDX file.
+
+    .EXAMPLE
+    $hash = Get-Sha512PasswordHash -Password 'P@ssw0rd!'
+    $cidata = New-CidataVhdx -OutputPath 'C:\LabSources\cidata-lin1.vhdx' `
+        -Hostname 'LIN1' -Username 'labadmin' -PasswordHash $hash
+    # Creates a CIDATA seed disk and returns its path.
+
+    .EXAMPLE
+    $sshKey = Get-Content 'C:\LabSources\SSHKeys\id_ed25519.pub' -Raw
+    $cidata = New-CidataVhdx -OutputPath 'C:\LabSources\cidata-lin2.vhdx' `
+        -Hostname 'LIN2' -Username 'labadmin' -PasswordHash $hash `
+        -SSHPublicKey $sshKey -Distro Ubuntu2204
+
+    .EXAMPLE
+    # Idempotent: second call returns existing path without re-creating the disk
+    $cidata = New-CidataVhdx -OutputPath 'C:\LabSources\cidata-lin1.vhdx' `
+        -Hostname 'LIN1' -Username 'labadmin' -PasswordHash $hash
     #>
     [CmdletBinding()]
     param(

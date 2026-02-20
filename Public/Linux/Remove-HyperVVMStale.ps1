@@ -1,5 +1,39 @@
 # Remove-HyperVVMStale.ps1 -- Remove stale Hyper-V VM safely
 function Remove-HyperVVMStale {
+    <#
+    .SYNOPSIS
+    Safely remove a stale Hyper-V VM including snapshots and saved state.
+
+    .DESCRIPTION
+    Attempts to cleanly remove a named Hyper-V VM with up to MaxAttempts retries.
+    On each attempt the function: removes all checkpoints/snapshots, detaches DVD
+    drives, clears any saved state, force-stops the VM if it is still running,
+    and then removes the VM.  If the VM process (vmwp.exe) is still alive after
+    removal it is terminated before the next attempt.  Returns $true if the VM no
+    longer exists after the final attempt, $false otherwise.
+
+    .PARAMETER VMName
+    Name of the Hyper-V VM to remove.
+
+    .PARAMETER Context
+    Descriptive label for log messages indicating why the cleanup is happening
+    (default: cleanup).
+
+    .PARAMETER MaxAttempts
+    Maximum number of removal attempts before giving up (default: 3).
+
+    .EXAMPLE
+    Remove-HyperVVMStale -VMName 'LIN1'
+    # Removes VM 'LIN1' with default 3 attempts and logs context 'cleanup'.
+
+    .EXAMPLE
+    $removed = Remove-HyperVVMStale -VMName 'GoldenTemplate-20260219' -Context 'golden-template-cleanup'
+    if (-not $removed) { Write-Warning 'VM could not be removed — check Hyper-V event log.' }
+
+    .EXAMPLE
+    # Use in a cleanup block after a failed lab provisioning run
+    'LIN1','LIN2','LIN3' | ForEach-Object { Remove-HyperVVMStale -VMName $_ -Context 'rollback' }
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$VMName,
