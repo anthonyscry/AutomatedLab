@@ -35,6 +35,7 @@ All 4 milestones shipped:
 - ✓ v1.3 SNAP-01 through SNAP-03: Snapshot inventory, pruning, and status integration (Phase 16)
 - ✓ v1.3 DASH-01 through DASH-03: Dashboard health banner, resource summary, bulk actions (Phase 17)
 - ✓ v1.4 PROF-01 through PROF-04: Named configuration profiles with save, load, list, delete (Phase 18)
+- ✓ v1.4 HIST-01 through HIST-03: Run history tracking with automatic logging and query cmdlet (Phase 19)
 
 ### Active
 
@@ -88,6 +89,8 @@ v1.4 Configuration Management & Reporting:
 | Profiles as JSON in .planning/profiles/ | Follows template storage pattern, no new infrastructure | ✓ v1.4 |
 | $Config parameter not $GlobalLabConfig | Keeps profile functions testable and side-effect-free | ✓ v1.4 |
 | Recursive PSCustomObject-to-hashtable | Handles JSON round-trip for PS 5.1 ConvertFrom-Json | ✓ v1.4 |
+| Get-LabRunHistory wraps existing helpers | No new logging infra needed, reuses Write-LabRunArtifacts | ✓ v1.4 |
+| ISO 8601 string sort for run ordering | Avoids DateTime parsing overhead and PS version differences | ✓ v1.4 |
 
 ---
-*Last updated: 2026-02-20 after Phase 18*
+*Last updated: 2026-02-20 after Phase 19*
