@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 18 — Configuration Profiles
-Plan: —
-Status: Not started
-Last activity: 2026-02-20 — v1.4 roadmap created (Phases 18-21)
+Plan: 01 complete
+Status: In progress (Phase 18, Plan 1 of N complete)
+Last activity: 2026-02-20 — 18-01 complete: Save/Get/Remove-LabProfile cmdlets
 
-Progress: Phase 18 of 21 (v1.4 active) | [░░░░] 0% of v1.4 complete
+Progress: Phase 18 of 21 (v1.4 active) | [█░░░] 5% of v1.4 complete
 
 ## Performance Metrics
 
@@ -34,13 +34,17 @@ Progress: Phase 18 of 21 (v1.4 active) | [░░░░] 0% of v1.4 complete
 
 **v1.4 Configuration Management & Reporting:**
 - 4 phases planned (18-21), 13 requirements
-- 0 plans complete
+- 1 plan complete (18-01)
 
 ## Accumulated Context
 
 ### Decisions
 
 Full log in PROJECT.md Key Decisions table.
+
+**18-01 (2026-02-20):** Config accepted as parameter in Save-LabProfile instead of reading $GlobalLabConfig directly — decouples function from global state for testability.
+**18-01 (2026-02-20):** vmCount stored at save time in profile metadata so Get-LabProfile listing never parses nested config objects — faster and resilient to schema changes.
+**18-01 (2026-02-20):** Corrupt profile files skipped with Write-Warning in Get-LabProfile listing rather than throwing — prevents a single bad file from breaking all profile discovery.
 
 ### Pending Todos
 
@@ -53,9 +57,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: v1.4 roadmap creation — ready to plan Phase 18
+Stopped at: Completed 18-01-PLAN.md (Save-LabProfile, Get-LabProfile, Remove-LabProfile)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after v1.4 roadmap creation*
+*Last updated: 2026-02-20 after 18-01 complete*

@@ -9,10 +9,10 @@ Requirements for configuration management and reporting milestone. Each maps to 
 
 ### Configuration Profiles
 
-- [ ] **PROF-01**: Operator can save current lab configuration as a named profile
+- [x] **PROF-01**: Operator can save current lab configuration as a named profile
 - [ ] **PROF-02**: Operator can load a saved profile to restore lab configuration
-- [ ] **PROF-03**: Operator can list all saved profiles with summary info (VM count, creation date)
-- [ ] **PROF-04**: Operator can delete a saved profile by name
+- [x] **PROF-03**: Operator can list all saved profiles with summary info (VM count, creation date)
+- [x] **PROF-04**: Operator can delete a saved profile by name
 
 ### Run History
 
@@ -62,10 +62,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROF-01 | Phase 18 | Pending |
+| PROF-01 | Phase 18 | Complete |
 | PROF-02 | Phase 18 | Pending |
-| PROF-03 | Phase 18 | Pending |
-| PROF-04 | Phase 18 | Pending |
+| PROF-03 | Phase 18 | Complete |
+| PROF-04 | Phase 18 | Complete |
 | HIST-01 | Phase 19 | Pending |
 | HIST-02 | Phase 19 | Pending |
 | HIST-03 | Phase 19 | Pending |
