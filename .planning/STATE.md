@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 Phase: 11 of 13 (Documentation and Onboarding) — IN PROGRESS
 Plan: 11 of 11
 Status: v1.2 milestone active — phase 11 documentation plans executing
-Last activity: 2026-02-20 — 11-03 VM lifecycle control help verification complete
+Last activity: 2026-02-20 — 11-07 runtime docs validation script, evidence report, and 22-test Pester contract complete
 
 Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 11/11 phase-11 plans complete in v1.2
 
@@ -54,6 +54,8 @@ Recent decisions affecting current work:
 - [Phase 11-04]: New-LabNAT and New-LabSSHKey were missing .PARAMETER docs; all 9 network/domain/provisioning files had .EXAMPLE enhanced with descriptive text and a third operator example
 - [Phase 11]: Numbered scenario entries in RUNBOOK-ROLLBACK.md use bare numbered lines to match verify regex
 - [Phase 11]: Expected outcome fields documented per workflow in LIFECYCLE-WORKFLOWS.md
+- [Phase 11-documentation-and-onboarding]: Empty param() blocks with no declared parameters are exempt from .PARAMETER gate — regex requires [type] or $Param tokens inside param block
+- [Phase 11-documentation-and-onboarding]: Test-HyperVEnabled.ps1 correctly excluded from .PARAMETER gate — its param() is empty; updated regex catches only files with declared parameters
 
 ### Pending Todos
 
@@ -66,9 +68,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-02-PLAN.md (lifecycle user guide, troubleshooting runbook, 25-test Pester gate)
-Resume file: .planning/phases/11-documentation-and-onboarding/11-03-PLAN.md
+Stopped at: Completed 11-06-PLAN.md (Linux help blocks + public help quality gate, 4 Pester tests)
+Resume file: .planning/phases/11-documentation-and-onboarding/11-07-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 11-02 lifecycle guide and troubleshooting runbook*
+*Last updated: 2026-02-20 after 11-06 Linux help completion and public help quality gate*
