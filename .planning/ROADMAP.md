@@ -116,7 +116,10 @@ Plans:
   1. Operator runs `Export-LabPackage -Name "dev-cluster" -Path ./export` and receives a self-contained JSON package containing the config and template
   2. Operator runs `Import-LabPackage -Path ./export/dev-cluster.json` on a different host and can deploy from it without manual file editing
   3. Import command rejects a malformed or incomplete package before any configuration is applied, displaying which fields failed validation
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 21-01-PLAN.md — Export-LabPackage and Import-LabPackage cmdlets with validation
+- [ ] 21-02-PLAN.md — Comprehensive Pester tests and module manifest registration
 
 ## Progress
 
@@ -129,7 +132,7 @@ Plans:
 | 18 | 2/2 | Complete    | 2026-02-20 | - |
 | 19 | 2/2 | Complete    | 2026-02-20 | - |
 | 20 | 2/2 | Complete   | 2026-02-20 | - |
-| 21 | v1.4 | 0/TBD | Not started | - |
+| 21 | v1.4 | 0/2 | Planning | - |
 
 **Total: 62 plans across 17 phases shipped. 4 active phases (18-21) in v1.4.**
 
