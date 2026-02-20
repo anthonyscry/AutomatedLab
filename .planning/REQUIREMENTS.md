@@ -16,9 +16,9 @@ Requirements for configuration management and reporting milestone. Each maps to 
 
 ### Run History
 
-- [ ] **HIST-01**: System automatically logs each deploy/teardown action with timestamp, outcome, and duration
-- [ ] **HIST-02**: Operator can view run history as a formatted table (last N runs)
-- [ ] **HIST-03**: Operator can view detailed log for a specific run by ID
+- [x] **HIST-01**: System automatically logs each deploy/teardown action with timestamp, outcome, and duration
+- [x] **HIST-02**: Operator can view run history as a formatted table (last N runs)
+- [x] **HIST-03**: Operator can view detailed log for a specific run by ID
 
 ### GUI Log Viewer
 
@@ -66,9 +66,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROF-02 | Phase 18 | Complete |
 | PROF-03 | Phase 18 | Complete |
 | PROF-04 | Phase 18 | Complete |
-| HIST-01 | Phase 19 | Pending |
-| HIST-02 | Phase 19 | Pending |
-| HIST-03 | Phase 19 | Pending |
+| HIST-01 | Phase 19 | Complete |
+| HIST-02 | Phase 19 | Complete |
+| HIST-03 | Phase 19 | Complete |
 | LOGV-01 | Phase 20 | Pending |
 | LOGV-02 | Phase 20 | Pending |
 | LOGV-03 | Phase 20 | Pending |

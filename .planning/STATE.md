@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 19 (Run History Tracking) — second of 4 phases in v1.4
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-20 — Phase 18 complete (Configuration Profiles)
+Plan: 1 of 1 complete
+Status: Phase 19 Plan 1 complete
+Last activity: 2026-02-20 — Phase 19 Plan 01 complete (Get-LabRunHistory cmdlet)
 
-Progress: [██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 25% (v1.4: 1 of 4 phases complete)
+Progress: [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 30% (v1.4: 1.25 of 4 phases complete)
 
 ## Performance Metrics
 
@@ -35,6 +35,7 @@ Progress: [██████████░░░░░░░░░░░░░
 **v1.4 Configuration Management & Reporting:**
 - 4 phases planned (18-21), 13 requirements
 - Phase 18: 2 plans, 4 files, 16 Pester tests
+- Phase 19: 1 plan complete, 3 files, 0 new tests (cmdlet wraps existing helpers)
 
 ## Accumulated Context
 
@@ -46,6 +47,9 @@ Full log in PROJECT.md Key Decisions table.
 - Phase 18: $Config parameter instead of $GlobalLabConfig for testability
 - Phase 18: Recursive PSCustomObject-to-hashtable for JSON round-trip in PS 5.1
 - Phase 18: Corrupt profiles skipped with Write-Warning, not thrown
+- Phase 19: Get-LabRunHistory uses ISO 8601 string sort (EndedUtc) for newest-first ordering without DateTime parsing
+- Phase 19: List mode filters to .json only to avoid double-counting .txt duplicates from Write-LabRunArtifacts
+- Phase 19: Detail mode uses substring RunId match for operator convenience
 
 ### Pending Todos
 
@@ -58,9 +62,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Phase 18 complete, ready to plan Phase 19
+Stopped at: Phase 19 Plan 01 complete (Get-LabRunHistory cmdlet created and module-exported)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after Phase 18 complete*
+*Last updated: 2026-02-20 after Phase 19 Plan 01 complete*
