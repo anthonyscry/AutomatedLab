@@ -134,7 +134,7 @@ Plans:
 | 20 | 2/2 | Complete   | 2026-02-20 | - |
 | 21 | 2/2 | Complete   | 2026-02-20 | - |
 
-**Total: 62 plans across 17 phases shipped. 4 active phases (18-21) in v1.4.**
+**Total: 70 plans across 21 phases. v1.4 complete (8 plans across 4 phases).**
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
