@@ -51,6 +51,7 @@ Recent decisions affecting current work:
 - [Phase 11-documentation-and-onboarding]: Enhanced thinner example sections in Show-LabStatus, Write-RunArtifact, Save-LabCheckpoint, Restore-LabCheckpoint for practical operator value
 - [Phase 11-10]: Reset-Lab.ps1 and Test-LabIso.ps1 already had complete help; four Linux helpers (DHCP, install media, SSH info, VMIPv4) updated with missing .PARAMETER and .EXAMPLE entries
 - [Phase 11-01]: README already had all required CLI entry-point tokens; only [Getting Started] cross-link was added; EntryDocs tests use regex anchors for stable drift-resistant coverage
+- [Phase 11-04]: New-LabNAT and New-LabSSHKey were missing .PARAMETER docs; all 9 network/domain/provisioning files had .EXAMPLE enhanced with descriptive text and a third operator example
 
 ### Pending Todos
 
@@ -63,7 +64,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-03-PLAN.md (VM lifecycle control help verification — Start/Stop/Restart/Suspend/Resume)
+Stopped at: Completed 11-04-PLAN.md (network/domain/provisioning command help — 9 files updated)
 Resume file: .planning/phases/11-documentation-and-onboarding/11-11-PLAN.md
 
 ---
