@@ -62,25 +62,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROF-01 | TBD | Pending |
-| PROF-02 | TBD | Pending |
-| PROF-03 | TBD | Pending |
-| PROF-04 | TBD | Pending |
-| HIST-01 | TBD | Pending |
-| HIST-02 | TBD | Pending |
-| HIST-03 | TBD | Pending |
-| LOGV-01 | TBD | Pending |
-| LOGV-02 | TBD | Pending |
-| LOGV-03 | TBD | Pending |
-| XFER-01 | TBD | Pending |
-| XFER-02 | TBD | Pending |
-| XFER-03 | TBD | Pending |
+| PROF-01 | Phase 18 | Pending |
+| PROF-02 | Phase 18 | Pending |
+| PROF-03 | Phase 18 | Pending |
+| PROF-04 | Phase 18 | Pending |
+| HIST-01 | Phase 19 | Pending |
+| HIST-02 | Phase 19 | Pending |
+| HIST-03 | Phase 19 | Pending |
+| LOGV-01 | Phase 20 | Pending |
+| LOGV-02 | Phase 20 | Pending |
+| LOGV-03 | Phase 20 | Pending |
+| XFER-01 | Phase 21 | Pending |
+| XFER-02 | Phase 21 | Pending |
+| XFER-03 | Phase 21 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-20*
-*Last updated: 2026-02-20 after initial definition*
+*Last updated: 2026-02-20 after roadmap creation (all 13 requirements mapped)*
