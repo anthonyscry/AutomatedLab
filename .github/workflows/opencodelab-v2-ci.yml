@@ -5,10 +5,12 @@ on:
   push:
     paths:
       - "OpenCodeLab-v2/**"
+      - ".github/workflows/opencodelab-v2-ci.yml"
       - "OpenCodeLab-v2/.github/workflows/ci.yml"
   pull_request:
     paths:
       - "OpenCodeLab-v2/**"
+      - ".github/workflows/opencodelab-v2-ci.yml"
       - "OpenCodeLab-v2/.github/workflows/ci.yml"
 
 permissions:
