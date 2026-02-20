@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 18 — Configuration Profiles
-Plan: 01 complete
-Status: In progress (Phase 18, Plan 1 of N complete)
-Last activity: 2026-02-20 — 18-01 complete: Save/Get/Remove-LabProfile cmdlets
+Plan: 02 complete
+Status: In progress (Phase 18, Plan 2 of N complete)
+Last activity: 2026-02-20 — 18-02 complete: Load-LabProfile cmdlet + 16 Pester tests for all profile cmdlets
 
-Progress: Phase 18 of 21 (v1.4 active) | [█░░░] 5% of v1.4 complete
+Progress: Phase 18 of 21 (v1.4 active) | [██░░] 10% of v1.4 complete
 
 ## Performance Metrics
 
@@ -45,6 +45,9 @@ Full log in PROJECT.md Key Decisions table.
 **18-01 (2026-02-20):** Config accepted as parameter in Save-LabProfile instead of reading $GlobalLabConfig directly — decouples function from global state for testability.
 **18-01 (2026-02-20):** vmCount stored at save time in profile metadata so Get-LabProfile listing never parses nested config objects — faster and resilient to schema changes.
 **18-01 (2026-02-20):** Corrupt profile files skipped with Write-Warning in Get-LabProfile listing rather than throwing — prevents a single bad file from breaking all profile discovery.
+**18-02 (2026-02-20):** ConvertTo-Hashtable colocated inside Load-LabProfile.ps1 as private function — single consumer, intentional coupling avoids premature extraction to shared helpers.
+**18-02 (2026-02-20):** Load-LabProfile returns hashtable without touching $GlobalLabConfig — caller assigns, function stays side-effect-free and trivially testable.
+**18-02 (2026-02-20):** New-TestConfig in LabProfile.Tests.ps1 mirrors real $GlobalLabConfig shape enabling meaningful round-trip assertions for all four CRUD cmdlets.
 
 ### Pending Todos
 
@@ -57,7 +60,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 18-01-PLAN.md (Save-LabProfile, Get-LabProfile, Remove-LabProfile)
+Stopped at: Completed 18-02-PLAN.md (Load-LabProfile + LabProfile.Tests.ps1)
 Resume file: None
 
 ---
