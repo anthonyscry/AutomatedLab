@@ -49,6 +49,7 @@ Recent decisions affecting current work:
 - [Phase 11-documentation-and-onboarding]: All 7 VM lifecycle files already had complete help blocks — no edits required, verified against .SYNOPSIS/.DESCRIPTION/.PARAMETER/.EXAMPLE tokens
 - [Phase 11-documentation-and-onboarding]: Write-LabStatus.ps1 was missing .DESCRIPTION and .EXAMPLE entirely; added both to meet DOC-04 coverage
 - [Phase 11-documentation-and-onboarding]: Enhanced thinner example sections in Show-LabStatus, Write-RunArtifact, Save-LabCheckpoint, Restore-LabCheckpoint for practical operator value
+- [Phase 11-10]: Reset-Lab.ps1 and Test-LabIso.ps1 already had complete help; four Linux helpers (DHCP, install media, SSH info, VMIPv4) updated with missing .PARAMETER and .EXAMPLE entries
 
 ### Pending Todos
 
@@ -61,9 +62,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-08-PLAN.md (VM lifecycle support command help verification)
-Resume file: .planning/phases/11-documentation-and-onboarding/11-09-PLAN.md
+Stopped at: Completed 11-10-PLAN.md (reset/ISO/Linux helper help blocks)
+Resume file: .planning/phases/11-documentation-and-onboarding/11-11-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 11-08 VM lifecycle support help verification*
+*Last updated: 2026-02-20 after 11-10 reset/ISO/Linux helper help blocks*
