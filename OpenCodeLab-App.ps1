@@ -52,7 +52,8 @@ param(
     [string]$NoExecuteStatePath,
     [ValidateSet('off', 'canary', 'enforced')]
     [string]$DispatchMode,
-    [int]$LogRetentionDays = 14
+    [int]$LogRetentionDays = 14,
+    [string]$Scenario
 )
 
 Set-StrictMode -Version Latest
@@ -729,7 +730,22 @@ $skipLegacyOrchestration = $false
         $localDispatchExecutor = {
             param($DispatchAction, $DispatchEffectiveMode)
 
-            Invoke-LabOrchestrationActionCore -OrchestrationAction $DispatchAction -Mode $DispatchEffectiveMode -Intent $orchestrationIntent -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -RunEvents $RunEvents -Force:$Force -NonInteractive:$NonInteractive -RemoveNetwork:$RemoveNetwork -DryRun:$DryRun -AutoFixSubnetConflict:$AutoFixSubnetConflict
+            $dispatchCoreSplat = @{
+                OrchestrationAction = $DispatchAction
+                Mode = $DispatchEffectiveMode
+                Intent = $orchestrationIntent
+                LabConfig = $GlobalLabConfig
+                ScriptDir = $ScriptDir
+                SwitchName = $SwitchName
+                RunEvents = $RunEvents
+                Force = $Force
+                NonInteractive = $NonInteractive
+                RemoveNetwork = $RemoveNetwork
+                DryRun = $DryRun
+                AutoFixSubnetConflict = $AutoFixSubnetConflict
+            }
+            if ($PSBoundParameters.ContainsKey('Scenario')) { $dispatchCoreSplat.Scenario = $Scenario }
+            Invoke-LabOrchestrationActionCore @dispatchCoreSplat
             return $true
         }.GetNewClosure()
 
@@ -809,7 +825,22 @@ $skipLegacyOrchestration = $false
                 Add-LabRunEvent -Step 'deploy' -Status 'ok' -Message 'skipped legacy deploy path (dispatcher handled orchestration action)' -RunEvents $RunEvents
             }
             else {
-                Invoke-LabOrchestrationActionCore -OrchestrationAction 'deploy' -Mode $EffectiveMode -Intent $orchestrationIntent -LabConfig $GlobalLabConfig -ScriptDir $ScriptDir -SwitchName $SwitchName -RunEvents $RunEvents -Force:$Force -NonInteractive:$NonInteractive -RemoveNetwork:$RemoveNetwork -DryRun:$DryRun -AutoFixSubnetConflict:$AutoFixSubnetConflict
+                $deployCoreSplat = @{
+                    OrchestrationAction = 'deploy'
+                    Mode = $EffectiveMode
+                    Intent = $orchestrationIntent
+                    LabConfig = $GlobalLabConfig
+                    ScriptDir = $ScriptDir
+                    SwitchName = $SwitchName
+                    RunEvents = $RunEvents
+                    Force = $Force
+                    NonInteractive = $NonInteractive
+                    RemoveNetwork = $RemoveNetwork
+                    DryRun = $DryRun
+                    AutoFixSubnetConflict = $AutoFixSubnetConflict
+                }
+                if ($PSBoundParameters.ContainsKey('Scenario')) { $deployCoreSplat.Scenario = $Scenario }
+                Invoke-LabOrchestrationActionCore @deployCoreSplat
             }
         }
         'teardown' {
