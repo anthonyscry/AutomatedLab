@@ -1,0 +1,50 @@
+name: OpenCodeLab v2 CI
+
+on:
+  push:
+    paths:
+      - "OpenCodeLab-v2/**"
+      - "OpenCodeLab-v2/.github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "OpenCodeLab-v2/**"
+      - "OpenCodeLab-v2/.github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gates:
+    name: Unit, Integration, Smoke, Analyzer
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install test and lint modules
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
+          Install-Module -Name PSScriptAnalyzer -MinimumVersion 1.22.0 -Scope CurrentUser -Force
+
+      - name: Run unit tests
+        run: Invoke-Pester -Path 'OpenCodeLab-v2/tests/unit' -CI
+
+      - name: Run integration tests
+        run: Invoke-Pester -Path 'OpenCodeLab-v2/tests/integration' -CI
+
+      - name: Run smoke tests
+        run: Invoke-Pester -Path 'OpenCodeLab-v2/tests/smoke' -CI -Output Detailed
+
+      - name: Run ScriptAnalyzer quality gate
+        run: |
+          $issues = @()
+          $issues += @(Invoke-ScriptAnalyzer -Path 'OpenCodeLab-v2/src' -Recurse -Severity Error,Warning)
+          $issues += @(Invoke-ScriptAnalyzer -Path 'OpenCodeLab-v2/scripts' -Recurse -Severity Error,Warning)
+          if ($issues.Count -gt 0) {
+            $issues | Format-Table -AutoSize
+            throw "ScriptAnalyzer reported $($issues.Count) issue(s)."
+          }
