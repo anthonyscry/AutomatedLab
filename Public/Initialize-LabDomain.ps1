@@ -29,9 +29,16 @@ function Initialize-LabDomain {
 
     .EXAMPLE
         Initialize-LabDomain
+        Promotes dc1 to a domain controller using domain name and password from config.
+        Waits up to 15 minutes for the VM to return after reboot.
 
     .EXAMPLE
         Initialize-LabDomain -VMName "dc1" -Force -WaitTimeoutMinutes 20
+        Promotes dc1, suppressing prompts, and allows up to 20 minutes for reboot recovery.
+
+    .EXAMPLE
+        (Initialize-LabDomain).Status
+        Promotes dc1 and inspects the resulting Status field ("OK", "AlreadyDC", "Failed", etc.).
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

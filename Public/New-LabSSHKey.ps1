@@ -5,13 +5,32 @@ function New-LabSSHKey {
 
     .DESCRIPTION
         Generates an ed25519 SSH key pair using Windows OpenSSH ssh-keygen.exe.
-        Keys are saved to the configured SSHKeyDir.
+        Keys are saved to the path specified by -OutputPath, or to
+        $GlobalLabConfig.Linux.SSHKeyDir when available. The key pair consists
+        of id_ed25519 (private) and id_ed25519.pub (public) files.
+
+    .PARAMETER Comment
+        Comment embedded in the public key, typically used to identify the key.
+        Defaults to "lab-ssh".
+
+    .PARAMETER OutputPath
+        Directory where the key pair is saved. Overrides $GlobalLabConfig.Linux.SSHKeyDir.
+        Falls back to C:\LabSources\SSHKeys if neither is set.
+
+    .PARAMETER Force
+        Regenerate the key pair even if id_ed25519 and id_ed25519.pub already exist.
 
     .EXAMPLE
         New-LabSSHKey
+        Generates a lab SSH key pair using configuration defaults.
 
     .EXAMPLE
         New-LabSSHKey -Comment "lab-opencode"
+        Generates a key with a custom comment identifying the lab environment.
+
+    .EXAMPLE
+        New-LabSSHKey -OutputPath "C:\Lab\Keys" -Force
+        Regenerates the key pair in a specific directory, overwriting existing keys.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
