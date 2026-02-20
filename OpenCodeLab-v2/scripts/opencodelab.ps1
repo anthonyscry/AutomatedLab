@@ -27,9 +27,14 @@ try {
     $exitCode = Resolve-LabExitCode -Result $result
 }
 catch {
+    $isStartupOrImportFailure = ($_.Exception.Message -like 'StartupError:*') -or ($_.CategoryInfo.Activity -eq 'Import-Module')
+    if (-not (Get-Command -Name Invoke-LabCliCommand -ErrorAction SilentlyContinue)) {
+        $isStartupOrImportFailure = $true
+    }
+
     $failureCategory = 'UnexpectedException'
     $errorCode = 'UNEXPECTED_EXCEPTION'
-    if ($_.Exception.Message -like 'StartupError:*') {
+    if ($isStartupOrImportFailure) {
         $failureCategory = 'StartupError'
         $errorCode = 'STARTUP_FAILURE'
     }
@@ -46,6 +51,9 @@ catch {
 
     if (Get-Command -Name Resolve-LabExitCode -ErrorAction SilentlyContinue) {
         $exitCode = Resolve-LabExitCode -Result $result
+    }
+    elseif ($isStartupOrImportFailure) {
+        $exitCode = 3
     }
 }
 

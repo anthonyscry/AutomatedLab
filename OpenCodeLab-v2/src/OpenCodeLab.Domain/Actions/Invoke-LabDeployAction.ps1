@@ -7,7 +7,7 @@ function Invoke-LabDeployAction {
         [string]$Mode = 'full',
 
         [ValidateNotNullOrEmpty()]
-        [string]$LockPath = (Join-Path -Path 'artifacts/logs' -ChildPath 'run.lock')
+        [string]$LockPath = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '../../../artifacts/logs/run.lock'))
     )
 
     $result = New-LabActionResult -Action 'deploy' -RequestedMode $Mode

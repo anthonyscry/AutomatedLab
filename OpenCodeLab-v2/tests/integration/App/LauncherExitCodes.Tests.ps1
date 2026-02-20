@@ -41,4 +41,18 @@ Describe 'Launcher process exit codes' {
         & pwsh -NoProfile -File $launcherPath -Command dashboard -ConfigPath $configPath | Out-Null
         $LASTEXITCODE | Should -Be 0
     }
+
+    It 'returns startup/import exit code when module import fails before command routing' {
+        $isolatedRoot = Join-Path -Path $TestDrive -ChildPath 'isolated-launcher'
+        $scriptsPath = Join-Path -Path $isolatedRoot -ChildPath 'scripts'
+        $null = New-Item -Path $scriptsPath -ItemType Directory -Force
+
+        $copiedLauncherPath = Join-Path -Path $scriptsPath -ChildPath 'opencodelab.ps1'
+        $launcherContent = Get-Content -Path $launcherPath -Raw
+        $launcherContent = $launcherContent -replace [regex]::Escape("../src/OpenCodeLab.App/OpenCodeLab.App.psd1"), "../src/OpenCodeLab.App/DoesNotExist.psd1"
+        Set-Content -Path $copiedLauncherPath -Value $launcherContent -Encoding utf8
+
+        & pwsh -NoProfile -File $copiedLauncherPath -Command dashboard -ConfigPath $configPath | Out-Null
+        $LASTEXITCODE | Should -Be 3
+    }
 }

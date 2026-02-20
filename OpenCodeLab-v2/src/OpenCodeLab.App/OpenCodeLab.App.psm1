@@ -117,54 +117,58 @@ function Invoke-LabCliCommand {
     }
 
     $commandMap = Get-LabCommandMap
-    if (-not $commandMap.Contains($Command)) {
-        $unsupportedResult = New-LabActionResult -Action $Command -RequestedMode $Mode
-        $unsupportedResult.FailureCategory = 'ConfigError'
-        $unsupportedResult.ErrorCode = 'UNSUPPORTED_COMMAND'
-        $unsupportedResult.RecoveryHint = "Unsupported command: $Command"
-        return $unsupportedResult
-    }
+    $resolvedLogRoot = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '../../artifacts/logs'))
+    $result = $null
 
     try {
         $config = Get-LabConfig -Path $ConfigPath
-    }
-    catch {
-        $configResult = New-LabActionResult -Action $Command -RequestedMode $Mode
-        $configResult.FailureCategory = 'ConfigError'
-        $configResult.ErrorCode = 'CONFIG_LOAD_FAILED'
-        $configResult.RecoveryHint = $_.Exception.Message
-        return $configResult
-    }
-
-    $artifactSet = New-LabRunArtifactSet -LogRoot $config.Paths.LogRoot -RunId ([guid]::NewGuid().ToString())
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    Write-LabEvent -ArtifactSet $artifactSet -Event @{ type = 'run-started'; action = $Command; mode = $Mode } | Out-Null
-
-    $result = $null
-    try {
-        switch ($Command) {
-            'preflight' { $result = Invoke-LabPreflightAction }
-            'deploy' { $result = Invoke-LabDeployAction -Mode $Mode }
-            'teardown' { $result = Invoke-LabTeardownAction -Mode $Mode -Force:$Force }
-            'status' { $result = Invoke-LabStatusAction }
-            'health' { $result = Invoke-LabHealthAction }
-            'dashboard' {
-                $frame = Show-LabDashboardAction -Status @{} -Events @() -Diagnostics @()
-                $result = New-LabActionResult -Action 'dashboard' -RequestedMode 'full'
-                $result.Succeeded = $true
-                $result | Add-Member -MemberType NoteProperty -Name Data -Value $frame
-            }
-        }
+        $resolvedLogRoot = [System.IO.Path]::GetFullPath([string]$config.Paths.LogRoot)
     }
     catch {
         $result = New-LabActionResult -Action $Command -RequestedMode $Mode
-        $result.FailureCategory = 'UnexpectedException'
-        $result.ErrorCode = 'UNEXPECTED_EXCEPTION'
+        $result.FailureCategory = 'ConfigError'
+        $result.ErrorCode = 'CONFIG_LOAD_FAILED'
         $result.RecoveryHint = $_.Exception.Message
     }
-    finally {
-        $stopwatch.Stop()
+
+    $artifactSet = New-LabRunArtifactSet -LogRoot $resolvedLogRoot -RunId ([guid]::NewGuid().ToString())
+    $lockPath = Join-Path -Path $resolvedLogRoot -ChildPath 'run.lock'
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-LabEvent -ArtifactSet $artifactSet -Event @{ type = 'run-started'; action = $Command; mode = $Mode } | Out-Null
+
+    if ($null -eq $result) {
+        if (-not $commandMap.Contains($Command)) {
+            $result = New-LabActionResult -Action $Command -RequestedMode $Mode
+            $result.FailureCategory = 'ConfigError'
+            $result.ErrorCode = 'UNSUPPORTED_COMMAND'
+            $result.RecoveryHint = "Unsupported command: $Command"
+        }
+        else {
+            try {
+                switch ($Command) {
+                    'preflight' { $result = Invoke-LabPreflightAction }
+                    'deploy' { $result = Invoke-LabDeployAction -Mode $Mode -LockPath $lockPath }
+                    'teardown' { $result = Invoke-LabTeardownAction -Mode $Mode -Force:$Force -LockPath $lockPath }
+                    'status' { $result = Invoke-LabStatusAction }
+                    'health' { $result = Invoke-LabHealthAction }
+                    'dashboard' {
+                        $frame = Show-LabDashboardAction -Status @{} -Events @() -Diagnostics @()
+                        $result = New-LabActionResult -Action 'dashboard' -RequestedMode 'full'
+                        $result.Succeeded = $true
+                        $result | Add-Member -MemberType NoteProperty -Name Data -Value $frame
+                    }
+                }
+            }
+            catch {
+                $result = New-LabActionResult -Action $Command -RequestedMode $Mode
+                $result.FailureCategory = 'UnexpectedException'
+                $result.ErrorCode = 'UNEXPECTED_EXCEPTION'
+                $result.RecoveryHint = $_.Exception.Message
+            }
+        }
     }
+
+    $stopwatch.Stop()
 
     if ($null -eq $result) {
         $result = New-LabActionResult -Action $Command -RequestedMode $Mode

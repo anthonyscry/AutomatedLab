@@ -9,7 +9,7 @@ function Invoke-LabTeardownAction {
         [switch]$Force,
 
         [ValidateNotNullOrEmpty()]
-        [string]$LockPath = (Join-Path -Path 'artifacts/logs' -ChildPath 'run.lock')
+        [string]$LockPath = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '../../../artifacts/logs/run.lock'))
     )
 
     $result = New-LabActionResult -Action 'teardown' -RequestedMode $Mode
