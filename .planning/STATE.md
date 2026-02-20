@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 ## Current Position
 
 Phase: 11 of 13 (Documentation and Onboarding) — IN PROGRESS
-Plan: 08 of 11
+Plan: 10 of 11
 Status: v1.2 milestone active — phase 11 documentation plans executing
-Last activity: 2026-02-20 — 11-08 VM lifecycle support help verification complete
+Last activity: 2026-02-20 — 11-10 reset/ISO/Linux helper help blocks complete
 
-Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 8/11 phase-11 plans complete in v1.2
+Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 10/11 phase-11 plans complete in v1.2
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [███████████████████████
 
 **Current milestone (v1.2):**
 - 3 planned phases (11-13), 11 requirements
-- Phase 11: 8/11 plans complete (plans 01-08 done)
+- Phase 11: 10/11 plans complete (plans 01-10 done)
 
 ## Accumulated Context
 
@@ -45,6 +45,10 @@ Recent decisions affecting current work:
 - **Export contract source of truth**: Public directory drives export list (v1.1)
 - **Delivery readiness first**: docs/CI/tests before new features (v1.2)
 - **VM lifecycle help already complete**: All 5 target files (Wait-LabVMReady, Connect-LabVM, New-LabVM, Remove-LabVM, Remove-LabVMs) had complete comment-based help prior to plan 11-08 execution
+- [Phase 11]: No changes required to health/environment check files — all four files already contained complete .SYNOPSIS, .DESCRIPTION, and .EXAMPLE blocks
+- [Phase 11-documentation-and-onboarding]: All 7 VM lifecycle files already had complete help blocks — no edits required, verified against .SYNOPSIS/.DESCRIPTION/.PARAMETER/.EXAMPLE tokens
+- [Phase 11-documentation-and-onboarding]: Write-LabStatus.ps1 was missing .DESCRIPTION and .EXAMPLE entirely; added both to meet DOC-04 coverage
+- [Phase 11-documentation-and-onboarding]: Enhanced thinner example sections in Show-LabStatus, Write-RunArtifact, Save-LabCheckpoint, Restore-LabCheckpoint for practical operator value
 
 ### Pending Todos
 
