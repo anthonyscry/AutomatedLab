@@ -107,16 +107,16 @@ PrivateData = @{
         Tags = @('Hyper-V', 'Lab', 'Windows', 'Domain', 'Automation')
 
         # A URL to the license for this module.
-        # LicenseUri = ''
+        LicenseUri = 'https://github.com/anthonyscry/LabBuilder/blob/main/LICENSE'
 
         # A URL to the main website for this project.
-        # ProjectUri = ''
+        ProjectUri = 'https://github.com/anthonyscry/LabBuilder'
 
         # A URL to an icon representing this module.
         # IconUri = ''
 
         # ReleaseNotes of this module
-        # ReleaseNotes = ''
+        ReleaseNotes = 'See GitHub Releases for changelog.'
 
     } # End of PSData hashtable
 
