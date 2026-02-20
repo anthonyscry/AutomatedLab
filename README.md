@@ -199,6 +199,7 @@ Run the provided test runner:
 
 ## Documentation
 
+- [Getting Started](docs/GETTING-STARTED.md): operator onboarding guide with preflight checklist and first-run flow
 - Rollback runbook: `RUNBOOK-ROLLBACK.md`
 - Secret/bootstrap guide: `SECRETS-BOOTSTRAP.md`
 - Architecture notes: `docs/ARCHITECTURE.md`
