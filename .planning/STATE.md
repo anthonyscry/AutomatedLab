@@ -56,6 +56,7 @@ Recent decisions affecting current work:
 - [Phase 11]: Expected outcome fields documented per workflow in LIFECYCLE-WORKFLOWS.md
 - [Phase 11-documentation-and-onboarding]: Empty param() blocks with no declared parameters are exempt from .PARAMETER gate — regex requires [type] or $Param tokens inside param block
 - [Phase 11-documentation-and-onboarding]: Test-HyperVEnabled.ps1 correctly excluded from .PARAMETER gate — its param() is empty; updated regex catches only files with declared parameters
+- [Phase 11-07]: Runtime validation script always writes report scaffold even in SKIPPED state; Windows API calls wrapped in try/catch for cross-platform safety
 
 ### Pending Todos
 
@@ -68,9 +69,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-06-PLAN.md (Linux help blocks + public help quality gate, 4 Pester tests)
-Resume file: .planning/phases/11-documentation-and-onboarding/11-07-PLAN.md
+Stopped at: Completed 11-07-PLAN.md (runtime docs validation script, evidence report, 22 Pester tests)
+Resume file: .planning/phases/11-documentation-and-onboarding/11-08-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 11-06 Linux help completion and public help quality gate*
+*Last updated: 2026-02-20 after 11-07 runtime docs validation and 22-test Pester contract*
