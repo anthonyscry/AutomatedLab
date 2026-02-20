@@ -61,7 +61,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 ### v1.4 Configuration Management & Reporting (Phases 18-21)
 
-- [ ] **Phase 18: Configuration Profiles** - CLI save, load, list, and delete named lab configuration profiles
+- [x] **Phase 18: Configuration Profiles** - CLI save, load, list, and delete named lab configuration profiles (completed 2026-02-20)
 - [ ] **Phase 19: Run History Tracking** - Automatic deployment logging with CLI viewing and per-run detail
 - [ ] **Phase 20: GUI Log Viewer** - Dedicated GUI panel with filtering and export for run history
 - [ ] **Phase 21: Lab Export/Import** - Portable lab definition packages with integrity validation
@@ -120,7 +120,7 @@ Plans:
 | 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14-17 | v1.3 | 8/8 | Complete | 2026-02-20 |
-| 18 | 1/2 | In Progress|  | - |
+| 18 | 2/2 | Complete   | 2026-02-20 | - |
 | 19 | v1.4 | 0/TBD | Not started | - |
 | 20 | v1.4 | 0/TBD | Not started | - |
 | 21 | v1.4 | 0/TBD | Not started | - |
