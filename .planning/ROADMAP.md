@@ -64,11 +64,11 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
   2. Operator can run a deploy command with `-Scenario MultiTierApp` and get a DC + SQL + IIS + client lab created
   3. Operator can run a deploy command with `-Scenario MinimalAD` and get a single DC lab with minimum resources
   4. Operator sees RAM, disk, and CPU requirements printed before any VMs are created when using a scenario template
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 14-01: TBD
-- [ ] 14-02: TBD
+- [ ] 14-01-PLAN.md — Scenario template definitions, resolver, resource estimator, and tests
+- [ ] 14-02-PLAN.md — CLI -Scenario parameter wiring through orchestrator and deploy flow
 
 ### Phase 15: Configuration Validation
 **Goal**: Operators get clear pass/fail feedback with actionable fix guidance before deploying, preventing wasted time on doomed deployments
@@ -119,7 +119,7 @@ Plans:
 | 1-6 | v1.0 | 25/25 | Complete | 2026-02-17 |
 | 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
-| 14. Lab Scenario Templates | v1.3 | 0/TBD | Not started | - |
+| 14. Lab Scenario Templates | v1.3 | 0/2 | Planning complete | - |
 | 15. Configuration Validation | v1.3 | 0/TBD | Not started | - |
 | 16. Snapshot Lifecycle | v1.3 | 0/TBD | Not started | - |
 | 17. GUI Dashboard Enhancements | v1.3 | 0/TBD | Not started | - |
