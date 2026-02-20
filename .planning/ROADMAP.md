@@ -120,7 +120,7 @@ Plans:
 | 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
-| 15. Configuration Validation | v1.3 | 0/2 | Planned | - |
+| 15. Configuration Validation | 1/2 | In Progress|  | - |
 | 16. Snapshot Lifecycle | v1.3 | 0/TBD | Not started | - |
 | 17. GUI Dashboard Enhancements | v1.3 | 0/TBD | Not started | - |
 

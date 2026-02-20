@@ -17,9 +17,9 @@ Requirements for lab scenarios and operator tooling milestone. Each maps to road
 
 ### Configuration Validation
 
-- [ ] **CONF-01**: Operator runs a pre-deployment validation report that combines all preflight checks with clear pass/fail summary
-- [ ] **CONF-02**: Operator sees host resource availability (free RAM, disk space, logical CPUs) compared against template requirements before deployment
-- [ ] **CONF-03**: Each failed validation includes a guided diagnostic message explaining what is wrong and how to fix it
+- [x] **CONF-01**: Operator runs a pre-deployment validation report that combines all preflight checks with clear pass/fail summary
+- [x] **CONF-02**: Operator sees host resource availability (free RAM, disk space, logical CPUs) compared against template requirements before deployment
+- [x] **CONF-03**: Each failed validation includes a guided diagnostic message explaining what is wrong and how to fix it
 
 ### Snapshot Lifecycle
 
@@ -68,9 +68,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TMPL-03 | Phase 14 | Complete |
 | TMPL-04 | Phase 14 | Complete |
 | TMPL-05 | Phase 14 | Complete |
-| CONF-01 | Phase 15 | Pending |
-| CONF-02 | Phase 15 | Pending |
-| CONF-03 | Phase 15 | Pending |
+| CONF-01 | Phase 15 | Complete |
+| CONF-02 | Phase 15 | Complete |
+| CONF-03 | Phase 15 | Complete |
 | SNAP-01 | Phase 16 | Pending |
 | SNAP-02 | Phase 16 | Pending |
 | SNAP-03 | Phase 16 | Pending |
