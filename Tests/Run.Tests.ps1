@@ -7,7 +7,10 @@ param(
 
     [Parameter()]
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic')]
-    [string]$Verbosity = 'Normal'
+    [string]$Verbosity = 'Normal',
+
+    [Parameter()]
+    [int]$CoverageThreshold = 15
 )
 
 # Ensure Pester is available
@@ -74,5 +77,20 @@ Write-Host "Module Root: $moduleRoot" -ForegroundColor Gray
 # Run tests
 $result = Invoke-Pester -Configuration $config
 
+# Report coverage
+$coveragePercent = 0
+if ($result.CodeCoverage -and $result.CodeCoverage.CoveragePercent) {
+    $coveragePercent = [math]::Round($result.CodeCoverage.CoveragePercent, 1)
+}
+$coverageColor = if ($coveragePercent -ge $CoverageThreshold) { 'Green' } else { 'Red' }
+Write-Host "Coverage: ${coveragePercent}% (threshold: ${CoverageThreshold}%)" -ForegroundColor $coverageColor
+
 # Exit with appropriate code
-exit $result.FailedCount
+if ($result.FailedCount -gt 0) {
+    exit $result.FailedCount
+}
+if ($coveragePercent -lt $CoverageThreshold) {
+    Write-Host "COVERAGE FAILED: ${coveragePercent}% is below threshold of ${CoverageThreshold}%" -ForegroundColor Red
+    exit 1
+}
+exit 0

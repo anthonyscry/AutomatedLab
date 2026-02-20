@@ -33,6 +33,35 @@ jobs:
           name: pester-results
           path: Tests/results/testResults.xml
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: Tests/coverage.xml
+
+      - name: Coverage summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path Tests/coverage.xml) {
+            [xml]$coverage = Get-Content Tests/coverage.xml
+            $counters = $coverage.report.counter | Where-Object { $_.type -eq 'LINE' }
+            if ($counters) {
+              $missed = [int]$counters.missed
+              $covered = [int]$counters.covered
+              $total = $missed + $covered
+              $pct = if ($total -gt 0) { [math]::Round(($covered / $total) * 100, 1) } else { 0 }
+              $icon = if ($pct -ge 15) { ':white_check_mark:' } else { ':x:' }
+              "## $icon Code Coverage: ${pct}%" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+              "| Metric | Value |" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+              "|--------|-------|" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+              "| Lines covered | $covered / $total |" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+              "| Coverage | ${pct}% |" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+              "| Threshold | 15% |" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+            }
+          }
+
       - name: Publish test summary
         if: always()
         uses: dorny/test-reporter@v1
