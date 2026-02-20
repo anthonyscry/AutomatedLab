@@ -77,7 +77,10 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
   2. Operator runs `Load-LabProfile -Name "dev-cluster"` and the active lab configuration reflects the saved values
   3. Operator runs `Get-LabProfile` and sees a table of all saved profiles with VM count and creation date
   4. Operator runs `Remove-LabProfile -Name "dev-cluster"` and the profile no longer appears in the list
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 18-01-PLAN.md — Save, list, and delete profile cmdlets (Save-LabProfile, Get-LabProfile, Remove-LabProfile)
+- [ ] 18-02-PLAN.md — Load profile cmdlet and comprehensive Pester tests (Load-LabProfile, LabProfile.Tests.ps1)
 
 ### Phase 19: Run History Tracking
 **Goal**: Every deploy and teardown action is automatically logged so operators can review what happened and when
@@ -117,7 +120,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 | 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14-17 | v1.3 | 8/8 | Complete | 2026-02-20 |
-| 18 | v1.4 | 0/TBD | Not started | - |
+| 18 | v1.4 | 0/2 | Planning | - |
 | 19 | v1.4 | 0/TBD | Not started | - |
 | 20 | v1.4 | 0/TBD | Not started | - |
 | 21 | v1.4 | 0/TBD | Not started | - |
