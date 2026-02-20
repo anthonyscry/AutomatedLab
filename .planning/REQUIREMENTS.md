@@ -23,9 +23,9 @@ Requirements for delivery readiness milestone. Each maps to roadmap phases.
 
 ### Test Coverage
 
-- [ ] **TEST-01**: Add or migrate tests for 20+ previously untested Public functions
-- [ ] **TEST-02**: Add coverage reporting and threshold checks in CI
-- [ ] **TEST-03**: Add an E2E smoke test path for bootstrap/deploy/teardown
+- [x] **TEST-01**: Add or migrate tests for 20+ previously untested Public functions
+- [x] **TEST-02**: Add coverage reporting and threshold checks in CI
+- [x] **TEST-03**: Add an E2E smoke test path for bootstrap/deploy/teardown
 
 ## v2 Requirements
 

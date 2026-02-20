@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Brownfield Hardening & Integration** - Phases 1-6 (shipped 2026-02-17)
 - ✅ **v1.1 Production Robustness** - Phases 7-10 (shipped 2026-02-17)
-- ▶ **v1.2 Delivery Readiness** - Phases 11-13 (in progress, started 2026-02-18)
+- ✅ **v1.2 Delivery Readiness** - Phases 11-13 (shipped 2026-02-19)
 
 ## Phases
 
@@ -263,9 +263,9 @@ Plans:
   3. E2E smoke test validates bootstrap/deploy/teardown outcome with stable exit conditions.
   4. Traceability from requirements to test artifacts is explicit.
 **Plans**:
-- [ ] 13-01-PLAN.md -- Add tests for untested Public functions and coverage baselines
-- [ ] 13-02-PLAN.md -- Add coverage reporting and CI enforcement
-- [ ] 13-03-PLAN.md -- Add smoke E2E suite for lifecycle path
+- [x] 13-01-PLAN.md -- Add tests for untested Public functions and coverage baselines
+- [x] 13-02-PLAN.md -- Add coverage reporting and CI enforcement
+- [x] 13-03-PLAN.md -- Add smoke E2E suite for lifecycle path
 
 ## Progress
 
@@ -286,7 +286,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10 → 11 → 12 → 13
 | 10. Module Diagnostics | v1.1 | 3/3 | Complete | 2026-02-17 |
 | 11. Documentation and Onboarding | 10/10 | Complete    | 2026-02-20 | — |
 | 12. CI/CD and Release Automation | 3/3 | Complete    | 2026-02-20 | — |
-| 13. Test Coverage Expansion | v1.2 | 0/3 | In progress | — |
+| 13. Test Coverage Expansion | v1.2 | 3/3 | Complete | 2026-02-19 |
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
