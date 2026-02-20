@@ -1,49 +1,61 @@
-# Requirements: AutomatedLab v1.2 Delivery Readiness
+# Requirements: AutomatedLab v1.3 Lab Scenarios & Operator Tooling
 
-**Defined:** 2026-02-18
+**Defined:** 2026-02-19
 **Core Value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
 
 ## v1 Requirements
 
-Requirements for delivery readiness milestone. Each maps to roadmap phases.
+Requirements for lab scenarios and operator tooling milestone. Each maps to roadmap phases.
 
-### Documentation
+### Lab Scenario Templates
 
-- [x] **DOC-01**: README and entry-point documentation match current CLI/GUI workflows and multi-host behavior
-- [x] **DOC-02**: User guide covers end-to-end lifecycle workflows for bootstrap, deploy, quick mode, and teardown
-- [x] **DOC-03**: Troubleshooting guide documents common failures and recovery steps
-- [x] **DOC-04**: Public functions include concise help comments with examples
+- [ ] **TMPL-01**: Operator can deploy a security testing lab template (DC + client + Linux attack VM) via single scenario selection
+- [ ] **TMPL-02**: Operator can deploy a multi-tier application lab template (DC + SQL + IIS web server + client) via single scenario selection
+- [ ] **TMPL-03**: Operator can deploy a minimal AD lab template (DC only, minimum resources) for quick testing
+- [ ] **TMPL-04**: Operator can select a scenario template via CLI `-Scenario` parameter on deploy action
+- [ ] **TMPL-05**: Operator sees resource requirements (RAM, disk, CPU) before deploying a scenario template
 
-### CI/CD
+### Configuration Validation
 
-- [x] **CICD-01**: Pull request pipeline runs full Pester suite with clear failure diagnostics
-- [x] **CICD-02**: PowerShell ScriptAnalyzer check runs in CI with baseline-approved warnings and errors
-- [x] **CICD-03**: Release workflow runs tests, version bump checks, and artifact validation before publishing
-- [x] **CICD-04**: Publish workflow targets PowerShell Gallery with controlled permissions and release notes
+- [ ] **CONF-01**: Operator runs a pre-deployment validation report that combines all preflight checks with clear pass/fail summary
+- [ ] **CONF-02**: Operator sees host resource availability (free RAM, disk space, logical CPUs) compared against template requirements before deployment
+- [ ] **CONF-03**: Each failed validation includes a guided diagnostic message explaining what is wrong and how to fix it
 
-### Test Coverage
+### Snapshot Lifecycle
 
-- [x] **TEST-01**: Add or migrate tests for 20+ previously untested Public functions
-- [x] **TEST-02**: Add coverage reporting and threshold checks in CI
-- [x] **TEST-03**: Add an E2E smoke test path for bootstrap/deploy/teardown
+- [ ] **SNAP-01**: Operator can list all snapshots with age, creation date, and parent checkpoint name across all lab VMs
+- [ ] **SNAP-02**: Operator can prune stale snapshots older than a configurable threshold (default 7 days)
+- [ ] **SNAP-03**: Operator sees snapshot inventory summary when running lab status command
+
+### GUI Dashboard
+
+- [ ] **DASH-01**: Dashboard displays a health summary banner showing overall lab state (Healthy / Degraded / Offline / No Lab)
+- [ ] **DASH-02**: Dashboard displays resource usage summary (total RAM/CPU allocated across VMs vs host available)
+- [ ] **DASH-03**: Dashboard includes quick-action buttons (Start All, Stop All, Save Checkpoint) for common bulk operations
 
 ## v2 Requirements
 
 Deferred to future milestones. Tracked but not in current roadmap.
 
-### Feature Expansion
+### Advanced Scenarios
 
-- **FEAT-01**: New capabilities that expand lab role behavior (deferred)
-- **FEAT-02**: Major architecture additions or product scope shifts (deferred)
+- **ASCN-01**: Custom scenario builder wizard in GUI (deferred — CLI + JSON templates sufficient for v1.3)
+- **ASCN-02**: Scenario template sharing/import from external sources (deferred — local templates only)
+
+### Advanced Snapshot Management
+
+- **ASNP-01**: Snapshot diff/comparison between two points in time (deferred — prune and list sufficient)
+- **ASNP-02**: Snapshot size tracking and disk usage reporting (deferred — Hyper-V API complexity)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| New provisioning roles | Scope is delivery-readiness and quality operations |
-| Linux VM behavior expansion | Keep Windows Hyper-V focus for v1.2 |
-| Performance optimization | Not a v1.2 priority |
-| Cloud or container backends | Out of product direction for this milestone |
+| Azure/cloud backend support | Hyper-V local only — out of product direction |
+| Multi-domain forest templates | Niche requirement, document manual approach |
+| Custom role plugin system | Validate core scenario templates first |
+| Linux VM behavior expansion | Maintain compatibility only |
+| Template marketplace/sharing | Premature for single-developer project |
 
 ## Traceability
 
@@ -51,23 +63,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DOC-01 | Phase 11 | Complete |
-| DOC-02 | Phase 11 | Complete |
-| DOC-03 | Phase 11 | Complete |
-| DOC-04 | Phase 11 | Complete |
-| CICD-01 | Phase 12 | Complete |
-| CICD-02 | Phase 12 | Complete |
-| CICD-03 | Phase 12 | Complete |
-| CICD-04 | Phase 12 | Complete |
-| TEST-01 | Phase 13 | Pending |
-| TEST-02 | Phase 13 | Pending |
-| TEST-03 | Phase 13 | Pending |
+| TMPL-01 | — | Pending |
+| TMPL-02 | — | Pending |
+| TMPL-03 | — | Pending |
+| TMPL-04 | — | Pending |
+| TMPL-05 | — | Pending |
+| CONF-01 | — | Pending |
+| CONF-02 | — | Pending |
+| CONF-03 | — | Pending |
+| SNAP-01 | — | Pending |
+| SNAP-02 | — | Pending |
+| SNAP-03 | — | Pending |
+| DASH-01 | — | Pending |
+| DASH-02 | — | Pending |
+| DASH-03 | — | Pending |
 
 **Coverage:**
-- v1 requirements: 11 total
-- Mapped to phases: 11
-- Unmapped: 0 ✓
+- v1 requirements: 14 total
+- Mapped to phases: 0
+- Unmapped: 14 ⚠️
 
 ---
-*Requirements defined: 2026-02-18*
-*Last updated: 2026-02-18 after v1.2 requirements definition*
+*Requirements defined: 2026-02-19*
+*Last updated: 2026-02-19 after initial definition*
