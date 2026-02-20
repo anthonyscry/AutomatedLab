@@ -1,0 +1,34 @@
+{
+    "name":  "MultiTierApp",
+    "description":  "Multi-tier application lab: DC, SQL Server, IIS web server, client",
+    "vms":  [
+                {
+                    "name":  "dc1",
+                    "role":  "DC",
+                    "ip":  "10.0.10.10",
+                    "memoryGB":  4,
+                    "processors":  4
+                },
+                {
+                    "name":  "sql1",
+                    "role":  "SQL",
+                    "ip":  "10.0.10.40",
+                    "memoryGB":  8,
+                    "processors":  4
+                },
+                {
+                    "name":  "web1",
+                    "role":  "IIS",
+                    "ip":  "10.0.10.41",
+                    "memoryGB":  4,
+                    "processors":  2
+                },
+                {
+                    "name":  "ws1",
+                    "role":  "Client",
+                    "ip":  "10.0.10.30",
+                    "memoryGB":  4,
+                    "processors":  2
+                }
+            ]
+}
