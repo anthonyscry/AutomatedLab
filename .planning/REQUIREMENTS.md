@@ -28,9 +28,9 @@ Requirements for configuration management and reporting milestone. Each maps to 
 
 ### Lab Export/Import
 
-- [ ] **XFER-01**: Operator can export a lab configuration as a portable JSON package (profile config + metadata)
-- [ ] **XFER-02**: Operator can import a lab configuration package and deploy from it
-- [ ] **XFER-03**: Import validates package integrity before applying (schema check, required fields)
+- [x] **XFER-01**: Operator can export a lab configuration as a portable JSON package (profile config + metadata)
+- [x] **XFER-02**: Operator can import a lab configuration package and deploy from it
+- [x] **XFER-03**: Import validates package integrity before applying (schema check, required fields)
 
 ## v2 Requirements
 
@@ -72,9 +72,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOGV-01 | Phase 20 | Complete |
 | LOGV-02 | Phase 20 | Complete |
 | LOGV-03 | Phase 20 | Complete |
-| XFER-01 | Phase 21 | Pending |
-| XFER-02 | Phase 21 | Pending |
-| XFER-03 | Phase 21 | Pending |
+| XFER-01 | Phase 21 | Complete |
+| XFER-02 | Phase 21 | Complete |
+| XFER-03 | Phase 21 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total

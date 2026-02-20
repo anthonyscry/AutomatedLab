@@ -132,7 +132,7 @@ Plans:
 | 18 | 2/2 | Complete    | 2026-02-20 | - |
 | 19 | 2/2 | Complete    | 2026-02-20 | - |
 | 20 | 2/2 | Complete   | 2026-02-20 | - |
-| 21 | v1.4 | 0/2 | Planning | - |
+| 21 | 1/2 | In Progress|  | - |
 
 **Total: 62 plans across 17 phases shipped. 4 active phases (18-21) in v1.4.**
 
