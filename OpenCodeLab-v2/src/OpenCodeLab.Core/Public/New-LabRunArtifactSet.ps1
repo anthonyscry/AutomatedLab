@@ -34,10 +34,12 @@ function New-LabRunArtifactSet {
     $runFilePath = Join-Path -Path $runPath -ChildPath 'run.json'
     $eventsFilePath = Join-Path -Path $runPath -ChildPath 'events.jsonl'
     $summaryFilePath = Join-Path -Path $runPath -ChildPath 'summary.txt'
+    $errorsFilePath = Join-Path -Path $runPath -ChildPath 'errors.json'
 
     '{}' | Set-Content -Path $runFilePath -Encoding utf8 -NoNewline
     '' | Set-Content -Path $eventsFilePath -Encoding utf8 -NoNewline
     '' | Set-Content -Path $summaryFilePath -Encoding utf8 -NoNewline
+    '{}' | Set-Content -Path $errorsFilePath -Encoding utf8 -NoNewline
 
     return [pscustomobject][ordered]@{
         RunId = $RunId
@@ -45,5 +47,6 @@ function New-LabRunArtifactSet {
         RunFilePath = $runFilePath
         EventsFilePath = $eventsFilePath
         SummaryFilePath = $summaryFilePath
+        ErrorsFilePath = $errorsFilePath
     }
 }

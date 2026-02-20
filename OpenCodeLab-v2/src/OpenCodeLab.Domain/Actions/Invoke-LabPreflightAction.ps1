@@ -11,6 +11,7 @@ function Invoke-LabPreflightAction {
         $probe = Test-HyperVPrereqs
     } catch {
         $result.FailureCategory = 'PreflightFailed'
+        $result.ErrorCode = 'PREFLIGHT_PROBE_FAILED'
         $probeError = $_.Exception.Message
         $result.RecoveryHint = if ([string]::IsNullOrWhiteSpace($probeError)) {
             $remediation
@@ -25,6 +26,7 @@ function Invoke-LabPreflightAction {
 
     if (-not $probe.Ready) {
         $result.FailureCategory = 'PreflightFailed'
+        $result.ErrorCode = 'PREFLIGHT_PREREQ_NOT_READY'
         $result.RecoveryHint = if ([string]::IsNullOrWhiteSpace($probe.Reason)) {
             $remediation
         } elseif ($probe.Reason -match '(?i)Enable Hyper-V') {

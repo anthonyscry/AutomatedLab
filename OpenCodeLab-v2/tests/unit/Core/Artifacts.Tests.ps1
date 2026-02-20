@@ -14,7 +14,7 @@ Describe 'Artifact writer' {
         }
     }
 
-    It 'creates run.json events.jsonl summary.txt and returns path metadata' {
+    It 'creates run.json events.jsonl summary.txt errors.json and returns path metadata' {
         $root = Join-Path -Path $TestDrive -ChildPath 'logs'
 
         $set = New-LabRunArtifactSet -LogRoot $root -RunId 'run-1'
@@ -23,14 +23,17 @@ Describe 'Artifact writer' {
         Test-Path -Path $set.RunFilePath | Should -BeTrue
         Test-Path -Path $set.EventsFilePath | Should -BeTrue
         Test-Path -Path $set.SummaryFilePath | Should -BeTrue
+        Test-Path -Path $set.ErrorsFilePath | Should -BeTrue
 
         Split-Path -Path $set.RunFilePath -Leaf | Should -Be 'run.json'
         Split-Path -Path $set.EventsFilePath -Leaf | Should -Be 'events.jsonl'
         Split-Path -Path $set.SummaryFilePath -Leaf | Should -Be 'summary.txt'
+        Split-Path -Path $set.ErrorsFilePath -Leaf | Should -Be 'errors.json'
 
         Get-Content -Path $set.RunFilePath -Raw | Should -Be '{}'
         (Get-Item -Path $set.EventsFilePath).Length | Should -Be 0
         (Get-Item -Path $set.SummaryFilePath).Length | Should -Be 0
+        Get-Content -Path $set.ErrorsFilePath -Raw | Should -Be '{}'
     }
 
     It 'rejects RunId values that traverse outside LogRoot' {

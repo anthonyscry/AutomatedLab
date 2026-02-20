@@ -28,6 +28,7 @@ function Invoke-LabHealthAction {
     if (@($vmSnapshot | Where-Object { $_.State -ne 'Running' }).Count -gt 0) {
         $result.FailureCategory = 'OperationFailed'
         $result.ErrorCode = 'VM_NOT_RUNNING'
+        $result.RecoveryHint = 'Start all lab VMs and rerun health.'
         return $result
     }
 

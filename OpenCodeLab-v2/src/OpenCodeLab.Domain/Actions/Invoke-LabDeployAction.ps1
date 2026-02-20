@@ -4,13 +4,18 @@ function Invoke-LabDeployAction {
     [CmdletBinding()]
     param(
         [ValidateSet('full', 'quick')]
-        [string]$Mode = 'full'
+        [string]$Mode = 'full',
+
+        [ValidateNotNullOrEmpty()]
+        [string]$LockPath = (Join-Path -Path 'artifacts/logs' -ChildPath 'run.lock')
     )
 
     $result = New-LabActionResult -Action 'deploy' -RequestedMode $Mode
     $result.EffectiveMode = 'full'
+    $lockHandle = $null
 
     try {
+        $lockHandle = Enter-LabRunLock -LockPath $LockPath
         $stateResult = Invoke-LabDeployStateMachine -Mode 'full'
 
         if ($null -ne $stateResult -and $stateResult.PSObject.Properties.Match('Succeeded').Count -gt 0 -and -not $stateResult.Succeeded) {
@@ -22,12 +27,24 @@ function Invoke-LabDeployAction {
 
         $result.Succeeded = $true
     } catch {
-        $result.FailureCategory = 'OperationFailed'
-        $result.ErrorCode = 'DEPLOY_STEP_FAILED'
-
         $exceptionMessage = $_.Exception.Message
-        if (-not [string]::IsNullOrWhiteSpace($exceptionMessage)) {
+
+        if ($exceptionMessage -match '^PolicyBlocked:') {
+            $result.FailureCategory = 'PolicyBlocked'
+            $result.ErrorCode = 'RUN_LOCK_ACTIVE'
             $result.RecoveryHint = $exceptionMessage
+        }
+        else {
+            $result.FailureCategory = 'OperationFailed'
+            $result.ErrorCode = 'DEPLOY_STEP_FAILED'
+            if (-not [string]::IsNullOrWhiteSpace($exceptionMessage)) {
+                $result.RecoveryHint = $exceptionMessage
+            }
+        }
+    }
+    finally {
+        if ($null -ne $lockHandle) {
+            Exit-LabRunLock -LockHandle $lockHandle
         }
     }
 
