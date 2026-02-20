@@ -6,13 +6,39 @@ function New-LabNAT {
     .DESCRIPTION
         Creates an Internal vSwitch with host gateway IP and NAT configuration
         for lab VMs to have Internet access. This is an alternative to the
-        simple internal switch created by New-LabSwitch.
+        simple internal switch created by New-LabSwitch. All parameters default
+        to values from the lab network configuration when available.
+
+    .PARAMETER SwitchName
+        Name of the Hyper-V internal virtual switch to create or reuse.
+        Defaults to the SwitchName from network config, or "SimpleLab".
+
+    .PARAMETER GatewayIP
+        IPv4 address to assign to the host adapter as the lab gateway.
+        Defaults to HostGatewayIP from network config, or "10.0.0.1".
+
+    .PARAMETER AddressSpace
+        CIDR notation address space for the NAT (e.g. "10.0.0.0/24").
+        Defaults to AddressSpace from network config, or "10.0.0.0/24".
+
+    .PARAMETER NatName
+        Name for the Windows NAT object. Defaults to "${SwitchName}NAT".
+
+    .PARAMETER Force
+        Remove and recreate an existing switch or NAT if the configuration
+        does not match. Without -Force, mismatches return a failure result.
 
     .EXAMPLE
         New-LabNAT
+        Creates the lab NAT using all defaults from network configuration.
 
     .EXAMPLE
         New-LabNAT -SwitchName "LabNAT" -GatewayIP "192.168.100.1"
+        Creates a NAT switch named LabNAT with a custom gateway IP.
+
+    .EXAMPLE
+        New-LabNAT -Force
+        Recreates the NAT and switch even if they already exist.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

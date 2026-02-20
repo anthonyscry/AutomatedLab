@@ -37,6 +37,18 @@ function Write-RunArtifact {
 
     .EXAMPLE
         Write-RunArtifact -Operation "CreateVM" -Status "Success" -Duration 45.2 -ExitCode 0 -VMNames @("dc1")
+        # Writes a run artifact JSON to .planning/runs/ recording a successful CreateVM operation.
+
+    .EXAMPLE
+        $err = $Error[0]
+        Write-RunArtifact -Operation "Deploy" -Status "Failed" -Duration 12.3 -ExitCode 1 `
+            -VMNames @("dc1","svr1") -ErrorRecord $err -CustomData @{ Reason = "NIC missing" }
+        # Records a failed Deploy operation with error details and custom diagnostic data.
+
+    .EXAMPLE
+        $path = Write-RunArtifact -Operation "Restore" -Status "Success" -Duration 8.0 -ExitCode 0
+        Write-Host "Artifact saved: $path"
+        # Captures the returned artifact path for logging or chaining.
     #>
     [CmdletBinding()]
     param(

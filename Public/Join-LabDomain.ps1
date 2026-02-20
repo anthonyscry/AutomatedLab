@@ -30,9 +30,15 @@ function Join-LabDomain {
 
     .EXAMPLE
         Join-LabDomain
+        Joins svr1 and ws1 to the domain using config defaults. Prompts for domain credentials.
 
     .EXAMPLE
         Join-LabDomain -VMNames @("svr1") -Force
+        Rejoins svr1 to the domain even if it is already a member.
+
+    .EXAMPLE
+        Join-LabDomain -VMNames @("svr1", "ws1") -WaitTimeoutMinutes 15
+        Joins both VMs and waits up to 15 minutes per VM for reboot recovery.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

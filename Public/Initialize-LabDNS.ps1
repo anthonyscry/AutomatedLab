@@ -21,9 +21,16 @@ function Initialize-LabDNS {
 
     .EXAMPLE
         Initialize-LabDNS
+        Configures default Google DNS forwarders (8.8.8.8, 8.8.4.4) on dc1.
+        Skips configuration if forwarders are already set.
 
     .EXAMPLE
         Initialize-LabDNS -Forwarder @("1.1.1.1", "8.8.8.8") -Force
+        Replaces any existing DNS forwarders on dc1 with Cloudflare and Google DNS.
+
+    .EXAMPLE
+        Initialize-LabDNS -VMName "dc1" -Verbose
+        Configures DNS forwarders with verbose progress output for troubleshooting.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

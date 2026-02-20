@@ -19,9 +19,15 @@ function New-LabSwitch {
 
     .EXAMPLE
         New-LabSwitch
+        Creates the default "SimpleLab" internal vSwitch if it does not already exist.
 
     .EXAMPLE
         New-LabSwitch -SwitchName "MyLab" -Force
+        Removes and recreates the "MyLab" vSwitch, ensuring a clean internal switch.
+
+    .EXAMPLE
+        (New-LabSwitch).Status
+        Creates the switch and checks the resulting Status field ("OK" or "Failed").
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

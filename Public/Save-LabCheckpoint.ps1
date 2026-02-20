@@ -18,9 +18,16 @@ function Save-LabCheckpoint {
 
     .EXAMPLE
         Save-LabCheckpoint -CheckpointName "BeforeConfigChange"
+        # Creates a checkpoint named "BeforeConfigChange" on all lab VMs in parallel.
 
     .EXAMPLE
         Save-LabCheckpoint
+        # Creates a checkpoint with an auto-generated timestamp name (e.g. SimpleLab_20260219_143000).
+
+    .EXAMPLE
+        $result = Save-LabCheckpoint -CheckpointName "PrePatch"
+        if ($result.OverallStatus -eq "OK") { Write-Host "All $($result.VMsCheckpointed.Count) VMs checkpointed." }
+        # Captures the result object to check which VMs were checkpointed or failed.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

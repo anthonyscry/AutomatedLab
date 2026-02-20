@@ -2,12 +2,43 @@
 function Add-LinuxDhcpReservation {
     <#
     .SYNOPSIS
-    Creates a DHCP reservation on DC1 for a Linux VM's MAC address.
+        Creates a DHCP reservation on DC1 for a Linux VM's MAC address.
+
     .DESCRIPTION
-    Reads the VM's MAC from Hyper-V and creates a DHCP reservation via
-    Invoke-LabCommand on the DHCP server (DC1). This ensures the Linux VM
-    always gets the same IP after reboot.
-    NOTE: Requires AutomatedLab to be imported (Invoke-LabCommand prerequisite).
+        Reads the VM's MAC address from the Hyper-V network adapter and creates a
+        DHCP reservation via Invoke-LabCommand on the DHCP server (DC1). This ensures
+        the Linux VM always receives the same IP address after reboot.
+
+        Any existing reservation for the same MAC address or IP address is removed
+        before the new reservation is created, avoiding conflicts.
+
+        NOTE: Requires AutomatedLab to be imported (Invoke-LabCommand prerequisite).
+
+    .PARAMETER VMName
+        Name of the Hyper-V virtual machine whose MAC address will be reserved.
+        Defaults to 'LIN1'.
+
+    .PARAMETER ReservedIP
+        The IPv4 address to reserve for the VM. Defaults to the value of $LIN1_Ip
+        if set, otherwise '10.0.10.110'.
+
+    .PARAMETER DhcpServer
+        The name of the DHCP server (lab computer) where the reservation will be
+        created. Defaults to 'DC1'.
+
+    .PARAMETER ScopeId
+        The DHCP scope ID that contains the IP address. Defaults to the value of
+        $DhcpScopeId if set, otherwise '10.0.10.0'.
+
+    .EXAMPLE
+        Add-LinuxDhcpReservation
+
+        Creates a reservation for the default LIN1 VM using the default IP and scope.
+
+    .EXAMPLE
+        Add-LinuxDhcpReservation -VMName 'LIN2' -ReservedIP '10.0.10.120'
+
+        Creates a DHCP reservation for LIN2 at address 10.0.10.120 on DC1.
     #>
     [CmdletBinding()]
     param(

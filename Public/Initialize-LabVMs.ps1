@@ -25,11 +25,15 @@ function Initialize-LabVMs {
 
     .EXAMPLE
         Initialize-LabVMs
-        Creates all lab VMs using configuration defaults.
+        Creates dc1, svr1, and ws1 using switch name, VHD path, and ISO paths from config.
 
     .EXAMPLE
         Initialize-LabVMs -Force -Verbose
-        Recreates all lab VMs, replacing any that already exist.
+        Recreates all lab VMs, removing any that already exist, with verbose progress output.
+
+    .EXAMPLE
+        (Initialize-LabVMs).OverallStatus
+        Creates VMs and inspects the overall result ("OK", "Partial", or "Failed").
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
