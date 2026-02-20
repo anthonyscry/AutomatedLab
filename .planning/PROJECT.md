@@ -26,13 +26,13 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 - ✓ 39 + 28 function families modularized or tested for isolation
 - ✓ 47 functions exported consistently via .psd1 and .psm1
 - ✓ Out-Null replaced where suppressive behavior blocked diagnostics
+- ✓ **DOC-01**: README refreshed + GETTING-STARTED.md + 22 entry-doc Pester tests — Phase 11
+- ✓ **DOC-02**: LIFECYCLE-WORKFLOWS.md (326 lines) with expected outcomes per workflow — Phase 11
+- ✓ **DOC-03**: RUNBOOK-ROLLBACK.md expanded to 410+ lines with 6 failure scenarios — Phase 11
+- ✓ **DOC-04**: All 35+ Public functions have complete help; repo-wide quality gate enforced — Phase 11
 
 ### Active
 
-- [ ] **DOC-01**: README and entry-point docs reflect current CLI/GUI workflows, multi-host usage, and prerequisites
-- [ ] **DOC-02**: User guide covers end-to-end lifecycle workflows (bootstrap, deploy, quick mode, teardown, and troubleshooting)
-- [ ] **DOC-03**: Troubleshooting guide documents common operational failure patterns and recovery playbooks
-- [ ] **DOC-04**: All Public functions have help comments with examples
 - [ ] **CICD-01**: PR pipeline runs full Pester suite with clear diagnostics on failure
 - [ ] **CICD-02**: PowerShell ScriptAnalyzer runs with project-appropriate rules
 - [ ] **CICD-03**: Release automation performs build, tests, version bump, and artifact validation
@@ -70,6 +70,8 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 | Add try-catch to all critical functions before optimization | Prevents silent failures during complex operations | ✓ completed in v1.1
 | Replace Out-Null in operational paths with diagnostic-preserving patterns | Improves support and debugging quality | ✓ completed in v1.1
 | Move remaining backlog to v1.2 delivery-readiness work | Keeps core behavior stable before expanding scope | ✓ v1.1 complete, v1.2 started
+| Docs-first before CI/CD | Stable docs enable CI gate tests and onboarding before automation | ✓ Phase 11 complete
+| Repo-wide help quality gate | Pester test enforces .SYNOPSIS/.DESCRIPTION/.EXAMPLE on all Public/ | ✓ Prevents help drift
 
 ---
-*Last updated: 2026-02-18 after v1.2 milestone start*
+*Last updated: 2026-02-20 after Phase 11*

@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-18)
+See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.2 milestone planning
+**Current focus:** Phase 12 — CI/CD and Release Automation
 
 ## Current Position
 
-Phase: 11 of 13 (Documentation and Onboarding) — IN PROGRESS
-Plan: 11 of 11
-Status: v1.2 milestone active — phase 11 documentation plans executing
-Last activity: 2026-02-20 — 11-07 runtime docs validation script, evidence report, and 22-test Pester contract complete
+Phase: 12 of 13 (CI/CD and Release Automation) — NOT STARTED
+Plan: —
+Status: Phase 11 complete, ready to plan Phase 12
+Last activity: 2026-02-20 — Phase 11 verified and marked complete (10/10 plans, 5/5 must-haves)
 
-Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 11/11 phase-11 plans complete in v1.2
+Progress: [█████████░░░░░░░░░░░] 10/10 phase-11 plans complete, 0/? phase-12 plans (v1.2)
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [███████████████████████
 
 **Current milestone (v1.2):**
 - 3 planned phases (11-13), 11 requirements
-- Phase 11: 11/11 plans complete (all plans done)
+- Phase 11: 10/10 plans complete — DOC-01 through DOC-04 verified
 
 ## Accumulated Context
 
@@ -40,27 +40,14 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Extraction before optimization**: isolate inline logic before changing behavior (v1.1)
-- **Error propagation discipline**: prefer explicit returns/throws over script exits (v1.1)
-- **Export contract source of truth**: Public directory drives export list (v1.1)
 - **Delivery readiness first**: docs/CI/tests before new features (v1.2)
-- **VM lifecycle help already complete**: All 5 target files (Wait-LabVMReady, Connect-LabVM, New-LabVM, Remove-LabVM, Remove-LabVMs) had complete comment-based help prior to plan 11-08 execution
-- [Phase 11]: No changes required to health/environment check files — all four files already contained complete .SYNOPSIS, .DESCRIPTION, and .EXAMPLE blocks
-- [Phase 11-documentation-and-onboarding]: All 7 VM lifecycle files already had complete help blocks — no edits required, verified against .SYNOPSIS/.DESCRIPTION/.PARAMETER/.EXAMPLE tokens
-- [Phase 11-documentation-and-onboarding]: Write-LabStatus.ps1 was missing .DESCRIPTION and .EXAMPLE entirely; added both to meet DOC-04 coverage
-- [Phase 11-documentation-and-onboarding]: Enhanced thinner example sections in Show-LabStatus, Write-RunArtifact, Save-LabCheckpoint, Restore-LabCheckpoint for practical operator value
-- [Phase 11-10]: Reset-Lab.ps1 and Test-LabIso.ps1 already had complete help; four Linux helpers (DHCP, install media, SSH info, VMIPv4) updated with missing .PARAMETER and .EXAMPLE entries
-- [Phase 11-01]: README already had all required CLI entry-point tokens; only [Getting Started] cross-link was added; EntryDocs tests use regex anchors for stable drift-resistant coverage
-- [Phase 11-04]: New-LabNAT and New-LabSSHKey were missing .PARAMETER docs; all 9 network/domain/provisioning files had .EXAMPLE enhanced with descriptive text and a third operator example
-- [Phase 11]: Numbered scenario entries in RUNBOOK-ROLLBACK.md use bare numbered lines to match verify regex
-- [Phase 11]: Expected outcome fields documented per workflow in LIFECYCLE-WORKFLOWS.md
-- [Phase 11-documentation-and-onboarding]: Empty param() blocks with no declared parameters are exempt from .PARAMETER gate — regex requires [type] or $Param tokens inside param block
-- [Phase 11-documentation-and-onboarding]: Test-HyperVEnabled.ps1 correctly excluded from .PARAMETER gate — its param() is empty; updated regex catches only files with declared parameters
-- [Phase 11-07]: Runtime validation script always writes report scaffold even in SKIPPED state; Windows API calls wrapped in try/catch for cross-platform safety
+- **Docs-first before CI/CD**: stable docs enable CI gate tests and onboarding before automation
+- **Repo-wide help quality gate**: Pester test enforces .SYNOPSIS/.DESCRIPTION/.EXAMPLE on all Public/
+- **Runtime validation with skip semantics**: validation script always writes report scaffold even in SKIPPED state
 
 ### Pending Todos
 
-- None — awaiting implementation after roadmap approval
+- None
 
 ### Blockers/Concerns
 
@@ -69,9 +56,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-07-PLAN.md (runtime docs validation script, evidence report, 22 Pester tests)
-Resume file: .planning/phases/11-documentation-and-onboarding/11-08-PLAN.md
+Stopped at: Phase 11 complete, ready to plan Phase 12
+Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 11-07 runtime docs validation and 22-test Pester contract*
+*Last updated: 2026-02-20 after Phase 11 completion*
