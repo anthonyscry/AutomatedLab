@@ -34,6 +34,7 @@ All 4 milestones shipped:
 - ✓ v1.3 CONF-01 through CONF-03: Pre-deployment validation with guided diagnostics (Phase 15)
 - ✓ v1.3 SNAP-01 through SNAP-03: Snapshot inventory, pruning, and status integration (Phase 16)
 - ✓ v1.3 DASH-01 through DASH-03: Dashboard health banner, resource summary, bulk actions (Phase 17)
+- ✓ v1.4 PROF-01 through PROF-04: Named configuration profiles with save, load, list, delete (Phase 18)
 
 ### Active
 
@@ -84,6 +85,9 @@ v1.4 Configuration Management & Reporting:
 | No ValidateSet on -Scenario | Runtime validation auto-discovers templates | ✓ v1.3 |
 | CPU check warns not fails | VMs can share CPU time, only RAM/disk are hard constraints | ✓ v1.3 |
 | ShouldProcess on snapshot pruning | -WhatIf safety for destructive operations | ✓ v1.3 |
+| Profiles as JSON in .planning/profiles/ | Follows template storage pattern, no new infrastructure | ✓ v1.4 |
+| $Config parameter not $GlobalLabConfig | Keeps profile functions testable and side-effect-free | ✓ v1.4 |
+| Recursive PSCustomObject-to-hashtable | Handles JSON round-trip for PS 5.1 ConvertFrom-Json | ✓ v1.4 |
 
 ---
-*Last updated: 2026-02-20 after v1.4 milestone start*
+*Last updated: 2026-02-20 after Phase 18*
