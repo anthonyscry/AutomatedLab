@@ -29,20 +29,22 @@ Describe 'Get-LabCommandMap' {
     }
 
     It 'executes dashboard command through launcher and returns text output by default' {
-        $result = & $launcherPath -Command dashboard
+        $result = (& pwsh -NoProfile -File $launcherPath -Command dashboard) -join [Environment]::NewLine
 
         $result | Should -Match 'Action: dashboard'
         $result | Should -Match 'Succeeded: True'
         $result | Should -Match 'ArtifactPath:'
+        $LASTEXITCODE | Should -Be 0
     }
 
     It 'supports JSON output mode through launcher' {
-        $jsonResult = & $launcherPath -Command dashboard -Output json
+        $jsonResult = & pwsh -NoProfile -File $launcherPath -Command dashboard -Output json
         $parsed = $jsonResult | ConvertFrom-Json
 
         $parsed.Action | Should -Be 'dashboard'
         $parsed.Succeeded | Should -BeTrue
         $parsed.ArtifactPath | Should -Not -BeNullOrEmpty
+        $LASTEXITCODE | Should -Be 0
     }
 
     It 'maps result contracts to baseline exit codes' {
@@ -53,7 +55,12 @@ Describe 'Get-LabCommandMap' {
         Resolve-LabExitCode -Result ([pscustomobject]@{ Succeeded = $false; FailureCategory = 'UnexpectedException' }) | Should -Be 4
     }
 
-    It 'throws a clear error for unsupported commands' {
-        { & $launcherPath -Command 'unsupported-command' } | Should -Throw -ExpectedMessage 'Unsupported command: unsupported-command'
+    It 'returns a structured failure result for unsupported commands' {
+        $result = Invoke-LabCliCommand -Command 'unsupported-command'
+
+        $result.Succeeded | Should -BeFalse
+        $result.FailureCategory | Should -Be 'ConfigError'
+        $result.ErrorCode | Should -Be 'UNSUPPORTED_COMMAND'
+        $result.RecoveryHint | Should -Be 'Unsupported command: unsupported-command'
     }
 }

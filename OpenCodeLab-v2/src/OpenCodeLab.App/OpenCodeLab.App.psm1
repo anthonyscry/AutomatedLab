@@ -118,7 +118,11 @@ function Invoke-LabCliCommand {
 
     $commandMap = Get-LabCommandMap
     if (-not $commandMap.Contains($Command)) {
-        throw "Unsupported command: $Command"
+        $unsupportedResult = New-LabActionResult -Action $Command -RequestedMode $Mode
+        $unsupportedResult.FailureCategory = 'ConfigError'
+        $unsupportedResult.ErrorCode = 'UNSUPPORTED_COMMAND'
+        $unsupportedResult.RecoveryHint = "Unsupported command: $Command"
+        return $unsupportedResult
     }
 
     try {
