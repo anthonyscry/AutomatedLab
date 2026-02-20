@@ -16,10 +16,10 @@ Requirements for delivery readiness milestone. Each maps to roadmap phases.
 
 ### CI/CD
 
-- [ ] **CICD-01**: Pull request pipeline runs full Pester suite with clear failure diagnostics
-- [ ] **CICD-02**: PowerShell ScriptAnalyzer check runs in CI with baseline-approved warnings and errors
-- [ ] **CICD-03**: Release workflow runs tests, version bump checks, and artifact validation before publishing
-- [ ] **CICD-04**: Publish workflow targets PowerShell Gallery with controlled permissions and release notes
+- [x] **CICD-01**: Pull request pipeline runs full Pester suite with clear failure diagnostics
+- [x] **CICD-02**: PowerShell ScriptAnalyzer check runs in CI with baseline-approved warnings and errors
+- [x] **CICD-03**: Release workflow runs tests, version bump checks, and artifact validation before publishing
+- [x] **CICD-04**: Publish workflow targets PowerShell Gallery with controlled permissions and release notes
 
 ### Test Coverage
 
@@ -55,10 +55,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOC-02 | Phase 11 | Complete |
 | DOC-03 | Phase 11 | Complete |
 | DOC-04 | Phase 11 | Complete |
-| CICD-01 | Phase 12 | Pending |
-| CICD-02 | Phase 12 | Pending |
-| CICD-03 | Phase 12 | Pending |
-| CICD-04 | Phase 12 | Pending |
+| CICD-01 | Phase 12 | Complete |
+| CICD-02 | Phase 12 | Complete |
+| CICD-03 | Phase 12 | Complete |
+| CICD-04 | Phase 12 | Complete |
 | TEST-01 | Phase 13 | Pending |
 | TEST-02 | Phase 13 | Pending |
 | TEST-03 | Phase 13 | Pending |
