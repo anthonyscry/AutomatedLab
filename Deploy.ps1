@@ -28,9 +28,13 @@ if (Test-Path $templateHelperPath) { . $templateHelperPath }
 $scenarioHelperPath = Join-Path $ScriptDir 'Private\Get-LabScenarioTemplate.ps1'
 $resourceEstimateHelperPath = Join-Path $ScriptDir 'Private\Get-LabScenarioResourceEstimate.ps1'
 $templateValidationHelperPath = Join-Path $ScriptDir 'Private\Test-LabTemplateData.ps1'
+$validationHelperPath = Join-Path $ScriptDir 'Private\Test-LabConfigValidation.ps1'
+$hostResourceHelperPath = Join-Path $ScriptDir 'Private\Get-LabHostResourceInfo.ps1'
 if (Test-Path $scenarioHelperPath) { . $scenarioHelperPath }
 if (Test-Path $resourceEstimateHelperPath) { . $resourceEstimateHelperPath }
 if (Test-Path $templateValidationHelperPath) { . $templateValidationHelperPath }
+if (Test-Path $validationHelperPath) { . $validationHelperPath }
+if (Test-Path $hostResourceHelperPath) { . $hostResourceHelperPath }
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -293,6 +297,40 @@ try {
             Write-Host "  Total Disk:  $($estimate.TotalDiskGB) GB (estimated)" -ForegroundColor White
             Write-Host "  Total CPUs:  $($estimate.TotalProcessors)" -ForegroundColor White
             Write-Host "=================================================" -ForegroundColor Cyan
+            Write-Host ""
+        }
+        if (Get-Command -Name 'Test-LabConfigValidation' -ErrorAction SilentlyContinue) {
+            $preDeployValidation = Test-LabConfigValidation -Scenario $Scenario -TemplatesRoot $templatesRoot
+            Write-Host "===== Pre-Deploy Validation =====" -ForegroundColor Cyan
+            foreach ($vCheck in $preDeployValidation.Checks) {
+                $vLabel = switch ($vCheck.Status) {
+                    'Pass' { '[PASS]' }
+                    'Fail' { '[FAIL]' }
+                    'Warn' { '[WARN]' }
+                    default { "[${_}]" }
+                }
+                $vColor = switch ($vCheck.Status) {
+                    'Pass' { 'Green' }
+                    'Fail' { 'Red' }
+                    'Warn' { 'Yellow' }
+                    default { 'Gray' }
+                }
+                Write-Host "  $vLabel $($vCheck.Name)" -ForegroundColor $vColor -NoNewline
+            }
+            Write-Host ""
+            if ($preDeployValidation.OverallStatus -eq 'Fail') {
+                $failedChecks = @($preDeployValidation.Checks | Where-Object { $_.Status -eq 'Fail' })
+                foreach ($fCheck in $failedChecks) {
+                    Write-Host "  $($fCheck.Name): $($fCheck.Message)" -ForegroundColor Red
+                    if (-not [string]::IsNullOrWhiteSpace($fCheck.Remediation)) {
+                        Write-Host "    Fix: $($fCheck.Remediation)" -ForegroundColor Red
+                    }
+                }
+                throw "Pre-deploy validation failed. Fix the issues above before deploying."
+            }
+            else {
+                Write-Host "Pre-deploy validation passed." -ForegroundColor Green
+            }
             Write-Host ""
         }
         if (Get-Command -Name 'Get-LabScenarioTemplate' -ErrorAction SilentlyContinue) {

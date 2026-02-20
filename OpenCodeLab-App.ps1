@@ -30,7 +30,8 @@ param(
         'stop',
         'rollback',
         'blow-away',
-        'teardown'
+        'teardown',
+        'validate'
     )]
     [string]$Action = 'menu',
     [ValidateSet('quick', 'full')]
@@ -909,6 +910,38 @@ $skipLegacyOrchestration = $false
             Write-LabStatus -Status OK -Message "Restored to LabReady" -Indent 0
         }
         'blow-away' { Invoke-LabBlowAway -BypassPrompt:($Force -or $NonInteractive) -DropNetwork:$RemoveNetwork -Simulate:$DryRun -LabConfig $GlobalLabConfig -SwitchName $SwitchName -RunEvents $RunEvents }
+        'validate' {
+            $validateSplat = @{}
+            if ($PSBoundParameters.ContainsKey('Scenario')) { $validateSplat['Scenario'] = $Scenario }
+            $validationResult = Test-LabConfigValidation @validateSplat
+
+            Write-Host "`n===== Configuration Validation Report =====" -ForegroundColor Cyan
+            foreach ($check in $validationResult.Checks) {
+                $statusLabel = switch ($check.Status) {
+                    'Pass' { '[PASS]' }
+                    'Fail' { '[FAIL]' }
+                    'Warn' { '[WARN]' }
+                    default { "[${_}]" }
+                }
+                $statusColor = switch ($check.Status) {
+                    'Pass' { 'Green' }
+                    'Fail' { 'Red' }
+                    'Warn' { 'Yellow' }
+                    default { 'Gray' }
+                }
+                Write-Host "$statusLabel $($check.Name): $($check.Message)" -ForegroundColor $statusColor
+                if ($check.Status -eq 'Fail' -and -not [string]::IsNullOrWhiteSpace($check.Remediation)) {
+                    Write-Host "       Fix: $($check.Remediation)" -ForegroundColor Red
+                }
+            }
+            Write-Host ""
+            Write-Host "Result: $($validationResult.Summary)" -ForegroundColor Cyan
+            Write-Host ""
+
+            if ($validationResult.OverallStatus -eq 'Fail') {
+                $host.SetShouldExit(1)
+            }
+        }
     }
     if ($skipLegacyOrchestration) {
         if ([string]::IsNullOrWhiteSpace($executionOutcome)) {
