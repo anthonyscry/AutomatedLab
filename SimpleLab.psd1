@@ -78,6 +78,8 @@ FunctionsToExport = @(
     'Wait-LabVMReady', 'Write-LabStatus', 'Write-RunArtifact',
     # Run history
     'Get-LabRunHistory',
+    # Lab export/import
+    'Export-LabPackage', 'Import-LabPackage',
     # Linux VM helpers (Public/Linux)
     'Add-LinuxDhcpReservation', 'Finalize-LinuxInstallMedia', 'Get-LinuxSSHConnectionInfo',
     'Get-LinuxVMIPv4', 'Get-Sha512PasswordHash', 'Invoke-BashOnLinuxVM',
