@@ -31,7 +31,9 @@ param(
         'rollback',
         'blow-away',
         'teardown',
-        'validate'
+        'validate',
+        'snapshot-list',
+        'snapshot-prune'
     )]
     [string]$Action = 'menu',
     [ValidateSet('quick', 'full')]
@@ -54,7 +56,8 @@ param(
     [ValidateSet('off', 'canary', 'enforced')]
     [string]$DispatchMode,
     [int]$LogRetentionDays = 14,
-    [string]$Scenario
+    [string]$Scenario,
+    [int]$PruneDays
 )
 
 Set-StrictMode -Version Latest
@@ -940,6 +943,43 @@ $skipLegacyOrchestration = $false
 
             if ($validationResult.OverallStatus -eq 'Fail') {
                 $host.SetShouldExit(1)
+            }
+        }
+        'snapshot-list' {
+            $inventory = Get-LabSnapshotInventory
+            if ($inventory.Count -eq 0) {
+                Write-LabStatus -Status INFO -Message 'No snapshots found across lab VMs'
+            }
+            else {
+                Write-Host "`n  SNAPSHOT INVENTORY" -ForegroundColor Cyan
+                Write-Host "  $('-' * 40)" -ForegroundColor DarkGray
+                foreach ($snap in $inventory) {
+                    $ageStr = "$($snap.AgeDays)d"
+                    $dateStr = $snap.CreationTime.ToString('yyyy-MM-dd HH:mm')
+                    $parentStr = $snap.ParentCheckpointName
+                    Write-Host ("  {0,-8} {1,-25} {2,-18} {3,6}  parent: {4}" -f $snap.VMName, $snap.CheckpointName, $dateStr, $ageStr, $parentStr) -ForegroundColor Gray
+                }
+                Write-Host "`n  Total: $($inventory.Count) snapshot(s)" -ForegroundColor DarkGray
+            }
+        }
+        'snapshot-prune' {
+            $threshold = if ($PSBoundParameters.ContainsKey('PruneDays')) { $PruneDays } else { 7 }
+            Write-LabStatus -Status INFO -Message "Pruning snapshots older than $threshold days..."
+            $pruneResult = Remove-LabStaleSnapshots -OlderThanDays $threshold
+            switch ($pruneResult.OverallStatus) {
+                'NoStale' { Write-LabStatus -Status OK -Message "No stale snapshots found (threshold: ${threshold}d)" }
+                'OK' {
+                    Write-LabStatus -Status OK -Message "Removed $($pruneResult.TotalRemoved) snapshot(s)"
+                    foreach ($r in $pruneResult.Removed) {
+                        Write-LabStatus -Status INFO -Message "  $($r.VMName) / $($r.CheckpointName) ($($r.AgeDays)d old)" -Indent 2
+                    }
+                }
+                'Partial' {
+                    Write-LabStatus -Status WARN -Message "Removed $($pruneResult.TotalRemoved) of $($pruneResult.TotalFound) stale snapshots"
+                    foreach ($f in $pruneResult.Failed) {
+                        Write-LabStatus -Status FAIL -Message "  $($f.VMName) / $($f.CheckpointName): $($f.ErrorMessage)" -Indent 2
+                    }
+                }
             }
         }
     }

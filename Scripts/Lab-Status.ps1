@@ -10,6 +10,8 @@ $ConfigPath = Join-Path $RepoRoot 'Lab-Config.ps1'
 $CommonPath = Join-Path $RepoRoot 'Lab-Common.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
 if (Test-Path $CommonPath) { . $CommonPath }
+$inventoryPath = Join-Path $RepoRoot 'Private/Get-LabSnapshotInventory.ps1'
+if (Test-Path $inventoryPath) { . $inventoryPath }
 
 if (-not (Get-Variable -Name LabVMs -ErrorAction SilentlyContinue)) { @($GlobalLabConfig.Lab.CoreVMNames) = @('dc1','svr1','dsc','ws1') }
 
@@ -48,14 +50,30 @@ foreach ($vm in $labVMObjects) {
 
 # -- Snapshots --
 Write-Host "`n  SNAPSHOTS:" -ForegroundColor Yellow
-$snaps = Get-VM | Where-Object { $_.Name -in $allLabVMs } | Get-VMSnapshot -ErrorAction SilentlyContinue
-if ($snaps) {
-    $snaps | Sort-Object CreationTime -Descending | Select-Object -First 5 | ForEach-Object {
-        Write-Host "    $($_.VMName.PadRight(6)) $($_.Name.PadRight(25)) $(($_.CreationTime).ToString('MM/dd HH:mm'))" -ForegroundColor Gray
+try {
+    $snapInventory = Get-LabSnapshotInventory
+    if ($snapInventory.Count -gt 0) {
+        $oldest = ($snapInventory | Sort-Object CreationTime | Select-Object -First 1)
+        $newest = ($snapInventory | Sort-Object CreationTime -Descending | Select-Object -First 1)
+        $staleCount = @($snapInventory | Where-Object { $_.AgeDays -gt 7 }).Count
+        Write-Host "    Count: $($snapInventory.Count)  |  Oldest: $($oldest.AgeDays)d ($($oldest.VMName)/$($oldest.CheckpointName))  |  Newest: $($newest.AgeDays)d ($($newest.VMName)/$($newest.CheckpointName))" -ForegroundColor Gray
+        if ($staleCount -gt 0) {
+            Write-Host "    Stale (>7d): $staleCount — run 'snapshot-prune' to clean up" -ForegroundColor Yellow
+        }
     }
-    Write-Host "    ($($snaps.Count) total snapshots)" -ForegroundColor DarkGray
-} else {
-    Write-Host "    (none)" -ForegroundColor DarkGray
+    else {
+        Write-Host "    (none)" -ForegroundColor DarkGray
+    }
+}
+catch {
+    # Fall back to basic snapshot listing if inventory function unavailable
+    $snaps = Get-VM | Where-Object { $_.Name -in $allLabVMs } | Get-VMSnapshot -ErrorAction SilentlyContinue
+    if ($snaps) {
+        Write-Host "    ($($snaps.Count) total snapshots)" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "    (none)" -ForegroundColor DarkGray
+    }
 }
 
 # -- Disk Usage --
