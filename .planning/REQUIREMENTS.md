@@ -28,7 +28,7 @@ Requirements for configuration management and reporting milestone. Each maps to 
 
 ### Lab Export/Import
 
-- [ ] **XFER-01**: Operator can export a lab configuration (config + template) as a portable JSON package
+- [ ] **XFER-01**: Operator can export a lab configuration as a portable JSON package (profile config + metadata)
 - [ ] **XFER-02**: Operator can import a lab configuration package and deploy from it
 - [ ] **XFER-03**: Import validates package integrity before applying (schema check, required fields)
 
