@@ -51,7 +51,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 - [x] **Phase 14: Lab Scenario Templates** - Pre-built scenario definitions with CLI integration and resource estimation (completed 2026-02-20)
 - [x] **Phase 15: Configuration Validation** - Pre-deployment checks with guided diagnostics and resource comparison (completed 2026-02-20)
 - [x] **Phase 16: Snapshot Lifecycle** - Snapshot inventory, age-based pruning, and status integration (completed 2026-02-20)
-- [ ] **Phase 17: GUI Dashboard Enhancements** - Health banner, resource usage summary, and bulk quick-actions
+- [x] **Phase 17: GUI Dashboard Enhancements** - Health banner, resource usage summary, and bulk quick-actions (completed 2026-02-20)
 
 ## Phase Details
 
@@ -122,7 +122,7 @@ Plans:
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
 | 15. Configuration Validation | 2/2 | Complete    | 2026-02-20 | - |
 | 16. Snapshot Lifecycle | 2/2 | Complete    | 2026-02-20 | - |
-| 17. GUI Dashboard Enhancements | 1/2 | In Progress|  | - |
+| 17. GUI Dashboard Enhancements | 2/2 | Complete   | 2026-02-20 | - |
 
 **Total: 54 plans across 13 phases, 3 milestones shipped. v1.3: 4 phases planned.**
 
