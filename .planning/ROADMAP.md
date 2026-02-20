@@ -122,7 +122,7 @@ Plans:
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
 | 15. Configuration Validation | 2/2 | Complete    | 2026-02-20 | - |
 | 16. Snapshot Lifecycle | 2/2 | Complete    | 2026-02-20 | - |
-| 17. GUI Dashboard Enhancements | v1.3 | 0/2 | Not started | - |
+| 17. GUI Dashboard Enhancements | 1/2 | In Progress|  | - |
 
 **Total: 54 plans across 13 phases, 3 milestones shipped. v1.3: 4 phases planned.**
 

@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.3 Lab Scenarios & Operator Tooling — Phase 16: Snapshot Lifecycle
+**Current focus:** v1.3 Lab Scenarios & Operator Tooling — Phase 17: GUI Dashboard Enhancements
 
 ## Current Position
 
-Phase: 16 (Snapshot Lifecycle) — third of 4 phases in v1.3
-Plan: 02 complete (2 plans in phase) -- PHASE COMPLETE
+Phase: 17 (GUI Dashboard Enhancements) — fourth of 4 phases in v1.3
+Plan: 01 complete (2 plans in phase)
 Status: In progress
-Last activity: 2026-02-20 — Completed 16-02 (Snapshot CLI Actions & Status Integration)
+Last activity: 2026-02-20 — Completed 17-01 (Dashboard Health Banner, Resources, Bulk Actions)
 
-Progress: [█████████████████████████████████████░░░] 90% (v1.3: Phase 14-16 complete, Phase 17 remaining)
+Progress: [██████████████████████████████████████░░] 95% (v1.3: Phase 14-16 complete, Phase 17 plan 1/2)
 
 ## Performance Metrics
 
@@ -36,6 +36,7 @@ Progress: [███████████████████████
 - Phase 15 Plan 02: 2 tasks, 3 files, 2min, 17 integration tests
 - Phase 16 Plan 01: 2 tasks, 3 files, 3min, 17 Pester tests
 - Phase 16 Plan 02: 2 tasks, 3 files, 2min, 15 integration tests
+- Phase 17 Plan 01: 2 tasks, 2 files, 2min
 
 ## Accumulated Context
 
@@ -58,6 +59,9 @@ Full log in PROJECT.md Key Decisions table.
 - Phase 16-02: PruneDays defaults to 7 inside action block via PSBoundParameters.ContainsKey
 - Phase 16-02: Lab-Status.ps1 try/catch fallback to Get-VMSnapshot when inventory function unavailable
 - Phase 16-02: IndexOf-based block extraction in tests avoids fragile multi-line regex
+- Phase 17-01: Health banner background uses FromRgb color construction for PS 5.1 compatibility
+- Phase 17-01: Resource display shows VM-assigned RAM plus host free RAM rather than total host RAM
+- Phase 17-01: Bulk actions iterate vmNames with per-VM try/catch to avoid one failure stopping all
 
 ### Pending Todos
 
@@ -70,9 +74,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 16-02 plan execution*
+*Last updated: 2026-02-20 after 17-01 plan execution*

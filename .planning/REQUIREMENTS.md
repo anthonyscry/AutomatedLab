@@ -29,9 +29,9 @@ Requirements for lab scenarios and operator tooling milestone. Each maps to road
 
 ### GUI Dashboard
 
-- [ ] **DASH-01**: Dashboard displays a health summary banner showing overall lab state (Healthy / Degraded / Offline / No Lab)
-- [ ] **DASH-02**: Dashboard displays resource usage summary (total RAM/CPU allocated across VMs vs host available)
-- [ ] **DASH-03**: Dashboard includes quick-action buttons (Start All, Stop All, Save Checkpoint) for common bulk operations
+- [x] **DASH-01**: Dashboard displays a health summary banner showing overall lab state (Healthy / Degraded / Offline / No Lab)
+- [x] **DASH-02**: Dashboard displays resource usage summary (total RAM/CPU allocated across VMs vs host available)
+- [x] **DASH-03**: Dashboard includes quick-action buttons (Start All, Stop All, Save Checkpoint) for common bulk operations
 
 ## v2 Requirements
 
@@ -74,9 +74,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SNAP-01 | Phase 16 | Complete |
 | SNAP-02 | Phase 16 | Complete |
 | SNAP-03 | Phase 16 | Complete |
-| DASH-01 | Phase 17 | Pending |
-| DASH-02 | Phase 17 | Pending |
-| DASH-03 | Phase 17 | Pending |
+| DASH-01 | Phase 17 | Complete |
+| DASH-02 | Phase 17 | Complete |
+| DASH-03 | Phase 17 | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total
