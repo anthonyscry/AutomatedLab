@@ -8,14 +8,24 @@ A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual m
 
 Every function handles errors explicitly, surfaces clear diagnostics, and stays modular enough that each piece can be tested and maintained independently.
 
+## Current Milestone: v1.3 Lab Scenarios & Operator Tooling
+
+**Goal:** Make labs easier to create and manage by providing scenario templates, configuration validation, snapshot lifecycle tools, and GUI dashboard improvements.
+
+**Target features:**
+- Pre-built lab scenario templates (basic AD, security testing, multi-tier app)
+- Configuration validation with guided diagnostics before deployment
+- Snapshot lifecycle management (list, compare, prune stale snapshots)
+- GUI dashboard improvements for operational visibility
+
 ## Current State
 
-**Version:** v1.2 shipped (2026-02-20)
+**Version:** v1.3 in progress (started 2026-02-19)
 **Tests:** 847+ Pester tests passing (unit + integration + E2E smoke)
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help
 
-All 3 milestones shipped:
+All 3 prior milestones shipped:
 - v1.0 Brownfield Hardening & Integration (6 phases, 25 plans)
 - v1.1 Production Robustness (4 phases, 13 plans)
 - v1.2 Delivery Readiness (3 phases, 16 plans)
@@ -32,21 +42,26 @@ All 3 milestones shipped:
 
 ### Active
 
-(No active requirements — awaiting next milestone definition)
+- [ ] Lab scenario templates for common use cases
+- [ ] Configuration validation with guided diagnostics
+- [ ] Snapshot lifecycle management tools
+- [ ] GUI dashboard operational improvements
 
 ### Out of Scope
 
-- New lab features — deferred to future milestones
-- Deep performance optimization — correctness and reliability first
+- Azure/cloud backend support — Hyper-V local only
+- Multi-domain forest scenarios — niche, document manual approach
+- Custom role plugin system — validate core use cases first
 - Linux VM behavior expansion — maintain compatibility only
-- Cloud or container backend support — Hyper-V local only
+- Deep performance optimization — correctness and reliability first
 
 ## Context
 
 - v1.0 established baseline automation for lifecycle, roles, GUI integration, and multi-host coordination
 - v1.1 closed production robustness gaps and stabilized modular foundations
 - v1.2 delivered shipping infrastructure: docs, CI/CD, and test coverage
-- Project is now ready for feature expansion or external adoption work
+- v1.3 focuses on reducing friction for new users and improving daily operator experience
+- Lab-Config.ps1 drives all lab topology — scenario templates will generate valid configs for common patterns
 
 ## Constraints
 
@@ -68,4 +83,4 @@ All 3 milestones shipped:
 | Simulation-mode E2E testing | Exercises orchestration without Hyper-V | ✓ v1.2 |
 
 ---
-*Last updated: 2026-02-20 after v1.2 milestone*
+*Last updated: 2026-02-19 after v1.3 milestone start*
