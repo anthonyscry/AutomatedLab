@@ -124,7 +124,7 @@ Plans:
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14-17 | v1.3 | 8/8 | Complete | 2026-02-20 |
 | 18 | 2/2 | Complete    | 2026-02-20 | - |
-| 19 | 2/2 | Complete   | 2026-02-20 | - |
+| 19 | 2/2 | Complete    | 2026-02-20 | - |
 | 20 | v1.4 | 0/TBD | Not started | - |
 | 21 | v1.4 | 0/TBD | Not started | - |
 
