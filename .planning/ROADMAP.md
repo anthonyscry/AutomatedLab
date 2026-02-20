@@ -106,11 +106,11 @@ Plans:
   1. Dashboard shows a health banner indicating overall lab state (Healthy / Degraded / Offline / No Lab) that updates when the view refreshes
   2. Dashboard shows total RAM and CPU allocated across running VMs compared to host availability
   3. Operator can click Start All, Stop All, or Save Checkpoint buttons and the action applies to all lab VMs
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 17-01: TBD
-- [ ] 17-02: TBD
+- [ ] 17-01-PLAN.md — Health banner, resource usage summary, and bulk quick-action buttons (XAML + wiring)
+- [ ] 17-02-PLAN.md — Pester tests for dashboard enhancement features
 
 ## Progress
 
@@ -122,7 +122,7 @@ Plans:
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
 | 15. Configuration Validation | 2/2 | Complete    | 2026-02-20 | - |
 | 16. Snapshot Lifecycle | 2/2 | Complete    | 2026-02-20 | - |
-| 17. GUI Dashboard Enhancements | v1.3 | 0/TBD | Not started | - |
+| 17. GUI Dashboard Enhancements | v1.3 | 0/2 | Not started | - |
 
 **Total: 54 plans across 13 phases, 3 milestones shipped. v1.3: 4 phases planned.**
 
