@@ -2,10 +2,27 @@
 function Finalize-LinuxInstallMedia {
     <#
     .SYNOPSIS
-    Finalize Linux VM boot media after Ubuntu install completes.
+        Finalizes Linux VM boot media after the Ubuntu install completes.
 
-    Removes installer DVD/CIDATA devices and sets firmware to boot from OS disk
-    so the VM does not return to the Ubuntu installer wizard on subsequent boots.
+    .DESCRIPTION
+        Removes the installer DVD drive and any CIDATA seed disk from the specified
+        Hyper-V VM, then sets the VM firmware to boot from the OS disk. This prevents
+        the VM from returning to the Ubuntu installer wizard on subsequent boots.
+
+        The CIDATA seed disk file is also deleted from disk if it still exists.
+
+    .PARAMETER VMName
+        Name of the Hyper-V virtual machine to finalize. Defaults to 'LIN1'.
+
+    .EXAMPLE
+        Finalize-LinuxInstallMedia
+
+        Detaches installer media and updates firmware boot order for the default LIN1 VM.
+
+    .EXAMPLE
+        Finalize-LinuxInstallMedia -VMName 'LIN2'
+
+        Detaches installer media and updates firmware boot order for LIN2.
     #>
     [CmdletBinding()]
     param(
