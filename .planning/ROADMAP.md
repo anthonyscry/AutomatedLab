@@ -103,7 +103,10 @@ Plans:
   1. The GUI contains a dedicated log viewer panel that displays recent run history without opening a terminal
   2. Operator selects an action type filter (deploy, teardown, snapshot) in the GUI and the log list narrows to matching entries
   3. Operator clicks Export in the GUI log viewer and a text file is saved containing the currently visible log entries
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 20-01-PLAN.md — Run history panel XAML and wiring (DataGrid, filter ComboBox, export button, Get-LabRunHistory integration)
+- [ ] 20-02-PLAN.md — Pester tests for GUI log viewer (XAML structure, source wiring, filter and export logic)
 
 ### Phase 21: Lab Export/Import
 **Goal**: Operators can package a lab definition for transfer or backup and redeploy it on any compatible host
@@ -125,7 +128,7 @@ Plans:
 | 14-17 | v1.3 | 8/8 | Complete | 2026-02-20 |
 | 18 | 2/2 | Complete    | 2026-02-20 | - |
 | 19 | 2/2 | Complete    | 2026-02-20 | - |
-| 20 | v1.4 | 0/TBD | Not started | - |
+| 20 | v1.4 | 0/2 | Planned | - |
 | 21 | v1.4 | 0/TBD | Not started | - |
 
 **Total: 62 plans across 17 phases shipped. 4 active phases (18-21) in v1.4.**
