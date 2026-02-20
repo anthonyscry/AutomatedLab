@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-18)
 
 ## Current Position
 
-Phase: 11 of 13 (Documentation and Onboarding) — NOT STARTED
-Plan: —
-Status: v1.2 milestone started — requirements & roadmap in progress
-Last activity: 2026-02-18 — v1.2 initialized and requirements draft started
+Phase: 11 of 13 (Documentation and Onboarding) — IN PROGRESS
+Plan: 08 of 11
+Status: v1.2 milestone active — phase 11 documentation plans executing
+Last activity: 2026-02-20 — 11-08 VM lifecycle support help verification complete
 
-Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 0/11 mapped requirements started in v1.2
+Progress: [████████████████████████████████████████] 38/38 plans complete (v1.1), 8/11 phase-11 plans complete in v1.2
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [███████████████████████
 
 **Current milestone (v1.2):**
 - 3 planned phases (11-13), 11 requirements
-- 0 plans started
+- Phase 11: 8/11 plans complete (plans 01-08 done)
 
 ## Accumulated Context
 
@@ -44,6 +44,7 @@ Recent decisions affecting current work:
 - **Error propagation discipline**: prefer explicit returns/throws over script exits (v1.1)
 - **Export contract source of truth**: Public directory drives export list (v1.1)
 - **Delivery readiness first**: docs/CI/tests before new features (v1.2)
+- **VM lifecycle help already complete**: All 5 target files (Wait-LabVMReady, Connect-LabVM, New-LabVM, Remove-LabVM, Remove-LabVMs) had complete comment-based help prior to plan 11-08 execution
 
 ### Pending Todos
 
@@ -55,10 +56,10 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-18
-Stopped at: v1.2 milestone started (requirements + roadmap definition)
-Resume file: .planning/ROADMAP.md
+Last session: 2026-02-20
+Stopped at: Completed 11-08-PLAN.md (VM lifecycle support command help verification)
+Resume file: .planning/phases/11-documentation-and-onboarding/11-09-PLAN.md
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-18 after v1.2 milestone initialization*
+*Last updated: 2026-02-20 after 11-08 VM lifecycle support help verification*
