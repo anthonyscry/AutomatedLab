@@ -3,12 +3,28 @@ function Get-Sha512PasswordHash {
     <#
     .SYNOPSIS
     Generate SHA512 crypt hash for Ubuntu autoinstall identity section.
-    
+
+    .DESCRIPTION
+    Produces a SHA512 crypt-format password hash (the $6$ scheme) suitable for
+    use in Ubuntu cloud-init user-data identity.password fields.  OpenSSL is
+    preferred when found at common install paths; a pure-.NET fallback is used
+    otherwise.  The returned string is ready to paste directly into a CIDATA
+    user-data file.
+
     .PARAMETER Password
     The plain-text password to hash.
-    
+
     .OUTPUTS
     String in $6$salt$hash format suitable for Ubuntu user-data password field.
+
+    .EXAMPLE
+    $hash = Get-Sha512PasswordHash -Password 'P@ssw0rd!'
+    # Returns: $6$<salt>$<hash>  -- paste directly into cloud-init user-data
+
+    .EXAMPLE
+    $hash = Get-Sha512PasswordHash -Password $GlobalLabConfig.Credentials.AdminPassword
+    New-CidataVhdx -OutputPath C:\LabSources\cidata.vhdx -Hostname 'LIN1' `
+        -Username 'labadmin' -PasswordHash $hash
     #>
     [CmdletBinding()]
     param(

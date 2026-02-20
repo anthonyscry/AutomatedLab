@@ -22,6 +22,31 @@ function New-LinuxGoldenVhdx {
     Username for the template VM.
     .PARAMETER Password
     Password for the template VM.
+
+    .PARAMETER SwitchName
+    Hyper-V switch to attach the template VM to during installation.
+
+    .PARAMETER WaitMinutes
+    Maximum minutes to wait for SSH readiness before giving up (default: 45).
+
+    .PARAMETER DiskSize
+    OS disk size for the template VM (default: 60 GB).
+
+    .EXAMPLE
+    New-LinuxGoldenVhdx -TemplatePath 'C:\LabSources\golden-ubuntu2404.vhdx' `
+        -UbuntuIsoPath 'C:\LabSources\ubuntu-24.04-live-server-amd64.iso'
+    # Creates a golden VHDX template at the specified path.
+
+    .EXAMPLE
+    # Subsequent VMs clone the golden template instead of reinstalling from ISO
+    $template = New-LinuxGoldenVhdx -TemplatePath 'C:\LabSources\golden-ubuntu2404.vhdx' `
+        -UbuntuIsoPath 'C:\iso\ubuntu-24.04.iso' -WaitMinutes 60
+    if ($template) { Copy-Item $template "C:\VMs\LIN2\LIN2.vhdx" }
+
+    .EXAMPLE
+    # Idempotent: if the template already exists the function returns the path immediately
+    New-LinuxGoldenVhdx -TemplatePath 'C:\LabSources\golden-ubuntu2404.vhdx' `
+        -UbuntuIsoPath 'C:\iso\ubuntu-24.04.iso'
     #>
     [CmdletBinding()]
     param(

@@ -17,9 +17,15 @@ function Initialize-LabNetwork {
 
     .EXAMPLE
         Initialize-LabNetwork
+        Configures static IPs on dc1, svr1, and ws1 using addresses from network config.
 
     .EXAMPLE
         Initialize-LabNetwork -VMNames @("dc1", "svr1")
+        Configures only dc1 and svr1, skipping ws1.
+
+    .EXAMPLE
+        (Initialize-LabNetwork).OverallStatus
+        Configures all VMs and inspects the overall result ("OK", "Partial", "Failed").
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

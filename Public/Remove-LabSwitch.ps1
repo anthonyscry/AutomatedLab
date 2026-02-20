@@ -15,9 +15,15 @@ function Remove-LabSwitch {
 
     .EXAMPLE
         Remove-LabSwitch
+        Prompts for confirmation before removing the SimpleLab virtual switch.
 
     .EXAMPLE
         Remove-LabSwitch -Force
+        Removes the SimpleLab switch without prompting. Safe to use in scripts.
+
+    .EXAMPLE
+        (Remove-LabSwitch -Force).OverallStatus
+        Removes the switch and verifies the result is "OK" or "Cancelled".
     #>
     [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact="High")]
     [OutputType([PSCustomObject])]

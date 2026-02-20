@@ -1,5 +1,52 @@
 # Wait-LinuxVMReady.ps1 -- Wait for Linux VM SSH readiness
 function Wait-LinuxVMReady {
+    <#
+    .SYNOPSIS
+    Wait for a Linux VM to become reachable via SSH after boot or installation.
+
+    .DESCRIPTION
+    Polls the VM's IP address via Hyper-V guest services (Get-LinuxVMIPv4) and
+    tests TCP port 22 until it succeeds or the deadline is exceeded.  When no
+    Hyper-V IP is visible yet, falls back to querying the DHCP server lease for
+    an early signal that the VM is on the network.  Poll interval starts at
+    PollInitialSec seconds and grows by 50% each tick up to PollMaxSec to reduce
+    overhead during long installations.  Returns a hashtable with keys Ready
+    (bool), IP (string), and LeaseIP (string).
+
+    .PARAMETER VMName
+    Name of the Hyper-V VM to monitor (default: LIN1).
+
+    .PARAMETER WaitMinutes
+    Maximum number of minutes to wait before returning a not-ready result
+    (default: 30).
+
+    .PARAMETER DhcpServer
+    Hostname or IP of the DHCP server used for lease fallback lookups
+    (default: DC1).
+
+    .PARAMETER ScopeId
+    DHCP scope ID used for lease lookups (default: 10.0.10.0).
+
+    .PARAMETER PollInitialSec
+    Initial poll interval in seconds (default: 15).
+
+    .PARAMETER PollMaxSec
+    Maximum poll interval cap in seconds (default: 45).
+
+    .EXAMPLE
+    $result = Wait-LinuxVMReady -VMName 'LIN1'
+    if ($result.Ready) { Write-Host "LIN1 is up at $($result.IP)" }
+
+    .EXAMPLE
+    # Use after starting a freshly installed VM
+    Start-VM -Name 'LIN1'
+    $result = Wait-LinuxVMReady -VMName 'LIN1' -WaitMinutes 45
+    if (-not $result.Ready) { throw 'LIN1 did not come up in time.' }
+
+    .EXAMPLE
+    # Custom DHCP scope for non-default lab network
+    $result = Wait-LinuxVMReady -VMName 'LIN2' -DhcpServer 'DC1' -ScopeId '192.168.10.0' -WaitMinutes 20
+    #>
     [CmdletBinding()]
     param(
         [ValidateNotNullOrEmpty()]
