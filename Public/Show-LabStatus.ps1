@@ -18,9 +18,15 @@ function Show-LabStatus {
 
     .EXAMPLE
         Show-LabStatus
+        # Displays a full formatted table of all lab VM states, CPU, memory, network, and heartbeat.
 
     .EXAMPLE
         Show-LabStatus -Compact
+        # Displays a minimal table (VMName, State, Heartbeat) — useful for a quick glance.
+
+    .EXAMPLE
+        Show-LabStatus -NoColor
+        # Displays the full table without ANSI colour codes — suitable for terminals that do not support colour.
     #>
     [CmdletBinding()]
     param(

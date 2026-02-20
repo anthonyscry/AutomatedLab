@@ -19,6 +19,13 @@ function Restore-LabCheckpoint {
 
     .EXAMPLE
         Restore-LabCheckpoint -CheckpointName "BeforeConfigChange"
+        # Restores all lab VMs to the "BeforeConfigChange" checkpoint. VMs are restored in
+        # reverse dependency order (clients first, then DC).
+
+    .EXAMPLE
+        $result = Restore-LabCheckpoint -CheckpointName "SimpleLab_20260219_120000"
+        if ($result.OverallStatus -eq "OK") { Write-Host "Restore complete" }
+        # Restores and checks the result object for success/failure reporting.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
