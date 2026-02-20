@@ -47,23 +47,31 @@
 
 **Last phase number:** 10
 
-## In-Progress Milestone
+### v1.2 — Delivery Readiness (2026-02-18 → 2026-02-20)
 
-### v1.2 — Delivery Readiness (2026-02-18 → in progress)
+**Goal:** Prepare for safe shipping and adoption by improving delivery docs, release automation, and public API test coverage.
 
-**Goal:** Improve documentation, release automation, and coverage readiness for reliable production delivery.
+**Phases:** 11–13 (3 phases, 16 plans)
+**Requirements:** 11/11 complete
+**Tests:** 847+ passing (expanded with 47 Public function tests + E2E smoke)
 
-**Phases:** 11–13 (planned)
-**Requirements:** 11 planned
-**Tests:** 847 passing baseline
-
-**Planned scope:**
-- Documentation refresh and onboarding guidance
-- CI/CD and release workflow hardening
-- Additional Public function test coverage and smoke verification
+**What shipped:**
+- README refresh, GETTING-STARTED.md onboarding guide, lifecycle workflows guide, rollback runbook (Phase 11)
+- Complete help comments for all 35+ Public functions with repo-wide quality gate (Phase 11)
+- Runtime docs validation script with evidence report and 22 Pester contract tests (Phase 11)
+- GitHub Actions PR test pipeline (Pester on Windows runner) and ScriptAnalyzer lint workflow (Phase 12)
+- Release and Gallery publish automation with controlled permissions (Phase 12)
+- Unit tests for 47 previously untested Public functions with shared Hyper-V mock infrastructure (Phase 13)
+- Coverage reporting with threshold enforcement in CI (Phase 13)
+- E2E smoke test for bootstrap/deploy/teardown lifecycle (Phase 13)
 
 **Key decisions:**
-- Hold feature expansion while improving shipping confidence
-- Keep phase order aligned: docs -> CI/CD -> coverage
+- Docs-first before CI/CD (stable docs enable CI gate tests and onboarding)
+- Repo-wide help quality gate (Pester enforces .SYNOPSIS/.DESCRIPTION/.EXAMPLE on all Public/)
+- GitHub Actions on windows-latest for Hyper-V module compatibility
+- Tag-based releases with SimpleLab.psd1 as version source of truth
+- Simulation-mode E2E (mocked Hyper-V layer, exercises full orchestration path)
 
 **Last phase number:** 13
+
+---
