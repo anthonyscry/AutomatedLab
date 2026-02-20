@@ -37,13 +37,11 @@ All 4 milestones shipped:
 - ✓ v1.4 PROF-01 through PROF-04: Named configuration profiles with save, load, list, delete (Phase 18)
 - ✓ v1.4 HIST-01 through HIST-03: Run history tracking with automatic logging and query cmdlet (Phase 19)
 - ✓ v1.4 LOGV-01 through LOGV-03: GUI log viewer with filtering and export (Phase 20)
+- ✓ v1.4 XFER-01 through XFER-03: Lab export/import with integrity validation (Phase 21)
 
 ### Active
 
-v1.4 Configuration Management & Reporting:
-- Named configuration profiles (save, load, list, delete lab configs)
-- Run history tracking (deployment logs, outcomes, timestamps)
-- Enhanced GUI log viewer (search, filter, export run logs)
+None — v1.4 complete. All requirements validated.
 - Lab export/import (portable lab definition packages)
 
 ### Out of Scope
@@ -94,6 +92,9 @@ v1.4 Configuration Management & Reporting:
 | ISO 8601 string sort for run ordering | Avoids DateTime parsing overhead and PS version differences | ✓ v1.4 |
 | Cached run history with filter-without-reload | Avoids repeated disk reads when switching action filter | ✓ v1.4 |
 | Raw string matching for GUI tests | Validates XAML structure without WPF runtime dependency | ✓ v1.4 |
+| ConvertTo-PackageHashtable naming | Avoids function name collision with Load-LabProfile's helper | ✓ v1.4 |
+| Import validates all fields before applying | Collects errors in array, not fail-fast, per XFER-03 | ✓ v1.4 |
+| Import reuses Save-LabProfile | No duplicate file-write logic, single source of truth | ✓ v1.4 |
 
 ---
-*Last updated: 2026-02-20 after Phase 20*
+*Last updated: 2026-02-20 after Phase 21 — v1.4 complete*
