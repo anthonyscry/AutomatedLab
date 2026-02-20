@@ -570,6 +570,52 @@ function Update-TopologyCanvas {
     }
 }
 
+# ── Lab health state helper ───────────────────────────────────────────
+function Get-LabHealthState {
+    <#
+    .SYNOPSIS
+        Maps VM statuses to a lab health state (Healthy, Degraded, Offline, No Lab).
+    .PARAMETER VMStatuses
+        Array of VM status objects from Get-LabStatus.
+    .OUTPUTS
+        PSCustomObject with State (string) and Detail (string).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        $VMStatuses
+    )
+
+    if (-not $VMStatuses -or @($VMStatuses).Count -eq 0) {
+        return [pscustomobject]@{
+            State  = 'No Lab'
+            Detail = 'No VMs configured'
+        }
+    }
+
+    $total   = @($VMStatuses).Count
+    $running = @($VMStatuses | Where-Object { $_.State -eq 'Running' }).Count
+
+    if ($running -eq $total) {
+        return [pscustomobject]@{
+            State  = 'Healthy'
+            Detail = "$total of $total VMs running"
+        }
+    }
+    elseif ($running -gt 0) {
+        return [pscustomobject]@{
+            State  = 'Degraded'
+            Detail = "$running of $total VMs running"
+        }
+    }
+    else {
+        return [pscustomobject]@{
+            State  = 'Offline'
+            Detail = "0 of $total VMs running"
+        }
+    }
+}
+
 # ── Dashboard initialisation ──────────────────────────────────────────
 function Initialize-DashboardView {
     <#
@@ -585,6 +631,80 @@ function Initialize-DashboardView {
     $vmContainer          = $viewElement.FindName('vmCardContainer')
     $txtNoVMs             = $viewElement.FindName('txtNoVMs')
     $script:TopologyCanvas = $viewElement.FindName('topologyCanvas')
+
+    # Resolve new dashboard elements
+    $healthBanner    = $viewElement.FindName('healthBanner')
+    $txtHealthState  = $viewElement.FindName('txtHealthState')
+    $txtHealthDetail = $viewElement.FindName('txtHealthDetail')
+    $txtRAMUsage     = $viewElement.FindName('txtRAMUsage')
+    $txtCPUUsage     = $viewElement.FindName('txtCPUUsage')
+    $btnStartAll     = $viewElement.FindName('btnStartAll')
+    $btnStopAll      = $viewElement.FindName('btnStopAll')
+    $btnSaveCheckpoint = $viewElement.FindName('btnSaveCheckpoint')
+
+    # ── Health banner update helper ──────────────────────────────
+    $updateBanner = {
+        param($VMStatuses)
+        try {
+            $health = Get-LabHealthState -VMStatuses $VMStatuses
+            $txtHealthState.Text  = $health.State
+            $txtHealthDetail.Text = $health.Detail
+
+            switch ($health.State) {
+                'Healthy'  {
+                    $healthBanner.Background = [System.Windows.Media.SolidColorBrush]::new(
+                        [System.Windows.Media.Color]::FromRgb(27, 94, 32))
+                }
+                'Degraded' {
+                    $healthBanner.Background = [System.Windows.Media.SolidColorBrush]::new(
+                        [System.Windows.Media.Color]::FromRgb(183, 149, 38))
+                }
+                'Offline'  {
+                    $healthBanner.Background = [System.Windows.Media.SolidColorBrush]::new(
+                        [System.Windows.Media.Color]::FromRgb(183, 28, 28))
+                }
+                default    {
+                    $healthBanner.Background = $viewElement.FindResource('CardBackgroundBrush')
+                }
+            }
+        }
+        catch {
+            $txtHealthState.Text  = 'Unknown'
+            $txtHealthDetail.Text = 'Could not determine health state'
+        }
+    }.GetNewClosure()
+
+    # ── Resource summary update helper ───────────────────────────
+    $updateResources = {
+        param($VMStatuses)
+        try {
+            $hostInfo = Get-LabHostResourceInfo
+
+            # Calculate total RAM assigned from running VMs
+            $totalAssignedGB = 0
+            $runningCount = 0
+            if ($VMStatuses) {
+                foreach ($vm in @($VMStatuses)) {
+                    if ($vm.State -eq 'Running' -and $vm.MemoryGB -and $vm.MemoryGB -ne 'N/A') {
+                        $memText = $vm.MemoryGB -replace '[^0-9.]', ''
+                        $parsed = 0.0
+                        if ([double]::TryParse($memText, [ref]$parsed)) {
+                            $totalAssignedGB += $parsed
+                        }
+                    }
+                    if ($vm.State -eq 'Running') { $runningCount++ }
+                }
+            }
+
+            $freeRAM = $hostInfo.FreeRAMGB
+            $txtRAMUsage.Text = "RAM: $([math]::Round($totalAssignedGB, 1)) GB used by VMs | $freeRAM GB free on host"
+            $txtCPUUsage.Text = "CPU: $runningCount VMs running / $($hostInfo.LogicalProcessors) logical cores on host"
+        }
+        catch {
+            $txtRAMUsage.Text = 'RAM: unavailable'
+            $txtCPUUsage.Text = 'CPU: unavailable'
+        }
+    }.GetNewClosure()
 
     # Determine VM names from lab config or use defaults
     $vmNames = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Lab.CoreVMNames) {
@@ -616,6 +736,37 @@ function Initialize-DashboardView {
         $txtNoVMs.Visibility = [System.Windows.Visibility]::Collapsed
     }
 
+    # ── Wire bulk action buttons ──────────────────────────────────
+    $btnStartAll.Add_Click({
+        foreach ($vmName in $vmNames) {
+            try { Start-VM -Name $vmName -ErrorAction SilentlyContinue } catch {}
+        }
+        if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+            Add-LogEntry -Message "Started all lab VMs" -Level 'Info'
+        }
+    }.GetNewClosure())
+
+    $btnStopAll.Add_Click({
+        foreach ($vmName in $vmNames) {
+            try { Stop-VM -Name $vmName -Force -ErrorAction SilentlyContinue } catch {}
+        }
+        if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+            Add-LogEntry -Message "Stopped all lab VMs" -Level 'Info'
+        }
+    }.GetNewClosure())
+
+    $btnSaveCheckpoint.Add_Click({
+        $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+        foreach ($vmName in $vmNames) {
+            try {
+                Checkpoint-VM -Name $vmName -SnapshotName "GUI-$timestamp" -ErrorAction SilentlyContinue
+            } catch {}
+        }
+        if (Get-Command -Name Add-LogEntry -ErrorAction SilentlyContinue) {
+            Add-LogEntry -Message "Saved checkpoint for all lab VMs (GUI-$timestamp)" -Level 'Success'
+        }
+    }.GetNewClosure())
+
     # ── Initial poll (immediate update) ───────────────────────────
     try {
         $statuses = Get-LabStatus
@@ -626,6 +777,8 @@ function Initialize-DashboardView {
             }
         }
         Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
+        & $updateBanner $statuses
+        & $updateResources $statuses
     }
     catch {
         # Silently ignore initial poll errors
@@ -650,11 +803,13 @@ function Initialize-DashboardView {
                     }
                 }
                 Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
+                & $updateBanner $statuses
+                & $updateResources $statuses
             }
             catch {
                 # Silently ignore polling errors to keep the GUI responsive
             }
-        })
+        }.GetNewClosure())
         $script:VMPollTimer.Start()
     }
 }
