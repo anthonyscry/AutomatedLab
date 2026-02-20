@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.4 Configuration Management & Reporting — Phase 19: Run History Tracking
+**Current focus:** v1.4 Configuration Management & Reporting — Phase 20: GUI Log Viewer
 
 ## Current Position
 
-Phase: 19 (Run History Tracking) — second of 4 phases in v1.4
-Plan: 2 of 2 complete
-Status: Phase 19 complete (both plans done)
-Last activity: 2026-02-20 — Phase 19 Plan 02 complete (Pester tests for Get-LabRunHistory)
+Phase: 20 (GUI Log Viewer) — third of 4 phases in v1.4
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-02-20 — Phase 19 complete (Run History Tracking)
 
-Progress: [█████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░] 33% (v1.4: 1.5 of 4 phases complete)
+Progress: [████████████████████░░░░░░░░░░░░░░░░░░░░] 50% (v1.4: 2 of 4 phases complete)
 
 ## Performance Metrics
 
@@ -35,7 +35,7 @@ Progress: [█████████████░░░░░░░░░░
 **v1.4 Configuration Management & Reporting:**
 - 4 phases planned (18-21), 13 requirements
 - Phase 18: 2 plans, 4 files, 16 Pester tests
-- Phase 19: 2 plans complete, 4 files, 10 new Pester tests (cmdlet + test suite)
+- Phase 19: 2 plans, 2 files, 10 Pester tests
 
 ## Accumulated Context
 
@@ -43,15 +43,9 @@ Progress: [█████████████░░░░░░░░░░
 
 Full log in PROJECT.md Key Decisions table.
 
-- Phase 18: Profiles stored as JSON in .planning/profiles/ following template pattern
-- Phase 18: $Config parameter instead of $GlobalLabConfig for testability
-- Phase 18: Recursive PSCustomObject-to-hashtable for JSON round-trip in PS 5.1
-- Phase 18: Corrupt profiles skipped with Write-Warning, not thrown
-- Phase 19: Get-LabRunHistory uses ISO 8601 string sort (EndedUtc) for newest-first ordering without DateTime parsing
-- Phase 19: List mode filters to .json only to avoid double-counting .txt duplicates from Write-LabRunArtifacts
-- Phase 19: Detail mode uses substring RunId match for operator convenience
-- Phase 19 Plan 02: Avoid PS automatic variable names ($Host) in test helper parameters — use $HostName
-- Phase 19 Plan 02: Date assertions in tests use type-check branch (DateTime vs string) to handle ConvertFrom-Json coercion in PS 7
+- Phase 18: Profiles as JSON in .planning/profiles/, $Config param for testability
+- Phase 19: Get-LabRunHistory wraps existing Write-LabRunArtifacts infrastructure
+- Phase 19: ISO 8601 string sort, .json-only filter, substring RunId match
 
 ### Pending Todos
 
@@ -64,9 +58,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Phase 19 Plan 02 complete (Pester test suite for Get-LabRunHistory — 10 tests, all passing)
+Stopped at: Phase 19 complete, ready to plan Phase 20
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after Phase 19 Plan 02 complete*
+*Last updated: 2026-02-20 after Phase 19 complete*
