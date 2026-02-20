@@ -1641,14 +1641,119 @@ function Render-LogEntries {
 function Initialize-LogsView {
     <#
     .SYNOPSIS
-        Wires up the Logs view controls: filter combo, clear button, and renders
-        any existing log entries.
+        Wires up the Logs view controls: run history DataGrid with filtering and
+        export, session log filter combo, clear button, and renders any existing
+        log entries.
     #>
     [CmdletBinding()]
     param()
 
     $viewElement = $script:contentArea.Children[0]
 
+    # ── Run History elements ──────────────────────────────────────────────
+    $runHistoryGrid      = $viewElement.FindName('runHistoryGrid')
+    $cmbRunHistoryFilter = $viewElement.FindName('cmbRunHistoryFilter')
+    $btnRefreshHistory   = $viewElement.FindName('btnRefreshHistory')
+    $btnExportHistory    = $viewElement.FindName('btnExportHistory')
+    $txtNoHistory        = $viewElement.FindName('txtNoHistory')
+
+    # Populate action filter ComboBox
+    $actionFilterOptions = @('All', 'deploy', 'teardown', 'snapshot')
+    foreach ($opt in $actionFilterOptions) {
+        [void]$cmbRunHistoryFilter.Items.Add($opt)
+    }
+    $cmbRunHistoryFilter.SelectedIndex = 0
+
+    # Script-scoped storage for loaded run history entries
+    $script:RunHistoryData = New-Object System.Collections.Generic.List[PSCustomObject]
+
+    # Helper: apply filter to cached data and update grid
+    $applyRunHistoryFilter = {
+        $filter = $cmbRunHistoryFilter.SelectedItem
+        if (-not $filter) { $filter = 'All' }
+
+        if ($filter -eq 'All') {
+            $filtered = @($script:RunHistoryData)
+        } else {
+            $filtered = @($script:RunHistoryData | Where-Object { $_.Action -eq $filter })
+        }
+
+        if ($filtered.Count -gt 0) {
+            $runHistoryGrid.ItemsSource   = $filtered
+            $runHistoryGrid.Visibility    = [System.Windows.Visibility]::Visible
+            $txtNoHistory.Visibility      = [System.Windows.Visibility]::Collapsed
+        } else {
+            $runHistoryGrid.ItemsSource   = $null
+            $runHistoryGrid.Visibility    = [System.Windows.Visibility]::Collapsed
+            $txtNoHistory.Visibility      = [System.Windows.Visibility]::Visible
+        }
+    }.GetNewClosure()
+
+    # Load run history from disk and apply current filter
+    $loadRunHistory = {
+        try {
+            $entries = @(Get-LabRunHistory -Last 50)
+        } catch {
+            $entries = @()
+        }
+
+        $script:RunHistoryData.Clear()
+        foreach ($entry in $entries) {
+            $script:RunHistoryData.Add($entry)
+        }
+
+        & $applyRunHistoryFilter
+    }.GetNewClosure()
+
+    # Wire filter change (re-filter cached data, no reload)
+    $cmbRunHistoryFilter.Add_SelectionChanged({
+        & $applyRunHistoryFilter
+    }.GetNewClosure())
+
+    # Wire refresh button (full reload from disk)
+    $btnRefreshHistory.Add_Click({
+        & $loadRunHistory
+    }.GetNewClosure())
+
+    # Wire export button
+    $btnExportHistory.Add_Click({
+        $items = $runHistoryGrid.ItemsSource
+        if (-not $items -or @($items).Count -eq 0) {
+            [System.Windows.MessageBox]::Show('No entries to export.', 'Export Run History')
+            return
+        }
+
+        Add-Type -AssemblyName System.Windows.Forms
+
+        $dlg = New-Object System.Windows.Forms.SaveFileDialog
+        $dlg.Title      = 'Export Run History'
+        $dlg.Filter     = 'Text Files (*.txt)|*.txt|CSV Files (*.csv)|*.csv|All Files (*.*)|*.*'
+        $dlg.DefaultExt = '.txt'
+
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.Add("RunId`tAction`tMode`tSuccess`tDuration(s)`tEnded (UTC)`tError")
+
+            foreach ($row in @($items)) {
+                $line = "{0}`t{1}`t{2}`t{3}`t{4}`t{5}`t{6}" -f $row.RunId, $row.Action, $row.Mode, $row.Success, $row.DurationSeconds, $row.EndedUtc, $row.Error
+                $lines.Add($line)
+            }
+
+            $lines | Set-Content -Path $dlg.FileName -Encoding UTF8
+            $count = @($items).Count
+            [System.Windows.MessageBox]::Show("Exported $count entries to $($dlg.FileName)", 'Export Run History')
+
+            if (Get-Command -Name 'Add-LogEntry' -ErrorAction SilentlyContinue) {
+                $fileName = [System.IO.Path]::GetFileName($dlg.FileName)
+                Add-LogEntry "Exported run history ($count entries) to $fileName" -Level 'Success'
+            }
+        }
+    }.GetNewClosure())
+
+    # Initial load of run history
+    & $loadRunHistory
+
+    # ── Session Log elements (existing functionality) ─────────────────────
     $script:LogOutputElement   = $viewElement.FindName('txtLogOutput')
     $script:LogScrollerElement = $viewElement.FindName('logScroller')
     $cmbLogFilter              = $viewElement.FindName('cmbLogFilter')
