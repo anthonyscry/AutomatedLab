@@ -49,7 +49,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 ### v1.3 Lab Scenarios & Operator Tooling (In Progress)
 
 - [x] **Phase 14: Lab Scenario Templates** - Pre-built scenario definitions with CLI integration and resource estimation (completed 2026-02-20)
-- [ ] **Phase 15: Configuration Validation** - Pre-deployment checks with guided diagnostics and resource comparison
+- [x] **Phase 15: Configuration Validation** - Pre-deployment checks with guided diagnostics and resource comparison (completed 2026-02-20)
 - [ ] **Phase 16: Snapshot Lifecycle** - Snapshot inventory, age-based pruning, and status integration
 - [ ] **Phase 17: GUI Dashboard Enhancements** - Health banner, resource usage summary, and bulk quick-actions
 
@@ -120,7 +120,7 @@ Plans:
 | 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
 | 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
 | 14. Lab Scenario Templates | 2/2 | Complete    | 2026-02-20 | - |
-| 15. Configuration Validation | 1/2 | In Progress|  | - |
+| 15. Configuration Validation | 2/2 | Complete   | 2026-02-20 | - |
 | 16. Snapshot Lifecycle | v1.3 | 0/TBD | Not started | - |
 | 17. GUI Dashboard Enhancements | v1.3 | 0/TBD | Not started | - |
 
