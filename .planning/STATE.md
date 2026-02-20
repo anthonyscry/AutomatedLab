@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.3 Lab Scenarios & Operator Tooling — Phase 15: Configuration Validation
+**Current focus:** v1.3 Lab Scenarios & Operator Tooling — Phase 16: Snapshot Lifecycle
 
 ## Current Position
 
-Phase: 15 (Configuration Validation) — second of 4 phases in v1.3
-Plan: 02 complete (2 plans in phase) -- PHASE COMPLETE
+Phase: 16 (Snapshot Lifecycle) — third of 4 phases in v1.3
+Plan: 01 complete (2 plans in phase)
 Status: In progress
-Last activity: 2026-02-20 — Completed 15-02 (CLI Integration & Pre-Deploy Validation)
+Last activity: 2026-02-20 — Completed 16-01 (Snapshot Inventory & Pruning Functions)
 
-Progress: [██████████████████████████████░░░░░░░░░░] 75% (v1.3: Phase 14-15 complete, Phase 16 next)
+Progress: [████████████████████████████████░░░░░░░░] 80% (v1.3: Phase 14-15 complete, Phase 16 plan 01 done)
 
 ## Performance Metrics
 
@@ -34,6 +34,7 @@ Progress: [███████████████████████
 - Phase 14 Plan 02: 2 tasks, 4 files, 2min, 25 integration tests
 - Phase 15 Plan 01: 2 tasks, 3 files, 3min, 37 Pester tests
 - Phase 15 Plan 02: 2 tasks, 3 files, 2min, 17 integration tests
+- Phase 16 Plan 01: 2 tasks, 3 files, 3min, 17 Pester tests
 
 ## Accumulated Context
 
@@ -50,6 +51,9 @@ Full log in PROJECT.md Key Decisions table.
 - Phase 15-02: Validate action uses PSBoundParameters.ContainsKey for conditional Scenario passthrough
 - Phase 15-02: Pre-deploy validation throws to halt deployment on failure (consistent with Deploy.ps1 pattern)
 - Phase 15-02: Compact inline format for pre-deploy check summary, detailed output only for failures
+- Phase 16-01: Per-snapshot try/catch in Remove-LabStaleSnapshots so one failure does not block others
+- Phase 16-01: OverallStatus enum OK/Partial/NoStale for structured CLI consumption
+- Phase 16-01: Hyper-V cmdlet stubs in tests for cross-platform Pester compatibility
 
 ### Pending Todos
 
@@ -62,9 +66,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 15-02-PLAN.md (Phase 15 complete)
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after 15-02 plan execution*
+*Last updated: 2026-02-20 after 16-01 plan execution*
