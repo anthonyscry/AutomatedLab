@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.6 Lab Lifecycle & Security Automation — Phase 27: PowerSTIG DSC Baselines
+**Current focus:** v1.6 Lab Lifecycle & Security Automation — Phase 27: PowerSTIG DSC Baselines (gap closure complete)
 
 ## Current Position
 
 Phase: 27 of 29 (PowerSTIG DSC Baselines)
-Plan: 4 of 4 (complete)
-Status: Phase complete
-Last activity: 2026-02-21 — Phase 27 Plan 04 complete (Public STIG cmdlets + PostInstall integration, 22 new tests, 97 total STIG tests)
+Plan: 5 of 5 (complete — gap closure plan)
+Status: Phase complete (all gaps closed)
+Last activity: 2026-02-20 — Phase 27 Plan 05 complete (PowerSTIG DSC MOF compilation implemented, exceptions wired, stale duplicate removed, 25 tests passing)
 
 Progress: [██░░░░░░░░] 20% (v1.6)
 
@@ -43,6 +43,8 @@ Full log in PROJECT.md Key Decisions table. Key decisions for v1.6:
 - [Phase 27-03]: Pester 5: stub missing DSC cmdlets as global: functions in BeforeAll so Pester can mock them on non-Windows test host
 - [Phase 27]: Private function renamed to Invoke-LabSTIGBaselineCore to avoid public/private naming collision; Public wrapper uses splatted params to correctly pass no-VMName case
 - [Phase 27]: Member server STIG placed in Build-LabFromSelection.ps1 Phase 11.5 — single location covers all current and future member server roles
+- [Phase 27-05]: DSC Configuration keyword placed inside here-string evaluated via Invoke-Expression on remote VM — avoids ParseException on Linux/non-DSC test hosts where Configuration keyword is unsupported
+- [Phase 27-05]: PowerSTIG exception hashtable uses ValueData='' skip marker pattern; compile+apply in single Invoke-Command -ComputerName session to avoid MOF file transfer
 
 ### Pending Todos
 
@@ -50,15 +52,14 @@ None
 
 ### Blockers/Concerns
 
-- Phase 27 (PowerSTIG): PowerSTIG OsVersion string values for Windows Server 2019/2022 must be confirmed by inspecting installed module's StigData/Processed/ directory before MOF compilation scaffold is written — do not hard-code version strings
-- Phase 27 (PowerSTIG): SkipRule + SkipRuleType incompatibility (GitHub issue #653) — validate which exception mechanism suits lab use case before finalizing StigExceptions config block schema
+None — Phase 27 gap closure complete. PowerSTIG OsVersion strings should be validated against installed module's StigData/Processed/ on actual Windows VMs before first real deploy.
 
 ## Session Continuity
 
-Last session: 2026-02-21
-Stopped at: Completed 27-04-PLAN.md (Public STIG cmdlets + PostInstall integration, 22 new tests)
+Last session: 2026-02-20
+Stopped at: Completed 27-05-PLAN.md (PowerSTIG DSC MOF compilation gap closure, 25 tests passing)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-21 after Phase 27 Plan 04 completion*
+*Last updated: 2026-02-20 after Phase 27 Plan 05 gap closure completion*
