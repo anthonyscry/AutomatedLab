@@ -1,195 +1,204 @@
 # Feature Research
 
-**Domain:** PowerShell Hyper-V Lab Automation Tool (Simplified)
-**Researched:** 2026-02-09
-**Confidence:** MEDIUM
+**Domain:** PowerShell Hyper-V Lab Automation — v1.6 Security Posture & Lifecycle Automation
+**Researched:** 2026-02-20
+**Confidence:** MEDIUM-HIGH
+
+> **Scope:** This document covers ONLY the v1.6 milestone features. The existing v1.0–v1.5 feature
+> landscape is documented in the original FEATURES.md (pre-2026-02-20). The four new feature areas
+> are: Lab TTL/auto-suspend, PowerSTIG DSC baselines, ADMX/GPO auto-import, and enriched
+> operational dashboard.
+
+---
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features users assume exist. Missing these = product feels incomplete.
+Features operators assume exist once a lab lifecycle automation tool matures to this level. Missing
+these makes the tool feel unfinished for security or enterprise lab use cases.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Single-command build** | Users want to type one command and get a working lab | MEDIUM | Core value prop - must work reliably |
-| **AD domain creation** | Windows lab without AD is not a "domain lab" | MEDIUM | DC promotion, DNS setup, domain join |
-| **VM lifecycle management** | Start, stop, restart VMs is basic expectation | LOW | Simple wrappers around Hyper-V cmdlets |
-| **Network configuration** | VMs must communicate with each other | MEDIUM | Internal switch, IP assignment, basic routing |
-| **Basic health checks** | Users need to know if lab is working | LOW | Status checks, connectivity tests |
-| **ISO detection/validation** | Build fails silently without proper ISOs | LOW | Pre-flight checks before deployment |
-| **Clean teardown** | Users need to reset/start over without manual cleanup | MEDIUM | Remove VMs, snapshots, checkpoints |
-| **Error reporting** | Silent failures are unacceptable | LOW | Clear messages when things break |
+| **Lab TTL with configurable timeout** | Long-running labs waste host RAM/CPU; operators expect a knob to set when the lab auto-suspends | MEDIUM | Config-driven (`Lab-Config.ps1` block), not hardcoded. Aligns with existing AutoHeal config pattern. |
+| **Scheduled-task-based background monitor** | TTL enforcement requires something watching the clock without a user session; scheduled tasks are the Windows standard | MEDIUM | `Register-ScheduledTask` / `New-ScheduledTaskTrigger` in PS 5.1. Task runs a probe script on an interval. |
+| **Graceful VM suspend (not hard stop)** | Operators want to resume labs, not rebuild. Hard shutdown loses in-flight work. | LOW | `Suspend-VM` already in Hyper-V module; wraps cleanly into existing `Stop-LabVMsSafe` pattern. |
+| **TTL override / snooze from CLI** | Operators actively using a lab must be able to postpone auto-suspend | LOW | Write a last-active timestamp to a sentinel file; monitor checks age of file. |
+| **ADMX central store creation post-DC** | Any AD lab that supports GPO management needs the central store populated; GPO editor is blind without it | MEDIUM | Copy `C:\Windows\PolicyDefinitions` to `\\domain\SYSVOL\domain\Policies\PolicyDefinitions` after DC promotion completes. PowerShell `Copy-Item -Recurse -Force` pattern. Needs DC-ready gate. |
+| **OS-native ADMX templates populated** | After DC promotion the central store should reflect the OS version of the DC, not an arbitrary source | LOW | Source is always the DC's local `C:\Windows\PolicyDefinitions`; no download required for baseline. |
+| **PowerSTIG module present on target VM** | Applying a DSC STIG baseline requires PowerSTIG (and dependent DSC modules) on the target node | MEDIUM | Needs `Install-Module PowerSTIG` or offline copy-in before `Start-DscConfiguration`. Dependency chain: PowerSTIG requires PSDscResources and several DISA DSC resource modules. |
+| **DSC MOF compiled from role context** | Users expect the correct STIG applied per role (DC vs. member server), not a generic baseline | MEDIUM | Role-aware MOF generation: `OsRole = 'DC'` for domain controllers, `OsRole = 'MS'` for everything else. StigVersion selected per OS. |
+| **Dashboard shows snapshot age** | Snapshot hygiene is already tracked (v1.3); surfacing age in the main VM card is the obvious next step | LOW | Already have snapshot inventory data (`Get-LabSnapshotInventory`). Add age field to VM card render. |
+| **Dashboard shows disk usage** | Disk pressure from snapshots/VHDs is a leading indicator of lab failure; operators expect a warning | LOW | `Get-VM | Select StorageAllocated, StorageUsed` or `Measure-VM` provides this. |
+| **Dashboard shows uptime** | Quick sanity check that VMs have been running the expected duration | LOW | `(Get-VM).Uptime` is a `TimeSpan`; format as `Xd Xh Xm`. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that set the product apart. Not required, but valuable.
+Features that set this tool apart from manually-run labs or generic Hyper-V automation scripts.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Menu-driven interface** | Non-PowerShell experts can use it | LOW | Interactive menus guide users |
-| **Snapshot-based rollback** | One command restores clean state | MEDIUM | LabReady snapshot concept |
-| **Non-interactive mode** | Enables automation, CI/CD integration | LOW | Flags for unattended operations |
-| **Fast startup workflow** | Devs want to start coding, not managing VMs | LOW | `start` command boots everything |
-| **Run artifacts (JSON + text)** | Enables monitoring, audit trails | LOW | Machine-readable run reports |
-| **Core-only mode** | Faster builds for Windows-only testing | LOW | Skip Linux VM when not needed |
-| **Desktop shortcuts** | One-click access for daily operations | LOW | Creates desktop icons for common tasks |
-| **Health gate validation** | Prevents broken lab states | MEDIUM | Post-deploy checks with auto-rollback |
+| **Role-aware STIG baseline selection** | Automatically selects the right PowerSTIG composite resource (DC vs. MS, Windows Server 2019 vs. 2022) based on the VM's declared role in `Lab-Config.ps1` | HIGH | Requires mapping AutomatedLab role names to PowerSTIG `OsVersion`/`OsRole` pairs. Not obvious from PowerSTIG docs — needs explicit mapping table. |
+| **SkipRule overrides per VM in Lab-Config** | PowerSTIG defaults are often too strict for lab VMs (e.g., require smartcard logon). A `StigExceptions` block per VM lets operators keep the STIG spirit while making the lab functional. | MEDIUM | PowerSTIG supports `SkipRule` and `OrgSettings` parameters. Exposing these in `Lab-Config.ps1` is the differentiator. |
+| **STIG apply at deploy time, not as a separate step** | Most PowerSTIG guides treat baselines as a post-setup manual exercise. Wiring it into the deploy pipeline makes compliance automatic. | HIGH | Needs `Invoke-LabSTIGBaseline` called from the provisioning flow after VM is domain-joined and role-configured. DSC push mode (no pull server required). |
+| **Third-party ADMX support (MSSecurityBaseline, LAPS, Chrome)** | The OS-native templates alone are not enough for a complete security baseline. Auto-importing Microsoft Security Baseline ADMX on DC promotion is a significant time-saver. | HIGH | Requires downloading the MSSecurityBaseline zip or shipping it with the tool. High value, high complexity. Flag for deeper research in phase planning. |
+| **TTL policy with per-lab override in Lab-Config** | Azure DevTest Labs style: lab-level TTL in global config, per-lab override in `Lab-Config.ps1`. Operator controls granularly. | MEDIUM | Pattern: global default in `Lab-Config.ps1` `LabTTL` block; local override via `-TTLHours` param on `Start-Lab`. |
+| **Compliance column in dashboard** | Surfacing `Test-DscConfiguration` pass/fail per VM alongside the existing health banner turns the dashboard into an operational compliance view | HIGH | Requires running `Test-DscConfiguration` inside the guest or via `Invoke-Command` — adds latency. Consider async/cached result with last-checked timestamp. |
+| **Background monitor as uninstallable scheduled task** | Lab cleanup on teardown should remove the scheduled task. Operators expect no leftover noise on the host. | LOW | `Unregister-ScheduledTask` in teardown flow. Simple but critical for cleanliness. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem good but create problems.
-
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Azure support** | "Hybrid lab sounds cool" | Adds complexity, billing risks, different failure modes | Focus on Hyper-V only |
-| **Linux VMs** | "Need to test cross-platform" | Different automation model, slower builds, more failure points | Make optional/add-on (as current LIN1) |
-| **Multi-domain forests** | "Enterprise scenarios" | Most users don't need this, adds config burden | Document how to extend |
-| **GUI/Windows Forms** | "Easier than CLI" | Maintenance burden, doesn't scale, PowerShell-native is better | CLI with clear output |
-| **Custom role system** | "Extensibility seems important" | Most users never use it, adds documentation burden | Simple hooks/extension points |
-| **SQL Server role** | "Need database testing" | Heavy resource use, slow install, niche need | Document manual setup |
-| **Cluster support** | "High availability testing" | Over-engineering for lab scenarios | Single-host only |
-| **Complex network topologies** | "Realistic networking" | Most users want simple VLANs | Single internal switch + NAT |
+| **Pull server / DSC compliance server** | "Real enterprise uses a pull server" | Massive infrastructure overhead for a single-host lab; adds WinRM/HTTPS configuration, SQL or file share, certificate management | Use DSC push mode: compile MOF on host, push via `Start-DscConfiguration -ComputerName` or `Invoke-Command`. No pull server needed. |
+| **Auto-remediate compliance drift continuously** | "Keep VMs always compliant" | Re-applying STIG baselines on a schedule can break running workloads, disrupt domain replication, or fight with role-specific settings | Apply once at deploy time. Provide `Invoke-LabRefreshSTIG` as an operator-triggered command for deliberate re-apply. |
+| **Download ADMX templates from internet at deploy time** | "Always use latest templates" | Network dependency in a lab that may be airgapped; version drift between lab runs causes GPO inconsistency | Ship a vendored copy of the ADMX templates with the tool, or prompt once to download and cache in `.planning/admx-cache/`. |
+| **Live compliance polling in dashboard (sub-minute)** | "Real-time compliance status" | `Test-DscConfiguration` takes 10–60 seconds per VM; polling it continuously makes the dashboard unusable | Cache compliance result with a timestamp; refresh on demand or on a 5-minute background interval. |
+| **TTL-based auto-teardown (destroy VMs)** | "Free up disk automatically" | Irreversible data loss if the operator didn't export or snapshot. Auto-suspend is recoverable; auto-teardown is not. | Auto-suspend only. Teardown requires explicit operator action. TTL-based teardown is explicitly out of scope per PROJECT.md constraints. |
+| **DSC pull server for audit trail** | "Compliance history tracking" | Significant infrastructure for a lab; reporting complexity exceeds value | Use `Get-DscConfigurationStatus` per VM, write result to run artifact JSON alongside existing run history pattern. |
+
+---
 
 ## Feature Dependencies
 
 ```
-[Hyper-V Host Detection]
-    └──requires──> [ISO Validation]
-                       └──requires──> [Lab Build]
-                                          └──requires──> [Health Checks]
-                                                             └──enables──> [Snapshot Rollback]
+[Lab TTL Config in Lab-Config.ps1]
+    └──drives──> [Invoke-LabTTLMonitor (background probe)]
+                     └──calls──> [Suspend-VM (Hyper-V)]
+                     └──reads──> [TTL sentinel file (last-active timestamp)]
+                                     └──updated-by──> [Invoke-LabTTLTouch (snooze)]
 
-[Network Configuration] ──enhances──> [Lab Build]
-                                   └──requires──> [VM Creation]
+[VM Deploy Flow (existing Invoke-LabDeploy)]
+    └──calls (new)──> [Invoke-LabSTIGBaseline]
+                          └──requires──> [PowerSTIG module on VM]
+                          └──requires──> [VM is domain-joined or standalone]
+                          └──reads──> [VM Role from Lab-Config.ps1]
+                                          └──maps-to──> [OsRole: DC or MS]
+                                          └──maps-to──> [OsVersion: 2016/2019/2022]
 
-[Menu Interface] ──enhances──> [All Features]
+[DC Promotion completion (existing)]
+    └──triggers (new)──> [Invoke-LabADMXImport]
+                              └──reads──> [C:\Windows\PolicyDefinitions on DC]
+                              └──writes-to──> [SYSVOL\...\PolicyDefinitions]
+                              └──optionally-copies──> [Vendored ADMX cache]
 
-[Non-Interactive Mode] ──enhances──> [Automation/CI]
+[Dashboard VM Card (existing WPF)]
+    └──enriched-by (new)──> [Get-LabVMEnrichedStatus]
+                                 └──adds──> [SnapshotAge]
+                                 └──adds──> [DiskUsageGB]
+                                 └──adds──> [Uptime]
+                                 └──adds──> [ComplianceResult (cached)]
+                                                └──sourced-from──> [Test-DscConfiguration result]
 ```
 
 ### Dependency Notes
 
-- **Lab Build requires ISO Validation**: Can't build without Windows ISOs in place
-- **Health Checks enable Snapshot Rollback**: Only rollback to known-good states if you've verified they work
-- **Network Configuration enhances Lab Build**: Required for VMs to communicate, but basic lab can work with defaults
-- **Menu Interface enhances all features**: Makes tool accessible but doesn't change underlying functionality
-- **Non-Interactive Mode enhances Automation**: Enables scripting and CI/CD integration
+- **Invoke-LabSTIGBaseline requires PowerSTIG on VM**: Must install-module or copy modules to guest before attempting MOF compile+apply. This is the primary complexity driver for STIG features.
+- **ADMX import requires DC-ready gate**: DC promotion must be complete and SYSVOL replicated before writing to PolicyDefinitions. Existing `Test-DCPromotionPrereqs` can be reused as a precondition.
+- **Dashboard enrichment has no hard dependencies**: Snapshot age, disk, and uptime fields are read-only queries against existing Hyper-V data. Can ship independently of STIG/TTL work.
+- **TTL monitor depends on Lab-Config.ps1 TTL block**: If no TTL is configured, the monitor should be a no-op (no task registered). Config-absence means opt-out.
+- **Compliance column depends on STIG baseline having been applied**: Showing `Test-DscConfiguration` results for a VM where no MOF was ever applied is meaningless. Display `N/A` until baseline applied.
+
+---
 
 ## MVP Definition
 
-### Launch With (v1)
+### v1.6 Launch With
 
-Minimum viable product - what's needed to validate the concept.
+The minimum set that delivers value across all four stated feature areas.
 
-- [ ] **One-command build** - Core value prop; must work reliably
-- [ ] **AD domain creation** - DC1 + DNS + domain join for client VMs
-- [ ] **VM lifecycle** - Start, stop, status checks
-- [ ] **Basic network** - Internal switch + IP assignment
-- [ ] **ISO pre-flight** - Validate ISOs before attempting build
-- [ ] **Clean teardown** - Remove lab artifacts without leaving junk
-- [ ] **Error messages** - Clear output when things fail
-- [ ] **Status command** - Show VM states, basic health
+- [ ] **TTL config block in Lab-Config.ps1** — Establishes the config surface for all TTL features
+- [ ] **Invoke-LabTTLMonitor** — Background scheduled task that checks uptime and suspends if TTL exceeded
+- [ ] **Invoke-LabTTLTouch** — Operator command to reset TTL countdown ("I'm still using this")
+- [ ] **TTL task cleanup on teardown** — `Unregister-ScheduledTask` in teardown path; no host noise left behind
+- [ ] **Invoke-LabADMXImport** — Post-DC-promotion step that copies OS ADMX templates to central store
+- [ ] **Invoke-LabSTIGBaseline (push mode, OS-native templates only)** — Role-aware DSC push for Windows Server 2019/2022 DC+MS roles; no third-party ADMX
+- [ ] **StigExceptions block in Lab-Config.ps1** — Per-VM SkipRule list so labs remain functional
+- [ ] **Dashboard: snapshot age + disk usage + uptime fields** — Low-complexity enrichment of existing VM cards
+- [ ] **Dashboard: compliance status column (cached)** — `Test-DscConfiguration` result with last-checked timestamp
 
-### Add After Validation (v1.x)
+### Add After v1.6 Ships
 
-Features to add once core is working.
-
-- [ ] **Snapshot/rollback** - Trigger for: users breaking labs and wanting quick reset
-- [ ] **Menu interface** - Trigger for: non-PowerShell users needing easier interaction
-- [ ] **Non-interactive flags** - Trigger for: automation requests, CI/CD use cases
-- [ ] **Health gate** - Trigger for: deploy issues, broken lab states
-- [ ] **Run artifacts** - Trigger for: debugging, monitoring needs
+- [ ] **Third-party ADMX auto-import (MSSecurityBaseline, LAPS)** — Trigger: operators requesting GPO baseline templates beyond OS defaults. High value but high complexity.
+- [ ] **Compliance result written to run artifact JSON** — Trigger: operators wanting audit trail of baseline state at deploy time.
+- [ ] **TTL notification (event log or GUI banner)** — Trigger: operators surprised by suspended labs.
 
 ### Future Consideration (v2+)
 
-Features to defer until product-market fit is established.
+- [ ] **Offline/vendored ADMX cache** — Defer until airgap lab use case is confirmed
+- [ ] **Compliance history dashboard** — Defer: requires run artifact schema changes and reporting infrastructure
+- [ ] **PowerSTIG for SQL Server / IIS roles** — Defer: niche within niche; validate Windows OS STIG demand first
 
-- [ ] **Linux VM support** - Defer: Different automation model, adds complexity
-- [ ] **Custom roles/extensions** - Defer: Validate core use case first
-- [ ] **Multi-domain scenarios** - Defer: Niche requirement, document manual approach
-- [ ] **Azure integration** - Defer: Entirely different platform, doubles surface area
-- [ ] **Advanced networking** - Defer: Most users happy with simple switch
+---
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| One-command build | HIGH | MEDIUM | P1 |
-| AD domain creation | HIGH | MEDIUM | P1 |
-| VM lifecycle (start/stop/status) | HIGH | LOW | P1 |
-| ISO validation | HIGH | LOW | P1 |
-| Clean teardown | HIGH | MEDIUM | P1 |
-| Basic networking | HIGH | MEDIUM | P1 |
-| Error reporting | HIGH | LOW | P1 |
-| Menu interface | MEDIUM | LOW | P2 |
-| Snapshot/rollback | HIGH | MEDIUM | P2 |
-| Non-interactive mode | MEDIUM | LOW | P2 |
-| Health gate validation | MEDIUM | MEDIUM | P2 |
-| Run artifacts (JSON/text) | LOW | LOW | P3 |
-| Desktop shortcuts | LOW | LOW | P3 |
-| Linux VM support | MEDIUM | HIGH | P3 |
-| Azure support | LOW | HIGH | P3 |
-| Custom role system | LOW | HIGH | P3 |
-| Multi-domain forests | LOW | HIGH | P3 |
+| Dashboard: snapshot age + disk + uptime | HIGH | LOW | P1 |
+| TTL config + monitor + suspend | HIGH | MEDIUM | P1 |
+| ADMX central store import (OS templates) | HIGH | LOW | P1 |
+| Invoke-LabSTIGBaseline (DC+MS, WS2019/2022) | HIGH | HIGH | P1 |
+| StigExceptions block in Lab-Config.ps1 | HIGH | LOW | P1 |
+| TTL snooze (touch) command | MEDIUM | LOW | P1 |
+| TTL task cleanup on teardown | HIGH | LOW | P1 |
+| Dashboard compliance column (cached) | MEDIUM | MEDIUM | P2 |
+| Third-party ADMX import (MSSecBaseline) | MEDIUM | HIGH | P2 |
+| Compliance result in run artifact | LOW | LOW | P2 |
+| TTL notification (banner/event log) | LOW | LOW | P3 |
+| Compliance history dashboard | LOW | HIGH | P3 |
 
 **Priority key:**
-- P1: Must have for launch
-- P2: Should have, add when possible
-- P3: Nice to have, future consideration
+- P1: Must have for v1.6 launch
+- P2: Add when core is stable
+- P3: Future milestone
 
-## Competitor Feature Analysis
+---
 
-| Feature | AutomatedLab | Vagrant + Hyper-V | SimpleLab (Our Approach) |
-|---------|--------------|-------------------|--------------------------|
-| **Learning curve** | Steep (many roles/options) | Medium (Vagrantfile concepts) | Low (one command) |
-| **Windows domain focus** | Yes, with many roles | Via community boxes | Primary use case |
-| **Linux support** | Yes (growing) | Yes (native) | Optional/add-on |
-| **Azure support** | Yes | Via Azure provider | No (Hyper-V only) |
-| **Configuration model** | PowerShell objects | Ruby DSL | Simple config file |
-| **Snapshot management** | Basic | Via providers | First-class feature |
-| **Health validation** | Basic | Via provisioners | Built-in health gate |
-| **Error messages** | Mixed | Depends on provider | Clear, actionable |
-| **Teardown** | Manual steps | `vagrant destroy` | One command |
-| **Menu interface** | No | No | Yes (differentiator) |
-| **Non-interactive** | Yes | Yes | Yes (by design) |
+## Known Complexity Flags
+
+### PowerSTIG Module Distribution
+PowerSTIG and its dependency chain (`PSDscResources`, `AuditPolicyDsc`, `SecurityPolicyDsc`, etc.)
+must be present on each target VM before a MOF can be applied. For a lab with internet access,
+`Install-Module PowerSTIG -Force` inside the guest works. For offline labs, modules must be
+pre-staged or copied in during provisioning. This is the primary implementation risk for STIG
+features. Needs a dedicated probe — `Test-LabSTIGDependencies` — to check before attempting apply.
+
+### PowerSTIG OsVersion Mapping Gap
+The published PowerSTIG wiki documents `OsVersion` values of `'2012R2'` and `'2016'`, but
+PowerShell Gallery version 4.22.0 (current as of mid-2024) adds 2019 and 2022 support. The
+`OsVersion` string format must be confirmed by inspecting the installed module manifest, not the
+wiki. Flag this as a research step within the STIG baseline phase.
+
+### ADMX Copy Permissions
+Copying to `\\domain\SYSVOL\domain\Policies\PolicyDefinitions` over the network path requires
+Domain Admin rights. The provisioning account already holds these, but the script must run in the
+context of that account. Using the local path `C:\Windows\SYSVOL\sysvol\<domain>\Policies\` on the
+DC avoids the network share permission edge case. Prefer local path in implementation.
+
+### DSC Compliance Scan Latency
+`Test-DscConfiguration` via `Invoke-Command` takes 10–60 seconds per VM depending on the number
+of resources in the MOF. Running it synchronously in the dashboard refresh would make the UI
+unresponsive. The compliance column must use a cache file written by a background job, not a
+live query.
+
+---
 
 ## Sources
 
-### Primary Sources
-- [AutomatedLab Official Website](https://automatedlab.org/) - MEDIUM confidence - Official project site
-- [AutomatedLab GitHub Repository](https://github.com/AutomatedLab/AutomatedLab) - HIGH confidence - Source code, issues, documentation
-- [AutomatedLab Active Directory Role Documentation](https://automatedlab.org/en/latest/Wiki/Roles/activedirectory/) - HIGH confidence - Official role documentation
-- [AutomatedLab Hyper-V Documentation](https://automatedlab.org/en/latest/Wiki/Roles/hyperv/) - HIGH confidence - Platform-specific documentation
-- [AutomatedLab Tutorial Part 1](https://devblogs.microsoft.com/scripting/automatedlab-tutorial-part-1-introduction-to-automatedlab/) - HIGH confidence - Microsoft official tutorial
-
-### Alternative Tools
-- [Vagrant with Hyper-V Provider](https://github.com/erichexter/vagrant-windows-hyperv) - MEDIUM confidence - Community project
-- [Eryph Hyper-V Automation](https://www.eryph.io/guides/958273-hyper-v-automation-powershell) - MEDIUM confidence - Alternative approach
-
-### Community Research
-- [Getting Started with AutomatedLab](https://sysmansquad.com/2020/06/15/getting-started-with-automatedlab/) - MEDIUM confidence - Community guide
-- [Building an Active Directory/Windows Server Lab](https://blog.sonnes.cloud/building-an-active-directory-windows-server-lab/) - LOW confidence - Blog post (verified with official docs)
-- [Reddit: Hyper-V Automation Tools Discussion](https://www.reddit.com/r/HyperV/comments/v9cwlv/share_some_of_your_favorite_hyperv_automation/) - LOW confidence - Community discussion
-
-### Industry Standards
-- [Windows Active Directory 101: Home Lab Setup](https://yogesh-rathod.medium.com/windows-active-directory-101-a-beginners-guide-and-home-lab-setup-422480157314) - LOW confidence - Medium post (general practices)
-- [Building an Effective Active Directory Lab Environment](https://adsecurity.org/?p=2653) - MEDIUM confidence - Security-focused lab guidance
-
-### Issues and Limitations
-- [AutomatedLab GitHub Issues](https://github.com/AutomatedLab/AutomatedLab/issues) - HIGH confidence - Real user problems
-- [AutomatedLab Troubleshooting](https://theautomatedlab.com/article.html?content=troubleshooting-1) - MEDIUM confidence - Common issues
-
-## Confidence Assessment
-
-| Area | Confidence | Notes |
-|------|------------|-------|
-| **AutomatedLab capabilities** | HIGH | Verified via official docs and source code |
-| **Windows lab requirements** | HIGH | Verified via Microsoft and industry sources |
-| **User pain points** | MEDIUM | Based on GitHub issues and community discussions |
-| **Alternative tools landscape** | MEDIUM | Web search only, limited depth on alternatives |
-| **Simplified tool priorities** | MEDIUM | Inferred from current project and user needs |
+- [PowerSTIG GitHub Repository](https://github.com/microsoft/PowerStig) — HIGH confidence
+- [PowerSTIG Getting Started Wiki](https://github.com/microsoft/PowerStig/wiki/GettingStarted) — HIGH confidence
+- [PowerSTIG WindowsServer Composite Resource](https://github.com/microsoft/PowerStig/wiki/WindowsServer) — HIGH confidence (wiki documents 2012R2/2016; Gallery 4.22.0 extends to 2019/2022)
+- [PowerSTIG v4.22.0 on PowerShell Gallery](https://www.powershellgallery.com/packages/PowerSTIG/4.22.0) — HIGH confidence
+- [ADMX Central Store: Create and Manage — Microsoft Learn](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store) — HIGH confidence
+- [ADMX Central Store Configuration — Windows OS Hub](https://woshub.com/gpo-central-store-admx-templates/) — MEDIUM confidence
+- [Azure DevTest Labs Auto-Shutdown Policy](https://learn.microsoft.com/en-us/azure/devtest-labs/devtest-lab-auto-shutdown) — MEDIUM confidence (cloud product, pattern applies to local lab)
+- [Suspend-VM Cmdlet — Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/hyper-v/suspend-vm?view=windowsserver2025-ps) — HIGH confidence
+- [Register-ScheduledTask — Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/register-scheduledtask?view=windowsserver2025-ps) — HIGH confidence
+- [Test-DscConfiguration — Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/psdesiredstateconfiguration/test-dscconfiguration?view=dsc-1.1) — HIGH confidence
+- [Get-DscConfigurationStatus — Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/psdesiredstateconfiguration/get-dscconfigurationstatus?view=dsc-1.1) — HIGH confidence
+- [Measure-VM (Hyper-V) — Microsoft Learn](https://learn.microsoft.com/en-us/powershell/module/hyper-v/measure-vm?view=windowsserver2025-ps) — HIGH confidence
 
 ---
-*Feature research for: SimpleLab - PowerShell Hyper-V Lab Automation*
-*Researched: 2026-02-09*
+*Feature research for: AutomatedLab v1.6 — Lab Lifecycle & Security Automation*
+*Researched: 2026-02-20*
