@@ -11,7 +11,7 @@ Requirements for advanced scenarios and multi-OS milestone. Each maps to roadmap
 
 - [x] **ROLE-01**: Operator can define custom roles as JSON files with provisioning steps mapped to existing primitives
 - [x] **ROLE-02**: System auto-discovers custom role templates at runtime (file drop, no code changes)
-- [ ] **ROLE-03**: Custom roles integrate with existing role selection UI and CLI workflows
+- [x] **ROLE-03**: Custom roles integrate with existing role selection UI and CLI workflows
 - [x] **ROLE-04**: Custom role templates validate on load (required fields, valid provisioning steps)
 - [x] **ROLE-05**: Operator can list available custom roles with description and resource requirements
 
@@ -70,7 +70,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | ROLE-01 | Phase 22 | Complete |
 | ROLE-02 | Phase 22 | Complete |
-| ROLE-03 | Phase 22 | Pending |
+| ROLE-03 | Phase 22 | Complete |
 | ROLE-04 | Phase 22 | Complete |
 | ROLE-05 | Phase 22 | Complete |
 | NET-01 | Phase 23 | Pending |
