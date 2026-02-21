@@ -7,28 +7,32 @@
                     "role":  "DC",
                     "ip":  "10.0.10.10",
                     "memoryGB":  4,
-                    "processors":  4
+                    "processors":  4,
+                    "switch":  "LabCorpNet"
                 },
                 {
                     "name":  "sql1",
                     "role":  "SQL",
                     "ip":  "10.0.10.40",
                     "memoryGB":  8,
-                    "processors":  4
+                    "processors":  4,
+                    "switch":  "LabCorpNet"
                 },
                 {
                     "name":  "web1",
                     "role":  "IIS",
                     "ip":  "10.0.10.41",
                     "memoryGB":  4,
-                    "processors":  2
+                    "processors":  2,
+                    "switch":  "LabCorpNet"
                 },
                 {
                     "name":  "ws1",
                     "role":  "Client",
                     "ip":  "10.0.10.30",
                     "memoryGB":  4,
-                    "processors":  2
+                    "processors":  2,
+                    "switch":  "LabCorpNet"
                 }
             ]
 }

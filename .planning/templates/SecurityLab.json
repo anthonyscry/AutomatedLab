@@ -7,21 +7,24 @@
                     "role":  "DC",
                     "ip":  "10.0.10.10",
                     "memoryGB":  4,
-                    "processors":  4
+                    "processors":  4,
+                    "switch":  "LabCorpNet"
                 },
                 {
                     "name":  "ws1",
                     "role":  "Client",
                     "ip":  "10.0.10.30",
                     "memoryGB":  4,
-                    "processors":  2
+                    "processors":  2,
+                    "switch":  "LabCorpNet"
                 },
                 {
                     "name":  "attack1",
                     "role":  "Ubuntu",
                     "ip":  "10.0.10.50",
                     "memoryGB":  2,
-                    "processors":  2
+                    "processors":  2,
+                    "switch":  "LabCorpNet"
                 }
             ]
 }
