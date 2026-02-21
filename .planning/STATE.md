@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 ## Current Position
 
-Phase: 23 (Complex Networking)
-Plan: 2/TBD plans — 23-02 complete
-Status: In progress — 23-02 complete (VM-switch assignment, VLAN tagging, inter-subnet routing)
-Last activity: 2026-02-21 — completed 23-02 (per-VM switch/VLAN config, New-LabVMNetworkAdapter, multi-subnet Initialize-LabNetwork)
+Phase: 24 (Linux VM Parity)
+Plan: 1/1 plans — 24-01 complete
+Status: In progress — 24-01 complete (Linux VM snapshot discovery, linuxVmCount in profiles, parity tests)
+Last activity: 2026-02-21 — completed 24-01 (all-Linux-VM snapshot inventory, Save-LabProfile linuxVmCount, 26 Pester tests)
 
-Progress: [████████████████░░░░░░░░░░░░░░░░░░░░░░░░] 40% (23-01, 23-02 done)
+Progress: [████████████████████░░░░░░░░░░░░░░░░░░░░] 50% (23-01, 23-02, 24-01 done)
 
 ## Performance Metrics
 
@@ -67,6 +67,11 @@ Full log in PROJECT.md Key Decisions table.
 - Routing defaults: Mode=host, GatewayVM='', EnableForwarding=true when Routing block absent
 - Invoke-LabGatewayForwarding wrapper: Pester cannot reliably mock Invoke-Command -VMName; named wrapper solves it
 
+**24-01:**
+- Backward-compat: when GlobalLabConfig absent, LIN1 fallback detection preserved (else branch, not removed)
+- linuxVmCount prefers VMNames key count over LinuxVM section presence for accuracy
+- Get-LabStateProbe needs no changes — it accepts VMNames as a parameter, Linux VMs included by callers
+
 ### Pending Todos
 
 - None
@@ -78,7 +83,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 23-02-PLAN.md (VM-switch assignment, VLAN tagging, inter-subnet routing)
+Stopped at: Completed 24-01-PLAN.md (Linux VM snapshot parity, linuxVmCount in profiles, 26 Pester tests)
 Resume file: None
 
 ---

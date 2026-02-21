@@ -25,10 +25,10 @@ Requirements for advanced scenarios and multi-OS milestone. Each maps to roadmap
 
 ### Linux VM Full Parity
 
-- [ ] **LNX-01**: Linux VMs support full provisioning lifecycle (create, start, stop, snapshot, teardown) matching Windows VMs
+- [x] **LNX-01**: Linux VMs support full provisioning lifecycle (create, start, stop, snapshot, teardown) matching Windows VMs
 - [ ] **LNX-02**: SSH-based role application works for all existing Linux roles with retry and timeout handling
-- [ ] **LNX-03**: Linux VMs integrate with snapshot management (inventory, pruning, restore)
-- [ ] **LNX-04**: Linux VMs integrate with configuration profiles (save/load preserves Linux VM settings)
+- [x] **LNX-03**: Linux VMs integrate with snapshot management (inventory, pruning, restore)
+- [x] **LNX-04**: Linux VMs integrate with configuration profiles (save/load preserves Linux VM settings)
 - [ ] **LNX-05**: Mixed OS scenarios work end-to-end (Windows DC + Linux app servers in same lab)
 - [ ] **LNX-06**: CentOS/RHEL support added alongside existing Ubuntu (cloud-init or kickstart provisioning)
 
@@ -78,10 +78,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NET-03 | Phase 23 | Complete |
 | NET-04 | Phase 23 | Complete |
 | NET-05 | Phase 23 | Complete |
-| LNX-01 | Phase 24 | Pending |
+| LNX-01 | Phase 24 | Complete |
 | LNX-02 | Phase 24 | Pending |
-| LNX-03 | Phase 24 | Pending |
-| LNX-04 | Phase 24 | Pending |
+| LNX-03 | Phase 24 | Complete |
+| LNX-04 | Phase 24 | Complete |
 | LNX-05 | Phase 25 | Pending |
 | LNX-06 | Phase 24 | Pending |
 
