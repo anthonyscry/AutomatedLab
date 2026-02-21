@@ -24,10 +24,10 @@ Requirements for Lab Lifecycle & Security Automation milestone. Each maps to roa
 
 ### ADMX / GPO Management
 
-- [ ] **GPO-01**: ADMX central store auto-populated on DC after domain promotion completes
+- [x] **GPO-01**: ADMX central store auto-populated on DC after domain promotion completes
 - [ ] **GPO-02**: Baseline GPO created and linked to domain from JSON template definitions
 - [ ] **GPO-03**: Pre-built security GPO templates shipped (password policy, account lockout, audit policy, AppLocker)
-- [ ] **GPO-04**: Third-party ADMX bundles importable via config setting with download + copy workflow
+- [x] **GPO-04**: Third-party ADMX bundles importable via config setting with download + copy workflow
 
 ### Dashboard Enrichment
 

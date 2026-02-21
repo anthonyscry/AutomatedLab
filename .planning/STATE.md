@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 28 of 29 (ADMX / GPO Auto-Import)
-Plan: 1 of 4 (ADMX Configuration Block and Config Reader)
-Status: Plan 01 complete
-Last activity: 2026-02-21 — Phase 28 Plan 01 complete (ADMX config block, Get-LabADMXConfig helper, 10 tests passing)
+Plan: 2 of 4 (AD Readiness Gate and ADMX Import Core)
+Status: Plan 02 complete
+Last activity: 2026-02-21 — Phase 28 Plan 02 complete (Wait-LabADReady, Invoke-LabADMXImport, 16 tests passing)
 
-Progress: [███░░░░░░░] 24% (v1.6)
+Progress: [████░░░░░░] 32% (v1.6)
 
 ## Performance Metrics
 
@@ -49,6 +49,10 @@ Full log in PROJECT.md Key Decisions table. Key decisions for v1.6:
 - [Phase 28-01]: Get-LabADMXConfig uses ContainsKey guards matching Get-LabSTIGConfig pattern; ThirdPartyADMX defaults to @()
 - [Phase 28-01]: Comma-prefix operator (,@()) used to prevent PowerShell from unwrapping single-element hashtable arrays in PSCustomObject properties
 - [Phase 28-01]: Tests treat null and empty array equivalently due to PowerShell PSCustomObject empty array -> null conversion limitation
+- [Phase 28-02]: Wait-LabADReady gates on Get-ADDomain success with 120s default timeout, 10s retry interval
+- [Phase 28-02]: Invoke-LabADMXImport copies OS ADMX/ADML from DC PolicyDefinitions to SYSVOL Central Store via Invoke-Command on DC
+- [Phase 28-02]: Third-party ADMX bundles processed independently with per-bundle error isolation
+- [Phase 28-02]: PowerShell 5.1 compatibility: Where-Object { -not $_.PSIsContainer } instead of -File parameter for Get-ChildItem
 
 ### Pending Todos
 
@@ -56,14 +60,14 @@ None
 
 ### Blockers/Concerns
 
-None — Phase 28 Plan 01 complete. ADMX configuration foundation established, ready for AD readiness gate implementation.
+None — Phase 28 Plan 02 complete. AD readiness gate and ADMX import core implemented, ready for baseline GPO templates.
 
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 28-01-PLAN.md (ADMX Configuration Block and Config Reader)
+Stopped at: Completed 28-02-PLAN.md (AD Readiness Gate and ADMX Import Core)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-21 after Phase 28 Plan 01 completion*
+*Last updated: 2026-02-21 after Phase 28 Plan 02 completion*
