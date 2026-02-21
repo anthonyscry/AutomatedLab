@@ -1,0 +1,30 @@
+{
+  "Name": "Baseline Audit Policy",
+  "LinkTarget": "DC=simplelab,DC=local",
+  "Settings": [
+    {
+      "Key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit",
+      "ValueName": "AuditLogonEvents",
+      "Value": 3,
+      "Type": "DWord"
+    },
+    {
+      "Key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit",
+      "ValueName": "AuditObjectAccess",
+      "Value": 3,
+      "Type": "DWord"
+    },
+    {
+      "Key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit",
+      "ValueName": "AuditPolicyChange",
+      "Value": 3,
+      "Type": "DWord"
+    },
+    {
+      "Key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit",
+      "ValueName": "AuditPrivilegeUse",
+      "Value": 2,
+      "Type": "DWord"
+    }
+  ]
+}

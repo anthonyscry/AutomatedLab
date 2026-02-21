@@ -228,6 +228,29 @@ $GlobalLabConfig = @{
         Exceptions = @{}
     }
 
+    ADMX = @{
+        # Changing Enabled toggles whether ADMX Central Store is populated after DC promotion.
+        Enabled = $true
+        # Changing CreateBaselineGPO toggles whether baseline GPOs are created from JSON templates.
+        CreateBaselineGPO = $false
+        # Changing ThirdPartyADMX adds custom ADMX bundles to import (operator-provided local paths).
+        # Example: ThirdPartyADMX = @(@{ Name = 'Chrome'; Path = 'C:\ADMX\Chrome' })
+        ThirdPartyADMX = @()
+    }
+
+    Dashboard = @{
+        # Changing SnapshotStaleDays sets the warning threshold for snapshot age (in days).
+        SnapshotStaleDays = 7
+        # Changing SnapshotStaleCritical sets the critical threshold for snapshot age (in days).
+        SnapshotStaleCritical = 30
+        # Changing DiskUsagePercent sets the warning threshold for VHDx usage (in percent).
+        DiskUsagePercent = 80
+        # Changing DiskUsageCritical sets the critical threshold for VHDx usage (in percent).
+        DiskUsageCritical = 95
+        # Changing UptimeStaleHours sets the stale threshold for VM uptime (in hours).
+        UptimeStaleHours = 72
+    }
+
     SSH = @{
         # Changing KnownHostsPath moves where lab SSH host keys are stored.
         # This file is cleared on teardown so redeploy gets fresh keys.

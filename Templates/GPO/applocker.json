@@ -1,0 +1,12 @@
+{
+  "Name": "Baseline AppLocker",
+  "LinkTarget": "DC=simplelab,DC=local",
+  "Settings": [
+    {
+      "Key": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\SrpGV2",
+      "ValueName": "EnforceRules",
+      "Value": 1,
+      "Type": "DWord"
+    }
+  ]
+}

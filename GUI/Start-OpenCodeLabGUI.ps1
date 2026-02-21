@@ -291,12 +291,16 @@ $script:btnNavCustomize.Add_Click({  Switch-View -ViewName 'Customize' })
 $script:btnNavLogs.Add_Click({       Switch-View -ViewName 'Logs' })
 $script:btnNavSettings.Add_Click({   Switch-View -ViewName 'Settings' })
 
-# ── Window Closing handler (cleanup timers) ─────────────────────────────
+# ── Window Closing handler (cleanup timers and runspaces) ─────────────────────
 $mainWindow.Add_Closing({
+    # Stop VM poll timer
     if ($null -ne $script:VMPollTimer) {
         $script:VMPollTimer.Stop()
         $script:VMPollTimer = $null
     }
+
+    # Stop metrics refresh runspace
+    Stop-DashboardMetricsRefreshRunspace
 })
 
 # ── VM role display names ──────────────────────────────────────────────
@@ -306,6 +310,11 @@ $script:VMRoles = @{
     ws1  = 'Windows 11 Client'
     lin1 = 'Ubuntu Linux'
 }
+
+# ── Dashboard metrics hashtable (thread-safe for background runspace) ──
+$script:DashboardMetrics = [System.Collections.Hashtable]::Synchronized(@{})
+# Populate with empty hashtables for each VM name to avoid KeyNotFoundException
+$script:DashboardMetrics['Continue'] = $true  # Flag to control runspace loop
 
 # ── VM status colour mapping ──────────────────────────────────────────
 function Get-StatusColor {
@@ -325,6 +334,68 @@ function Get-StatusColor {
         'Paused'  { [System.Windows.Media.Brushes]::Yellow }
         'Saved'   { [System.Windows.Media.Brushes]::Orange }
         default   { [System.Windows.Media.Brushes]::Gray }
+    }
+}
+
+# ── Status badge lookup for dashboard metrics ───────────────────────────
+function Get-StatusBadgeForMetric {
+    <#
+    .SYNOPSIS
+        Returns an emoji status badge based on metric value and threshold.
+
+    .DESCRIPTION
+        Maps metric values to emoji badges (🟢, 🟡, 🔴, ⚪) based on
+        configured thresholds from Get-LabDashboardConfig. Used by
+        Update-VMCardWithMetrics to display status indicators.
+
+    .PARAMETER MetricType
+        Type of metric: 'Snapshot', 'Disk', 'Uptime', or 'STIG'.
+
+    .PARAMETER Value
+        Numeric value for Snapshot/Disk/Uptime, or string status for STIG.
+
+    .OUTPUTS
+        String containing emoji badge character.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('Snapshot', 'Disk', 'Uptime', 'STIG')]
+        [string]$MetricType,
+
+        [Parameter(Mandatory)]
+        $Value
+    )
+
+    $config = Get-LabDashboardConfig
+
+    switch ($MetricType) {
+        'Snapshot' {
+            if ($null -eq $Value) { return '⚪' }
+            if ($Value -ge $config.SnapshotStaleCritical) { return '🔴' }
+            if ($Value -ge $config.SnapshotStaleDays) { return '🟡' }
+            return '🟢'
+        }
+        'Disk' {
+            if ($null -eq $Value) { return '⚪' }
+            if ($Value -ge $config.DiskUsageCritical) { return '🔴' }
+            if ($Value -ge $config.DiskUsagePercent) { return '🟡' }
+            return '🟢'
+        }
+        'Uptime' {
+            if ($null -eq $Value) { return '⚪' }
+            if ($Value -ge $config.UptimeStaleHours) { return '🟡' }
+            return '🟢'
+        }
+        'STIG' {
+            switch ($Value) {
+                'Compliant'    { return '🟢' }
+                'NonCompliant' { return '🔴' }
+                'Applying'     { return '🟡' }
+                default        { return '⚪' }
+            }
+        }
     }
 }
 
@@ -399,6 +470,210 @@ function Update-VMCard {
     $Card.FindName('btnStart').IsEnabled   = -not $isRunning
     $Card.FindName('btnStop').IsEnabled    = $isRunning
     $Card.FindName('btnConnect').IsEnabled = $isRunning
+}
+
+# ── Update VM card with enriched dashboard metrics ───────────────────────
+function Update-VMCardWithMetrics {
+    <#
+    .SYNOPSIS
+        Updates a VM card with the four enriched dashboard metrics.
+
+    .DESCRIPTION
+        Reads metrics from the synchronized hashtable populated by the
+        background runspace and updates the VM card TextBlocks with
+        formatted values and status badges. Handles missing data gracefully.
+
+    .PARAMETER Card
+        The VM card WPF element to update.
+
+    .PARAMETER VMName
+        Name of the VM to read metrics for.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Windows.FrameworkElement]$Card,
+
+        [Parameter(Mandatory)]
+        [string]$VMName
+    )
+
+    # Read metrics from synchronized hashtable
+    $metrics = if ($script:DashboardMetrics.ContainsKey($VMName)) {
+        $script:DashboardMetrics[$VMName]
+    } else {
+        @{}
+    }
+
+    # Snapshot age
+    $snapshotAge = $metrics.SnapshotAge
+    $snapshotBadge = Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value $snapshotAge
+    $snapshotText = if ($null -eq $snapshotAge) {
+        '💾 Snapshot: No snapshots [⚪]'
+    } else {
+        "💾 Snapshot: $snapshotAge days [$snapshotBadge]"
+    }
+    $Card.FindName('txtSnapshotAge').Text = $snapshotText
+
+    # Disk usage
+    $diskGB = $metrics.DiskUsageGB
+    $diskPercent = $metrics.DiskUsagePercent
+    $diskBadge = Get-StatusBadgeForMetric -MetricType 'Disk' -Value $diskPercent
+    $diskText = if ($null -eq $diskGB) {
+        '💾 Disk: -- [⚪]'
+    } else {
+        "💾 Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
+    }
+    $Card.FindName('txtDiskUsage').Text = $diskText
+
+    # Uptime
+    $uptimeHours = $metrics.UptimeHours
+    $uptimeBadge = Get-StatusBadgeForMetric -MetricType 'Uptime' -Value $uptimeHours
+    $uptimeText = if ($null -eq $uptimeHours) {
+        '⏱️ Uptime: -- [⚪]'
+    } else {
+        $uptimeStr = if ($uptimeHours -ge 24) {
+            "$([math]::Floor($uptimeHours / 24))d $($uptimeHours % 24)h"
+        } else {
+            "$([math]::Round($uptimeHours, 1))h"
+        }
+        "⏱️ Uptime: $uptimeStr [$uptimeBadge]"
+    }
+    $Card.FindName('txtUptime').Text = $uptimeText
+
+    # STIG status
+    $stigStatus = $metrics.STIGStatus
+    $stigBadge = Get-StatusBadgeForMetric -MetricType 'STIG' -Value $stigStatus
+    $stigText = if ($null -eq $stigStatus -or $stigStatus -eq 'Unknown') {
+        '🔒 STIG: Unknown [⚪]'
+    } else {
+        "🔒 STIG: $stigStatus [$stigBadge]"
+    }
+    $Card.FindName('txtSTIGStatus').Text = $stigText
+}
+
+# ── Dashboard metrics background refresh runspace ────────────────────────
+function Start-DashboardMetricsRefreshRunspace {
+    <#
+    .SYNOPSIS
+        Creates and starts a background runspace for periodic VM metrics collection.
+
+    .DESCRIPTION
+        Creates a PowerShell runspace with STA apartment state (required for WPF
+        compatibility). The runspace runs a 60-second collection loop that queries
+        VM metrics and updates the synchronized hashtable. Returns a hashtable with
+        Runspace, PowerShell, and Handle objects for later disposal.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param()
+
+    # Create the runspace with STA apartment state
+    $runspace = [runspacefactory]::CreateRunspace()
+    $runspace.ApartmentState = 'STA'
+    $runspace.ThreadOptions = 'ReuseThread'
+
+    # Add variables to the runspace for script block access
+    $runspace.Open()
+
+    # Create PowerShell instance and add the script
+    $ps = [powershell]::Create()
+    $ps.Runspace = $runspace
+
+    # Get VM names from config or use defaults
+    $vmNames = if ((Test-Path variable:GlobalLabConfig) -and $GlobalLabConfig.Lab.CoreVMNames) {
+        @($GlobalLabConfig.Lab.CoreVMNames)
+    } else {
+        @('dc1', 'svr1', 'ws1')
+    }
+
+    # Build the collection script block
+    $collectionScript = {
+        param($syncHash, $vmList)
+
+        # Import required functions (they're in the same session)
+        # Note: Private/Public functions are already loaded in parent scope
+
+        while ($syncHash['Continue']) {
+            try {
+                # Collect metrics for all VMs
+                foreach ($vmName in $vmList) {
+                    $metrics = Get-LabVMMetrics -VMName $vmName -ErrorAction SilentlyContinue
+
+                    if ($metrics) {
+                        # Store in synchronized hashtable
+                        $syncHash[$vmName] = @{
+                            SnapshotAge      = $metrics.SnapshotAge
+                            DiskUsageGB      = $metrics.DiskUsageGB
+                            DiskUsagePercent = $metrics.DiskUsagePercent
+                            UptimeHours      = $metrics.UptimeHours
+                            STIGStatus       = $metrics.STIGStatus
+                        }
+                    }
+                }
+
+                # Update LastUpdated timestamp
+                $syncHash['LastUpdated'] = Get-Date
+            }
+            catch {
+                # Silently log errors - don't crash the runspace
+                $syncHash['LastError'] = (Get-Date).ToString() + ": $($_.Exception.Message)"
+            }
+
+            # Wait 60 seconds before next collection
+            Start-Sleep -Seconds 60
+        }
+    }.GetNewClosure()
+
+    # Add parameters to the script
+    $null = $ps.AddScript($collectionScript).AddParameter('syncHash', $script:DashboardMetrics).AddParameter('vmList', $vmNames)
+
+    # Invoke the script asynchronously
+    $handle = $ps.BeginInvoke()
+
+    # Return the runspace info for later cleanup
+    return @{
+        Runspace  = $runspace
+        PowerShell = $ps
+        Handle    = $handle
+    }
+}
+
+# ── Stop dashboard metrics refresh runspace ──────────────────────────────
+function Stop-DashboardMetricsRefreshRunspace {
+    <#
+    .SYNOPSIS
+        Stops and disposes the dashboard metrics refresh runspace.
+
+    .DESCRIPTION
+        Sets the Continue flag to false, waits for the runspace to complete,
+        then disposes the PowerShell instance and runspace. Called from the
+        window Closing event handler to prevent resource leaks.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($null -ne $script:MetricsRefreshRunspace) {
+        # Signal the runspace to exit
+        $script:DashboardMetrics['Continue'] = $false
+
+        # Wait for the runspace to finish (max 5 seconds)
+        if (-not $script:MetricsRefreshRunspace.Handle.IsCompleted) {
+            $script:MetricsRefreshRunspace.Handle.AsyncWaitHandle.WaitOne(5000) | Out-Null
+        }
+
+        # Stop and dispose
+        try {
+            $script:MetricsRefreshRunspace.PowerShell.Stop()
+            $script:MetricsRefreshRunspace.PowerShell.Dispose()
+            $script:MetricsRefreshRunspace.Runspace.Dispose()
+        }
+        catch {
+            # Dispose errors are non-critical
+        }
+
+        $script:MetricsRefreshRunspace = $null
+    }
 }
 
 # ── Network topology canvas drawing ───────────────────────────────────
@@ -774,6 +1049,8 @@ function Initialize-DashboardView {
             $name = $vmData.VMName
             if ($script:VMCards.ContainsKey($name)) {
                 Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
+                # Update enriched metrics (reads from background runspace hashtable)
+                Update-VMCardWithMetrics -Card $script:VMCards[$name] -VMName $name
             }
         }
         Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
@@ -800,6 +1077,8 @@ function Initialize-DashboardView {
                     $name = $vmData.VMName
                     if ($script:VMCards.ContainsKey($name)) {
                         Update-VMCard -Card $script:VMCards[$name] -VMData $vmData
+                        # Update enriched metrics (reads from background runspace hashtable)
+                        Update-VMCardWithMetrics -Card $script:VMCards[$name] -VMName $name
                     }
                 }
                 Update-TopologyCanvas -Canvas $script:TopologyCanvas -VMStatuses $statuses
@@ -811,6 +1090,11 @@ function Initialize-DashboardView {
             }
         }.GetNewClosure())
         $script:VMPollTimer.Start()
+    }
+
+    # ── Start background metrics refresh runspace ────────────────────
+    if ($null -eq $script:MetricsRefreshRunspace) {
+        $script:MetricsRefreshRunspace = Start-DashboardMetricsRefreshRunspace
     }
 }
 
