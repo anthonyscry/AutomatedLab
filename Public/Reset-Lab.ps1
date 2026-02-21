@@ -135,6 +135,19 @@ function Reset-Lab {
             }
         }
 
+        # Step 4.5: Unregister TTL monitoring task
+        Write-Host ""
+        Write-Host "Removing TTL monitoring task..." -ForegroundColor Cyan
+        try {
+            $ttlResult = Unregister-LabTTLTask
+            if ($ttlResult.TaskRemoved) {
+                Write-Host "  Removed TTL monitoring task" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Warning "TTL task cleanup failed: $($_.Exception.Message)"
+        }
+
         # Step 5: Remove checkpoints first
         Write-Host ""
         Write-Host "Removing checkpoints..." -ForegroundColor Cyan
