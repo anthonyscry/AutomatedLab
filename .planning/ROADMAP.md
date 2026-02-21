@@ -90,7 +90,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 **Milestone Goal:** Config-driven lab TTL with background task monitoring, role-aware DISA STIG DSC baselines auto-applied at deploy time, ADMX/GPO auto-import after DC promotion, and enriched operational dashboard consuming all new data sources.
 
 - [x] **Phase 26: Lab TTL & Lifecycle Monitoring** - Config-driven auto-suspend with background scheduled task and uptime query (completed 2026-02-21)
-- [ ] **Phase 27: PowerSTIG DSC Baselines** (4 plans) - Role-aware STIG baselines applied at deploy time with per-VM exception overrides and compliance cache
+- [x] **Phase 27: PowerSTIG DSC Baselines** (4 plans) - Role-aware STIG baselines applied at deploy time with per-VM exception overrides and compliance cache (completed 2026-02-21)
 - [ ] **Phase 28: ADMX / GPO Auto-Import** - ADMX Central Store population and baseline GPO creation after DC promotion
 - [ ] **Phase 29: Dashboard Enrichment** - Snapshot age, disk usage, uptime, and STIG compliance columns with background runspace data collection
 
@@ -163,7 +163,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 | 18-21. Config Management | v1.4 | 8/8 | Complete | 2026-02-20 |
 | 22-25. Advanced Scenarios | v1.5 | 8/8 | Complete | 2026-02-21 |
 | 26. Lab TTL & Lifecycle Monitoring | 2/3 | Complete    | 2026-02-21 | - |
-| 27. PowerSTIG DSC Baselines | 3/4 | In Progress|  | - |
+| 27. PowerSTIG DSC Baselines | 4/4 | Complete   | 2026-02-21 | - |
 | 28. ADMX / GPO Auto-Import | v1.6 | 0/? | Not started | - |
 | 29. Dashboard Enrichment | v1.6 | 0/? | Not started | - |
 

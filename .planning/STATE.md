@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 27 of 29 (PowerSTIG DSC Baselines)
-Plan: 3 of 4
-Status: In progress
-Last activity: 2026-02-21 — Phase 27 Plan 03 complete (Write-LabSTIGCompliance + Invoke-LabSTIGBaseline, 35 tests)
+Plan: 4 of 4 (complete)
+Status: Phase complete
+Last activity: 2026-02-21 — Phase 27 Plan 04 complete (Public STIG cmdlets + PostInstall integration, 22 new tests, 97 total STIG tests)
 
-Progress: [█░░░░░░░░░] 15% (v1.6)
+Progress: [██░░░░░░░░] 20% (v1.6)
 
 ## Performance Metrics
 
@@ -41,6 +41,8 @@ Full log in PROJECT.md Key Decisions table. Key decisions for v1.6:
 - DSC modules must install -Scope AllUsers (machine scope) — CurrentUser silently fails under SYSTEM context
 - [Phase 27-03]: Side-effect Invoke-Command calls piped to Out-Null — prevents null pipeline leakage from mocks causing PSCustomObject to be wrapped in Object[] array
 - [Phase 27-03]: Pester 5: stub missing DSC cmdlets as global: functions in BeforeAll so Pester can mock them on non-Windows test host
+- [Phase 27]: Private function renamed to Invoke-LabSTIGBaselineCore to avoid public/private naming collision; Public wrapper uses splatted params to correctly pass no-VMName case
+- [Phase 27]: Member server STIG placed in Build-LabFromSelection.ps1 Phase 11.5 — single location covers all current and future member server roles
 
 ### Pending Todos
 
@@ -54,9 +56,9 @@ None
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 27-03-PLAN.md (Write-LabSTIGCompliance + Invoke-LabSTIGBaseline, 35 tests)
+Stopped at: Completed 27-04-PLAN.md (Public STIG cmdlets + PostInstall integration, 22 new tests)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-21 after Phase 27 Plan 03 completion*
+*Last updated: 2026-02-21 after Phase 27 Plan 04 completion*
