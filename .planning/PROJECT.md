@@ -8,20 +8,20 @@ A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual m
 
 Every function handles errors explicitly, surfaces clear diagnostics, and stays modular enough that each piece can be tested and maintained independently.
 
-## Current Milestone: v1.7 Operational Excellence & Analytics
+## Current Milestone: v1.8 Cloud Integration & Hybrid Labs
 
-**Goal:** Enhance operational visibility with lab analytics, advanced reporting, performance metrics, and workflow automation.
+**Goal:** Enable hybrid lab scenarios combining on-premises Hyper-V with Azure cloud resources.
 
 **Target features:**
-- Lab usage analytics and insights
-- Advanced reporting capabilities (resource trends, compliance reports)
-- Operational workflow enhancements (bulk operations, scheduling)
-- Performance metrics and optimization guidance
+- Azure VM provisioning alongside local Hyper-V
+- Hybrid network connectivity (VPN/ExpressRoute patterns)
+- Cloud image library integration
+- Cross-platform workload orchestration
 
 ## Current State
 
-**Version:** v1.7 in planning (v1.6 shipped 2026-02-21)
-**Tests:** 1,300+ Pester tests + 94 new (v1.6) = 1,394+ total
+**Version:** v1.8 in planning (v1.7 shipped 2026-02-21)
+**Tests:** 1,394+ Pester tests + 180+ new (v1.7) = 1,570+ total
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help, mixed OS workflows
 
