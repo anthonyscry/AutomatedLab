@@ -122,11 +122,12 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
   4. After STIG application, compliance status is written to .planning/stig-compliance.json with per-VM results and a last-checked timestamp
   5. Per-VM STIG exception overrides declared in the Lab-Config.ps1 STIG block are applied at compile time — specified rules are skipped without affecting other VMs
   6. Operator can run Invoke-LabSTIGBaseline -VMName <name> on demand to re-apply baselines; Get-LabSTIGCompliance returns a per-VM compliance table from the cached JSON
-**Plans**: 4 plans
-- [ ] 27-01-PLAN.md -- STIG config block and safe config reader (STIG-04)
-- [ ] 27-02-PLAN.md -- STIG profile mapper and PowerSTIG pre-flight check (STIG-01, STIG-02)
-- [ ] 27-03-PLAN.md -- Core STIG baseline engine and compliance cache writer (STIG-01, STIG-02, STIG-03, STIG-05)
-- [ ] 27-04-PLAN.md -- Public cmdlets and PostInstall integration (STIG-05, STIG-06)
+**Plans**: 5 plans
+- [x] 27-01-PLAN.md -- STIG config block and safe config reader (STIG-04)
+- [x] 27-02-PLAN.md -- STIG profile mapper and PowerSTIG pre-flight check (STIG-01, STIG-02)
+- [x] 27-03-PLAN.md -- Core STIG baseline engine and compliance cache writer (STIG-01, STIG-02, STIG-03, STIG-05)
+- [x] 27-04-PLAN.md -- Public cmdlets and PostInstall integration (STIG-05, STIG-06)
+- [ ] 27-05-PLAN.md -- Gap closure: MOF compilation + exception wiring (STIG-01, STIG-02, STIG-04, STIG-05)
 
 ### Phase 28: ADMX / GPO Auto-Import
 **Goal**: After DC promotion completes, the ADMX Central Store is automatically populated and optional baseline GPOs are created and linked to the domain root from JSON template definitions
