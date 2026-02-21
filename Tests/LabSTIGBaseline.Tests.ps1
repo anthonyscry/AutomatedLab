@@ -42,7 +42,7 @@ BeforeAll {
     }
 }
 
-Describe 'Invoke-LabSTIGBaselineCoreCore' {
+Describe 'Invoke-LabSTIGBaselineCore' {
 
     Context 'No-op scenarios' {
 
@@ -84,6 +84,8 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                # MOF compile+apply scriptblock (contains Import-Module PowerSTIG)
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
         }
@@ -132,6 +134,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 }
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
         }
@@ -173,6 +176,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 5 }  # 4 or 5 = DC
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
 
@@ -189,6 +193,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }  # Member server
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
 
@@ -205,6 +210,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.20348.500' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
 
@@ -221,6 +227,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.99999.0' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
 
@@ -245,6 +252,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
             $script:complianceCallArgs = $null
@@ -279,6 +287,33 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
 
             $script:complianceCallArgs.ExceptionsApplied | Should -Be 0
         }
+
+        It 'Passes exception V-numbers to Invoke-Command scriptblock for MOF compilation' {
+            Mock Get-LabSTIGConfig {
+                script:New-TestSTIGConfig -Exceptions @{ 'ExcVM' = @('V-12345', 'V-67890') }
+            }
+            $script:mofCompileArgs = $null
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') {
+                    # Capture ArgumentList to verify exceptions were passed
+                    $script:mofCompileArgs = $ArgumentList
+                    return $null
+                }
+                return $null
+            }
+
+            Invoke-LabSTIGBaselineCore -VMName 'ExcVM'
+
+            # ArgumentList[2] is the ExceptionList passed to the scriptblock
+            $script:mofCompileArgs | Should -Not -BeNullOrEmpty
+            $script:mofCompileArgs[2] | Should -Contain 'V-12345'
+            $script:mofCompileArgs[2] | Should -Contain 'V-67890'
+        }
     }
 
     Context 'DSC operations' {
@@ -288,21 +323,24 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
             Mock Test-PowerStigInstallation {
                 [pscustomobject]@{ Installed = $true; Version = '4.28.0'; MissingModules = @(); ComputerName = $ComputerName }
             }
+            $script:dscApplied = $false
             Mock Invoke-Command {
                 param($ComputerName, $ScriptBlock, $ArgumentList)
                 $scriptText = $ScriptBlock.ToString()
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') {
+                    # Simulate the compile+apply scriptblock executing successfully
+                    $script:dscApplied = $true
+                    return $null
+                }
                 return $null
             }
-            $script:dscApplied = $false
-            Mock Start-DscConfiguration {
-                $script:dscApplied = $true
-            }
+            Mock Start-DscConfiguration { }
         }
 
-        It 'Applies MOF via Start-DscConfiguration in push mode' {
+        It 'Applies MOF via Start-DscConfiguration in push mode (Invoke-Command with PowerSTIG scriptblock)' {
             Mock Write-LabSTIGCompliance { }
             Mock Test-DscConfiguration { $true }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Success' } }
@@ -335,6 +373,15 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 $script:complianceError  = $ErrorMessage
             }
             Mock Start-DscConfiguration { throw 'DSC push failed: LCM error' }
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { throw 'DSC push failed: LCM error' }
+                return $null
+            }
             Mock Test-DscConfiguration { $false }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Failure' } }
 
@@ -342,6 +389,107 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
 
             $script:complianceStatus | Should -Be 'Failed'
             $script:complianceError  | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'MOF compilation' {
+
+        BeforeEach {
+            Mock Get-LabSTIGConfig { script:New-TestSTIGConfig }
+            Mock Write-LabSTIGCompliance { }
+            Mock Test-PowerStigInstallation {
+                [pscustomobject]@{ Installed = $true; Version = '4.28.0'; MissingModules = @(); ComputerName = $ComputerName }
+            }
+            Mock Test-DscConfiguration { $true }
+            Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Success' } }
+            Mock Start-DscConfiguration { }
+            $script:mofCompileInvoked = $false
+            $script:mofCompileScriptBlock = $null
+        }
+
+        It 'Invokes Invoke-Command with a scriptblock containing WindowsServer PowerSTIG Configuration' {
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') {
+                    $script:mofCompileInvoked = $true
+                    $script:mofCompileScriptBlock = $scriptText
+                    return $null
+                }
+                return $null
+            }
+
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
+
+            $script:mofCompileInvoked | Should -Be $true
+            $script:mofCompileScriptBlock | Should -Match 'WindowsServer'
+        }
+
+        It 'Invokes Invoke-Command with LabSTIGBaseline Configuration that calls Start-DscConfiguration -Path' {
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') {
+                    $script:mofCompileScriptBlock = $scriptText
+                    return $null
+                }
+                return $null
+            }
+
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
+
+            $script:mofCompileScriptBlock | Should -Match 'Start-DscConfiguration'
+            $script:mofCompileScriptBlock | Should -Match '-Path'
+        }
+
+        It 'Passes StigVersion and OsRole as ArgumentList to the MOF compilation Invoke-Command' {
+            $script:capturedArgs = $null
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') {
+                    $script:capturedArgs = $ArgumentList
+                    return $null
+                }
+                return $null
+            }
+
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
+
+            # ArgumentList[0] = StigVersion, [1] = OsRole
+            $script:capturedArgs | Should -Not -BeNullOrEmpty
+            $script:capturedArgs[0] | Should -Not -BeNullOrEmpty  # StigVersion
+            $script:capturedArgs[1] | Should -Not -BeNullOrEmpty  # OsRole
+        }
+
+        It 'Removes temp MOF directory after successful DSC apply (cleanup in scriptblock)' {
+            # Verify scriptblock contains Remove-Item cleanup logic
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') {
+                    $script:mofCompileScriptBlock = $scriptText
+                    return $null
+                }
+                return $null
+            }
+
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
+
+            $script:mofCompileScriptBlock | Should -Match 'Remove-Item'
+            $script:mofCompileScriptBlock | Should -Match 'LabSTIG'
         }
     }
 
@@ -364,6 +512,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
             Mock Write-LabSTIGCompliance {
@@ -398,6 +547,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
             Mock Start-DscConfiguration { }
@@ -428,7 +578,15 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
         }
 
         It 'RemainingIssues array contains entry on failed VM' {
-            Mock Start-DscConfiguration { throw 'DSC push failed' }
+            Mock Invoke-Command {
+                param($ComputerName, $ScriptBlock, $ArgumentList)
+                $scriptText = $ScriptBlock.ToString()
+                if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
+                if ($scriptText -match 'DomainRole') { return 3 }
+                if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { throw 'DSC push failed' }
+                return $null
+            }
             Mock Write-LabSTIGCompliance { }
 
             $result = Invoke-LabSTIGBaselineCore -VMName 'FailVM'
@@ -451,6 +609,7 @@ Describe 'Invoke-LabSTIGBaselineCoreCore' {
                 if ($scriptText -match 'Win32_OperatingSystem') { return '10.0.17763.1234' }
                 if ($scriptText -match 'DomainRole') { return 3 }
                 if ($scriptText -match 'MaxEnvelopeSizekb') { return $null }
+                if ($scriptText -match 'Import-Module PowerSTIG') { return $null }
                 return $null
             }
             Mock Write-LabSTIGCompliance {
