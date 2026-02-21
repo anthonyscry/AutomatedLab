@@ -102,7 +102,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 - [ ] **Phase 30: Lab Analytics** - Usage trends, data export, event tracking (0/0 plans)
 - [ ] **Phase 31: Advanced Reporting** - Compliance reports, resource trends, scheduled generation (0/0 plans)
-- [ ] **Phase 32: Operational Workflows** - Bulk operations, custom workflows, pre-flight checks (0/0 plans)
+- [x] **Phase 32: Operational Workflows** - Bulk operations, custom workflows, pre-flight checks (0/0 plans) (completed 2026-02-21)
 - [ ] **Phase 33: Performance Guidance** - Performance metrics, optimization suggestions, historical analysis (0/0 plans)
 
 ## Phase Details
@@ -645,7 +645,7 @@ Plans:
 | 26-29. Lifecycle & Security | v1.6 | 17/17 | Complete | 2026-02-21 |
 | 30. Lab Analytics | v1.7 | 3/3 | Ready to execute | - |
 | 31. Advanced Reporting | v1.7 | 4/4 | Ready to plan | - |
-| 32. Operational Workflows | 3/4 | In Progress|  | - |
+| 32. Operational Workflows | 4/4 | Complete   | 2026-02-21 | - |
 | 33. Performance Guidance | v1.7 | 0/? | Not started | - |
 
 **Total shipped: 95 plans across 29 phases.**
