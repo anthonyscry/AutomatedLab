@@ -25,6 +25,30 @@ function Select-LabRoles {
 
     # Initialize selection state — one bool per RoleMenu entry
     $roleMenu = $Config.RoleMenu
+
+    # Append custom roles (auto-discovered from .planning/roles/)
+    $customRoleLoaderPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Private'
+    $customValidatorPath = Join-Path $customRoleLoaderPath 'Test-LabCustomRoleSchema.ps1'
+    $customRoleLoaderPath = Join-Path $customRoleLoaderPath 'Get-LabCustomRole.ps1'
+    if (Test-Path $customRoleLoaderPath) {
+        . $customValidatorPath
+        . $customRoleLoaderPath
+        $customRoles = Get-LabCustomRole -List
+        if ($customRoles -and $customRoles.Count -gt 0) {
+            # Add separator before custom roles
+            $roleMenu += @(@{ Separator = $true; Label = '-- Custom Roles --' })
+            foreach ($cr in $customRoles) {
+                $label = "$($cr.Name) ($($cr.Description))"
+                if ($label.Length -gt 50) {
+                    $label = $label.Substring(0, 47) + '...'
+                }
+                $roleMenu += @(@{ Tag = $cr.Tag; Label = $label; Locked = $false; IsCustomRole = $true })
+            }
+        }
+    }
+    # Convert to array if it was modified (ArrayList issue in PS 5.1)
+    $roleMenu = @($roleMenu)
+
     $count = $roleMenu.Count
     $selected = New-Object bool[] $count
     $displayMap = @()
@@ -181,6 +205,7 @@ function Select-LabRoles {
             Write-Host '    DatabaseUbuntu  Ubuntu database (LINDB1 + PostgreSQL)' -ForegroundColor Gray
             Write-Host '    DockerUbuntu    Ubuntu Docker host (LINDOCK1 + Docker CE)' -ForegroundColor Gray
             Write-Host '    K8sUbuntu       Ubuntu Kubernetes (LINK8S1 + k3s)' -ForegroundColor Gray
+            Write-Host '    Custom roles are auto-discovered from .planning/roles/*.json' -ForegroundColor Gray
             Write-Host ''
             Read-Host '  Press Enter to continue'
         }
