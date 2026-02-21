@@ -24,7 +24,7 @@ Progress: [██████████] 100% (v1.6 Milestone)
 **v1.3 Lab Scenarios & Operator Tooling:** 4 phases, 8 plans, 14 requirements
 **v1.4 Configuration Management & Reporting:** 4 phases, 8 plans, 13 requirements
 **v1.5 Advanced Scenarios & Multi-OS:** 4 phases, 8 plans, 16 requirements (~226 new tests)
-**v1.6 Lab Lifecycle & Security Automation:** 4 phases, 17 plans, 18 requirements (66 new tests)
+**v1.6 Lab Lifecycle & Security Automation:** 4 phases, 17 plans, 18 requirements (94 new tests)
 
 **Total: 29 phases, 95 plans, 147 requirements across 7 milestones**
 

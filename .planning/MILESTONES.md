@@ -153,44 +153,41 @@
 
 ## v1.6 — Lab Lifecycle & Security Automation (2026-02-20 → 2026-02-21)
 
-**Goal:** Config-driven lab TTL with background task monitoring, role-aware DISA STIG DSC baselines auto-applied at deploy time, and ADMX/GPO auto-import after DC promotion.
+**Goal:** Config-driven lab TTL with background task monitoring, role-aware DISA STIG DSC baselines auto-applied at deploy time, ADMX/GPO auto-import after DC promotion, and dashboard enrichment with per-VM metrics.
 
-**Phases:** 26–28 (3 phases, 12 plans)
-**Requirements:** 14/14 complete (TTL-01 through TTL-03, STIG-01 through STIG-06, GPO-01 through GPO-04)
-**Tests:** 66 new Pester tests
+**Phases:** 26–29 (4 phases, 17 plans)
+**Requirements:** 18/18 complete (TTL-01 through TTL-03, STIG-01 through STIG-06, GPO-01 through GPO-04, DASH-01 through DASH-05)
+**Tests:** 94 new Pester tests (28 for Phase 29 alone)
 
 **What shipped:**
 - Lab TTL configuration with Get-LabTTLConfig helper, ContainsKey guards, and background scheduled task (Phase 26)
-- TTL monitor with auto-suspend, lab uptime query, and teardown integration (Phase 26)
+- TTL monitor with wall-clock and idle threshold checking, auto-suspend, lab uptime query, and teardown integration (Phase 26)
 - PowerSTIG STIG config block following TTL pattern with Get-LabSTIGConfig (Phase 27)
 - STIG profile mapper and PowerSTIG pre-flight check with OS version detection (Phase 27)
-- Core STIG baseline engine with Write-LabSTIGCompliance cache writer (Phase 27)
+- Core STIG baseline engine with DSC MOF compilation and Write-LabSTIGCompliance cache writer (Phase 27)
 - Public STIG cmdlets (Invoke-LabSTIGBaseline, Get-LabSTIGCompliance) and PostInstall integration (Phase 27)
 - ADMX configuration block with Get-LabADMXConfig helper (Phase 28)
 - Wait-LabADReady with Get-ADDomain polling to gate ADWS readiness (Phase 28)
 - Invoke-LabADMXImport for Central Store population from DC PolicyDefinitions (Phase 28)
 - Four baseline GPO JSON templates (password, lockout, audit, AppLocker) with CreateBaselineGPO support (Phase 28)
 - DC PostInstall step 4 integration for ADMX/GPO operations (Phase 28)
+- Dashboard enrichment with 4 new metrics: snapshot age, disk usage, VM uptime, STIG compliance (Phase 29)
+- 60-second background runspace for non-blocking metric collection with synchronized hashtable (Phase 29)
+- Get-LabDashboardConfig, Get-LabSnapshotAge, Get-LabVMDiskUsage, Get-LabVMMetrics helpers (Phase 29)
+- VMCard.xaml updates with emoji status badges and metric rows (Phase 29)
 
 **Key decisions:**
 - TTL defaults to disabled — operator must opt in to auto-suspend
 - STIG defaults to disabled — operator must opt in to DISA baselines
 - ADMX Enabled defaults to true, CreateBaselineGPO defaults to false — import runs by default, GPOs are opt-in
 - Wait-LabADReady uses 120s timeout with 10s retry interval for ADWS startup race condition
+- DSC Configuration in here-string + Invoke-Expression avoids ParseException on Linux test hosts
+- Dashboard uses 60-second background runspace with synchronized hashtable — UI thread never blocks
+- STA apartment state required for WPF runspace compatibility
 - PowerShell 5.1 compatibility fixes for single-element array unwrapping and Get-ChildItem -File
 - Per-template error isolation for GPO creation — one failure doesn't block others
 
-**Last phase number:** 28
-
----
-
-
-## v1.6 Lab Lifecycle & Security Automation (Shipped: 2026-02-21)
-
-**Phases completed:** 19 phases, 47 plans, 20 tasks
-
-**Key accomplishments:**
-- (none recorded)
+**Last phase number:** 29
 
 ---
 
