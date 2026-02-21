@@ -107,7 +107,11 @@ Plans:
 - VLAN IDs assignable per VM adapter
 - Pre-deployment validation catches subnet overlap across switches
 
-**Plans:** TBD (created during `/gsd:plan-phase 23`)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 23-01-PLAN.md — Multi-switch config schema, creation, and subnet conflict validation
+- [ ] 23-02-PLAN.md — VM-to-switch assignment, VLAN tagging, and inter-subnet routing
 
 ---
 
