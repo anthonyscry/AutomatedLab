@@ -9,7 +9,8 @@
 - ✅ **v1.4 Configuration Management & Reporting** - Phases 18-21 (shipped 2026-02-20)
 - ✅ **v1.5 Advanced Scenarios & Multi-OS** - Phases 22-25 (shipped 2026-02-21)
 - ✅ **v1.6 Lab Lifecycle & Security Automation** - Phases 26-29 (shipped 2026-02-21)
-- 🔄 **v1.7 Operational Excellence & Analytics** - Phases 30-33 (in planning)
+- ✅ **v1.7 Operational Excellence & Analytics** - Phases 30-33 (shipped 2026-02-21)
+- ~~v1.8 Cloud Integration & Hybrid Labs~~ - *Cancelled; project complete at v1.7*
 
 ## Phases
 
@@ -98,12 +99,21 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 </details>
 
-### 🔄 v1.7 Operational Excellence & Analytics (In Planning)
+<details>
+<summary>✅ v1.7 Operational Excellence & Analytics (Phases 30-33) - SHIPPED 2026-02-21</summary>
 
-- [ ] **Phase 30: Lab Analytics** - Usage trends, data export, event tracking (0/0 plans)
-- [ ] **Phase 31: Advanced Reporting** - Compliance reports, resource trends, scheduled generation (0/0 plans)
-- [x] **Phase 32: Operational Workflows** - Bulk operations, custom workflows, pre-flight checks (0/0 plans) (completed 2026-02-21)
-- [ ] **Phase 33: Performance Guidance** - Performance metrics, optimization suggestions, historical analysis (0/0 plans)
+- [x] Phase 30: Lab Analytics (3/3 plans) — completed 2026-02-21
+- [x] Phase 31: Advanced Reporting (3/3 plans) — completed 2026-02-21
+- [x] Phase 32: Operational Workflows (4/4 plans) — completed 2026-02-21
+- [x] Phase 33: Performance Guidance (3/3 plans) — completed 2026-02-21
+
+Full details: `.planning/milestones/v1.7-ROADMAP.md`
+
+</details>
+
+~~### v1.8 Cloud Integration & Hybrid Labs (Cancelled)~~
+
+*This milestone was planned but cancelled. The project is complete at v1.7.*
 
 ## Phase Details
 
@@ -563,7 +573,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 </details>
 
 <details>
-<summary>🔄 Phase 30: Lab Analytics - PLANNED</summary>
+<summary>✅ Phase 30: Lab Analytics - COMPLETE</summary>
 
 **Goal**: Lab usage trends, data export, and automatic event tracking for operational visibility
 **Depends on**: Phase 29
@@ -573,17 +583,12 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
   2. Operator can export lab usage data to CSV/JSON for external analysis
   3. System automatically tracks lab creation, deployment, and teardown events in analytics log
   4. Analytics data persists across PowerShell sessions
-**Plans**: 3/3 plans
-
-Plans:
-- [ ] 30-01-PLAN.md — Analytics event tracking infrastructure (ANLY-03)
-- [ ] 30-02-PLAN.md — Usage trends data collection (ANLY-01)
-- [ ] 30-03-PLAN.md — Data export functionality (ANLY-02)
+**Plans**: 3/3 complete
 
 </details>
 
 <details>
-<summary>🔄 Phase 31: Advanced Reporting - PLANNED</summary>
+<summary>✅ Phase 31: Advanced Reporting - COMPLETE</summary>
 
 **Goal**: Compliance reports, resource utilization reports, scheduled report generation, and audit trail
 **Depends on**: Phase 30
@@ -593,12 +598,12 @@ Plans:
   2. Operator can generate resource utilization reports (disk, memory, CPU trends)
   3. Operator can schedule automated report generation (daily/weekly compliance snapshots)
   4. Reports include timestamp, lab name, and summary statistics for audit trail
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 </details>
 
 <details>
-<summary>🔄 Phase 32: Operational Workflows - PLANNED</summary>
+<summary>✅ Phase 32: Operational Workflows - COMPLETE</summary>
 
 **Goal**: Bulk VM operations, custom operation workflows, pre-flight validation, and confirmation summaries
 **Depends on**: Phase 31
@@ -608,18 +613,12 @@ Plans:
   2. Operator can create custom operation workflows (scripts that combine common actions)
   3. System validates bulk operations before execution (pre-flight checks, resource availability)
   4. Operator receives confirmation summary after bulk operations complete
-**Plans**: 4/4 plans
-
-Plans:
-- [ ] 32-01-PLAN.md — Bulk VM operations with parallel execution support (OPS-01)
-- [ ] 32-02-PLAN.md — Custom operation workflow infrastructure (OPS-02)
-- [ ] 32-03-PLAN.md — Pre-flight validation for bulk operations (OPS-03)
-- [ ] 32-04-PLAN.md — Confirmation summaries with audit trail logging (OPS-04)
+**Plans**: 4/4 complete
 
 </details>
 
 <details>
-<summary>🔄 Phase 33: Performance Guidance - PLANNED</summary>
+<summary>✅ Phase 33: Performance Guidance - COMPLETE</summary>
 
 **Goal**: Performance metrics for VM operations, optimization suggestions, and historical analysis
 **Depends on**: Phase 32
@@ -628,12 +627,7 @@ Plans:
   1. Operator can view performance metrics for VM operations (provision time, snapshot duration)
   2. System provides optimization suggestions when performance degradation detected
   3. Performance data is collected automatically and stored for historical analysis
-**Plans**: 3/3 plans
-
-Plans:
-- [ ] 33-01-PLAN.md — Performance metrics collection infrastructure (PERF-01, PERF-03)
-- [ ] 33-02-PLAN.md — Performance metrics querying and display (PERF-01)
-- [ ] 33-03-PLAN.md — Optimization suggestions and analysis (PERF-02)
+**Plans**: 3/3 complete
 
 </details>
 
@@ -648,13 +642,11 @@ Plans:
 | 18-21. Config Management | v1.4 | 8/8 | Complete | 2026-02-20 |
 | 22-25. Advanced Scenarios | v1.5 | 8/8 | Complete | 2026-02-21 |
 | 26-29. Lifecycle & Security | v1.6 | 17/17 | Complete | 2026-02-21 |
-| 30. Lab Analytics | v1.7 | 3/3 | Ready to execute | - |
-| 31. Advanced Reporting | v1.7 | 4/4 | Ready to plan | - |
-| 32. Operational Workflows | 4/4 | Complete    | 2026-02-21 | - |
-| 33. Performance Guidance | v1.7 | 0/? | Not started | - |
+| 30-33. Operational Excellence | v1.7 | 13/13 | Complete | 2026-02-21 |
 
-**Total shipped: 95 plans across 29 phases.**
+**Total shipped: 108 plans across 33 phases.**
+**Project Status: COMPLETE at v1.7**
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
-*v1.7 milestone added: 2026-02-21*
+*Project completed: 2026-02-21 (v1.7)*

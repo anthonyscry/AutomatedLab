@@ -3,37 +3,37 @@
 **Defined:** 2026-02-21
 **Core Value:** Every function handles errors explicitly, surfaces clear diagnostics, and stays modular enough that each piece can be tested and maintained independently.
 
-## v1.8 Requirements
+## v2 Requirements (Cancelled)
 
-Requirements for Cloud Integration & Hybrid Labs milestone. Each maps to roadmap phases.
+~~The following requirements were planned for v1.8 Cloud Integration & Hybrid Labs but were cancelled when the project was completed at v1.7.~~
 
-### Azure Integration
+### ~~Azure Integration~~
 
-- [ ] **AZ-01**: Operator can provision Azure VMs alongside Hyper-V VMs in a single lab definition
-- [ ] **AZ-02**: Operator can specify Azure credentials and subscription in Lab-Config.ps1
-- [ ] **AZ-03**: System validates Azure connectivity before provisioning (pre-flight check)
-- [ ] **AZ-04**: Azure VMs appear in Get-LabVM output alongside local VMs
+~~- **AZ-01**: Operator can provision Azure VMs alongside Hyper-V VMs in a single lab definition~~
+~~- **AZ-02**: Operator can specify Azure credentials and subscription in Lab-Config.ps1~~
+~~- **AZ-03**: System validates Azure connectivity before provisioning (pre-flight check)~~
+~~- **AZ-04**: Azure VMs appear in Get-LabVM output alongside local VMs~~
 
-### Hybrid Networking
+### ~~Hybrid Networking~~
 
-- [ ] **HYB-01**: Operator can configure site-to-site VPN or ExpressRoute connectivity between on-prem and Azure
-- [ ] **HYB-02**: Operator can define network rules allowing cross-premise communication
-- [ ] **HYB-03**: System validates hybrid network configuration before applying
-- [ ] **HYB-04**: VMs in both environments can communicate according to network topology
+~~- **HYB-01**: Operator can configure site-to-site VPN or ExpressRoute connectivity between on-prem and Azure~~
+~~- **HYB-02**: Operator can define network rules allowing cross-premise communication~~
+~~- **HYB-03**: System validates hybrid network configuration before applying~~
+~~- **HYB-04**: VMs in both environments can communicate according to network topology~~
 
-### Cloud Image Management
+### ~~Cloud Image Management~~
 
-- [ ] **IMG-01**: Operator can reference Azure Marketplace images in lab definitions
-- [ ] **IMG-02**: Operator can specify custom Azure image templates
-- [ ] **IMG-03**: System caches Azure image metadata to avoid redundant API calls
+~~- **IMG-01**: Operator can reference Azure Marketplace images in lab definitions~~
+~~- **IMG-02**: Operator can specify custom Azure image templates~~
+~~- **IMG-03**: System caches Azure image metadata to avoid redundant API calls~~
 
-### Cross-Platform Orchestration
+### ~~Cross-Platform Orchestration~~
 
-- [ ] **XPL-01**: Common provisioning abstraction works for both Hyper-V and Azure VMs
-- [ ] **XPL-02**: Operator can run common operations (start/stop/snapshot) across hybrid VMs
-- [ ] **XPL-03**: System handles platform-specific operations transparently
+~~- **XPL-01**: Common provisioning abstraction works for both Hyper-V and Azure VMs~~
+~~- **XPL-02**: Operator can run common operations (start/stop/snapshot) across hybrid VMs~~
+~~- **XPL-03**: System handles platform-specific operations transparently~~
 
-## v2 Requirements
+## v2+ Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
 
@@ -63,30 +63,18 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+All requirements for v1.0-v1.7 have been completed. Requirements planned for v1.8 were cancelled when the project was finalized at v1.7.
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| AZ-01 | Phase 34 | Pending |
-| AZ-02 | Phase 34 | Pending |
-| AZ-03 | Phase 34 | Pending |
-| AZ-04 | Phase 34 | Pending |
-| HYB-01 | Phase 35 | Pending |
-| HYB-02 | Phase 35 | Pending |
-| HYB-03 | Phase 35 | Pending |
-| HYB-04 | Phase 35 | Pending |
-| IMG-01 | Phase 36 | Pending |
-| IMG-02 | Phase 36 | Pending |
-| IMG-03 | Phase 36 | Pending |
-| XPL-01 | Phase 37 | Pending |
-| XPL-02 | Phase 37 | Pending |
-| XPL-03 | Phase 37 | Pending |
+**Cancelled Requirements (v1.8 Cloud Integration):**
+- AZ-01 through AZ-04 (Azure Integration)
+- HYB-01 through HYB-04 (Hybrid Networking)
+- IMG-01 through IMG-03 (Cloud Image Management)
+- XPL-01 through XPL-03 (Cross-Platform Orchestration)
 
 **Coverage:**
-- v1.8 requirements: 14 total
-- Mapped to phases: TBD
-- Unmapped: 0 ✓
+- v1.0-v1.7 requirements: 161 total — **100% complete** ✓
+- v1.8 requirements: 14 cancelled — Project complete at v1.7
 
 ---
 *Requirements defined: 2026-02-21*
-*Last updated: 2026-02-21 after initial definition*
+*Last updated: 2026-02-21 — Project completed at v1.7*
