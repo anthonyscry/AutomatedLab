@@ -645,7 +645,7 @@ Plans:
 | 26-29. Lifecycle & Security | v1.6 | 17/17 | Complete | 2026-02-21 |
 | 30. Lab Analytics | v1.7 | 3/3 | Ready to execute | - |
 | 31. Advanced Reporting | v1.7 | 4/4 | Ready to plan | - |
-| 32. Operational Workflows | v1.7 | 4/4 | Ready to execute | - |
+| 32. Operational Workflows | 1/4 | In Progress|  | - |
 | 33. Performance Guidance | v1.7 | 0/? | Not started | - |
 
 **Total shipped: 95 plans across 29 phases.**
