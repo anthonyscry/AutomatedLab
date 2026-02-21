@@ -101,6 +101,24 @@ function Invoke-LabBulkOperation {
             }
         }
 
-        return $result
+        # Generate summary for operator feedback
+        $summary = Write-LabOperationSummary -Operation $result.Operation -Result $result
+
+        # Display summary if not in quiet mode
+        if (-not $PSBoundParameters.ContainsKey('ErrorAction') -or $ErrorActionPreference -ne 'SilentlyContinue') {
+            Write-Host $summary.FormattedSummary
+        }
+
+        return [pscustomobject]@{
+            Success       = $result.Success
+            Failed        = $result.Failed
+            Skipped       = $result.Skipped
+            OverallStatus = $result.OverallStatus
+            Operation     = $result.Operation
+            OperationCount = $result.OperationCount
+            Duration      = $result.Duration
+            Parallel      = $result.Parallel
+            Summary       = $summary
+        }
     }
 }
