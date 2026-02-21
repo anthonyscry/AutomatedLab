@@ -23,7 +23,7 @@ Requirements for Operational Excellence & Analytics milestone. Each maps to road
 ### Operational Workflows
 
 - [x] **OPS-01**: Operator can perform bulk VM operations (start/stop/suspend multiple VMs at once)
-- [ ] **OPS-02**: Operator can create custom operation workflows (scripts that combine common actions)
+- [x] **OPS-02**: Operator can create custom operation workflows (scripts that combine common actions)
 - [ ] **OPS-03**: System validates bulk operations before execution (pre-flight checks, resource availability)
 - [ ] **OPS-04**: Operator receives confirmation summary after bulk operations complete
 
@@ -82,7 +82,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RPT-03 | Phase 31 | Pending |
 | RPT-04 | Phase 31 | Pending |
 | OPS-01 | Phase 32 | Complete |
-| OPS-02 | Phase 32 | Pending |
+| OPS-02 | Phase 32 | Complete |
 | OPS-03 | Phase 32 | Pending |
 | OPS-04 | Phase 32 | Pending |
 | PERF-01 | Phase 33 | Pending |
