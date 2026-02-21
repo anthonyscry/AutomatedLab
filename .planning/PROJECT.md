@@ -8,10 +8,20 @@ A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual m
 
 Every function handles errors explicitly, surfaces clear diagnostics, and stays modular enough that each piece can be tested and maintained independently.
 
+## Current Milestone: v1.7 Operational Excellence & Analytics
+
+**Goal:** Enhance operational visibility with lab analytics, advanced reporting, performance metrics, and workflow automation.
+
+**Target features:**
+- Lab usage analytics and insights
+- Advanced reporting capabilities (resource trends, compliance reports)
+- Operational workflow enhancements (bulk operations, scheduling)
+- Performance metrics and optimization guidance
+
 ## Current State
 
-**Version:** v1.6 shipped (2026-02-21)
-**Tests:** 1,300+ Pester tests + 66 new (v1.6) = 1,366+ total
+**Version:** v1.7 in planning (v1.6 shipped 2026-02-21)
+**Tests:** 1,300+ Pester tests + 94 new (v1.6) = 1,394+ total
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help, mixed OS workflows
 
