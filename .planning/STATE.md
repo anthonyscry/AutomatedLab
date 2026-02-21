@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 ## Current Position
 
-Phase: 24 (Linux VM Parity)
-Plan: 2/2 plans — 24-02 complete
-Status: In progress — 24-02 complete (SSH retry logic in Invoke-LinuxRolePostInstall, CentOS Stream 9 role)
-Last activity: 2026-02-21 — completed 24-02 (configurable SSH retry, CentOS.ps1 role, Lab-Config CentOS entries, 57 new tests)
+Phase: 25 (Mixed OS Integration)
+Plan: 1/4 plans — 25-01 complete
+Status: In progress — 25-01 complete (MixedOSLab template, Linux role disk estimates)
+Last activity: 2026-02-21 — completed 25-01 (MixedOSLab.json, SecurityLab/MultiTierApp switch fields, resource estimator Linux roles)
 
-Progress: [████████████████████░░░░░░░░░░░░░░░░░░░░] 50% (23-01, 23-02, 24-01, 24-02 done)
+Progress: [█████████████████████░░░░░░░░░░░░░░░░░░░] 52% (23-01, 23-02, 24-01, 24-02, 25-01 done)
 
 ## Performance Metrics
 
@@ -78,6 +78,11 @@ Full log in PROJECT.md Key Decisions table.
 - CentOS post-install uses systemctl enable sshd (not ssh) matching RHEL service naming
 - ISOPattern 'CentOS-Stream-9*.iso' differentiates from Ubuntu — same Invoke-LinuxRoleCreateVM function
 
+**25-01:**
+- MixedOSLab uses DatabaseUbuntu (not CentOS) for database VM — Builder.IPPlan assigns 10.0.10.112 to DatabaseUbuntu, keeping IPs consistent with provisioning pipeline
+- switch field in scenario templates is operator metadata; Build-LabFromSelection reads actual switch assignments from Builder.IPPlan in Lab-Config.ps1
+- DatabaseUbuntu/DockerUbuntu/K8sUbuntu disk estimates set to 50GB vs Ubuntu base 40GB for data files and container image storage
+
 ### Pending Todos
 
 - None
@@ -89,7 +94,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 24-02-PLAN.md (SSH retry, CentOS role, 57 new tests)
+Stopped at: Completed 25-01-PLAN.md (MixedOSLab template, Linux role disk estimates)
 Resume file: None
 
 ---

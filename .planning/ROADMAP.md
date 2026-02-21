@@ -146,7 +146,7 @@ Plans:
 - Integration tests cover cross-OS provisioning, networking, and teardown
 - Documentation updated for mixed OS lab workflows
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 25-01-PLAN.md — Mixed OS scenario template, updated templates with switch fields, Linux disk estimation
@@ -156,8 +156,7 @@ Plans:
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
-| v1.0 | 1-6 | 25 | Complete | 2026-02-17 |
-| v1.1 | 7-10 | 13 | Complete | 2026-02-17 |
+| v1.0 | 1-6 | 25 | 1/2 | In Progress|  | v1.1 | 7-10 | 13 | Complete | 2026-02-17 |
 | v1.2 | 11-13 | 16 | Complete | 2026-02-20 |
 | v1.3 | 14-17 | 8 | Complete | 2026-02-20 |
 | v1.4 | 18-21 | 8 | Complete | 2026-02-20 |

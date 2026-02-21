@@ -29,7 +29,7 @@ Requirements for advanced scenarios and multi-OS milestone. Each maps to roadmap
 - [x] **LNX-02**: SSH-based role application works for all existing Linux roles with retry and timeout handling
 - [x] **LNX-03**: Linux VMs integrate with snapshot management (inventory, pruning, restore)
 - [x] **LNX-04**: Linux VMs integrate with configuration profiles (save/load preserves Linux VM settings)
-- [ ] **LNX-05**: Mixed OS scenarios work end-to-end (Windows DC + Linux app servers in same lab)
+- [x] **LNX-05**: Mixed OS scenarios work end-to-end (Windows DC + Linux app servers in same lab)
 - [x] **LNX-06**: CentOS/RHEL support added alongside existing Ubuntu (cloud-init or kickstart provisioning)
 
 ## v2 Requirements
@@ -82,7 +82,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LNX-02 | Phase 24 | Complete |
 | LNX-03 | Phase 24 | Complete |
 | LNX-04 | Phase 24 | Complete |
-| LNX-05 | Phase 25 | Pending |
+| LNX-05 | Phase 25 | Complete |
 | LNX-06 | Phase 24 | Complete |
 
 **Coverage:**
