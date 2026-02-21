@@ -6,7 +6,7 @@ BeforeAll {
     . (Join-Path $repoRoot 'Private/Get-LabSTIGProfile.ps1')
     . (Join-Path $repoRoot 'Private/Test-PowerStigInstallation.ps1')
     . (Join-Path $repoRoot 'Private/Write-LabSTIGCompliance.ps1')
-    . (Join-Path $repoRoot 'Private/Invoke-LabSTIGBaseline.ps1')
+    . (Join-Path $repoRoot 'Private/Invoke-LabSTIGBaselineCore.ps1')
 
     # Stub DSC cmdlets that don't exist on the test host (needed for Pester Mock)
     if (-not (Get-Command Start-DscConfiguration -ErrorAction SilentlyContinue)) {
@@ -42,14 +42,14 @@ BeforeAll {
     }
 }
 
-Describe 'Invoke-LabSTIGBaseline' {
+Describe 'Invoke-LabSTIGBaselineCoreCore' {
 
     Context 'No-op scenarios' {
 
         It 'Returns no-op result when STIG is disabled (Enabled=false)' {
             Mock Get-LabSTIGConfig { script:New-TestSTIGConfig -Enabled $false }
 
-            $result = Invoke-LabSTIGBaseline
+            $result = Invoke-LabSTIGBaselineCore
             $result.VMsProcessed | Should -Be 0
             $result.VMsSucceeded | Should -Be 0
             $result.VMsFailed    | Should -Be 0
@@ -60,7 +60,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             # Ensure $GlobalLabConfig has no CoreVMNames
             if (Test-Path variable:global:GlobalLabConfig) { Remove-Variable GlobalLabConfig -Scope Global -ErrorAction SilentlyContinue }
 
-            $result = Invoke-LabSTIGBaseline
+            $result = Invoke-LabSTIGBaselineCore
             $result.VMsProcessed | Should -Be 0
         }
     }
@@ -94,7 +94,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             }
             $script:installCalled = $false
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:installCalled | Should -Be $true
         }
@@ -105,7 +105,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             }
             $script:installCalled = $false
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:installCalled | Should -Be $false
         }
@@ -137,7 +137,7 @@ Describe 'Invoke-LabSTIGBaseline' {
         }
 
         It 'Raises WinRM MaxEnvelopeSizekb to 8192 before DSC operations' {
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
             $script:envelopeSizeSet | Should -Be $true
         }
     }
@@ -176,7 +176,7 @@ Describe 'Invoke-LabSTIGBaseline' {
                 return $null
             }
 
-            Invoke-LabSTIGBaseline -VMName 'DC1'
+            Invoke-LabSTIGBaselineCore -VMName 'DC1'
 
             $script:profileCallArgs | Should -Not -BeNullOrEmpty
             $script:profileCallArgs.OsRole | Should -Be 'DC'
@@ -192,7 +192,7 @@ Describe 'Invoke-LabSTIGBaseline' {
                 return $null
             }
 
-            Invoke-LabSTIGBaseline -VMName 'SVR1'
+            Invoke-LabSTIGBaselineCore -VMName 'SVR1'
 
             $script:profileCallArgs | Should -Not -BeNullOrEmpty
             $script:profileCallArgs.OsRole | Should -Be 'MS'
@@ -208,7 +208,7 @@ Describe 'Invoke-LabSTIGBaseline' {
                 return $null
             }
 
-            Invoke-LabSTIGBaseline -VMName 'SVR2022'
+            Invoke-LabSTIGBaselineCore -VMName 'SVR2022'
 
             $script:profileCallArgs.OsVersionBuild | Should -Be '10.0.20348.500'
         }
@@ -224,7 +224,7 @@ Describe 'Invoke-LabSTIGBaseline' {
                 return $null
             }
 
-            $result = Invoke-LabSTIGBaseline -VMName 'UnsupportedVM'
+            $result = Invoke-LabSTIGBaselineCore -VMName 'UnsupportedVM'
             $result.VMsProcessed | Should -Be 1
             $result.VMsSucceeded | Should -Be 0
         }
@@ -265,7 +265,7 @@ Describe 'Invoke-LabSTIGBaseline' {
                 script:New-TestSTIGConfig -Exceptions @{ 'TestVM' = @('V-12345', 'V-67890') }
             }
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:complianceCallArgs.ExceptionsApplied | Should -Be 2
         }
@@ -275,7 +275,7 @@ Describe 'Invoke-LabSTIGBaseline' {
                 script:New-TestSTIGConfig -Exceptions @{}
             }
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:complianceCallArgs.ExceptionsApplied | Should -Be 0
         }
@@ -307,7 +307,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             Mock Test-DscConfiguration { $true }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Success' } }
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:dscApplied | Should -Be $true
         }
@@ -321,7 +321,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             Mock Test-DscConfiguration { $true }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Success' } }
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:complianceStatus | Should -Be 'Compliant'
         }
@@ -338,7 +338,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             Mock Test-DscConfiguration { $false }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Failure' } }
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM'
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $script:complianceStatus | Should -Be 'Failed'
             $script:complianceError  | Should -Not -BeNullOrEmpty
@@ -374,7 +374,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             Mock Test-DscConfiguration { $true }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Success' } }
 
-            $result = Invoke-LabSTIGBaseline -VMName @('VM1', 'VM2')
+            $result = Invoke-LabSTIGBaselineCore -VMName @('VM1', 'VM2')
 
             # VM2 should still be processed despite VM1 failing
             $result.VMsProcessed | Should -Be 2
@@ -406,7 +406,7 @@ Describe 'Invoke-LabSTIGBaseline' {
         }
 
         It 'Returns audit PSCustomObject with VMsProcessed, VMsSucceeded, VMsFailed, Repairs, RemainingIssues, DurationSeconds' {
-            $result = Invoke-LabSTIGBaseline -VMName 'TestVM'
+            $result = Invoke-LabSTIGBaselineCore -VMName 'TestVM'
 
             $props = $result.PSObject.Properties.Name
             $props | Should -Contain 'VMsProcessed'
@@ -418,12 +418,12 @@ Describe 'Invoke-LabSTIGBaseline' {
         }
 
         It 'DurationSeconds is a non-negative integer' {
-            $result = Invoke-LabSTIGBaseline -VMName 'TestVM'
+            $result = Invoke-LabSTIGBaselineCore -VMName 'TestVM'
             $result.DurationSeconds | Should -BeGreaterOrEqual 0
         }
 
         It 'Repairs array contains VM name on successful application' {
-            $result = Invoke-LabSTIGBaseline -VMName 'TestVM'
+            $result = Invoke-LabSTIGBaselineCore -VMName 'TestVM'
             $result.Repairs.Count | Should -BeGreaterOrEqual 1
         }
 
@@ -431,7 +431,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             Mock Start-DscConfiguration { throw 'DSC push failed' }
             Mock Write-LabSTIGCompliance { }
 
-            $result = Invoke-LabSTIGBaseline -VMName 'FailVM'
+            $result = Invoke-LabSTIGBaselineCore -VMName 'FailVM'
             $result.RemainingIssues.Count | Should -BeGreaterOrEqual 1
         }
     }
@@ -461,7 +461,7 @@ Describe 'Invoke-LabSTIGBaseline' {
             Mock Test-DscConfiguration { $true }
             Mock Get-DscConfigurationStatus { [pscustomobject]@{ Status = 'Success' } }
 
-            Invoke-LabSTIGBaseline -VMName 'TestVM' -ComplianceCachePath $customPath
+            Invoke-LabSTIGBaselineCore -VMName 'TestVM' -ComplianceCachePath $customPath
 
             $script:usedCachePath | Should -Be $customPath
         }
