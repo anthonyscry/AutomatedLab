@@ -184,3 +184,13 @@
 
 ---
 
+
+## v1.6 Lab Lifecycle & Security Automation (Shipped: 2026-02-21)
+
+**Phases completed:** 19 phases, 47 plans, 20 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

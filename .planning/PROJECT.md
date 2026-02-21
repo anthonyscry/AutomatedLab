@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual machines for domain and role scenarios, usable through CLI, GUI, and module APIs. Ships with scenario templates, pre-deployment validation, snapshot management, configuration profiles, run history tracking, lab export/import, full operator documentation, CI/CD pipelines, and comprehensive test coverage.
+A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual machines for domain and role scenarios, usable through CLI, GUI, and module APIs. Ships with scenario templates, pre-deployment validation, snapshot management, configuration profiles, run history tracking, lab export/import, full operator documentation, CI/CD pipelines, comprehensive test coverage, and security automation.
 
 ## Core Value
 
@@ -10,18 +10,19 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 
 ## Current State
 
-**Version:** v1.5 shipped (2026-02-21) — v1.6 in progress
-**Tests:** 847+ Pester tests + ~263 (v1.3-v1.4) + ~226 (v1.5) = 1,300+ total
+**Version:** v1.6 shipped (2026-02-21)
+**Tests:** 1,300+ Pester tests + 66 new (v1.6) = 1,366+ total
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help, mixed OS workflows
 
-Previous milestones shipped:
+Milestones shipped:
 - v1.0 Brownfield Hardening & Integration (6 phases, 25 plans)
 - v1.1 Production Robustness (4 phases, 13 plans)
 - v1.2 Delivery Readiness (3 phases, 16 plans)
 - v1.3 Lab Scenarios & Operator Tooling (4 phases, 8 plans)
 - v1.4 Configuration Management & Reporting (4 phases, 8 plans)
 - v1.5 Advanced Scenarios & Multi-OS (4 phases, 8 plans)
+- v1.6 Lab Lifecycle & Security Automation (4 phases, 17 plans)
 
 ## Requirements
 
@@ -43,14 +44,14 @@ Previous milestones shipped:
 - ✓ v1.5 ROLE-01 through ROLE-05: Custom role templates with JSON schema, auto-discovery, and UI integration (Phase 22)
 - ✓ v1.5 NET-01 through NET-05: Multi-switch networking with VLAN tagging and subnet validation (Phase 23)
 - ✓ v1.5 LNX-01 through LNX-06: Linux VM full parity — snapshots, profiles, SSH retry, CentOS support (Phases 24-25)
+- ✓ v1.6 TTL-01 through TTL-03: Lab TTL configuration, auto-suspend scheduled task, uptime query (Phase 26)
+- ✓ v1.6 STIG-01 through STIG-06: PowerSTIG DSC baselines per VM role with exceptions and compliance cache (Phase 27)
+- ✓ v1.6 GPO-01 through GPO-04: ADMX Central Store auto-populate, baseline GPO templates, third-party ADMX (Phase 28)
+- ✓ v1.6 DASH-01 through DASH-05: Dashboard enrichment with snapshot age, disk usage, uptime, STIG status via background runspace (Phase 29)
 
 ### Active
 
-- [ ] Lab TTL & auto-suspend with config-driven background monitoring
-- [ ] PowerSTIG DSC baselines auto-applied per VM role at deploy time
-- [ ] ADMX/GPO template auto-import after DC promotion
-- [ ] Operational dashboard enrichment (snapshot age, disk, uptime, compliance)
-- [ ] Lab lifecycle monitoring via background scheduled task
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -63,6 +64,10 @@ Previous milestones shipped:
 - Linux-to-Windows domain join automation — document manual approach
 - DMZ network patterns with firewall rules — beyond lab provisioning scope
 - Network topology visualization in GUI — text-based config sufficient
+- DSC pull server for STIG remediation — push mode sufficient for lab scale
+- TTL-based auto-teardown (destroy) — suspend-only protects operator work
+- Continuous DSC compliance remediation — fights running workloads
+- Live DSC compliance polling — cache-on-write pattern instead
 
 ## Context
 
@@ -72,12 +77,16 @@ Previous milestones shipped:
 - v1.3 reduced friction with scenario templates, validation, snapshot tools, and dashboard improvements
 - v1.4 added configuration persistence, deployment history, GUI log viewing, and portable lab packages
 - v1.5 delivered custom role templates (JSON auto-discovery), multi-switch networking (VLAN, multi-subnet routing), full Linux parity (CentOS, SSH retry, snapshot/profile integration), and mixed OS scenario templates
+- v1.6 delivered lab lifecycle automation (TTL, auto-suspend), security posture automation (PowerSTIG DSC, ADMX/GPO auto-import), and operational dashboard enrichment (snapshot age, disk, uptime, STIG status)
 - Lab-Config.ps1 drives all lab topology — scenario templates generate valid configs for common patterns
 - Linux support: Ubuntu 24.04 + CentOS Stream 9 via cloud-init NoCloud, SSH provisioning with retry, 6 roles (base, DB, Docker, K8s, Web, CentOS)
 - Networking: multi-switch with named vSwitches, per-VM switch/VLAN assignment, pairwise subnet overlap detection, multi-subnet routing
 - Custom roles: JSON files in .planning/roles/ auto-discovered at runtime, integrated with LabBuilder menu and provisioning
-- Project is mature across 6 milestones with 1,300+ tests and comprehensive documentation
-- v1.6 targets lab lifecycle automation (TTL, auto-suspend) and security posture automation (PowerSTIG DSC, ADMX/GPO auto-import) with enriched operational dashboard
+- TTL monitoring: Windows Scheduled Tasks (survives PowerShell session termination), defaults to disabled
+- PowerSTIG: DISA STIG DSC baselines applied during PostInstall, role-aware (DC vs member server), per-VM exception overrides
+- ADMX/GPO: Central Store population from DC PolicyDefinitions, four baseline security GPO templates (password, lockout, audit, AppLocker)
+- Dashboard: Background runspace with synchronized hashtable for 60-second metrics collection, 5-second UI refresh
+- Project is mature across 7 milestones with 1,366+ tests and comprehensive documentation
 
 ## Constraints
 
@@ -117,6 +126,17 @@ Previous milestones shipped:
 | PSBoundParameters for SSH retry defaults | LabConfig override only when param not explicitly supplied | ✓ v1.5 |
 | CentOS uses same Invoke-LinuxRoleCreateVM | ISOPattern differentiates distros, no code duplication | ✓ v1.5 |
 | Static analysis tests for provisioning flow | Validates cross-OS wiring without Hyper-V runtime | ✓ v1.5 |
+| TTL defaults to disabled | Operator must opt in to auto-suspend | ✓ v1.6 |
+| STIG defaults to disabled | Operator must opt in to DISA baselines | ✓ v1.6 |
+| ADMX Enabled defaults to true, CreateBaselineGPO false | Import runs by default, GPOs are opt-in | ✓ v1.6 |
+| TTL monitoring uses Windows Scheduled Tasks | Survives PowerShell session termination | ✓ v1.6 |
+| STIG compliance uses cache-on-write JSON | No live DSC queries on dashboard hot path | ✓ v1.6 |
+| Dashboard uses 60s background runspace + synchronized hashtable | Thread-safe data sharing, UI never blocks | ✓ v1.6 |
+| STA apartment state for WPF runspace | Prevents COM object failures | ✓ v1.6 |
+| DSC modules install -Scope AllUsers (machine scope) | CurrentUser fails under SYSTEM context | ✓ v1.6 |
+| Wait-LabADReady gates ADMX/GPO on Get-ADDomain | Eliminates ADWS startup race condition | ✓ v1.6 |
+| PowerSTIG exception uses ValueData='' skip marker | Clean compile-time override syntax | ✓ v1.6 |
+| Per-template error isolation for GPO creation | One failure doesn't block others | ✓ v1.6 |
 
 ---
-*Last updated: 2026-02-20 after v1.6 milestone started*
+*Last updated: 2026-02-21 after v1.6 milestone*
