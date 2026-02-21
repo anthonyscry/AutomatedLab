@@ -106,7 +106,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
   3. When TTL expires the scheduled task fires under SYSTEM context and all lab VMs transition to Saved or Off state — no manual intervention required
   4. Get-LabUptime returns lab start time, elapsed hours, and TTL remaining for the running lab
   5. Lab teardown (Remove-Lab or equivalent) calls Unregister-LabTTLTask and leaves no orphaned scheduled tasks on the host
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 - [ ] 26-01-PLAN.md — TTL config block and safe config reader (TTL-01)
 - [ ] 26-02-PLAN.md — Scheduled task registration and unregistration (TTL-02)
 - [ ] 26-03-PLAN.md — TTL monitor, uptime query, and teardown integration (TTL-02, TTL-03)
@@ -158,7 +158,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 | 14-17. Lab Scenarios & Tooling | v1.3 | 8/8 | Complete | 2026-02-20 |
 | 18-21. Config Management | v1.4 | 8/8 | Complete | 2026-02-20 |
 | 22-25. Advanced Scenarios | v1.5 | 8/8 | Complete | 2026-02-21 |
-| 26. Lab TTL & Lifecycle Monitoring | v1.6 | 0/3 | Planned | - |
+| 26. Lab TTL & Lifecycle Monitoring | 2/3 | In Progress|  | - |
 | 27. PowerSTIG DSC Baselines | v1.6 | 0/? | Not started | - |
 | 28. ADMX / GPO Auto-Import | v1.6 | 0/? | Not started | - |
 | 29. Dashboard Enrichment | v1.6 | 0/? | Not started | - |
