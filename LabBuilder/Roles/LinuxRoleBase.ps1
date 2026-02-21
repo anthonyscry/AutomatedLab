@@ -116,8 +116,18 @@ function Invoke-LinuxRolePostInstall {
         [Parameter(Mandatory)][hashtable]$LabConfig,
         [Parameter(Mandatory)][string]$VMNameKey,
         [Parameter(Mandatory)][string]$BashScript,
-        [string]$SuccessMessage = 'Post-install complete'
+        [string]$SuccessMessage = 'Post-install complete',
+        [int]$RetryCount = 3,
+        [int]$RetryDelaySeconds = 10
     )
+
+    # Read defaults from LabConfig if not explicitly provided
+    if (-not $PSBoundParameters.ContainsKey('RetryCount') -and $LabConfig.ContainsKey('Timeouts') -and $LabConfig.Timeouts.ContainsKey('SSHRetryCount')) {
+        $RetryCount = $LabConfig.Timeouts.SSHRetryCount
+    }
+    if (-not $PSBoundParameters.ContainsKey('RetryDelaySeconds') -and $LabConfig.ContainsKey('Timeouts') -and $LabConfig.Timeouts.ContainsKey('SSHRetryDelaySeconds')) {
+        $RetryDelaySeconds = $LabConfig.Timeouts.SSHRetryDelaySeconds
+    }
 
     # Null-guards for PostInstall
     if (-not $LabConfig.VMNames -or -not $LabConfig.VMNames.ContainsKey($VMNameKey)) {
@@ -142,7 +152,11 @@ function Invoke-LinuxRolePostInstall {
     $sshKey = $LabConfig.Linux.SSHPrivateKey
     if (-not $sshKey -or -not (Test-Path $sshKey)) { Write-Warning "SSH private key not found. Skipping post-install."; return }
 
-    $sshExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
+    $winDir = if ($env:WINDIR) { $env:WINDIR } else { 'C:\Windows' }
+    $tempDir = if ($env:TEMP) { $env:TEMP } else { $env:TMP }
+    if (-not $tempDir) { $tempDir = [System.IO.Path]::GetTempPath().TrimEnd([System.IO.Path]::DirectorySeparatorChar) }
+
+    $sshExe = Join-Path $winDir 'System32\OpenSSH\ssh.exe'
     if (-not (Test-Path $sshExe)) { Write-Warning 'OpenSSH client not found. Skipping post-install.'; return }
 
     $sshArgs = @(
@@ -153,17 +167,33 @@ function Invoke-LinuxRolePostInstall {
 
     Write-Host "    Running post-install on $vmName ($vmIp)..." -ForegroundColor Cyan
 
-    $tempScript = Join-Path $env:TEMP "postinstall-$vmName.sh"
+    $tempScript = Join-Path $tempDir "postinstall-$vmName.sh"
     $BashScript | Set-Content -Path $tempScript -Encoding ASCII -Force
 
-    try {
-        $scpExe = Join-Path $env:WINDIR 'System32\OpenSSH\scp.exe'
-        & $scpExe -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)" -i $sshKey $tempScript "${linuxUser}@${vmIp}:/tmp/postinstall.sh" 2>&1 | Out-Null
-        & $sshExe @sshArgs "chmod +x /tmp/postinstall.sh && bash /tmp/postinstall.sh && rm -f /tmp/postinstall.sh" 2>&1 | ForEach-Object {
-            Write-Host "      $_" -ForegroundColor Gray
+    $attempt = 0
+    $succeeded = $false
+    $scpExe = Join-Path $winDir 'System32\OpenSSH\scp.exe'
+
+    while ($attempt -lt $RetryCount -and -not $succeeded) {
+        $attempt++
+        try {
+            & $scpExe -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$($GlobalLabConfig.SSH.KnownHostsPath)" -i $sshKey $tempScript "${linuxUser}@${vmIp}:/tmp/postinstall.sh" 2>&1 | Out-Null
+            & $sshExe @sshArgs "chmod +x /tmp/postinstall.sh && bash /tmp/postinstall.sh && rm -f /tmp/postinstall.sh" 2>&1 | ForEach-Object {
+                Write-Host "      $_" -ForegroundColor Gray
+            }
+            $succeeded = $true
+            Write-Host "    [OK] $SuccessMessage on $vmName" -ForegroundColor Green
         }
-        Write-Host "    [OK] $SuccessMessage on $vmName" -ForegroundColor Green
+        catch {
+            if ($attempt -lt $RetryCount) {
+                Write-Warning "SSH attempt $attempt/$RetryCount failed on ${vmName}: $($_.Exception.Message). Retrying in ${RetryDelaySeconds}s..."
+                Start-Sleep -Seconds $RetryDelaySeconds
+            }
+            else {
+                Write-Warning "Post-install SSH execution failed on ${vmName} after $RetryCount attempts: $($_.Exception.Message)"
+            }
+        }
     }
-    catch { Write-Warning "Post-install SSH execution failed on ${vmName}: $($_.Exception.Message)" }
-    finally { Remove-Item $tempScript -Force -ErrorAction SilentlyContinue }
+
+    Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
 }

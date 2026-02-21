@@ -347,6 +347,9 @@ $GlobalLabConfig = @{
             SSHConnectTimeout = 8
             SSHPollInitialSec = 10
             SSHPollMaxSec = 30
+            # SSH retry settings for Invoke-LinuxRolePostInstall
+            SSHRetryCount = 3
+            SSHRetryDelaySeconds = 10
         }
 
         # Changing CredentialEnvVar changes env var checked for Builder password.
