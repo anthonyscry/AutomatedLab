@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 27 of 29 (PowerSTIG DSC Baselines)
-Plan: 1 of 4
+Plan: 2 of 4
 Status: In progress
-Last activity: 2026-02-21 — Phase 27 Plan 01 complete (STIG config block + Get-LabSTIGConfig)
+Last activity: 2026-02-21 — Phase 27 Plan 02 complete (Get-LabSTIGProfile + Test-PowerStigInstallation, 54 tests)
 
-Progress: [█░░░░░░░░░] 10% (v1.6)
+Progress: [█░░░░░░░░░] 15% (v1.6)
 
 ## Performance Metrics
 
@@ -32,6 +32,8 @@ Progress: [█░░░░░░░░░] 10% (v1.6)
 Full log in PROJECT.md Key Decisions table. Key decisions for v1.6:
 - STIG config block added to GlobalLabConfig after TTL block; Enabled=$false by default
 - Get-LabSTIGConfig uses ContainsKey guards matching Phase 26 TTL pattern; Exceptions defaults to @{} not null
+- Get-LabSTIGProfile: caller discovers OS version and passes as param — no live VM queries inside helper; StartsWith prefix matching handles full build.revision strings
+- Test-PowerStigInstallation: try/catch returns structured PSCustomObject on WinRM failure; Invoke-Command mocked at Pester level for unit tests
 - All new features gated by `Enabled = $false` in $GlobalLabConfig — existing behavior unchanged when config keys absent
 - STIG compliance uses cache-on-write (.planning/stig-compliance.json) — no live DSC queries on dashboard hot path
 - TTL monitoring uses Windows Scheduled Tasks (survives PowerShell session termination), not background jobs
@@ -50,9 +52,9 @@ None
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 27-01-PLAN.md (STIG config block + Get-LabSTIGConfig with 10 tests)
+Stopped at: Completed 27-02-PLAN.md (Get-LabSTIGProfile + Test-PowerStigInstallation with 54 tests)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after v1.6 roadmap creation*
+*Last updated: 2026-02-21 after Phase 27 Plan 02 completion*

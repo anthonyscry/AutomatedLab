@@ -163,7 +163,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 | 18-21. Config Management | v1.4 | 8/8 | Complete | 2026-02-20 |
 | 22-25. Advanced Scenarios | v1.5 | 8/8 | Complete | 2026-02-21 |
 | 26. Lab TTL & Lifecycle Monitoring | 2/3 | Complete    | 2026-02-21 | - |
-| 27. PowerSTIG DSC Baselines | 1/4 | In Progress|  | - |
+| 27. PowerSTIG DSC Baselines | 2/4 | In Progress|  | - |
 | 28. ADMX / GPO Auto-Import | v1.6 | 0/? | Not started | - |
 | 29. Dashboard Enrichment | v1.6 | 0/? | Not started | - |
 
