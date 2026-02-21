@@ -114,6 +114,20 @@ try {
 
                 # Validate all role tags
                 $validTags = @('DC', 'DSC', 'IIS', 'SQL', 'WSUS', 'DHCP', 'FileServer', 'PrintServer', 'Jumpbox', 'Client', 'Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
+
+                # Expand valid tags with custom roles
+                $customRoleLoaderPath = Join-Path $RepoRoot 'Private'
+                $customValidatorPath = Join-Path $customRoleLoaderPath 'Test-LabCustomRoleSchema.ps1'
+                $customRoleLoaderPath = Join-Path $customRoleLoaderPath 'Get-LabCustomRole.ps1'
+                if (Test-Path $customRoleLoaderPath) {
+                    . $customValidatorPath
+                    . $customRoleLoaderPath
+                    $customRoles = Get-LabCustomRole -List
+                    if ($customRoles) {
+                        $validTags += @($customRoles | ForEach-Object { $_.Tag })
+                    }
+                }
+
                 $invalid = @($Roles | Where-Object { $_ -notin $validTags })
                 if ($invalid.Count -gt 0) {
                     Write-Host "  Invalid role(s): $($invalid -join ', ')" -ForegroundColor Red

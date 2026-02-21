@@ -196,7 +196,8 @@ function Build-LabFromSelection {
         foreach ($tag in $SelectedRoles) {
             $entry = $roleScriptMap[$tag]
             if (-not $entry) {
-                throw "Unknown role tag: $tag"
+                # Unknown to built-in map — will be handled as custom role below
+                continue
             }
             $scriptPath = Join-Path $PSScriptRoot "Roles\$($entry.File)"
             if (-not (Test-Path $scriptPath)) {
@@ -207,6 +208,30 @@ function Build-LabFromSelection {
             $roleDef = & $fn -Config $Config
             $roleDefs += $roleDef
             Write-Host "    [OK] Loaded: $($entry.File) -> $($roleDef.VMName)" -ForegroundColor Green
+        }
+
+        # Load custom roles (tags not in $roleScriptMap)
+        $customRoleLoaderPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Private'
+        $customValidatorPath = Join-Path $customRoleLoaderPath 'Test-LabCustomRoleSchema.ps1'
+        $customRoleLoaderPath = Join-Path $customRoleLoaderPath 'Get-LabCustomRole.ps1'
+
+        $customTags = @($SelectedRoles | Where-Object { -not $roleScriptMap.ContainsKey($_) })
+        if ($customTags.Count -gt 0) {
+            if (Test-Path $customRoleLoaderPath) {
+                . $customValidatorPath
+                . $customRoleLoaderPath
+                foreach ($customTag in $customTags) {
+                    $customRole = Get-LabCustomRole -Name $customTag -Config $Config
+                    if (-not $customRole) {
+                        throw "Custom role not found: $customTag"
+                    }
+                    $roleDefs += $customRole
+                    Write-Host "    [OK] Loaded custom role: $customTag -> $($customRole.VMName)" -ForegroundColor Green
+                }
+            }
+            else {
+                throw "Custom role tags specified ($($customTags -join ', ')) but Get-LabCustomRole.ps1 not found at $customRoleLoaderPath"
+            }
         }
 
         $timings['LoadRoles'] = (Get-Date) - $phaseStart
@@ -453,6 +478,40 @@ function Build-LabFromSelection {
                     }
                     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
                 }
+            }
+        }
+
+        # Custom role provisioning (after Windows post-installs, before Linux)
+        $customPostInstallRoles = @($roleDefs | Where-Object { $_.IsCustomRole -eq $true })
+        foreach ($rd in $customPostInstallRoles) {
+            Write-Host "    Running custom role provisioning: $($rd.VMName) [$($rd.Tag)]..." -ForegroundColor Yellow
+            try {
+                foreach ($step in $rd.ProvisioningSteps) {
+                    switch ($step.type) {
+                        'windowsFeature' {
+                            Invoke-LabCommand -ComputerName $rd.VMName -ActivityName "CustomRole-$($step.name)" -ScriptBlock {
+                                param($FeatureName)
+                                Install-WindowsFeature -Name $FeatureName -IncludeManagementTools -ErrorAction Stop
+                            } -ArgumentList $step.value -Retries 2 -RetryIntervalInSeconds 15
+                        }
+                        'powershellScript' {
+                            Invoke-LabCommand -ComputerName $rd.VMName -ActivityName "CustomRole-$($step.name)" -ScriptBlock ([scriptblock]::Create($step.value)) -Retries 2 -RetryIntervalInSeconds 15
+                        }
+                        'linuxCommand' {
+                            # Linux commands via SSH - only if IsLinux
+                            Write-Warning "Custom role step type 'linuxCommand' not yet wired for $($rd.VMName). Step '$($step.name)' skipped."
+                        }
+                        default {
+                            Write-Warning "Unknown provisioning step type '$($step.type)' in custom role $($rd.Tag). Step '$($step.name)' skipped."
+                        }
+                    }
+                    Write-Host "      [OK] Step: $($step.name)" -ForegroundColor Green
+                }
+                $postInstallResults += @{ VMName = $rd.VMName; Tag = $rd.Tag; Status = 'OK'; Error = '' }
+            }
+            catch {
+                Write-Warning "Custom role provisioning for $($rd.VMName) failed: $($_.Exception.Message)"
+                $postInstallResults += @{ VMName = $rd.VMName; Tag = $rd.Tag; Status = 'FAIL'; Error = $_.Exception.Message }
             }
         }
 
