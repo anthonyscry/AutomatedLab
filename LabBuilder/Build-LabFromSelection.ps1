@@ -552,6 +552,49 @@ function Build-LabFromSelection {
         $timings['PostInstall'] = (Get-Date) - $phaseStart
 
         # ============================================================
+        # Phase 11.5: Apply STIG Baselines to Member Server VMs (if enabled)
+        # ============================================================
+        # DC STIG is applied inside DC.ps1 PostInstall block above.
+        # This phase applies STIG to all non-DC Windows VMs collectively,
+        # using the same ContainsKey guards pattern (StrictMode safe).
+        if (Test-Path variable:GlobalLabConfig) {
+            if ($GlobalLabConfig.ContainsKey('STIG') -and
+                $GlobalLabConfig.STIG.ContainsKey('Enabled') -and
+                $GlobalLabConfig.STIG.Enabled) {
+
+                $shouldAutoApply = if ($GlobalLabConfig.STIG.ContainsKey('AutoApplyOnDeploy')) {
+                    [bool]$GlobalLabConfig.STIG.AutoApplyOnDeploy
+                } else { $true }
+
+                if (-not $shouldAutoApply) {
+                    Write-Host '  [SKIP] STIG baselines enabled but AutoApplyOnDeploy is false.' -ForegroundColor Yellow
+                }
+                else {
+                    # Collect non-DC Windows VMs from this deployment
+                    $memberVMs = @($roleDefs | Where-Object { $_.Tag -ne 'DC' -and -not $_.IsLinux } | ForEach-Object { $_.VMName })
+                    if ($memberVMs.Count -gt 0) {
+                        Write-Host '' -ForegroundColor White
+                        Write-Host '  [Phase 11.5] Applying STIG baselines to member server VMs...' -ForegroundColor Yellow
+                        $phaseStart = Get-Date
+                        try {
+                            $stigResult = Invoke-LabSTIGBaselineCore -VMName $memberVMs
+                            if ($stigResult.VMsFailed -eq 0) {
+                                Write-Host "  [OK] STIG baselines applied ($($stigResult.VMsSucceeded) VMs succeeded)." -ForegroundColor Green
+                            }
+                            else {
+                                Write-Warning "STIG baseline application had $($stigResult.VMsFailed) failure(s). Check .planning/stig-compliance.json for details."
+                            }
+                        }
+                        catch {
+                            Write-Warning "STIG baseline application failed: $($_.Exception.Message). Lab deployment continues without STIG on member VMs."
+                        }
+                        $timings['STIGBaselines'] = (Get-Date) - $phaseStart
+                    }
+                }
+            }
+        }
+
+        # ============================================================
         # Phase 12: Create LabReady Checkpoint
         # ============================================================
         Write-Host '' -ForegroundColor White
