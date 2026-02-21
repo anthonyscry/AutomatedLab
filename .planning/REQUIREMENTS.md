@@ -3,70 +3,63 @@
 **Defined:** 2026-02-21
 **Core Value:** Every function handles errors explicitly, surfaces clear diagnostics, and stays modular enough that each piece can be tested and maintained independently.
 
-## v1.7 Requirements
+## v1.8 Requirements
 
-Requirements for Operational Excellence & Analytics milestone. Each maps to roadmap phases.
+Requirements for Cloud Integration & Hybrid Labs milestone. Each maps to roadmap phases.
 
-### Lab Analytics
+### Azure Integration
 
-- [ ] **ANLY-01**: Operator can view lab usage trends over time (VM uptime, resource consumption patterns)
-- [ ] **ANLY-02**: Operator can export lab usage data to CSV/JSON for external analysis
-- [ ] **ANLY-03**: System automatically tracks lab creation, deployment, and teardown events in analytics log
+- [ ] **AZ-01**: Operator can provision Azure VMs alongside Hyper-V VMs in a single lab definition
+- [ ] **AZ-02**: Operator can specify Azure credentials and subscription in Lab-Config.ps1
+- [ ] **AZ-03**: System validates Azure connectivity before provisioning (pre-flight check)
+- [ ] **AZ-04**: Azure VMs appear in Get-LabVM output alongside local VMs
 
-### Advanced Reporting
+### Hybrid Networking
 
-- [ ] **RPT-01**: Operator can generate compliance reports (STIG status across all VMs, pass/fail summary)
-- [ ] **RPT-02**: Operator can generate resource utilization reports (disk, memory, CPU trends)
-- [ ] **RPT-03**: Operator can schedule automated report generation (daily/weekly compliance snapshots)
-- [ ] **RPT-04**: Reports include timestamp, lab name, and summary statistics for audit trail
+- [ ] **HYB-01**: Operator can configure site-to-site VPN or ExpressRoute connectivity between on-prem and Azure
+- [ ] **HYB-02**: Operator can define network rules allowing cross-premise communication
+- [ ] **HYB-03**: System validates hybrid network configuration before applying
+- [ ] **HYB-04**: VMs in both environments can communicate according to network topology
 
-### Operational Workflows
+### Cloud Image Management
 
-- [x] **OPS-01**: Operator can perform bulk VM operations (start/stop/suspend multiple VMs at once)
-- [x] **OPS-02**: Operator can create custom operation workflows (scripts that combine common actions)
-- [x] **OPS-03**: System validates bulk operations before execution (pre-flight checks, resource availability)
-- [x] **OPS-04**: Operator receives confirmation summary after bulk operations complete
+- [ ] **IMG-01**: Operator can reference Azure Marketplace images in lab definitions
+- [ ] **IMG-02**: Operator can specify custom Azure image templates
+- [ ] **IMG-03**: System caches Azure image metadata to avoid redundant API calls
 
-### Performance Guidance
+### Cross-Platform Orchestration
 
-- [ ] **PERF-01**: Operator can view performance metrics for VM operations (provision time, snapshot duration)
-- [ ] **PERF-02**: System provides optimization suggestions when performance degrades detected
-- [ ] **PERF-03**: Performance data is collected automatically and stored for historical analysis
+- [ ] **XPL-01**: Common provisioning abstraction works for both Hyper-V and Azure VMs
+- [ ] **XPL-02**: Operator can run common operations (start/stop/snapshot) across hybrid VMs
+- [ ] **XPL-03**: System handles platform-specific operations transparently
 
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
 
-### Cloud Integration
+### Advanced Cloud Features
 
-- **CLOUD-01**: Azure lab provisioning support
-- **CLOUD-02**: Hybrid Hyper-V/Azure scenarios
-- **CLOUD-03**: Cloud-based image library
+- **ADV-01**: Multi-cloud support (AWS, GCP alongside Azure)
+- **ADV-02**: Cloud-only lab deployments (no local Hyper-V required)
+- **ADV-03**: Auto-scaling based on workload demand
+- **ADV-04**: Cost optimization and rightsizing recommendations
 
-### Advanced Networking
+### Enterprise Scenarios
 
-- **NETX-01**: Software-defined networking overlay
-- **NETX-02**: Network simulation tools (packet loss, latency injection)
-- **NETX-03**: Advanced firewall rule management
-
-### Multi-Forest Domains
-
-- **FOREST-01**: Multi-domain forest provisioning
-- **FOREST-02**: Cross-forest trust automation
-- **FOREST-03**: Federated authentication scenarios
+- **ENT-01**: Multi-forest domain scenarios across regions
+- **ENT-02**: Advanced network simulation (packet loss, latency injection)
+- **ENT-03**: Disaster recovery and failover automation
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Real-time alerting (email/SMS) | Use external monitoring tools |
-| Predictive analytics/AI recommendations | Beyond current scope, data science effort |
-| Custom GUI report builder | CLI + export sufficient for v1.7 |
-| Database-backed analytics storage | File-based storage simpler, sufficient |
-| Distributed lab coordination across hosts | Multi-host already exists, scale-out deferred |
-| Dynamic resource scaling (hot-add RAM/CPU) | Hyper-V limitation, document manual approach |
-| Network traffic capture/analysis | Use external tools (Wireshark, NetMon) |
-| Automated remediation workflows | Manual approval preferred for production labs |
+| Real-time cloud sync | Scheduled sync sufficient for lab scenarios |
+| Azure Cost Management | Use Azure Cost Advisor / Portal |
+| Complex multi-region topologies | Focus on single-region hybrid first |
+| Azure Policy integration | Use Azure Portal for governance |
+| Cloud-only GUI redesign | CLI-first approach, GUI will display hybrid data |
+| Migrating existing VMs to cloud | Manual export/import sufficient for v1.8 |
 
 ## Traceability
 
@@ -74,24 +67,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANLY-01 | Phase 30 | Pending |
-| ANLY-02 | Phase 30 | Pending |
-| ANLY-03 | Phase 30 | Pending |
-| RPT-01 | Phase 31 | Pending |
-| RPT-02 | Phase 31 | Pending |
-| RPT-03 | Phase 31 | Pending |
-| RPT-04 | Phase 31 | Pending |
-| OPS-01 | Phase 32 | Complete |
-| OPS-02 | Phase 32 | Complete |
-| OPS-03 | Phase 32 | Complete |
-| OPS-04 | Phase 32 | Complete |
-| PERF-01 | Phase 33 | Pending |
-| PERF-02 | Phase 33 | Pending |
-| PERF-03 | Phase 33 | Pending |
+| AZ-01 | Phase 34 | Pending |
+| AZ-02 | Phase 34 | Pending |
+| AZ-03 | Phase 34 | Pending |
+| AZ-04 | Phase 34 | Pending |
+| HYB-01 | Phase 35 | Pending |
+| HYB-02 | Phase 35 | Pending |
+| HYB-03 | Phase 35 | Pending |
+| HYB-04 | Phase 35 | Pending |
+| IMG-01 | Phase 36 | Pending |
+| IMG-02 | Phase 36 | Pending |
+| IMG-03 | Phase 36 | Pending |
+| XPL-01 | Phase 37 | Pending |
+| XPL-02 | Phase 37 | Pending |
+| XPL-03 | Phase 37 | Pending |
 
 **Coverage:**
-- v1.7 requirements: 14 total
-- Mapped to phases: 14
+- v1.8 requirements: 14 total
+- Mapped to phases: TBD
 - Unmapped: 0 ✓
 
 ---
