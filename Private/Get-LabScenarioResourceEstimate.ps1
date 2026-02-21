@@ -36,12 +36,17 @@ function Get-LabScenarioResourceEstimate {
 
         # Role-based disk size estimates (GB)
         $diskLookup = @{
-            'DC'     = 80
-            'SQL'    = 100
-            'IIS'    = 60
-            'Server' = 60
-            'Client' = 60
-            'Ubuntu' = 40
+            'DC'              = 80
+            'SQL'             = 100
+            'IIS'             = 60
+            'Server'          = 60
+            'Client'          = 60
+            'Ubuntu'          = 40
+            'CentOS'          = 40
+            'WebServerUbuntu' = 40
+            'DatabaseUbuntu'  = 50
+            'DockerUbuntu'    = 50
+            'K8sUbuntu'       = 50
         }
         $defaultDiskGB = 60
 
