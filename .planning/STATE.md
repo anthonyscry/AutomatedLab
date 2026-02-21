@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 24 (Linux VM Parity)
-Plan: 1/1 plans — 24-01 complete
-Status: In progress — 24-01 complete (Linux VM snapshot discovery, linuxVmCount in profiles, parity tests)
-Last activity: 2026-02-21 — completed 24-01 (all-Linux-VM snapshot inventory, Save-LabProfile linuxVmCount, 26 Pester tests)
+Plan: 2/2 plans — 24-02 complete
+Status: In progress — 24-02 complete (SSH retry logic in Invoke-LinuxRolePostInstall, CentOS Stream 9 role)
+Last activity: 2026-02-21 — completed 24-02 (configurable SSH retry, CentOS.ps1 role, Lab-Config CentOS entries, 57 new tests)
 
-Progress: [████████████████████░░░░░░░░░░░░░░░░░░░░] 50% (23-01, 23-02, 24-01 done)
+Progress: [████████████████████░░░░░░░░░░░░░░░░░░░░] 50% (23-01, 23-02, 24-01, 24-02 done)
 
 ## Performance Metrics
 
@@ -72,6 +72,12 @@ Full log in PROJECT.md Key Decisions table.
 - linuxVmCount prefers VMNames key count over LinuxVM section presence for accuracy
 - Get-LabStateProbe needs no changes — it accepts VMNames as a parameter, Linux VMs included by callers
 
+**24-02:**
+- PSBoundParameters.ContainsKey used to distinguish explicit RetryCount from default — LabConfig.Timeouts override applies only when parameter not explicitly supplied
+- $env:WINDIR null-guarded (defaults to 'C:\Windows') for cross-platform testability in CI/WSL
+- CentOS post-install uses systemctl enable sshd (not ssh) matching RHEL service naming
+- ISOPattern 'CentOS-Stream-9*.iso' differentiates from Ubuntu — same Invoke-LinuxRoleCreateVM function
+
 ### Pending Todos
 
 - None
@@ -83,7 +89,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 24-01-PLAN.md (Linux VM snapshot parity, linuxVmCount in profiles, 26 Pester tests)
+Stopped at: Completed 24-02-PLAN.md (SSH retry, CentOS role, 57 new tests)
 Resume file: None
 
 ---
