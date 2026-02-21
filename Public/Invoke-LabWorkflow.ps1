@@ -118,7 +118,7 @@ function Invoke-LabWorkflow {
         default { 'Failed' }
     }
 
-    return [pscustomobject]@{
+    $result = [pscustomobject]@{
         WorkflowName  = $Name
         OverallStatus = $overallStatus
         TotalSteps    = $workflow.StepCount
@@ -126,5 +126,22 @@ function Invoke-LabWorkflow {
         FailedSteps   = $failedSteps.Count
         Results       = @($results)
         Duration      = $stopwatch.Elapsed
+    }
+
+    # Generate summary for workflow execution
+    $summary = Write-LabOperationSummary -Operation $Name -Result $result -WorkflowMode -LogToHistory
+
+    # Display summary
+    Write-Host $summary.FormattedSummary
+
+    return [pscustomobject]@{
+        WorkflowName   = $result.WorkflowName
+        OverallStatus  = $result.OverallStatus
+        TotalSteps     = $result.TotalSteps
+        CompletedSteps = $result.CompletedSteps
+        FailedSteps    = $result.FailedSteps
+        Results        = $result.Results
+        Duration       = $result.Duration
+        Summary        = $summary
     }
 }
