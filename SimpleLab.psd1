@@ -75,7 +75,7 @@ FunctionsToExport = @(
     'Restart-LabVM', 'Restart-LabVMs', 'Restore-LabCheckpoint', 'Resume-LabVM',
     'Save-LabCheckpoint', 'Save-LabReadyCheckpoint', 'Show-LabStatus',
     'Start-LabVMs', 'Stop-LabVMs', 'Suspend-LabVM', 'Suspend-LabVMs',
-    'Test-HyperVEnabled', 'Test-LabDomainHealth', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
+    'Test-HyperVEnabled', 'Test-LabBulkOperation', 'Test-LabDomainHealth', 'Test-LabIso', 'Test-LabNetwork', 'Test-LabNetworkHealth',
     'Wait-LabVMReady', 'Write-LabStatus', 'Write-RunArtifact',
     # Run history
     'Get-LabRunHistory',
