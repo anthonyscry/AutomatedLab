@@ -93,6 +93,25 @@ $GlobalLabConfig = @{
 
         # Changing DnsIp changes default DNS resolver provided to guests.
         DnsIp = '10.0.10.10'
+
+        # Multi-switch definitions for complex networking.
+        # Each entry defines a named vSwitch with its own subnet.
+        # When Switches is present, Get-LabNetworkConfig uses these instead of the
+        # flat SwitchName/AddressSpace above. The flat keys remain for backward compat.
+        Switches = @(
+            @{
+                Name         = 'LabCorpNet'
+                AddressSpace = '10.0.10.0/24'
+                GatewayIp    = '10.0.10.1'
+                NatName      = 'LabCorpNetNAT'
+            }
+            @{
+                Name         = 'LabDMZ'
+                AddressSpace = '10.0.20.0/24'
+                GatewayIp    = '10.0.20.1'
+                NatName      = 'LabDMZNAT'
+            }
+        )
     }
 
     IPPlan = @{
@@ -438,6 +457,23 @@ function Test-LabConfigRequired {
         }
         if (-not (& $requiredFields[$keyPath] $value)) {
             throw "Lab-Config validation failed: Invalid value for '$keyPath': '$value'"
+        }
+    }
+
+    # Validate Switches array entries if present
+    if ($Config.ContainsKey('Network') -and $Config.Network.ContainsKey('Switches') -and $null -ne $Config.Network.Switches) {
+        $switchIndex = 0
+        foreach ($sw in $Config.Network.Switches) {
+            if (-not ($sw -is [hashtable])) {
+                throw "Lab-Config validation failed: Network.Switches[$switchIndex] must be a hashtable."
+            }
+            if (-not $sw.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace($sw['Name'])) {
+                throw "Lab-Config validation failed: Network.Switches[$switchIndex] is missing required key 'Name'."
+            }
+            if (-not $sw.ContainsKey('AddressSpace') -or [string]::IsNullOrWhiteSpace($sw['AddressSpace'])) {
+                throw "Lab-Config validation failed: Network.Switches[$switchIndex] is missing required key 'AddressSpace'."
+            }
+            $switchIndex++
         }
     }
 }
