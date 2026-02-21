@@ -10,6 +10,10 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Row 0: Status dot + VM name -->
@@ -54,8 +58,40 @@
                        FontSize="12" />
         </StackPanel>
 
-        <!-- Row 4: Action buttons -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal">
+        <!-- Row 4: Snapshot age -->
+        <TextBlock Grid.Row="4"
+                   x:Name="txtSnapshotAge"
+                   Text="💾 Snapshot: -- [⚪]"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="11"
+                   Margin="0,0,0,3" />
+
+        <!-- Row 5: Disk usage -->
+        <TextBlock Grid.Row="5"
+                   x:Name="txtDiskUsage"
+                   Text="💾 Disk: -- [⚪]"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="11"
+                   Margin="0,0,0,3" />
+
+        <!-- Row 6: VM uptime -->
+        <TextBlock Grid.Row="6"
+                   x:Name="txtUptime"
+                   Text="⏱️ Uptime: -- [⚪]"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="11"
+                   Margin="0,0,0,3" />
+
+        <!-- Row 7: STIG compliance -->
+        <TextBlock Grid.Row="7"
+                   x:Name="txtSTIGStatus"
+                   Text="🔒 STIG: Unknown [⚪]"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="11"
+                   Margin="0,0,0,6" />
+
+        <!-- Row 8: Action buttons -->
+        <StackPanel Grid.Row="8" Orientation="Horizontal">
             <Button x:Name="btnStart"
                     Content="Start"
                     Style="{DynamicResource ModernButton}"
