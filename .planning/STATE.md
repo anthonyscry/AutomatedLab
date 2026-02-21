@@ -5,15 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.5 shipped — planning next milestone
+**Current focus:** v1.6 Lab Lifecycle & Security Automation
+
+## Current Milestone: v1.6 Lab Lifecycle & Security Automation
+
+**Goal:** Config-driven lab TTL with background monitoring, full security posture automation via PowerSTIG/GPO/ADMX auto-apply, and enriched operational dashboard.
 
 ## Current Position
 
-Phase: v1.5 milestone complete
-Status: All 25 phases shipped across 6 milestones
-Last activity: 2026-02-21 — completed v1.5 milestone (custom roles, networking, Linux parity, mixed OS)
-
-Progress: [████████████████████████████████████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-20 — Milestone v1.6 started
 
 ## Performance Metrics
 
@@ -55,10 +58,10 @@ Full log in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-21
-Stopped at: Completed v1.5 milestone archival
+Last session: 2026-02-20
+Stopped at: v1.6 milestone initialization
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-21 after v1.5 milestone completed*
+*Last updated: 2026-02-20 after v1.6 milestone started*
