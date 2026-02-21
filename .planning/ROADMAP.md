@@ -90,7 +90,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 **Milestone Goal:** Config-driven lab TTL with background task monitoring, role-aware DISA STIG DSC baselines auto-applied at deploy time, ADMX/GPO auto-import after DC promotion, and enriched operational dashboard consuming all new data sources.
 
 - [x] **Phase 26: Lab TTL & Lifecycle Monitoring** - Config-driven auto-suspend with background scheduled task and uptime query (completed 2026-02-21)
-- [ ] **Phase 27: PowerSTIG DSC Baselines** - Role-aware STIG baselines applied at deploy time with per-VM exception overrides and compliance cache
+- [ ] **Phase 27: PowerSTIG DSC Baselines** (4 plans) - Role-aware STIG baselines applied at deploy time with per-VM exception overrides and compliance cache
 - [ ] **Phase 28: ADMX / GPO Auto-Import** - ADMX Central Store population and baseline GPO creation after DC promotion
 - [ ] **Phase 29: Dashboard Enrichment** - Snapshot age, disk usage, uptime, and STIG compliance columns with background runspace data collection
 
@@ -122,7 +122,11 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
   4. After STIG application, compliance status is written to .planning/stig-compliance.json with per-VM results and a last-checked timestamp
   5. Per-VM STIG exception overrides declared in the Lab-Config.ps1 STIG block are applied at compile time — specified rules are skipped without affecting other VMs
   6. Operator can run Invoke-LabSTIGBaseline -VMName <name> on demand to re-apply baselines; Get-LabSTIGCompliance returns a per-VM compliance table from the cached JSON
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 27-01-PLAN.md -- STIG config block and safe config reader (STIG-04)
+- [ ] 27-02-PLAN.md -- STIG profile mapper and PowerSTIG pre-flight check (STIG-01, STIG-02)
+- [ ] 27-03-PLAN.md -- Core STIG baseline engine and compliance cache writer (STIG-01, STIG-02, STIG-03, STIG-05)
+- [ ] 27-04-PLAN.md -- Public cmdlets and PostInstall integration (STIG-05, STIG-06)
 
 ### Phase 28: ADMX / GPO Auto-Import
 **Goal**: After DC promotion completes, the ADMX Central Store is automatically populated and optional baseline GPOs are created and linked to the domain root from JSON template definitions
@@ -159,7 +163,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 | 18-21. Config Management | v1.4 | 8/8 | Complete | 2026-02-20 |
 | 22-25. Advanced Scenarios | v1.5 | 8/8 | Complete | 2026-02-21 |
 | 26. Lab TTL & Lifecycle Monitoring | 2/3 | Complete    | 2026-02-21 | - |
-| 27. PowerSTIG DSC Baselines | v1.6 | 0/? | Not started | - |
+| 27. PowerSTIG DSC Baselines | v1.6 | 0/4 | Planned | - |
 | 28. ADMX / GPO Auto-Import | v1.6 | 0/? | Not started | - |
 | 29. Dashboard Enrichment | v1.6 | 0/? | Not started | - |
 
