@@ -68,28 +68,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ROLE-01 | TBD | Pending |
-| ROLE-02 | TBD | Pending |
-| ROLE-03 | TBD | Pending |
-| ROLE-04 | TBD | Pending |
-| ROLE-05 | TBD | Pending |
-| NET-01 | TBD | Pending |
-| NET-02 | TBD | Pending |
-| NET-03 | TBD | Pending |
-| NET-04 | TBD | Pending |
-| NET-05 | TBD | Pending |
-| LNX-01 | TBD | Pending |
-| LNX-02 | TBD | Pending |
-| LNX-03 | TBD | Pending |
-| LNX-04 | TBD | Pending |
-| LNX-05 | TBD | Pending |
-| LNX-06 | TBD | Pending |
+| ROLE-01 | Phase 22 | Pending |
+| ROLE-02 | Phase 22 | Pending |
+| ROLE-03 | Phase 22 | Pending |
+| ROLE-04 | Phase 22 | Pending |
+| ROLE-05 | Phase 22 | Pending |
+| NET-01 | Phase 23 | Pending |
+| NET-02 | Phase 23 | Pending |
+| NET-03 | Phase 23 | Pending |
+| NET-04 | Phase 23 | Pending |
+| NET-05 | Phase 23 | Pending |
+| LNX-01 | Phase 24 | Pending |
+| LNX-02 | Phase 24 | Pending |
+| LNX-03 | Phase 24 | Pending |
+| LNX-04 | Phase 24 | Pending |
+| LNX-05 | Phase 25 | Pending |
+| LNX-06 | Phase 24 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-20*
-*Last updated: 2026-02-20*
+*Last updated: 2026-02-20 after roadmap creation (all 16 requirements mapped)*

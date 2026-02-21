@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.5 Advanced Scenarios & Multi-OS — defining requirements
+**Current focus:** v1.5 Advanced Scenarios & Multi-OS — ready for Phase 22 planning
 
 ## Current Position
 
-Phase: Pre-phase (requirements + roadmap)
-Plan: None yet
-Status: Defining requirements for v1.5
-Last activity: 2026-02-20 — v1.5 milestone started
+Phase: 22 (Custom Role Templates) — not yet planned
+Plan: 0/TBD plans
+Status: Roadmap complete, ready for `/gsd:plan-phase 22`
+Last activity: 2026-02-20 — v1.5 roadmap created
 
-Progress: [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v1.5 requirements)
+Progress: [██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 5% (v1.5 roadmap done)
 
 ## Performance Metrics
 
@@ -44,8 +44,7 @@ Full log in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-- Define v1.5 requirements (ROLE, NET, LNX prefixes)
-- Create v1.5 roadmap (phases start at 22)
+- None
 
 ### Blockers/Concerns
 
@@ -54,9 +53,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Defining v1.5 requirements
+Stopped at: v1.5 roadmap created, ready for Phase 22 planning
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after v1.5 milestone started*
+*Last updated: 2026-02-20 after v1.5 roadmap created*

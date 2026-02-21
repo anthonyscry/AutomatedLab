@@ -7,6 +7,7 @@
 - ✅ **v1.2 Delivery Readiness** - Phases 11-13 (shipped 2026-02-20)
 - ✅ **v1.3 Lab Scenarios & Operator Tooling** - Phases 14-17 (shipped 2026-02-20)
 - ✅ **v1.4 Configuration Management & Reporting** - Phases 18-21 (shipped 2026-02-20)
+- 🔄 **v1.5 Advanced Scenarios & Multi-OS** - Phases 22-25
 
 ## Phases
 
@@ -71,6 +72,70 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 </details>
 
+### v1.5 Advanced Scenarios & Multi-OS (Phases 22-25)
+
+**Goal:** Custom role templates, complex networking topologies, and full Linux VM parity for advanced lab scenarios.
+
+#### Phase 22: Custom Role Templates
+**Goal:** Operator-defined roles as JSON files that auto-discover and integrate with existing workflows.
+**Requirements:** ROLE-01, ROLE-02, ROLE-03, ROLE-04, ROLE-05
+**Dependencies:** None (builds on existing LabBuilder/Roles/ pattern)
+
+**Success criteria:**
+- JSON role definitions in `.planning/roles/` auto-discovered at runtime
+- Custom roles appear in Select-LabRoles UI and CLI
+- Validation rejects malformed role templates with clear error messages
+- `Get-LabCustomRole -List` shows available custom roles with metadata
+
+**Plans:** TBD (created during `/gsd:plan-phase 22`)
+
+---
+
+#### Phase 23: Complex Networking
+**Goal:** Multi-switch, multi-subnet lab topologies with VLAN support.
+**Requirements:** NET-01, NET-02, NET-03, NET-04, NET-05
+**Dependencies:** None (extends existing New-LabSwitch/New-LabNAT)
+
+**Success criteria:**
+- Lab config supports named switches array (not just single SwitchName)
+- VMs reference switches by name in their config
+- Inter-subnet routing configurable (gateway VM or host routing)
+- VLAN IDs assignable per VM adapter
+- Pre-deployment validation catches subnet overlap across switches
+
+**Plans:** TBD (created during `/gsd:plan-phase 23`)
+
+---
+
+#### Phase 24: Linux VM Parity
+**Goal:** Full lifecycle parity for Linux VMs including CentOS support.
+**Requirements:** LNX-01, LNX-02, LNX-03, LNX-04, LNX-06
+**Dependencies:** None (extends existing LinuxRoleBase.ps1)
+
+**Success criteria:**
+- Linux VMs support snapshot create/restore/prune same as Windows
+- Linux VM settings preserved in configuration profiles
+- CentOS/RHEL provisioning via cloud-init or kickstart
+- SSH role application has configurable retry count and timeout
+- All existing Linux roles work on both Ubuntu and CentOS
+
+**Plans:** TBD (created during `/gsd:plan-phase 24`)
+
+---
+
+#### Phase 25: Mixed OS Integration
+**Goal:** End-to-end mixed OS scenarios validated and scenario templates updated.
+**Requirements:** LNX-05
+**Dependencies:** Phase 22 (custom roles), Phase 23 (networking), Phase 24 (Linux parity)
+
+**Success criteria:**
+- Mixed Windows/Linux scenario template works end-to-end (DC + Linux app servers)
+- Scenario templates updated to leverage multi-switch and custom role capabilities
+- Integration tests cover cross-OS provisioning, networking, and teardown
+- Documentation updated for mixed OS lab workflows
+
+**Plans:** TBD (created during `/gsd:plan-phase 25`)
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -80,8 +145,9 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 | v1.2 | 11-13 | 16 | Complete | 2026-02-20 |
 | v1.3 | 14-17 | 8 | Complete | 2026-02-20 |
 | v1.4 | 18-21 | 8 | Complete | 2026-02-20 |
+| v1.5 | 22-25 | TBD | In Progress | — |
 
-**Total: 70 plans across 21 phases, 5 milestones shipped.**
+**Total: 70 plans across 21 phases shipped + v1.5 in progress.**
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
@@ -89,3 +155,4 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 *v1.2 milestone shipped: 2026-02-20*
 *v1.3 milestone shipped: 2026-02-20*
 *v1.4 milestone shipped: 2026-02-20*
+*v1.5 milestone added: 2026-02-20*
