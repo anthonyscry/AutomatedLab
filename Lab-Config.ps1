@@ -251,6 +251,43 @@ $GlobalLabConfig = @{
         UptimeStaleHours = 72
     }
 
+    Analytics = @{
+        # Changing Enabled toggles whether lab analytics events are tracked.
+        Enabled = $true
+        # Changing StoragePath moves where analytics events are stored.
+        StoragePath = '.planning/analytics.json'
+        # Changing RetentionDays sets how long to keep analytics events (0 = keep forever).
+        RetentionDays = 90
+    }
+
+    Reports = @{
+        # Changing ComplianceReportPath sets where compliance reports are saved.
+        ComplianceReportPath = '.planning/reports/compliance'
+        # Changing IncludeDetailedResults toggles verbose rule-level details in reports.
+        IncludeDetailedResults = $false
+        # Changing ComplianceThresholdPercent sets the warning threshold for compliance rate.
+        ComplianceThresholdPercent = 80
+        # Changing ReportFormats sets default output formats for compliance reports.
+        # Valid values: 'Console', 'Html', 'Csv', 'Json'
+        ReportFormats = @('Console', 'Html')
+    }
+
+    ReportSchedule = @{
+        # Changing Enabled toggles whether scheduled reports can be created.
+        Enabled = $true
+        # Changing TaskPrefix sets the prefix for scheduled report task names.
+        TaskPrefix = 'AutomatedLabReport'
+        # Changing OutputBasePath sets the base directory where scheduled reports are saved.
+        OutputBasePath = '.planning/reports/scheduled'
+    }
+
+    Workflows = @{
+        # Changing StoragePath moves where workflow definitions are stored.
+        StoragePath = '.planning/workflows'
+        # Changing Enabled toggles whether custom workflows can be executed.
+        Enabled = $true
+    }
+
     SSH = @{
         # Changing KnownHostsPath moves where lab SSH host keys are stored.
         # This file is cleared on teardown so redeploy gets fresh keys.
