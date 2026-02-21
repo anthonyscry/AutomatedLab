@@ -216,6 +216,18 @@ $GlobalLabConfig = @{
         Action = 'Suspend'
     }
 
+    STIG = @{
+        # Changing Enabled toggles whether DISA STIG DSC baselines are applied during PostInstall.
+        Enabled = $false
+        # Changing AutoApplyOnDeploy toggles whether STIGs apply automatically during deployment.
+        AutoApplyOnDeploy = $true
+        # Changing ComplianceCachePath moves where STIG compliance results are cached.
+        ComplianceCachePath = '.planning/stig-compliance.json'
+        # Changing Exceptions adds per-VM STIG rule exclusions (V-numbers skipped at compile time).
+        # Example: Exceptions = @{ 'dc1' = @('V-12345', 'V-67890'); 'svr1' = @('V-11111') }
+        Exceptions = @{}
+    }
+
     SSH = @{
         # Changing KnownHostsPath moves where lab SSH host keys are stored.
         # This file is cleared on teardown so redeploy gets fresh keys.
