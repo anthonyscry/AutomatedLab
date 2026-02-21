@@ -38,6 +38,7 @@ Export-ModuleMember -Function @(
     # VM management
     'Connect-LabVM', 'Get-LabCheckpoint', 'Get-LabStatus',
     'Initialize-LabDNS', 'Initialize-LabDomain', 'Initialize-LabNetwork', 'Initialize-LabVMs',
+    'Invoke-LabBulkOperation',
     'Join-LabDomain', 'New-LabNAT', 'New-LabSSHKey', 'New-LabSwitch', 'New-LabVM',
     'Remove-LabSwitch', 'Remove-LabVM', 'Remove-LabVMs', 'Reset-Lab',
     'Restart-LabVM', 'Restart-LabVMs', 'Restore-LabCheckpoint', 'Resume-LabVM',
@@ -47,6 +48,12 @@ Export-ModuleMember -Function @(
     'Wait-LabVMReady', 'Write-LabStatus', 'Write-RunArtifact',
     # Run history
     'Get-LabRunHistory',
+    # Analytics
+    'Get-LabAnalytics', 'Get-LabUsageTrends', 'Export-LabAnalyticsData',
+    # Reporting
+    'Get-LabComplianceReport', 'Get-LabResourceReport',
+    'Schedule-LabReport', 'Get-LabReportSchedule', 'Remove-LabReportSchedule',
+    'Get-LabReportHistory',
     # Linux VM helpers (Public/Linux)
     'Add-LinuxDhcpReservation', 'Finalize-LinuxInstallMedia', 'Get-LinuxSSHConnectionInfo',
     'Get-LinuxVMIPv4', 'Get-Sha512PasswordHash', 'Invoke-BashOnLinuxVM',

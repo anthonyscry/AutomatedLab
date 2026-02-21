@@ -69,6 +69,7 @@ FunctionsToExport = @(
     # VM management
     'Connect-LabVM', 'Get-LabCheckpoint', 'Get-LabStatus',
     'Initialize-LabDNS', 'Initialize-LabDomain', 'Initialize-LabNetwork', 'Initialize-LabVMs',
+    'Invoke-LabBulkOperation',
     'Join-LabDomain', 'New-LabNAT', 'New-LabSSHKey', 'New-LabSwitch', 'New-LabVM',
     'Remove-LabSwitch', 'Remove-LabVM', 'Remove-LabVMs', 'Reset-Lab',
     'Restart-LabVM', 'Restart-LabVMs', 'Restore-LabCheckpoint', 'Resume-LabVM',
@@ -78,6 +79,12 @@ FunctionsToExport = @(
     'Wait-LabVMReady', 'Write-LabStatus', 'Write-RunArtifact',
     # Run history
     'Get-LabRunHistory',
+    # Analytics
+    'Get-LabAnalytics', 'Get-LabUsageTrends', 'Export-LabAnalyticsData',
+    # Reporting
+    'Get-LabComplianceReport', 'Get-LabResourceReport',
+    'Schedule-LabReport', 'Get-LabReportSchedule', 'Remove-LabReportSchedule',
+    'Get-LabReportHistory',
     # Lab export/import
     'Export-LabPackage', 'Import-LabPackage',
     # Linux VM helpers (Public/Linux)
