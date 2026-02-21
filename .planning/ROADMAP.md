@@ -146,7 +146,11 @@ Plans:
 - Integration tests cover cross-OS provisioning, networking, and teardown
 - Documentation updated for mixed OS lab workflows
 
-**Plans:** TBD (created during `/gsd:plan-phase 25`)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 25-01-PLAN.md — Mixed OS scenario template, updated templates with switch fields, Linux disk estimation
+- [ ] 25-02-PLAN.md — Integration tests for cross-OS provisioning and mixed OS documentation
 
 ## Progress
 
