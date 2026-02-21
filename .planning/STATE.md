@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 25 (Mixed OS Integration)
-Plan: 1/4 plans — 25-01 complete
-Status: In progress — 25-01 complete (MixedOSLab template, Linux role disk estimates)
-Last activity: 2026-02-21 — completed 25-01 (MixedOSLab.json, SecurityLab/MultiTierApp switch fields, resource estimator Linux roles)
+Plan: 2/4 plans — 25-01, 25-02 complete
+Status: In progress — 25-02 complete (MixedOSIntegration tests, LIFECYCLE-WORKFLOWS Mixed OS section)
+Last activity: 2026-02-21 — completed 25-02 (19 integration tests, lifecycle docs Mixed OS workflows)
 
-Progress: [█████████████████████░░░░░░░░░░░░░░░░░░░] 52% (23-01, 23-02, 24-01, 24-02, 25-01 done)
+Progress: [██████████████████████░░░░░░░░░░░░░░░░░░] 54% (23-01, 23-02, 24-01, 24-02, 25-01, 25-02 done)
 
 ## Performance Metrics
 
@@ -83,6 +83,11 @@ Full log in PROJECT.md Key Decisions table.
 - switch field in scenario templates is operator metadata; Build-LabFromSelection reads actual switch assignments from Builder.IPPlan in Lab-Config.ps1
 - DatabaseUbuntu/DockerUbuntu/K8sUbuntu disk estimates set to 50GB vs Ubuntu base 40GB for data files and container image storage
 
+**25-02:**
+- Static analysis tests use Select-String on script content (not Hyper-V mocks) — keeps integration tests fast and runnable in WSL/CI
+- TotalDiskGB assertion uses exact value (230) to catch future regressions in disk lookup table
+- Mixed OS Workflows doc section placed before Reference Key Command Summary
+
 ### Pending Todos
 
 - None
@@ -94,7 +99,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 25-01-PLAN.md (MixedOSLab template, Linux role disk estimates)
+Stopped at: Completed 25-02-PLAN.md (MixedOSIntegration tests, lifecycle docs Mixed OS workflows)
 Resume file: None
 
 ---
