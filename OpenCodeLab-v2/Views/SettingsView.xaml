@@ -1,0 +1,105 @@
+<UserControl x:Class="OpenCodeLab.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" d:DesignHeight="500" d:DesignWidth="700">
+    <Grid Background="{StaticResource BackgroundBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20">
+                <Border Background="{StaticResource CardBrush}" Padding="20" CornerRadius="5">
+                    <StackPanel>
+                        <TextBlock Text="Application Settings" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
+
+                        <!-- Path Settings -->
+                        <TextBlock Text="Default Paths" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Lab Sources:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding DefaultLabPath}" Margin="5"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Lab Configs:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding LabConfigPath}" Margin="5"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="ISO Files:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding ISOPath}" Margin="5"/>
+                        </Grid>
+
+                        <!-- Network Settings -->
+                        <TextBlock Text="Network Configuration" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Default Switch:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding DefaultSwitchName}" Margin="5"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Switch Type:" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" SelectedItem="{Binding DefaultSwitchType}" Margin="5">
+                                <ComboBoxItem Content="Internal"/>
+                                <ComboBoxItem Content="External"/>
+                                <ComboBoxItem Content="Private"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <!-- Behavior Settings -->
+                        <TextBlock Text="Behavior" FontWeight="Bold" Margin="0,10,0,10"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Auto-start VMs:" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Column="1" IsChecked="{Binding EnableAutoStart}" Content="Enable automatic VM startup" Margin="5"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Refresh Interval:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding RefreshIntervalSeconds}" Margin="5"/>
+                            <TextBlock Grid.Column="2" Text="seconds" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Max Log Lines:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding MaxLogLines}" Margin="5"/>
+                            <TextBlock Grid.Column="2" Text="lines" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                        </Grid>
+
+                        <!-- Action Buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                            <Button Content="Reset" Command="{Binding ResetSettingsCommand}" Width="80" Height="30" Margin="5"/>
+                            <Button Content="Save" Command="{Binding SaveSettingsCommand}" Width="80" Height="30" Margin="5"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
