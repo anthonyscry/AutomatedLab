@@ -8,6 +8,9 @@ function Get-LabADMXConfig {
         every read to prevent StrictMode failures when keys are absent.
         Returns safe defaults when the ADMX block or individual keys are missing.
 
+        NOTE: PowerShell's PSCustomObject converts empty arrays to null. Consumers
+        should treat $null and empty array (@()) equivalently for ThirdPartyADMX.
+
     .OUTPUTS
         PSCustomObject with Enabled, CreateBaselineGPO, ThirdPartyADMX fields.
     #>
@@ -22,6 +25,11 @@ function Get-LabADMXConfig {
     [pscustomobject]@{
         Enabled            = if ($admxBlock.ContainsKey('Enabled'))            { [bool]$admxBlock.Enabled }             else { $true }
         CreateBaselineGPO  = if ($admxBlock.ContainsKey('CreateBaselineGPO')) { [bool]$admxBlock.CreateBaselineGPO }  else { $false }
-        ThirdPartyADMX     = if ($admxBlock.ContainsKey('ThirdPartyADMX'))     { $admxBlock.ThirdPartyADMX }            else { @() }
+        ThirdPartyADMX     = if ($admxBlock.ContainsKey('ThirdPartyADMX')) {
+            # Use @() to force array even for single-element hashtables (PowerShell unwraps them otherwise)
+            ,@($admxBlock.ThirdPartyADMX)
+        } else {
+            @()
+        }
     }
 }
