@@ -87,7 +87,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 - Validation rejects malformed role templates with clear error messages
 - `Get-LabCustomRole -List` shows available custom roles with metadata
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 22-01-PLAN.md — Custom role engine: JSON schema, validator, auto-discovery, listing
