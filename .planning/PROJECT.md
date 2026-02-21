@@ -10,7 +10,7 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 
 ## Current State
 
-**Version:** v1.5 shipped (2026-02-21)
+**Version:** v1.5 shipped (2026-02-21) — v1.6 in progress
 **Tests:** 847+ Pester tests + ~263 (v1.3-v1.4) + ~226 (v1.5) = 1,300+ total
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help, mixed OS workflows
@@ -46,7 +46,11 @@ Previous milestones shipped:
 
 ### Active
 
-(No active requirements — next milestone not yet defined.)
+- [ ] Lab TTL & auto-suspend with config-driven background monitoring
+- [ ] PowerSTIG DSC baselines auto-applied per VM role at deploy time
+- [ ] ADMX/GPO template auto-import after DC promotion
+- [ ] Operational dashboard enrichment (snapshot age, disk, uptime, compliance)
+- [ ] Lab lifecycle monitoring via background scheduled task
 
 ### Out of Scope
 
@@ -73,6 +77,7 @@ Previous milestones shipped:
 - Networking: multi-switch with named vSwitches, per-VM switch/VLAN assignment, pairwise subnet overlap detection, multi-subnet routing
 - Custom roles: JSON files in .planning/roles/ auto-discovered at runtime, integrated with LabBuilder menu and provisioning
 - Project is mature across 6 milestones with 1,300+ tests and comprehensive documentation
+- v1.6 targets lab lifecycle automation (TTL, auto-suspend) and security posture automation (PowerSTIG DSC, ADMX/GPO auto-import) with enriched operational dashboard
 
 ## Constraints
 
@@ -114,4 +119,4 @@ Previous milestones shipped:
 | Static analysis tests for provisioning flow | Validates cross-OS wiring without Hyper-V runtime | ✓ v1.5 |
 
 ---
-*Last updated: 2026-02-21 after v1.5 milestone completed*
+*Last updated: 2026-02-20 after v1.6 milestone started*
