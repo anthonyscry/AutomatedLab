@@ -14,7 +14,8 @@ function Invoke-LabSTIGBaselineCore {
              d. Raise WinRM MaxEnvelopeSizekb to 8192 to handle large MOF payloads
              e. Get role-appropriate STIG profile via Get-LabSTIGProfile; skip unsupported OS
              f. Apply per-VM exception overrides from config Exceptions hashtable
-             g. Apply STIG via Start-DscConfiguration in push mode
+             g. Compile PowerSTIG DSC MOF and apply via Start-DscConfiguration in push mode
+                (compile + apply run together on the remote VM via Invoke-Command)
              h. Check compliance via Get-DscConfigurationStatus
              i. Write compliance result via Write-LabSTIGCompliance
           4. Return audit PSCustomObject matching Invoke-LabQuickModeHeal pattern.
@@ -147,11 +148,87 @@ function Invoke-LabSTIGBaselineCore {
                 throw "Per-VM timeout of ${vmTimeoutSecs}s exceeded before DSC operations."
             }
 
-            # --- Step 8: Apply STIG via DSC push mode ---
-            # In a real environment, MOF compilation via PowerSTIG DSC config would happen here.
-            # We call Start-DscConfiguration which is mockable in tests. The -Path would normally
-            # point to the compiled MOF output directory.
-            Start-DscConfiguration -ComputerName $vm -Wait -Force -Verbose:($VerbosePreference -ne 'SilentlyContinue') | Out-Null
+            # --- Step 8: Compile PowerSTIG DSC MOF and apply via DSC push mode ---
+            # The compile + apply run together on the remote VM via a single Invoke-Command.
+            # The remote scriptblock uses Invoke-Expression to evaluate the DSC Configuration
+            # keyword on the remote (Windows) VM -- this avoids parsing DSC syntax on the
+            # calling host (which may not have DSC for Linux installed, e.g. test runners).
+            # WindowsServer technology is used with resolved StigVersion, OsRole, and per-VM
+            # Exception V-numbers passed via ArgumentList.
+            $stigVersion  = $profile.StigVersion
+            $osRoleParam  = $profile.OsRole
+            $exceptList   = $exceptions
+
+            Invoke-Command -ComputerName $vm -ScriptBlock {
+                param($StigVersion, $OsRole, $ExceptionList)
+
+                Import-Module PowerSTIG -Force
+
+                # Build exception hashtable for PowerSTIG -Exception parameter.
+                # Each V-number maps to a skip marker: @{ 'V-NNNNN' = @{ ValueData = '' } }
+                $exceptionHash = @{}
+                if ($ExceptionList.Count -gt 0) {
+                    foreach ($vNum in $ExceptionList) {
+                        $exceptionHash[$vNum] = @{ ValueData = '' }
+                    }
+                }
+
+                # Build the DSC Configuration scriptblock as a string and invoke it remotely.
+                # Using Invoke-Expression to evaluate the Configuration keyword on the remote
+                # Windows VM — avoids DSC parse errors on non-Windows test runners.
+                if ($exceptionHash.Count -gt 0) {
+                    $configScript = @"
+Configuration LabSTIGBaseline {
+    Import-DscResource -ModuleName PowerSTIG
+    Node localhost {
+        WindowsServer BaseLine {
+            OsVersion = '$StigVersion'
+            OsRole    = '$OsRole'
+            Exception = `$exceptionHash
+        }
+    }
+}
+"@
+                }
+                else {
+                    $configScript = @"
+Configuration LabSTIGBaseline {
+    Import-DscResource -ModuleName PowerSTIG
+    Node localhost {
+        WindowsServer BaseLine {
+            OsVersion = '$StigVersion'
+            OsRole    = '$OsRole'
+        }
+    }
+}
+"@
+                }
+
+                Invoke-Expression $configScript
+
+                # Create temp MOF output directory on the remote VM
+                $mofOutputDir = Join-Path (Join-Path $env:TEMP 'LabSTIG') $env:COMPUTERNAME
+                New-Item -ItemType Directory -Path $mofOutputDir -Force | Out-Null
+
+                try {
+                    # Compile the DSC Configuration to MOF
+                    LabSTIGBaseline -OutputPath $mofOutputDir | Out-Null
+
+                    # Verify at least one MOF was produced
+                    $mofFiles = @(Get-ChildItem -Path $mofOutputDir -Filter '*.mof' -ErrorAction SilentlyContinue)
+                    if ($mofFiles.Count -eq 0) {
+                        throw "PowerSTIG MOF compilation produced no .mof files in '$mofOutputDir'."
+                    }
+
+                    # Apply the compiled MOF via DSC push mode
+                    Start-DscConfiguration -Path $mofOutputDir -Wait -Force | Out-Null
+                }
+                finally {
+                    # Clean up temp MOF directory (success and failure paths)
+                    Remove-Item $mofOutputDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
+            } -ArgumentList $stigVersion, $osRoleParam, $exceptList | Out-Null
 
             # --- Step 9: Check compliance status ---
             $dscStatus = Get-DscConfigurationStatus -CimSession $vm -ErrorAction SilentlyContinue
