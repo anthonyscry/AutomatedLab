@@ -8,7 +8,7 @@
 - ✅ **v1.3 Lab Scenarios & Operator Tooling** - Phases 14-17 (shipped 2026-02-20)
 - ✅ **v1.4 Configuration Management & Reporting** - Phases 18-21 (shipped 2026-02-20)
 - ✅ **v1.5 Advanced Scenarios & Multi-OS** - Phases 22-25 (shipped 2026-02-21)
-- 🚧 **v1.6 Lab Lifecycle & Security Automation** - Phases 26-29 (in progress)
+- ✅ **v1.6 Lab Lifecycle & Security Automation** - Phases 26-29 (shipped 2026-02-21)
 
 ## Phases
 
@@ -85,14 +85,21 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.6 Lab Lifecycle & Security Automation (In Progress)
+<details>
+<summary>✅ v1.6 Lab Lifecycle & Security Automation (Phases 26-29) - SHIPPED 2026-02-21</summary>
 
-**Milestone Goal:** Config-driven lab TTL with background task monitoring, role-aware DISA STIG DSC baselines auto-applied at deploy time, ADMX/GPO auto-import after DC promotion, and enriched operational dashboard consuming all new data sources.
+- [x] Phase 26: Lab TTL & Lifecycle Monitoring (3/3 plans) — completed 2026-02-21
+- [x] Phase 27: PowerSTIG DSC Baselines (5/5 plans) — completed 2026-02-21
+- [x] Phase 28: ADMX / GPO Auto-Import (4/4 plans) — completed 2026-02-21
+- [x] Phase 29: Dashboard Enrichment (5/5 plans) — completed 2026-02-21
 
-- [x] **Phase 26: Lab TTL & Lifecycle Monitoring** - Config-driven auto-suspend with background scheduled task and uptime query (completed 2026-02-21)
-- [x] **Phase 27: PowerSTIG DSC Baselines** (4 plans) - Role-aware STIG baselines applied at deploy time with per-VM exception overrides and compliance cache (completed 2026-02-21)
-- [ ] **Phase 28: ADMX / GPO Auto-Import** - ADMX Central Store population and baseline GPO creation after DC promotion
-- [ ] **Phase 29: Dashboard Enrichment** - Snapshot age, disk usage, uptime, and STIG compliance columns with background runspace data collection
+Full details: `.planning/milestones/v1.6-ROADMAP.md`
+
+</details>
+
+### 📋 Next Milestone: To Be Defined (Planned)
+
+**Phase 30 and beyond** — Continue with remaining project priorities
 
 ## Phase Details
 
