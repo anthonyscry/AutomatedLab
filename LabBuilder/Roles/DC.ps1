@@ -74,6 +74,30 @@ function Get-LabRole_DC {
                 if ($adCheck.NTDSRunning -and $adCheck.ADWSRunning -and $adCheck.DNSRunning) {
                     Write-Host '  [OK] AD DS services verified running (NTDS + ADWS + DNS).' -ForegroundColor Green
                 }
+
+                # 3. Apply STIG baseline (if enabled)
+                if (Test-Path variable:GlobalLabConfig) {
+                    if ($GlobalLabConfig.ContainsKey('STIG') -and $GlobalLabConfig.STIG.ContainsKey('Enabled') -and $GlobalLabConfig.STIG.Enabled) {
+                        if ($GlobalLabConfig.STIG.ContainsKey('AutoApplyOnDeploy') -and -not $GlobalLabConfig.STIG.AutoApplyOnDeploy) {
+                            Write-Host '  [SKIP] STIG baselines enabled but AutoApplyOnDeploy is false.' -ForegroundColor Yellow
+                        }
+                        else {
+                            Write-Host "  Applying STIG baseline to ${dcName}..." -ForegroundColor Cyan
+                            try {
+                                $stigResult = Invoke-LabSTIGBaselineCore -VMName $dcName
+                                if ($stigResult.VMsFailed -eq 0) {
+                                    Write-Host "  [OK] STIG baseline applied to ${dcName} ($($stigResult.VMsSucceeded) succeeded)." -ForegroundColor Green
+                                }
+                                else {
+                                    Write-Warning "DC role: STIG baseline application had failures on ${dcName}. Check .planning/stig-compliance.json for details."
+                                }
+                            }
+                            catch {
+                                Write-Warning "DC role: STIG baseline application failed on ${dcName}: $($_.Exception.Message). Lab deployment continues without STIG."
+                            }
+                        }
+                    }
+                }
             }
             catch {
                 Write-Warning "DC role post-install failed on ${dcName}: $($_.Exception.Message). Check: AD DS features installed, VM has network connectivity, DNS server service started. Run on DC: Get-Service NTDS,ADWS,DNS | Format-Table Name,Status"
