@@ -6,7 +6,7 @@
 - ✅ **v1.1 Production Robustness** - Phases 7-10 (shipped 2026-02-17)
 - ✅ **v1.2 Delivery Readiness** - Phases 11-13 (shipped 2026-02-20)
 - ✅ **v1.3 Lab Scenarios & Operator Tooling** - Phases 14-17 (shipped 2026-02-20)
-- 🔄 **v1.4 Configuration Management & Reporting** - Phases 18-21 (active)
+- ✅ **v1.4 Configuration Management & Reporting** - Phases 18-21 (shipped 2026-02-20)
 
 ## Phases
 
@@ -59,86 +59,33 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 </details>
 
-### v1.4 Configuration Management & Reporting (Phases 18-21)
+<details>
+<summary>✅ v1.4 Configuration Management & Reporting (Phases 18-21) - SHIPPED 2026-02-20</summary>
 
-- [x] **Phase 18: Configuration Profiles** - CLI save, load, list, and delete named lab configuration profiles (completed 2026-02-20)
-- [x] **Phase 19: Run History Tracking** - Automatic deployment logging with CLI viewing and per-run detail (completed 2026-02-20)
-- [x] **Phase 20: GUI Log Viewer** - Dedicated GUI panel with filtering and export for run history (completed 2026-02-20)
-- [x] **Phase 21: Lab Export/Import** - Portable lab definition packages with integrity validation (completed 2026-02-20)
+- [x] Phase 18: Configuration Profiles (2/2 plans) — completed 2026-02-20
+- [x] Phase 19: Run History Tracking (2/2 plans) — completed 2026-02-20
+- [x] Phase 20: GUI Log Viewer (2/2 plans) — completed 2026-02-20
+- [x] Phase 21: Lab Export/Import (2/2 plans) — completed 2026-02-20
 
-## Phase Details
+Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
-### Phase 18: Configuration Profiles
-**Goal**: Operators can persist and reuse named lab configurations without manual file management
-**Depends on**: Nothing (builds on existing Lab-Config.ps1 infrastructure)
-**Requirements**: PROF-01, PROF-02, PROF-03, PROF-04
-**Success Criteria** (what must be TRUE):
-  1. Operator runs `Save-LabProfile -Name "dev-cluster"` and the profile appears in subsequent list commands
-  2. Operator runs `Load-LabProfile -Name "dev-cluster"` and the active lab configuration reflects the saved values
-  3. Operator runs `Get-LabProfile` and sees a table of all saved profiles with VM count and creation date
-  4. Operator runs `Remove-LabProfile -Name "dev-cluster"` and the profile no longer appears in the list
-**Plans**: 2 plans
-Plans:
-- [ ] 18-01-PLAN.md — Save, list, and delete profile cmdlets (Save-LabProfile, Get-LabProfile, Remove-LabProfile)
-- [ ] 18-02-PLAN.md — Load profile cmdlet and comprehensive Pester tests (Load-LabProfile, LabProfile.Tests.ps1)
-
-### Phase 19: Run History Tracking
-**Goal**: Every deploy and teardown action is automatically logged so operators can review what happened and when
-**Depends on**: Phase 18 (profiles provide context for logged configurations)
-**Requirements**: HIST-01, HIST-02, HIST-03
-**Success Criteria** (what must be TRUE):
-  1. After a deploy or teardown completes, a run log entry exists with timestamp, action type, outcome, and duration
-  2. Operator runs `Get-LabRunHistory` and sees a formatted table of the last N runs without manual log parsing
-  3. Operator runs `Get-LabRunHistory -RunId <id>` and sees the full detail log for that specific run
-**Plans**: 2 plans
-Plans:
-- [ ] 19-01-PLAN.md — Get-LabRunHistory Public cmdlet with list and detail modes, module export registration
-- [ ] 19-02-PLAN.md — Comprehensive Pester tests for run history (list, detail, error handling, corrupt file resilience)
-
-### Phase 20: GUI Log Viewer
-**Goal**: Operators can review, search, and export run history directly from the GUI without switching to a terminal
-**Depends on**: Phase 19 (run history data must exist before the GUI panel can display it)
-**Requirements**: LOGV-01, LOGV-02, LOGV-03
-**Success Criteria** (what must be TRUE):
-  1. The GUI contains a dedicated log viewer panel that displays recent run history without opening a terminal
-  2. Operator selects an action type filter (deploy, teardown, snapshot) in the GUI and the log list narrows to matching entries
-  3. Operator clicks Export in the GUI log viewer and a text file is saved containing the currently visible log entries
-**Plans**: 2 plans
-Plans:
-- [ ] 20-01-PLAN.md — Run history panel XAML and wiring (DataGrid, filter ComboBox, export button, Get-LabRunHistory integration)
-- [ ] 20-02-PLAN.md — Pester tests for GUI log viewer (XAML structure, source wiring, filter and export logic)
-
-### Phase 21: Lab Export/Import
-**Goal**: Operators can package a lab definition for transfer or backup and redeploy it on any compatible host
-**Depends on**: Phase 18 (profiles are the unit of export), Phase 19 (import integrates with run logging)
-**Requirements**: XFER-01, XFER-02, XFER-03
-**Success Criteria** (what must be TRUE):
-  1. Operator runs `Export-LabPackage -Name "dev-cluster" -Path ./export` and receives a self-contained JSON package containing the profile config and metadata
-  2. Operator runs `Import-LabPackage -Path ./export/dev-cluster.json` on a different host and can deploy from it without manual file editing
-  3. Import command rejects a malformed or incomplete package before any configuration is applied, displaying which fields failed validation
-**Plans**: 2 plans
-Plans:
-- [ ] 21-01-PLAN.md — Export-LabPackage and Import-LabPackage cmdlets with validation
-- [ ] 21-02-PLAN.md — Comprehensive Pester tests and module manifest registration
+</details>
 
 ## Progress
 
-| Phase | Milestone | Plans | Status | Completed |
-|-------|-----------|-------|--------|-----------|
-| 1-6 | v1.0 | 25/25 | Complete | 2026-02-17 |
-| 7-10 | v1.1 | 13/13 | Complete | 2026-02-17 |
-| 11-13 | v1.2 | 16/16 | Complete | 2026-02-20 |
-| 14-17 | v1.3 | 8/8 | Complete | 2026-02-20 |
-| 18 | 2/2 | Complete    | 2026-02-20 | - |
-| 19 | 2/2 | Complete    | 2026-02-20 | - |
-| 20 | 2/2 | Complete   | 2026-02-20 | - |
-| 21 | 2/2 | Complete   | 2026-02-20 | - |
+| Milestone | Phases | Plans | Status | Shipped |
+|-----------|--------|-------|--------|---------|
+| v1.0 | 1-6 | 25 | Complete | 2026-02-17 |
+| v1.1 | 7-10 | 13 | Complete | 2026-02-17 |
+| v1.2 | 11-13 | 16 | Complete | 2026-02-20 |
+| v1.3 | 14-17 | 8 | Complete | 2026-02-20 |
+| v1.4 | 18-21 | 8 | Complete | 2026-02-20 |
 
-**Total: 70 plans across 21 phases. v1.4 complete (8 plans across 4 phases).**
+**Total: 70 plans across 21 phases, 5 milestones shipped.**
 
 ---
 *Roadmap created: 2026-02-16 (v1.0)*
 *v1.1 milestone added: 2026-02-17*
 *v1.2 milestone shipped: 2026-02-20*
 *v1.3 milestone shipped: 2026-02-20*
-*v1.4 milestone added: 2026-02-20*
+*v1.4 milestone shipped: 2026-02-20*

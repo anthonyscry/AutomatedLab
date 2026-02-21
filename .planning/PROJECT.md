@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual machines for domain and role scenarios, usable through CLI, GUI, and module APIs. Ships with scenario templates, pre-deployment validation, snapshot management, full operator documentation, CI/CD pipelines, and comprehensive test coverage.
+A PowerShell-based Windows lab automation tool that provisions Hyper-V virtual machines for domain and role scenarios, usable through CLI, GUI, and module APIs. Ships with scenario templates, pre-deployment validation, snapshot management, configuration profiles, run history tracking, lab export/import, full operator documentation, CI/CD pipelines, and comprehensive test coverage.
 
 ## Core Value
 
@@ -10,16 +10,17 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 
 ## Current State
 
-**Version:** v1.3 shipped (2026-02-20)
-**Tests:** 847+ Pester tests passing + ~189 new tests (unit + integration + E2E smoke)
+**Version:** v1.4 shipped (2026-02-20)
+**Tests:** 847+ Pester tests + ~263 new tests across v1.3 and v1.4
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help
 
-All 4 milestones shipped:
+All 5 milestones shipped:
 - v1.0 Brownfield Hardening & Integration (6 phases, 25 plans)
 - v1.1 Production Robustness (4 phases, 13 plans)
 - v1.2 Delivery Readiness (3 phases, 16 plans)
 - v1.3 Lab Scenarios & Operator Tooling (4 phases, 8 plans)
+- v1.4 Configuration Management & Reporting (4 phases, 8 plans)
 
 ## Requirements
 
@@ -41,8 +42,7 @@ All 4 milestones shipped:
 
 ### Active
 
-None — v1.4 complete. All requirements validated.
-- Lab export/import (portable lab definition packages)
+None — all milestones complete through v1.4.
 
 ### Out of Scope
 
@@ -60,8 +60,9 @@ None — v1.4 complete. All requirements validated.
 - v1.1 closed production robustness gaps and stabilized modular foundations
 - v1.2 delivered shipping infrastructure: docs, CI/CD, and test coverage
 - v1.3 reduced friction with scenario templates, validation, snapshot tools, and dashboard improvements
+- v1.4 added configuration persistence, deployment history, GUI log viewing, and portable lab packages
 - Lab-Config.ps1 drives all lab topology — scenario templates generate valid configs for common patterns
-- Project is mature across 4 milestones with comprehensive test coverage and documentation
+- Project is mature across 5 milestones with comprehensive test coverage and documentation
 
 ## Constraints
 
@@ -97,4 +98,4 @@ None — v1.4 complete. All requirements validated.
 | Import reuses Save-LabProfile | No duplicate file-write logic, single source of truth | ✓ v1.4 |
 
 ---
-*Last updated: 2026-02-20 after Phase 21 — v1.4 complete*
+*Last updated: 2026-02-20 after v1.4 milestone complete*

@@ -76,12 +76,50 @@
 
 ---
 
-## v1.3 Lab Scenarios & Operator Tooling (Shipped: 2026-02-20)
+### v1.3 — Lab Scenarios & Operator Tooling (2026-02-20 → 2026-02-20)
 
-**Phases completed:** 7 phases, 14 plans, 6 tasks
+**Goal:** Reduce friction with scenario templates, pre-deployment validation, snapshot tools, and dashboard improvements.
 
-**Key accomplishments:**
-- (none recorded)
+**Phases:** 14–17 (4 phases, 8 plans)
+**Requirements:** 14/14 complete
+**Tests:** ~189 new tests (unit + integration + E2E smoke)
 
----
+**What shipped:**
+- Scenario templates as JSON files with CLI integration and resource estimation (Phase 14)
+- Pre-deployment validation with guided diagnostics (Phase 15)
+- Snapshot inventory and pruning with ShouldProcess safety (Phase 16)
+- Dashboard health banner, resource summary, and bulk actions (Phase 17)
+
+**Key decisions:**
+- Scenario templates as JSON files — new scenarios via file drop, no code changes
+- No ValidateSet on -Scenario — runtime validation auto-discovers templates
+- CPU check warns not fails — VMs can share CPU time
+- ShouldProcess on snapshot pruning — -WhatIf safety for destructive operations
+
+**Last phase number:** 17
+
+### v1.4 — Configuration Management & Reporting (2026-02-20 → 2026-02-20)
+
+**Goal:** Configuration persistence, deployment history tracking, GUI log viewing, and portable lab packages.
+
+**Phases:** 18–21 (4 phases, 8 plans)
+**Requirements:** 13/13 complete
+**Tests:** 74 new Pester tests
+
+**What shipped:**
+- Named configuration profiles with save, load, list, delete CRUD operations (Phase 18)
+- Run history tracking via Get-LabRunHistory wrapping existing artifact infrastructure (Phase 19)
+- GUI log viewer with DataGrid, action-type filtering, and text file export (Phase 20)
+- Lab export/import with self-contained JSON packages and multi-field integrity validation (Phase 21)
+
+**Key decisions:**
+- Profiles as JSON in .planning/profiles/ following template storage pattern
+- $Config parameter not $GlobalLabConfig for testability
+- Get-LabRunHistory wraps existing Write-LabRunArtifacts — no new logging infrastructure
+- ISO 8601 string sort for run ordering
+- Cached run history with filter-without-reload in GUI
+- Import validates all fields before applying, collecting errors
+- ConvertTo-PackageHashtable naming avoids collision with Load-LabProfile
+
+**Last phase number:** 21
 
