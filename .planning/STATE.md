@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 27 of 29 (PowerSTIG DSC Baselines)
-Plan: 2 of 4
+Plan: 3 of 4
 Status: In progress
-Last activity: 2026-02-21 — Phase 27 Plan 02 complete (Get-LabSTIGProfile + Test-PowerStigInstallation, 54 tests)
+Last activity: 2026-02-21 — Phase 27 Plan 03 complete (Write-LabSTIGCompliance + Invoke-LabSTIGBaseline, 35 tests)
 
 Progress: [█░░░░░░░░░] 15% (v1.6)
 
@@ -39,6 +39,8 @@ Full log in PROJECT.md Key Decisions table. Key decisions for v1.6:
 - TTL monitoring uses Windows Scheduled Tasks (survives PowerShell session termination), not background jobs
 - Dashboard enrichment uses 60-second background runspace + synchronized hashtable — must be designed at phase start, not retrofitted
 - DSC modules must install -Scope AllUsers (machine scope) — CurrentUser silently fails under SYSTEM context
+- [Phase 27-03]: Side-effect Invoke-Command calls piped to Out-Null — prevents null pipeline leakage from mocks causing PSCustomObject to be wrapped in Object[] array
+- [Phase 27-03]: Pester 5: stub missing DSC cmdlets as global: functions in BeforeAll so Pester can mock them on non-Windows test host
 
 ### Pending Todos
 
@@ -52,9 +54,9 @@ None
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 27-02-PLAN.md (Get-LabSTIGProfile + Test-PowerStigInstallation with 54 tests)
+Stopped at: Completed 27-03-PLAN.md (Write-LabSTIGCompliance + Invoke-LabSTIGBaseline, 35 tests)
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-21 after Phase 27 Plan 02 completion*
+*Last updated: 2026-02-21 after Phase 27 Plan 03 completion*
