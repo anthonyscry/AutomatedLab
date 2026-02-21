@@ -191,3 +191,58 @@
 
 ---
 
+## v1.7 — Operational Excellence & Analytics (2026-02-21 → Planned)
+
+**Goal:** Enhance operational visibility with lab analytics, advanced reporting, performance metrics, and workflow automation.
+
+**Phases:** 30–33 (4 phases planned)
+**Requirements:** 14/14 pending (ANLY-01 through ANLY-03, RPT-01 through RPT-04, OPS-01 through OPS-04, PERF-01 through PERF-03)
+**Tests:** TBD
+
+**Planned delivery:**
+- Lab Analytics (Phase 30) — Usage trends, data export, event tracking
+- Advanced Reporting (Phase 31) — Compliance reports, resource trends, scheduled generation
+- Operational Workflows (Phase 32) — Bulk operations, custom workflows, pre-flight checks
+- Performance Guidance (Phase 33) — Performance metrics, optimization suggestions, historical analysis
+
+**Last phase number:** 33 (planned)
+
+---
+
+## v1.7 — Operational Excellence & Analytics (2026-02-21 → 2026-02-21)
+
+**Goal:** Enhance operational visibility with lab analytics, advanced reporting, performance metrics, and workflow automation.
+
+**Phases:** 30–33 (4 phases, 14 plans)
+**Requirements:** 14/14 complete (ANLY-01 through ANLY-03, RPT-01 through RPT-04, OPS-01 through OPS-04, PERF-01 through PERF-03)
+**Tests:** 180+ new Pester tests
+
+**What shipped:**
+- Analytics event tracking infrastructure with JSON storage and Get-LabAnalytics public API (Phase 30)
+- Usage trends data collection with Get-LabUsageTrends (Day/Week/Month grouping) (Phase 30)
+- Data export to CSV/JSON via Export-LabAnalyticsData (Phase 30)
+- Compliance reports with STIG status, pass/fail summary, multiple output formats (Phase 31)
+- Resource utilization reports with disk/memory/CPU trends and bottleneck detection (Phase 31)
+- Scheduled report generation via Windows Scheduled Tasks for daily/weekly snapshots (Phase 31)
+- Audit trail tracking with Write-LabReportMetadata and Get-LabReportHistory (Phase 31)
+- Bulk VM operations with parallel execution via runspaces and per-VM error handling (Phase 32)
+- Custom operation workflows with JSON workflow definitions (Save-LabWorkflow, Invoke-LabWorkflow) (Phase 32)
+- Pre-flight validation with Test-LabBulkOperation for resource checks (Phase 32)
+- Confirmation summaries with operation tracking and audit logging (Phase 32)
+- Performance metrics collection with Measure-LabVMOperation and JSON storage (Phase 33)
+- Performance metrics querying with Get-LabPerformanceMetrics and percentile calculations (Phase 33)
+- Optimization suggestions with anomaly detection and Get-LabPerformanceRecommendation (Phase 33)
+
+**Key decisions:**
+- Analytics uses JSON file storage (.planning/analytics.json) with configurable retention
+- Reports support Console, HTML, CSV, and JSON output formats for different use cases
+- Scheduled reports use Windows Scheduled Tasks (reuses Phase 26 TTL pattern)
+- Bulk operations use runspaces for parallel execution with error isolation
+- Workflows defined as JSON files enabling custom operation sequences
+- Performance metrics use mean + N*stddev for anomaly detection
+- Pre-flight validation prevents resource conflicts before bulk operations
+
+**Last phase number:** 33
+
+---
+
