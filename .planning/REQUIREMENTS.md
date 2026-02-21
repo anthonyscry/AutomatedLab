@@ -73,30 +73,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TTL-01 | — | Pending |
-| TTL-02 | — | Pending |
-| TTL-03 | — | Pending |
-| STIG-01 | — | Pending |
-| STIG-02 | — | Pending |
-| STIG-03 | — | Pending |
-| STIG-04 | — | Pending |
-| STIG-05 | — | Pending |
-| STIG-06 | — | Pending |
-| GPO-01 | — | Pending |
-| GPO-02 | — | Pending |
-| GPO-03 | — | Pending |
-| GPO-04 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
-| DASH-05 | — | Pending |
+| TTL-01 | Phase 26 | Pending |
+| TTL-02 | Phase 26 | Pending |
+| TTL-03 | Phase 26 | Pending |
+| STIG-01 | Phase 27 | Pending |
+| STIG-02 | Phase 27 | Pending |
+| STIG-03 | Phase 27 | Pending |
+| STIG-04 | Phase 27 | Pending |
+| STIG-05 | Phase 27 | Pending |
+| STIG-06 | Phase 27 | Pending |
+| GPO-01 | Phase 28 | Pending |
+| GPO-02 | Phase 28 | Pending |
+| GPO-03 | Phase 28 | Pending |
+| GPO-04 | Phase 28 | Pending |
+| DASH-01 | Phase 29 | Pending |
+| DASH-02 | Phase 29 | Pending |
+| DASH-03 | Phase 29 | Pending |
+| DASH-04 | Phase 29 | Pending |
+| DASH-05 | Phase 29 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-20*
-*Last updated: 2026-02-20 after initial definition*
+*Last updated: 2026-02-20 after roadmap creation (18/18 mapped)*
