@@ -10,10 +10,10 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 
 ## Current State
 
-**Version:** v1.5 in progress (started 2026-02-20)
-**Tests:** 847+ Pester tests + ~263 new tests across v1.3 and v1.4
+**Version:** v1.5 shipped (2026-02-21)
+**Tests:** 847+ Pester tests + ~263 (v1.3-v1.4) + ~226 (v1.5) = 1,300+ total
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
-**Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help
+**Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help, mixed OS workflows
 
 Previous milestones shipped:
 - v1.0 Brownfield Hardening & Integration (6 phases, 25 plans)
@@ -21,8 +21,7 @@ Previous milestones shipped:
 - v1.2 Delivery Readiness (3 phases, 16 plans)
 - v1.3 Lab Scenarios & Operator Tooling (4 phases, 8 plans)
 - v1.4 Configuration Management & Reporting (4 phases, 8 plans)
-
-**v1.5 Goal:** Advanced scenarios with custom role templates, complex networking topologies, and full Linux VM parity.
+- v1.5 Advanced Scenarios & Multi-OS (4 phases, 8 plans)
 
 ## Requirements
 
@@ -41,10 +40,13 @@ Previous milestones shipped:
 - ✓ v1.4 HIST-01 through HIST-03: Run history tracking with automatic logging and query cmdlet (Phase 19)
 - ✓ v1.4 LOGV-01 through LOGV-03: GUI log viewer with filtering and export (Phase 20)
 - ✓ v1.4 XFER-01 through XFER-03: Lab export/import with integrity validation (Phase 21)
+- ✓ v1.5 ROLE-01 through ROLE-05: Custom role templates with JSON schema, auto-discovery, and UI integration (Phase 22)
+- ✓ v1.5 NET-01 through NET-05: Multi-switch networking with VLAN tagging and subnet validation (Phase 23)
+- ✓ v1.5 LNX-01 through LNX-06: Linux VM full parity — snapshots, profiles, SSH retry, CentOS support (Phases 24-25)
 
 ### Active
 
-v1.5 Advanced Scenarios & Multi-OS — requirements being defined.
+(No active requirements — next milestone not yet defined.)
 
 ### Out of Scope
 
@@ -53,6 +55,10 @@ v1.5 Advanced Scenarios & Multi-OS — requirements being defined.
 - Custom scenario builder GUI wizard — CLI + JSON templates sufficient
 - Snapshot diff/comparison — list and prune sufficient for operator needs
 - Deep performance optimization — correctness and reliability first
+- Fedora/Debian distribution support — Ubuntu + CentOS covers major families
+- Linux-to-Windows domain join automation — document manual approach
+- DMZ network patterns with firewall rules — beyond lab provisioning scope
+- Network topology visualization in GUI — text-based config sufficient
 
 ## Context
 
@@ -61,11 +67,12 @@ v1.5 Advanced Scenarios & Multi-OS — requirements being defined.
 - v1.2 delivered shipping infrastructure: docs, CI/CD, and test coverage
 - v1.3 reduced friction with scenario templates, validation, snapshot tools, and dashboard improvements
 - v1.4 added configuration persistence, deployment history, GUI log viewing, and portable lab packages
-- v1.5 expands scenario capability: custom role templates (JSON), complex networking (multi-subnet, VLAN), full Linux parity
+- v1.5 delivered custom role templates (JSON auto-discovery), multi-switch networking (VLAN, multi-subnet routing), full Linux parity (CentOS, SSH retry, snapshot/profile integration), and mixed OS scenario templates
 - Lab-Config.ps1 drives all lab topology — scenario templates generate valid configs for common patterns
-- Existing Linux support: Ubuntu 24.04 via cloud-init, SSH provisioning, 5 roles (base, DB, Docker, K8s, Web)
-- Existing networking: single vSwitch/NAT, static IP assignment, subnet conflict detection
-- Project is mature across 5 milestones with comprehensive test coverage and documentation
+- Linux support: Ubuntu 24.04 + CentOS Stream 9 via cloud-init NoCloud, SSH provisioning with retry, 6 roles (base, DB, Docker, K8s, Web, CentOS)
+- Networking: multi-switch with named vSwitches, per-VM switch/VLAN assignment, pairwise subnet overlap detection, multi-subnet routing
+- Custom roles: JSON files in .planning/roles/ auto-discovered at runtime, integrated with LabBuilder menu and provisioning
+- Project is mature across 6 milestones with 1,300+ tests and comprehensive documentation
 
 ## Constraints
 
@@ -99,6 +106,12 @@ v1.5 Advanced Scenarios & Multi-OS — requirements being defined.
 | ConvertTo-PackageHashtable naming | Avoids function name collision with Load-LabProfile's helper | ✓ v1.4 |
 | Import validates all fields before applying | Collects errors in array, not fail-fast, per XFER-03 | ✓ v1.4 |
 | Import reuses Save-LabProfile | No duplicate file-write logic, single source of truth | ✓ v1.4 |
+| Custom roles as JSON with schema validator | Warn-and-skip invalid files, no code changes for new roles | ✓ v1.5 |
+| Switches array coexists with flat keys | Full backward compat for single-switch configs | ✓ v1.5 |
+| Per-VM switch/VLAN in IPPlan hashtable format | Plain string backward compat preserved | ✓ v1.5 |
+| PSBoundParameters for SSH retry defaults | LabConfig override only when param not explicitly supplied | ✓ v1.5 |
+| CentOS uses same Invoke-LinuxRoleCreateVM | ISOPattern differentiates distros, no code duplication | ✓ v1.5 |
+| Static analysis tests for provisioning flow | Validates cross-OS wiring without Hyper-V runtime | ✓ v1.5 |
 
 ---
-*Last updated: 2026-02-20 after v1.5 milestone started*
+*Last updated: 2026-02-21 after v1.5 milestone completed*

@@ -123,3 +123,31 @@
 
 **Last phase number:** 21
 
+
+### v1.5 — Advanced Scenarios & Multi-OS (2026-02-20 → 2026-02-21)
+
+**Goal:** Custom role templates, complex networking topologies, and full Linux VM parity with mixed OS integration.
+
+**Phases:** 22–25 (4 phases, 8 plans)
+**Requirements:** 16/16 complete
+**Tests:** ~226 new Pester tests
+
+**What shipped:**
+- Custom role template engine — JSON-defined roles with schema validation, auto-discovery, and full LabBuilder integration (Phase 22)
+- Multi-switch networking — named vSwitches with VLAN tagging, per-VM switch assignment, pairwise subnet overlap detection, multi-subnet routing (Phase 23)
+- Linux VM full parity — snapshot inventory discovers all Linux VMs, profile metadata, SSH retry with configurable backoff (Phase 24)
+- CentOS Stream 9 support — new role with cloud-init NoCloud provisioning and dnf package management (Phase 24)
+- Mixed OS integration — end-to-end scenario template (DC + IIS + Ubuntu + DB), integration tests, lifecycle documentation (Phase 25)
+
+**Key decisions:**
+- Custom roles as JSON with warn-and-skip schema validator
+- Switches array coexists with flat SwitchName key for backward compat
+- Per-VM switch/VLAN via IPPlan hashtable format with plain string fallback
+- PSBoundParameters for SSH retry defaults — LabConfig override only when not explicit
+- CentOS reuses Invoke-LinuxRoleCreateVM with ISOPattern differentiator
+- Static analysis tests validate cross-OS provisioning flow without Hyper-V
+
+**Last phase number:** 25
+
+---
+
