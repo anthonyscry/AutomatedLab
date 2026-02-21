@@ -77,8 +77,8 @@ function Test-LabCustomRoleSchema {
 
                 # Check step required fields
                 foreach ($stepField in @('name', 'type', 'value')) {
-                    $hasField = $stepIsHashtable ? $step.ContainsKey($stepField) : $false
-                    $fieldValue = $hasField ? $step[$stepField] : $null
+                    $hasField = if ($stepIsHashtable) { $step.ContainsKey($stepField) } else { $false }
+                    $fieldValue = if ($hasField) { $step[$stepField] } else { $null }
                     if (-not $hasField -or [string]::IsNullOrWhiteSpace($fieldValue)) {
                         $errors.Add("Custom role '$FilePath': $stepRef missing required field '$stepField'")
                     }

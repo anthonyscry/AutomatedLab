@@ -152,7 +152,7 @@ function Get-LabCustomRole {
 
         # Build output hashtable in Get-LabRole_* compatible shape
         $tag = $match['tag']
-        $vmName = $match.ContainsKey('vmNameDefault') ? $match['vmNameDefault'] : $tag
+        $vmName = if ($match.ContainsKey('vmNameDefault')) { $match['vmNameDefault'] } else { $tag }
 
         if ($null -ne $Config) {
             if ($Config.ContainsKey('VMNames') -and $Config.VMNames -is [hashtable] -and $Config.VMNames.ContainsKey($tag)) {
@@ -191,11 +191,14 @@ function Get-LabCustomRole {
         }
 
         # Parse memory values from resources
-        $resources = $match.ContainsKey('resources') ? $match['resources'] : @{}
-        $memory    = ConvertTo-LabMemoryValue -MemoryString ($resources.ContainsKey('memory')    ? $resources['memory']    : '2GB')
-        $minMemory = ConvertTo-LabMemoryValue -MemoryString ($resources.ContainsKey('minMemory') ? $resources['minMemory'] : '1GB')
-        $maxMemory = ConvertTo-LabMemoryValue -MemoryString ($resources.ContainsKey('maxMemory') ? $resources['maxMemory'] : '4GB')
-        $processors = $resources.ContainsKey('processors') ? [int]$resources['processors'] : 2
+        $resources = if ($match.ContainsKey('resources')) { $match['resources'] } else { @{} }
+        $memStr    = if ($resources.ContainsKey('memory'))    { $resources['memory'] }    else { '2GB' }
+        $minStr    = if ($resources.ContainsKey('minMemory')) { $resources['minMemory'] } else { '1GB' }
+        $maxStr    = if ($resources.ContainsKey('maxMemory')) { $resources['maxMemory'] } else { '4GB' }
+        $memory    = ConvertTo-LabMemoryValue -MemoryString $memStr
+        $minMemory = ConvertTo-LabMemoryValue -MemoryString $minStr
+        $maxMemory = ConvertTo-LabMemoryValue -MemoryString $maxStr
+        $processors = if ($resources.ContainsKey('processors')) { [int]$resources['processors'] } else { 2 }
 
         $autoLabRoles = @()
         if ($match.ContainsKey('autoLabRoles') -and $null -ne $match['autoLabRoles']) {
