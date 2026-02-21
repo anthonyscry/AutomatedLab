@@ -10,7 +10,8 @@ function Get-LabSnapshotInventory {
 
     .PARAMETER VMName
         Optional list of VM names to filter. Defaults to all lab VMs from
-        GlobalLabConfig.Lab.CoreVMNames plus auto-detected LIN1.
+        GlobalLabConfig.Lab.CoreVMNames plus auto-detected Linux VMs (LIN1,
+        LINWEB1, LINDB1, LINDOCK1, LINK8S1) from Builder.VMNames.
 
     .OUTPUTS
         PSCustomObject[] with VMName, CheckpointName, CreationTime, AgeDays, ParentCheckpointName.
@@ -46,10 +47,25 @@ function Get-LabSnapshotInventory {
                     @('dc1', 'svr1', 'ws1')
                 }
             )
-            # Auto-detect LIN1
-            $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
-            if ($lin1VM -and ('LIN1' -notin $targetVMs)) {
-                $targetVMs += 'LIN1'
+            # Auto-detect Linux VMs from Builder config (all 5 Linux roles)
+            if (Test-Path variable:GlobalLabConfig) {
+                $linuxKeys = @('Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
+                foreach ($key in $linuxKeys) {
+                    if ($GlobalLabConfig.Builder.VMNames.ContainsKey($key)) {
+                        $linName = $GlobalLabConfig.Builder.VMNames[$key]
+                        if ($linName -and $linName -notin $targetVMs) {
+                            $linVM = Get-VM -Name $linName -ErrorAction SilentlyContinue
+                            if ($linVM) { $targetVMs += $linName }
+                        }
+                    }
+                }
+            }
+            else {
+                # Backward compat: when GlobalLabConfig is not loaded, fall back to LIN1
+                $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
+                if ($lin1VM -and ('LIN1' -notin $targetVMs)) {
+                    $targetVMs += 'LIN1'
+                }
             }
         }
 
