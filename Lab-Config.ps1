@@ -112,15 +112,29 @@ $GlobalLabConfig = @{
                 NatName      = 'LabDMZNAT'
             }
         )
+
+        # Routing configuration for inter-subnet communication.
+        # Mode 'host'   = add static routes on the Hyper-V host between subnets.
+        # Mode 'gateway'= use a gateway VM that forwards between subnets.
+        Routing = @{
+            # Mode: 'host' or 'gateway'
+            Mode = 'host'
+            # GatewayVM: VM name acting as router (only used when Mode = 'gateway')
+            GatewayVM = ''
+            # EnableForwarding: enable IP forwarding on the gateway VM (Mode = 'gateway')
+            EnableForwarding = $true
+        }
     }
 
     IPPlan = @{
         # Changing these IPs remaps static addressing for core VMs.
-        DC1  = '10.0.10.10'
-        SVR1 = '10.0.10.20'
-        WS1  = '10.0.10.30'
-        DSC1 = '10.0.10.40'
-        LIN1 = '10.0.10.110'
+        # New format: hashtable with IP, Switch, and optional VlanId.
+        # Backward compat: plain string = default/first switch, no VLAN.
+        DC1  = @{ IP = '10.0.10.10'; Switch = 'LabCorpNet' }
+        SVR1 = @{ IP = '10.0.10.20'; Switch = 'LabCorpNet'; VlanId = 100 }
+        WS1  = @{ IP = '10.0.20.30'; Switch = 'LabDMZ'; VlanId = 200 }
+        DSC1 = '10.0.10.40'   # backward compat: plain string = default switch, no VLAN
+        LIN1 = @{ IP = '10.0.10.110'; Switch = 'LabCorpNet' }
     }
 
     VMSizing = @{

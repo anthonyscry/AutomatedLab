@@ -106,16 +106,94 @@ function Get-LabNetworkConfig {
             )
         }
 
+        # Build VMAssignments from GlobalLabConfig.IPPlan (if available).
+        # Supports both hashtable format (@{IP=...; Switch=...; VlanId=...}) and
+        # plain string format (backward compat: uses first switch, no VLAN).
+        $vmAssignments = @{}
+        $vmIps         = @{}
+
+        $defaultSwitchName = if ($switchesArray.Count -gt 0) { $switchesArray[0].Name } else { 'SimpleLab' }
+
+        if ((Test-Path variable:GlobalLabConfig) -and
+            $null -ne $GlobalLabConfig -and
+            $GlobalLabConfig -is [hashtable] -and
+            $GlobalLabConfig.ContainsKey('IPPlan')) {
+
+            foreach ($key in $GlobalLabConfig.IPPlan.Keys) {
+                $entry = $GlobalLabConfig.IPPlan[$key]
+
+                if ($entry -is [hashtable]) {
+                    $ip       = $entry['IP']
+                    $sw       = if ($entry.ContainsKey('Switch')) { $entry['Switch'] } else { $defaultSwitchName }
+                    $vlanId   = if ($entry.ContainsKey('VlanId')) { $entry['VlanId'] } else { $null }
+                    # Determine PrefixLength from the switch's AddressSpace
+                    $prefixLen = 24
+                    $matchedSw = $switchesArray | Where-Object { $_.Name -eq $sw } | Select-Object -First 1
+                    if ($null -ne $matchedSw -and -not [string]::IsNullOrWhiteSpace($matchedSw.AddressSpace)) {
+                        $parts = $matchedSw.AddressSpace -split '/'
+                        if ($parts.Count -eq 2) { $prefixLen = [int]$parts[1] }
+                    }
+                    $vmAssignments[$key] = [PSCustomObject]@{
+                        IP           = $ip
+                        Switch       = $sw
+                        VlanId       = $vlanId
+                        PrefixLength = $prefixLen
+                    }
+                    $vmIps[$key] = $ip
+                }
+                elseif ($entry -is [string]) {
+                    # Backward compat: plain string IP -- use default switch, no VLAN
+                    $prefixLen = 24
+                    $firstSw = if ($switchesArray.Count -gt 0) { $switchesArray[0] } else { $null }
+                    if ($null -ne $firstSw -and -not [string]::IsNullOrWhiteSpace($firstSw.AddressSpace)) {
+                        $parts = $firstSw.AddressSpace -split '/'
+                        if ($parts.Count -eq 2) { $prefixLen = [int]$parts[1] }
+                    }
+                    $vmAssignments[$key] = [PSCustomObject]@{
+                        IP           = $entry
+                        Switch       = $defaultSwitchName
+                        VlanId       = $null
+                        PrefixLength = $prefixLen
+                    }
+                    $vmIps[$key] = $entry
+                }
+            }
+        }
+
+        # Build Routing config from GlobalLabConfig.Network.Routing or defaults
+        $routingConfig = [PSCustomObject]@{
+            Mode             = 'host'
+            GatewayVM        = ''
+            EnableForwarding = $true
+        }
+
+        if ((Test-Path variable:GlobalLabConfig) -and
+            $null -ne $GlobalLabConfig -and
+            $GlobalLabConfig -is [hashtable] -and
+            $GlobalLabConfig.ContainsKey('Network') -and
+            $GlobalLabConfig.Network.ContainsKey('Routing') -and
+            $null -ne $GlobalLabConfig.Network.Routing) {
+
+            $r = $GlobalLabConfig.Network.Routing
+            $routingConfig = [PSCustomObject]@{
+                Mode             = if ($r.ContainsKey('Mode'))             { $r['Mode']             } else { 'host'  }
+                GatewayVM        = if ($r.ContainsKey('GatewayVM'))        { $r['GatewayVM']        } else { ''      }
+                EnableForwarding = if ($r.ContainsKey('EnableForwarding')) { $r['EnableForwarding'] } else { $true   }
+            }
+        }
+
         # If no config exists, return defaults with Switches
         if ($null -eq $labConfig) {
             # Still attempt to build from GlobalLabConfig if present
             $result = [PSCustomObject]@{
-                Subnet       = $defaultConfig.Subnet
-                PrefixLength = $defaultConfig.PrefixLength
-                Gateway      = $defaultConfig.Gateway
-                DNSServers   = $defaultConfig.DNSServers
-                VMIPs        = $defaultConfig.VMIPs
-                Switches     = $switchesArray
+                Subnet          = $defaultConfig.Subnet
+                PrefixLength    = $defaultConfig.PrefixLength
+                Gateway         = $defaultConfig.Gateway
+                DNSServers      = $defaultConfig.DNSServers
+                VMIPs           = if ($vmIps.Count -gt 0) { $vmIps } else { $defaultConfig.VMIPs }
+                VMAssignments   = $vmAssignments
+                Switches        = $switchesArray
+                Routing         = $routingConfig
             }
             return $result
         }
@@ -126,12 +204,14 @@ function Get-LabNetworkConfig {
 
             # Build result object from config, using defaults for missing properties
             $result = [PSCustomObject]@{
-                Subnet       = if ($networkConfig.PSObject.Properties.Name -contains 'Subnet')       { $networkConfig.Subnet }       else { $defaultConfig.Subnet }
-                PrefixLength = if ($networkConfig.PSObject.Properties.Name -contains 'PrefixLength') { $networkConfig.PrefixLength } else { $defaultConfig.PrefixLength }
-                Gateway      = if ($networkConfig.PSObject.Properties.Name -contains 'Gateway')      { $networkConfig.Gateway }      else { $defaultConfig.Gateway }
-                DNSServers   = if ($networkConfig.PSObject.Properties.Name -contains 'DNSServers')   { $networkConfig.DNSServers }   else { $defaultConfig.DNSServers }
-                VMIPs        = if ($networkConfig.PSObject.Properties.Name -contains 'VMIPs')        { $networkConfig.VMIPs }        else { $defaultConfig.VMIPs }
-                Switches     = $switchesArray
+                Subnet          = if ($networkConfig.PSObject.Properties.Name -contains 'Subnet')       { $networkConfig.Subnet }       else { $defaultConfig.Subnet }
+                PrefixLength    = if ($networkConfig.PSObject.Properties.Name -contains 'PrefixLength') { $networkConfig.PrefixLength } else { $defaultConfig.PrefixLength }
+                Gateway         = if ($networkConfig.PSObject.Properties.Name -contains 'Gateway')      { $networkConfig.Gateway }      else { $defaultConfig.Gateway }
+                DNSServers      = if ($networkConfig.PSObject.Properties.Name -contains 'DNSServers')   { $networkConfig.DNSServers }   else { $defaultConfig.DNSServers }
+                VMIPs           = if ($vmIps.Count -gt 0) { $vmIps } elseif ($networkConfig.PSObject.Properties.Name -contains 'VMIPs') { $networkConfig.VMIPs } else { $defaultConfig.VMIPs }
+                VMAssignments   = $vmAssignments
+                Switches        = $switchesArray
+                Routing         = $routingConfig
             }
 
             return $result
@@ -139,12 +219,14 @@ function Get-LabNetworkConfig {
 
         # Return defaults if NetworkConfiguration section doesn't exist
         $result = [PSCustomObject]@{
-            Subnet       = $defaultConfig.Subnet
-            PrefixLength = $defaultConfig.PrefixLength
-            Gateway      = $defaultConfig.Gateway
-            DNSServers   = $defaultConfig.DNSServers
-            VMIPs        = $defaultConfig.VMIPs
-            Switches     = $switchesArray
+            Subnet          = $defaultConfig.Subnet
+            PrefixLength    = $defaultConfig.PrefixLength
+            Gateway         = $defaultConfig.Gateway
+            DNSServers      = $defaultConfig.DNSServers
+            VMIPs           = if ($vmIps.Count -gt 0) { $vmIps } else { $defaultConfig.VMIPs }
+            VMAssignments   = $vmAssignments
+            Switches        = $switchesArray
+            Routing         = $routingConfig
         }
         return $result
     }
