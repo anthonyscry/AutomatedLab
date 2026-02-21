@@ -260,6 +260,15 @@ $GlobalLabConfig = @{
         RetentionDays = 90
     }
 
+    Performance = @{
+        # Changing Enabled toggles whether performance metrics are collected.
+        Enabled = $true
+        # Changing StoragePath moves where performance metrics are stored.
+        StoragePath = '.planning/performance-metrics.json'
+        # Changing RetentionDays sets how long to keep performance metrics (0 = keep forever).
+        RetentionDays = 90
+    }
+
     Reports = @{
         # Changing ComplianceReportPath sets where compliance reports are saved.
         ComplianceReportPath = '.planning/reports/compliance'

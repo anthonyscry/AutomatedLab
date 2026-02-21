@@ -50,6 +50,8 @@ Export-ModuleMember -Function @(
     'Get-LabRunHistory',
     # Analytics
     'Get-LabAnalytics', 'Get-LabUsageTrends', 'Export-LabAnalyticsData',
+    # Performance
+    'Measure-LabVMOperation', 'Get-LabPerformanceMetrics', 'Get-LabPerformanceRecommendation',
     # Reporting
     'Get-LabComplianceReport', 'Get-LabResourceReport',
     'Schedule-LabReport', 'Get-LabReportSchedule', 'Remove-LabReportSchedule',

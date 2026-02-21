@@ -97,6 +97,28 @@ function Write-LabRunArtifacts {
         $lines | Set-Content -Path $txtPath -Encoding UTF8
         Write-Host "`n  Run report: $jsonPath" -ForegroundColor DarkGray
         Write-Host "  Run summary: $txtPath" -ForegroundColor DarkGray
+
+        # Track analytics event based on action type
+        $analyticsEventType = switch ($ReportData.Action) {
+            'bootstrap' { 'LabDeployed' }
+            'deploy'    { 'LabDeployed' }
+            'teardown'  { 'LabTeardown' }
+            default     { "Lab$($ReportData.Action)" }
+        }
+
+        $analyticsMetadata = [ordered]@{
+            Action          = $ReportData.Action
+            Mode            = $ReportData.EffectiveMode
+            Success         = $Success
+            DurationSeconds = $duration
+            RunId           = $runId
+        }
+
+        if ($ReportData.VMNames -and $ReportData.VMNames.Count -gt 0) {
+            $analyticsMetadata.VMCount = $ReportData.VMNames.Count
+        }
+
+        Write-LabAnalyticsEvent -EventType $analyticsEventType -LabName $ReportData.LabName -VMNames $ReportData.VMNames -Metadata $analyticsMetadata
     }
     catch {
         $PSCmdlet.WriteError(
