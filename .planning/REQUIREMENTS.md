@@ -18,7 +18,7 @@ Requirements for Lab Lifecycle & Security Automation milestone. Each maps to roa
 - [ ] **STIG-01**: PowerSTIG and required DSC dependencies auto-install on target VMs during PostInstall
 - [ ] **STIG-02**: Role-appropriate STIG MOFs compile and apply via DSC push mode at deploy time
 - [ ] **STIG-03**: Compliance status cached to JSON file after each STIG application
-- [ ] **STIG-04**: Per-VM STIG exception overrides configurable in Lab-Config.ps1 STIG block
+- [x] **STIG-04**: Per-VM STIG exception overrides configurable in Lab-Config.ps1 STIG block
 - [ ] **STIG-05**: Operator can re-apply STIG baselines on demand via Invoke-LabSTIGBaseline
 - [ ] **STIG-06**: Compliance report generated via Get-LabSTIGCompliance with per-VM breakdown
 
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STIG-01 | Phase 27 | Pending |
 | STIG-02 | Phase 27 | Pending |
 | STIG-03 | Phase 27 | Pending |
-| STIG-04 | Phase 27 | Pending |
+| STIG-04 | Phase 27 | Complete |
 | STIG-05 | Phase 27 | Pending |
 | STIG-06 | Phase 27 | Pending |
 | GPO-01 | Phase 28 | Pending |

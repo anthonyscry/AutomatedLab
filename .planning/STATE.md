@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** v1.6 Lab Lifecycle & Security Automation — Phase 26: Lab TTL & Lifecycle Monitoring
+**Current focus:** v1.6 Lab Lifecycle & Security Automation — Phase 27: PowerSTIG DSC Baselines
 
 ## Current Position
 
-Phase: 26 of 29 (Lab TTL & Lifecycle Monitoring)
-Plan: — of — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-02-20 — v1.6 roadmap created (18/18 requirements mapped to Phases 26-29)
+Phase: 27 of 29 (PowerSTIG DSC Baselines)
+Plan: 1 of 4
+Status: In progress
+Last activity: 2026-02-21 — Phase 27 Plan 01 complete (STIG config block + Get-LabSTIGConfig)
 
-Progress: [░░░░░░░░░░] 0% (v1.6)
+Progress: [█░░░░░░░░░] 10% (v1.6)
 
 ## Performance Metrics
 
@@ -30,6 +30,8 @@ Progress: [░░░░░░░░░░] 0% (v1.6)
 ### Decisions
 
 Full log in PROJECT.md Key Decisions table. Key decisions for v1.6:
+- STIG config block added to GlobalLabConfig after TTL block; Enabled=$false by default
+- Get-LabSTIGConfig uses ContainsKey guards matching Phase 26 TTL pattern; Exceptions defaults to @{} not null
 - All new features gated by `Enabled = $false` in $GlobalLabConfig — existing behavior unchanged when config keys absent
 - STIG compliance uses cache-on-write (.planning/stig-compliance.json) — no live DSC queries on dashboard hot path
 - TTL monitoring uses Windows Scheduled Tasks (survives PowerShell session termination), not background jobs
@@ -47,8 +49,8 @@ None
 
 ## Session Continuity
 
-Last session: 2026-02-20
-Stopped at: v1.6 roadmap created, all 18 requirements mapped, ready to plan Phase 26
+Last session: 2026-02-21
+Stopped at: Completed 27-01-PLAN.md (STIG config block + Get-LabSTIGConfig with 10 tests)
 Resume file: None
 
 ---
