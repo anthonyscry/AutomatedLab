@@ -6,8 +6,8 @@ function Invoke-LabADMXImport {
     .DESCRIPTION
         Copies ADMX/ADML files from the DC's PolicyDefinitions directory to the
         SYSVOL Central Store. When ThirdPartyADMX entries are present in config,
-        also copies ADMX bundles from operator-specified local paths. GPO creation
-        is NOT performed by this function (see plan 28-03 for baseline GPOs).
+        also copies ADMX bundles from operator-specified local paths. When
+        CreateBaselineGPO is enabled, creates baseline GPOs from JSON templates.
 
     .PARAMETER DCName
         The domain controller VM name.
@@ -129,6 +129,85 @@ function Invoke-LabADMXImport {
             }
             catch {
                 Write-Warning "[Invoke-LabADMXImport] Failed to import third-party bundle $bundleName`: $($_.Exception.Message)"
+            }
+        }
+
+        # Create baseline GPOs from templates if enabled
+        if ($config.CreateBaselineGPO) {
+            Write-Verbose "[Invoke-LabADMXImport] Creating baseline GPOs..."
+
+            # Determine repository root (use git rev-parse if available)
+            $repoRoot = if (Get-Command -Name git -ErrorAction SilentlyContinue) {
+                $gitRoot = & git rev-parse --show-toplevel 2>$null
+                if ($gitRoot) { $gitRoot } else { $PSScriptRoot | Split-Path -Parent }
+            } else {
+                $PSScriptRoot | Split-Path -Parent
+            }
+
+            $gpoTemplatePath = Join-Path $repoRoot 'Templates\GPO'
+
+            if (-not (Test-Path $gpoTemplatePath)) {
+                Write-Warning "[Invoke-LabADMXImport] GPO template path not found: $gpoTemplatePath. Skipping GPO creation."
+            }
+            else {
+                # Convert domain FQDN to DN for link target
+                $domainDN = ConvertTo-DomainDN -DomainFQDN $DomainName
+                Write-Verbose "[Invoke-LabADMXImport] Domain DN for GPO links: $domainDN"
+
+                # Get all JSON template files
+                $gpoTemplates = Get-ChildItem -Path $gpoTemplatePath -Filter '*.json' -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer }
+
+                foreach ($templateFile in $gpoTemplates) {
+                    Write-Verbose "[Invoke-LabADMXImport] Processing GPO template: $($templateFile.Name)"
+
+                    try {
+                        # Load JSON template
+                        $templateJson = Get-Content $templateFile.FullName -Raw | ConvertFrom-Json
+
+                        $gpoName = $templateJson.Name
+                        $linkTarget = if ($templateJson.LinkTarget) {
+                            $templateJson.LinkTarget
+                        } else {
+                            $domainDN  # Use default domain DN if LinkTarget not specified
+                        }
+
+                        Write-Verbose "[Invoke-LabADMXImport] Creating GPO: $gpoName"
+
+                        # Create GPO on the DC
+                        $gpo = New-GPO -Name $gpoName -ErrorAction Stop
+
+                        # Apply each registry setting from template
+                        foreach ($setting in $templateJson.Settings) {
+                            $key = $setting.Key
+                            $valueName = $setting.ValueName
+                            $value = $setting.Value
+                            $type = $setting.Type
+
+                            # Remove HKLM\ or HKCU\ prefix for Set-GPRegistryValue (it infers hive from Key content)
+                            $keyForGPO = $key -replace '^HK[LMCU]\\', ''
+
+                            $params = @{
+                                Name      = $gpoName
+                                Key       = $keyForGPO
+                                ValueName = $valueName
+                                Value     = $value
+                                Type      = $type
+                            }
+
+                            Set-GPRegistryValue @params -ErrorAction Stop | Out-Null
+                            Write-Verbose "[Invoke-LabADMXImport] Applied registry setting: $keyForGPO\$valueName = $value"
+                        }
+
+                        # Link GPO to domain root
+                        New-GPLink -Name $gpoName -Target $linkTarget -ErrorAction Stop | Out-Null
+                        Write-Verbose "[Invoke-LabADMXImport] Linked GPO '$gpoName' to $linkTarget"
+
+                        $filesImported++  # Count GPOs in FilesImported metric
+                    }
+                    catch {
+                        Write-Warning "[Invoke-LabADMXImport] Failed to create GPO from template $($templateFile.Name): $($_.Exception.Message)"
+                    }
+                }
             }
         }
 
