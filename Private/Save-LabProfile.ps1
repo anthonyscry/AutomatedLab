@@ -40,13 +40,26 @@ function Save-LabProfile {
         $vmCount = @($Config.Lab.CoreVMNames).Count
     }
 
+    # Count Linux VMs from Builder.VMNames or presence of Builder.LinuxVM section
+    $linuxVmCount = 0
+    if ($Config.ContainsKey('Builder') -and $Config.Builder -is [hashtable]) {
+        if ($Config.Builder.ContainsKey('VMNames') -and $Config.Builder.VMNames -is [hashtable]) {
+            $linuxKeys = @('Ubuntu', 'WebServerUbuntu', 'DatabaseUbuntu', 'DockerUbuntu', 'K8sUbuntu')
+            $linuxVmCount = @($linuxKeys | Where-Object { $Config.Builder.VMNames.ContainsKey($_) }).Count
+        }
+        elseif ($Config.Builder.ContainsKey('LinuxVM') -and $Config.Builder.LinuxVM -is [hashtable]) {
+            $linuxVmCount = 1  # LinuxVM config present but no VMNames — at least one Linux VM
+        }
+    }
+
     # Build profile object with metadata
     $profile = [ordered]@{
-        name        = $Name
-        description = $Description
-        createdAt   = Get-Date -Format 'o'
-        vmCount     = $vmCount
-        config      = $Config
+        name         = $Name
+        description  = $Description
+        createdAt    = Get-Date -Format 'o'
+        vmCount      = $vmCount
+        linuxVmCount = $linuxVmCount
+        config       = $Config
     }
 
     # Ensure profiles directory exists
