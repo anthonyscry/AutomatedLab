@@ -1,232 +1,314 @@
 # Pitfalls Research
 
-**Domain:** PowerShell Hyper-V Lab Automation
-**Researched:** 2025-02-09
-**Confidence:** HIGH
+**Domain:** PowerShell Lab Lifecycle Automation — PowerSTIG DSC, ADMX/GPO Import, Lab TTL Scheduled Tasks, WPF Dashboard Enrichment
+**Researched:** 2026-02-20
+**Confidence:** HIGH (architecture pitfalls from codebase analysis + MEDIUM for PowerSTIG-specific from official docs + community)
 
-> This document catalogs common mistakes in PowerShell/Hyper-V lab automation projects. Each pitfall includes warning signs (early detection), prevention strategies (how to avoid), and phase mapping (when to address it). Use this to prevent mistakes during roadmap planning for SimpleLab (a simplified alternative to AutomatedLab).
+> This document covers pitfalls specific to v1.6 features being added to the existing AutomatedLab codebase. It assumes PowerShell 5.1 compatibility, the single-`$GlobalLabConfig` architecture, and the existing DispatcherTimer-based WPF GUI pattern.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Silent Failures in Automation Scripts
+### Pitfall 1: DSC Module Scope — Installing to CurrentUser Instead of Machine Scope
 
 **What goes wrong:**
-Scripts that work 99% of the time but fail silently during the critical 1% cause cascading failures across the entire lab deployment. The most dangerous automation is what doesn't fail loudly when something goes wrong.
+`Install-Module PowerSTIG -Scope CurrentUser` installs to the current user's profile. DSC configurations run under the SYSTEM account context via the WMI Provider Host Process (`WmiPrvSE`). SYSTEM cannot see modules installed to `C:\Users\<user>\Documents\WindowsPowerShell\Modules`. The MOF compiles successfully on the host but `Start-DscConfiguration` fails on the guest VM with "resource module not found."
 
 **Why it happens:**
-- Overuse of `-ErrorAction SilentlyContinue` to "make scripts work"
-- Missing validation checkpoints between deployment stages
-- Assuming external dependencies (ISOs, network, services) always succeed
-- Not checking return codes or structured outputs from remote commands
+Developers habitually use `-Scope CurrentUser` to avoid UAC prompts during interactive install. The discrepancy between who installs the module and who runs DSC is non-obvious.
 
 **How to avoid:**
-- Use `Set-StrictMode -Version Latest` in all scripts
-- Implement structured return objects with required properties (see `Invoke-LabStructuredCheck` pattern in existing code)
-- Add explicit validation gates after each critical stage (ISO detection, vSwitch creation, VM startup, AD promotion)
-- Never use `-ErrorAction SilentlyContinue` except for truly non-critical operations
-- Log all failures with context (what, when, why) for debugging
+Always install PowerSTIG and its dependent DSC resource modules as Administrator without the `-Scope` parameter. This places them in `C:\Program Files\WindowsPowerShell\Modules` where SYSTEM can reach them. PowerSTIG's official docs explicitly state: "the `-Scope` switch is not used here because DSC runs as the system."
+
+For guest VM application, the same rule applies: DSC resources must be present on the target node at machine scope before `Start-DscConfiguration` runs.
 
 **Warning signs:**
-- Scripts complete "successfully" but VMs aren't running or accessible
-- Having to manually check Hyper-V Manager to see what actually happened
-- Inconsistent behavior between runs without clear error messages
-- "It worked yesterday" without understanding what changed
+- MOF compilation succeeds on the host but `Start-DscConfiguration` throws "The PowerShell DSC resource [X] does not exist at the PowerShell module path nor be registered as a WMI DSC resource"
+- Error appears only when run under a service or scheduled context, not in interactive PS sessions
 
-**Phase to address:** Phase 1 (Foundation) - Build error handling and validation patterns into the core framework from day one.
+**Phase to address:**
+Phase that introduces PowerSTIG baseline application (DSC Baselines phase). Add a `Test-PowerStigInstallation` guard that checks both host and target VM module scope before attempting compilation.
 
 ---
 
-### Pitfall 2: Stale VM State from Previous Failed Runs
+### Pitfall 2: PowerSTIG Version/STIG Version Mismatch Causing MOF Compilation Failure
 
 **What goes wrong:**
-Failed deployment runs leave behind VMs, checkpoints, or virtual network adapters in inconsistent states. Subsequent runs fail with "machine already exists" errors or malformed configuration, creating a death spiral where each run makes the problem worse.
+The `StigVersion` parameter in the DSC composite resource configuration must correspond to an actual STIG version bundled in the installed PowerSTIG module. Specifying an outdated or unavailable STIG version causes the configuration block to throw a terminating error during MOF compilation, not at apply time. The failure message is cryptic: the module name is reported but not the version mismatch root cause.
 
 **Why it happens:**
-- Scripts assume clean environment on every run
-- Missing pre-flight checks for existing artifacts
-- Inadequate cleanup on failure (error handling doesn't remove partial state)
-- Hyper-V operations are asynchronous and take time to complete
+PowerSTIG ships STIG data as processed XML files under `StigData\Processed\`. Available versions change between PowerSTIG releases. Lab automation code that hard-codes `StigVersion = '2.5'` silently breaks when the developer upgrades PowerSTIG to a version that dropped or renamed that STIG version.
 
 **How to avoid:**
-- Implement aggressive pre-flight cleanup (see `Remove-HyperVVMStale` pattern)
-- Use multiple retry attempts with exponential backoff for VM removal
-- Kill vmwp.exe worker processes as last resort if VM won't delete
-- Implement `Try { } Finally { }` blocks to ensure cleanup on failure
-- Create snapshots only at known-good states (e.g., "LabReady" after full deployment succeeds)
+- Never hard-code `StigVersion` in lab code. Resolve it at runtime by scanning the `StigData\Processed\` directory for the newest available version for the target STIG type:
+  ```powershell
+  $stigPath = "C:\Program Files\WindowsPowerShell\Modules\PowerSTIG\$($(Get-Module PowerSTIG -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version)\StigData\Processed"
+  ```
+- Pin the PowerSTIG module version in `$GlobalLabConfig` and validate on startup that the pinned version is installed.
 
 **Warning signs:**
-- Re-running scripts gives "machine already exists" errors
-- Hyper-V Manager shows VMs that PowerShell says don't exist
-- Having to manually delete VMs between runs
-- Scripts that work once but never again without manual intervention
+- Error during MOF compilation mentioning a STIG type string (e.g., "WindowsServer-2019-MS-1.5 was not found")
+- Lab works after an `Update-Module PowerSTIG` but breaks after a later update
 
-**Phase to address:** Phase 1 (Foundation) - Build idempotent operations that handle existing state gracefully.
+**Phase to address:**
+DSC Baselines phase. The STIG version discovery helper must be written before any DSC configuration scaffold.
 
 ---
 
-### Pitfall 3: vSwitch/NAT Configuration Drift
+### Pitfall 3: WinRM MaxEnvelopeSizekb Blocking Large MOF Delivery
 
 **What goes wrong:**
-The lab's virtual network configuration (vSwitch + NAT) becomes inconsistent between host reboots or script runs. VMs can't get IPs, can't reach each other, or can't access external networks. The "Default Switch" is particularly unreliable because Windows manages its subnet dynamically.
+PowerSTIG MOF files are large — a full Windows Server STIG MOF commonly exceeds the default WinRM `MaxEnvelopeSizekb` of 500 KB. `Start-DscConfiguration -ComputerName $vm` fails with: "The WinRM client sent a request to the remote WS-Management service and was notified that the request size exceeded the configured MaxEnvelopeSize quota."
 
 **Why it happens:**
-- Assuming vSwitch/NAT created in previous runs still exists
-- Windows updates or host reboots changing network configuration
-- Using Hyper-V "Default Switch" which has unpredictable subnets
-- AutomatedLab or other tools accidentally removing/recreating network objects
+WinRM defaults are conservative. Fresh Windows Server VMs deployed by the lab have never had WinRM tuned. The issue does not appear when applying a small DSC config but manifests specifically with PowerSTIG's composite resources.
 
 **How to avoid:**
-- Always use a dedicated Internal vSwitch (never "Default Switch")
-- Check and recreate vSwitch + NAT idempotently every run
-- Verify host gateway IP is still assigned to vNIC after operations
-- Use static IPs for infrastructure VMs (DC1) and DHCP for clients
-- Validate network connectivity (ping, WinRM) before proceeding with deployment
+Add a `Set-LabVMWinRMForDsc` helper that runs before any DSC push:
+```powershell
+Invoke-Command -ComputerName $vmName -ScriptBlock {
+    Set-Item -Path WSMan:\localhost\MaxEnvelopeSizekb -Value 8192
+    Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue
+}
+```
+This must also run on the host to support local DSC compilation. Include it in post-domain-join provisioning so it is idempotent across re-deploys.
 
 **Warning signs:**
-- VMs start but can't ping each other
-- VMs can't reach external networks (GitHub, package feeds)
-- Having to manually recreate vSwitch after host reboot
-- IP addresses change between runs
+- Error message contains "MaxEnvelopeSize quota"
+- Error only appears with PowerSTIG configs, not smaller DSC configs
+- Issue surfaces on first VM it is applied to and is consistent across all VMs
 
-**Phase to address:** Phase 1 (Foundation) - Network setup must be bulletproof and idempotent.
+**Phase to address:**
+DSC Baselines phase. Add WinRM pre-flight to `Invoke-LabApplyDscBaseline` before any `Start-DscConfiguration` call.
 
 ---
 
-### Pitfall 4: Timeout Mismatches on Resource-Constrained Hosts
+### Pitfall 4: DSC "A Configuration Is Already Pending" Blocking Re-Application
 
 **What goes wrong:**
-AutomatedLab's default timeouts (60-120 seconds) are too short for resource-constrained hosts. Scripts fail waiting for DC promotion, VM startup, or service readiness, even though the operation would succeed if given more time.
+If a previous `Start-DscConfiguration` run was interrupted (VM rebooted mid-apply, PS session lost, operator killed it), the LCM on the guest VM enters a "pending" state. Subsequent calls to `Start-DscConfiguration` fail with "A configuration is already pending." The lab re-deploy flow calls apply again on the same VM and gets stuck.
 
 **Why it happens:**
-- AutomatedLab defaults assume powerful server hardware
-- Lab developers test on powerful machines, users run on laptops
-- No adjustment for disk speed (SSD vs HDD), RAM, or CPU
-- Passing integers to timeout configs instead of TimeSpan objects (interpreted as ticks!)
+DSC's LCM tracks configuration state on the node. An interrupted push leaves a pending `.mof` in `C:\Windows\System32\Configuration\`. The LCM refuses a new configuration until the pending one is resolved. This happens any time the VM is rebooted between `Start-DscConfiguration` and LCM completing apply.
 
 **How to avoid:**
-- Override AutomatedLab timeouts using `Set-PSFConfig` with proper TimeSpan objects
-- Wait for DC restart with 90-minute timeout (default is 60)
-- Wait for ADWS readiness with 120-minute timeout (default is 20)
-- Wait for VM startup with 90-minute timeout (default is 60)
-- Document timeout requirements and adjust based on host capabilities
+Add `-Force` to all `Start-DscConfiguration` calls in the lab automation. The `-Force` flag instructs the LCM to discard any pending configuration and apply the new one immediately. Also add a pre-check step:
+```powershell
+$lcmState = (Get-DscLocalConfigurationManager -CimSession $vm).LCMState
+if ($lcmState -eq 'PendingSendConfiguration' -or $lcmState -eq 'PendingConfigurationCheckin') {
+    Remove-DscConfigurationDocument -Stage Pending -CimSession $vm -Force
+}
+```
 
 **Warning signs:**
-- Deployment fails at same point on slower machines but succeeds on fast ones
-- Errors mention timeouts during DC promotion or VM startup
-- Having to manually retry operations
+- Error contains "A configuration is already pending"
+- Fails consistently after a lab that had a VM rebooted mid-deployment
+- `Get-DscLocalConfigurationManager` shows `LCMState` of `PendingSendConfiguration`
 
-**Phase to address:** Phase 1 (Foundation) - Configure timeouts appropriately for target hardware.
+**Phase to address:**
+DSC Baselines phase. Pre-flight LCM state check must be in `Invoke-LabApplyDscBaseline` before the `Start-DscConfiguration` call.
 
 ---
 
-### Pitfall 5: AD DS Promotion Failures Without Recovery
+### Pitfall 5: ADMX Import Before DC Promotion Is Complete
 
 **What goes wrong:**
-Install-Lab fails during DC promotion, leaving the lab in an inconsistent state. DC1 exists but isn't a domain controller, and there's no recovery logic. The entire deployment must be scrapped and restarted.
+The ADMX central store creation and GPO import automation runs Invoke-Command against the DC VM. If the script proceeds before AD Web Services and SYSVOL replication are fully ready, GPO cmdlets like `Import-GPO` and `New-GPO` fail with "The server is not operational" or "The SYSVOL path is unavailable." This is not the same signal as WinRM availability — the VM answers WinRM but AD is still initializing.
 
 **Why it happens:**
-- Assuming Install-Lab never fails
-- Not validating AD DS promotion success after Install-Lab
-- No fallback mechanism to promote DC1 manually if AutomatedLab fails
-- Not detecting that NTDS service isn't running
+`Wait-LabVMReady` checks for WinRM responsiveness, not AD service health. AD Web Services (`ADWS`) can take 60–120 seconds after a domain controller finishes its initial promotion reboot before it accepts LDAP/GroupPolicy cmdlets reliably.
 
 **How to avoid:**
-- Implement explicit AD DS validation after Install-Lab completes
-- Check NTDS service status, AD cmdlet functionality, and domain membership
-- If validation fails, manually run Install-ADDSForest with recovery logic
-- Wait for DC to restart and come back online after recovery promotion
-- Verify ADWS and NTDS services are running before proceeding
+Add an explicit AD readiness gate before any Group Policy operations:
+```powershell
+$maxWait = 180
+$waited = 0
+do {
+    try {
+        $null = Get-ADDomain -Server $dcName -ErrorAction Stop
+        break
+    } catch {
+        Start-Sleep -Seconds 10
+        $waited += 10
+    }
+} while ($waited -lt $maxWait)
+if ($waited -ge $maxWait) { throw "AD not ready on $dcName after $maxWait seconds" }
+```
+This gate must run before `New-GPO`, `Import-GPO`, and central store ADMX copy operations.
 
 **Warning signs:**
-- Install-Lab completes but DC1 isn't a domain controller
-- Get-ADForest or other AD cmdlets fail
-- NTDS service not running on DC1
-- Having to manually promote DC1
+- GPO import fails on the first run but succeeds if the operator re-runs 2–3 minutes later
+- Error contains "The server is not operational" or "RPC server is unavailable"
+- Works in manual testing but fails in automated deployment (timing dependency)
 
-**Phase to address:** Phase 2 (Core Lab) - AD DS promotion is critical; must have validation and recovery.
+**Phase to address:**
+ADMX/GPO Import phase. The AD readiness gate should be a named private helper (`Wait-LabADReady`) so it can be reused across any step that requires AD.
 
 ---
 
-### Pitfall 6: Linux VM Support Gaps in Automation Frameworks
+### Pitfall 6: ADMX Central Store Version Conflicts Causing "Extra Registry Settings" in GPO Editor
 
 **What goes wrong:**
-AutomatedLab doesn't support Ubuntu 24.04 (or other recent Linux distributions). Projects that need mixed Windows/Linux labs end up with hybrid automation: some VMs managed by the framework, others created manually with native Hyper-V cmdlets.
+Copying ADMX files from one Windows version (e.g., Windows 10 22H2) to the central store when the DC or admin workstation uses RSAT with files from a different version causes the Group Policy Management Console to display settings as "Extra Registry Settings." Operators see warnings and policy edits require manual XML work to fix.
 
 **Why it happens:**
-- Frameworks lag behind OS releases (Ubuntu 24.04 was released after AutomatedLab added it)
-- Linux autoinstall mechanisms (cloud-init, Subiquity) are different from Windows unattended.xml
-- Frameworks focus primarily on Windows workflows
+ADMX/ADML files use the same filenames across Windows versions but contain different content. The central store path (`\\domain\SYSVOL\domain\Policies\PolicyDefinitions`) must have a single, consistent version. Merging files from different sources breaks this.
 
 **How to avoid:**
-- Create Linux VMs manually using native Hyper-V cmdlets (New-VM, Set-VMFirmware)
-- Use cloud-init NoCloud datasource with CIDATA VHDX for unattended installs
-- Generate CIDATA VHDX with user-data and meta-data (no ISO tools required)
-- Disable Secure Boot for Gen2 Linux VMs
-- Detach installer ISO and CIDATA after install completes to prevent reboot loops
+- Source ADMX files exclusively from one consistent Windows version — use the files from the DC itself (`C:\Windows\PolicyDefinitions`) as the authoritative source for the initial import.
+- Never merge partial sets. Always replace the entire `PolicyDefinitions` folder atomically.
+- Store the source Windows build in `$GlobalLabConfig` so the ADMX import is version-aware:
+  ```powershell
+  $sourceAdmx = "\\$dcName\C$\Windows\PolicyDefinitions"
+  $centralStore = "\\$domainName\SYSVOL\$domainName\Policies\PolicyDefinitions"
+  ```
 
 **Warning signs:**
-- Framework documentation doesn't mention your Linux distribution
-- Having to create Linux VMs manually while Windows VMs are automated
-- Ubuntu installer menu appears instead of unattended install
+- Group Policy Management Console shows "Extra Registry Settings" warnings on any GPO
+- Multiple ADMX error dialogs appear when opening the GPMC after ADMX import
+- Some ADMX settings appear duplicated with subtly different names
 
-**Phase to address:** Phase 3 (Mixed OS) - Plan for hybrid automation if framework lacks Linux support.
+**Phase to address:**
+ADMX/GPO Import phase. Enforce single-source ADMX copy in the import helper and add a post-copy validation that compares file counts.
 
 ---
 
-### Pitfall 7: WinRM/SSH Connectivity Assumptions
+### Pitfall 7: Scheduled Task Working Directory and Path Assumptions Causing Silent Failures
 
 **What goes wrong:**
-Scripts assume WinRM (Windows) or SSH (Linux) are immediately available after VM creation. They fail trying to run commands before the VM's networking or services are ready, leading to flaky deployments that sometimes work and sometimes don't.
+A scheduled task registered with `Register-ScheduledTask` runs the TTL monitor script as SYSTEM. The script uses relative paths (e.g., `.\Lab-Common.ps1`) or assumes `$PSScriptRoot` resolves correctly. Under Task Scheduler, `$PSScriptRoot` may be empty or point to `C:\Windows\System32` rather than the project root. The task runs but the script silently does nothing because module imports fail.
 
 **Why it happens:**
-- Not waiting for VMs to fully boot and start services
-- Assuming VM startup = services ready (false, especially for DC promotion)
-- Network adapters take time to get DHCP addresses
-- SSH daemon starts later than boot process
+Interactive PowerShell sessions set `$PSScriptRoot` from the script file's location. Scheduled tasks launched via `powershell.exe -File "path\script.ps1"` set it correctly only if the full path is given — but the task's working directory (`-WorkingDirectory`) defaults to `%windir%\System32` when not explicitly set.
 
 **How to avoid:**
-- Wait for WinRM port 5985 to be reachable before invoking commands
-- Implement retry logic with exponential backoff (try 12 times, 15 seconds apart)
-- Wait for SSH port 22 to be reachable before configuring Linux VMs
-- Use structured checks that retry until required property is returned
-- Don't assume Test-Connection (ping) success means services are ready
+- Always register the task with an explicit working directory set to the project root:
+  ```powershell
+  $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+      -Argument "-NonInteractive -NoProfile -File `"$scriptPath`"" `
+      -WorkingDirectory $projectRoot
+  ```
+- Use absolute paths constructed from a known anchor (`$GlobalLabConfig.Paths.LabRoot`) rather than relative paths inside the monitoring script.
+- Add a startup guard in the monitoring script that validates its expected paths exist before doing any work.
 
 **Warning signs:**
-- Scripts fail intermittently with "WinRM connection failed"
-- Having to rerun scripts to get them to work
-- Different behavior on fast vs slow hardware
-- "RPC server unavailable" errors
+- Task shows "Last Run Result: 0x0" (success) but no log entries appear
+- Works when invoked manually via PowerShell but produces no output via Task Scheduler
+- Script contains `Import-Module` or dot-source using relative paths
 
-**Phase to address:** Phase 1 (Foundation) - Build reliable connectivity waiting into all remote operations.
+**Phase to address:**
+Lab TTL / Lifecycle Monitoring phase. The task registration helper must be built with explicit path construction from the start.
 
 ---
 
-### Pitfall 8: ISO Detection Failures
+### Pitfall 8: Scheduled Task Re-Registration Errors Breaking Idempotent Deployment
 
 **What goes wrong:**
-Scripts can't detect the operating system from ISO files, or detect the wrong OS. Deployment fails with "no operating system found" or installs the wrong Windows version (Server Core instead of Desktop Experience).
+`Register-ScheduledTask` throws a terminating error if a task with the same name already exists. A lab re-deploy or `Initialize-LabConfig` re-run invokes the TTL task registration helper, which crashes with "Cannot create a file when that file already exists."
 
 **Why it happens:**
-- ISO filenames don't match expected patterns
-- Get-LabAvailableOperatingSystem can't read ISO metadata
-- Multiple Windows editions in same ISO (wrong one selected)
-- ISO files are corrupted or incomplete downloads
+`Register-ScheduledTask` is not idempotent by default. Developers add `-Force` to fix it interactively, but forget it in the automation path, or the task was created manually and has a slightly different principal.
 
 **How to avoid:**
-- Validate ISOs exist before starting deployment (file size check)
-- Verify AutomatedLab can detect OS from ISOs (Get-LabAvailableOperatingSystem)
-- Use explicit OS names in Add-LabMachineDefinition (not wildcards)
-- Document exact ISO versions required (e.g., "Windows Server 2019 Datacenter Evaluation (Desktop Experience)")
-- Include "Desktop Experience" in OS name to avoid Server Core
+Wrap task registration in an explicit check-then-create pattern:
+```powershell
+$existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($null -ne $existing) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+}
+Register-ScheduledTask @registrationSplat
+```
+Using `-Force` on `Register-ScheduledTask` alone is insufficient because it still errors when the task principal (user/SYSTEM) differs from the registered version.
 
 **Warning signs:**
-- Get-LabAvailableOperatingSystem returns nothing
-- Deployment installs wrong Windows edition
-- "Operating system not found" errors during Install-Lab
+- Deploy succeeds on first run, fails on second run with a file-exists type error
+- Error message contains the scheduled task name
+- Operator has previously registered the task manually to test it
 
-**Phase to address:** Phase 1 (Foundation) - ISO validation is a prerequisite check.
+**Phase to address:**
+Lab TTL / Lifecycle Monitoring phase. The task registration function must be idempotent by design, not patched after the fact.
+
+---
+
+### Pitfall 9: GlobalLabConfig TTL Keys Absent Causing NullReferenceException in Background Monitor
+
+**What goes wrong:**
+The background monitoring script reads `$GlobalLabConfig.TTL.EnableAutoSuspend` and similar keys. If the lab is running with an older `Lab-Config.ps1` that predates the TTL section being added, the keys do not exist. Under `Set-StrictMode -Version Latest`, any access to a missing hashtable key throws an error. The scheduled task silently fails (exit code non-zero, no log entry).
+
+**Why it happens:**
+Existing `Lab-Config.ps1` files from v1.5 do not have the new TTL block. The monitoring script assumes the config is always current. `Set-StrictMode` is used project-wide per coding standards, making absent key access a hard error rather than a null return.
+
+**How to avoid:**
+Apply the same defensive pattern used in other project helpers:
+```powershell
+# Test for key existence before access
+$ttlEnabled = if ($GlobalLabConfig.ContainsKey('TTL') -and $GlobalLabConfig.TTL.ContainsKey('EnableAutoSuspend')) {
+    $GlobalLabConfig.TTL.EnableAutoSuspend
+} else {
+    $false  # safe default
+}
+```
+Also add the TTL block with safe defaults to `Lab-Config.ps1` during the phase that introduces TTL, so new deployments have it automatically.
+
+**Warning signs:**
+- Task exit code is non-zero but no errors are written to the log file
+- Error in DSC/Task event log mentions a null reference or property access on null
+- Works when `Lab-Config.ps1` was freshly generated but fails on an existing config
+
+**Phase to address:**
+Lab TTL / Lifecycle Monitoring phase. All config key reads in the monitoring script must be guarded with `ContainsKey` checks.
+
+---
+
+### Pitfall 10: DispatcherTimer Tick Hanging the UI When Enriched Data Collection Is Slow
+
+**What goes wrong:**
+The existing `$script:VMPollTimer` (5-second `DispatcherTimer`) runs on the WPF UI thread. Adding slow Hyper-V data collection calls (disk usage, snapshot age, uptime) to the tick handler causes the GUI to freeze for 1–3 seconds every 5 seconds — noticeable as jank when scrolling or clicking buttons.
+
+**Why it happens:**
+`DispatcherTimer` ticks execute on the UI thread. This is by design and is why it works without `Dispatcher.Invoke`. However, adding expensive synchronous calls to the tick (e.g., `Get-VMHardDiskDrive`, `Get-VMSnapshot`) blocks the UI event loop for the duration of each call. With 6+ VMs the cumulative cost per tick is significant.
+
+**How to avoid:**
+Keep the DispatcherTimer tick lightweight — update UI from a pre-computed data snapshot only. Do expensive data collection on a separate runspace and push results to a script-scoped synchronized hashtable:
+```powershell
+$script:DashDataSync = [hashtable]::Synchronized(@{})
+# Background runspace populates $script:DashDataSync.VMMetrics
+# DispatcherTimer tick reads from $script:DashDataSync.VMMetrics (no I/O)
+```
+The background runspace must NOT touch WPF controls directly — only write to the synchronized hashtable. The timer tick reads from it and updates controls.
+
+**Warning signs:**
+- GUI becomes unresponsive for noticeable intervals (1+ seconds) on the Dashboard tab
+- Freeze duration increases proportionally with VM count
+- CPU spikes on the host during timer ticks visible in Task Manager
+
+**Phase to address:**
+Dashboard Enrichment phase. The runspace/synchronized-hashtable pattern must be designed upfront — retrofitting it after the feature is built is expensive.
+
+---
+
+### Pitfall 11: PowerSTIG SkipRule and OrgSettings Conflicting in Multi-STIG MOF
+
+**What goes wrong:**
+When compiling a single MOF with multiple PowerSTIG composite resources (e.g., `WindowsServer` + `WindowsDnsServer` for a DC), some rules conflict across STIGs — both attempt to enforce the same registry key to different values. The MOF compiler throws a duplicate resource ID error or silently picks one value over the other. Using `SkipRule` and `SkipRuleType` together in the same configuration block causes a known compilation exception.
+
+**Why it happens:**
+PowerSTIG's composite resources are designed to be used independently. When stacked in one configuration block targeting the same node, overlapping registry rules create DSC duplicate resource conflicts. The `SkipRuleType` and `SkipRule` parameters have a documented incompatibility when used simultaneously (GitHub issue #653).
+
+**How to avoid:**
+- Apply one STIG per `Start-DscConfiguration` call with separate MOF files, rather than compiling all STIGs into one MOF.
+- For DC nodes that need both `WindowsServer` and `WindowsDnsServer`, compile and apply them sequentially with a state check between applications.
+- Never combine `SkipRuleType` and `SkipRule` in the same composite resource call — use one mechanism per resource block.
+- Maintain a per-role OrgSettings override file in `$GlobalLabConfig.Paths.LabRoot\DSC\OrgSettings\` so exceptions are documented and version-controlled.
+
+**Warning signs:**
+- MOF compilation error referencing duplicate resource IDs
+- Configuration applies for single-STIG roles (member servers) but fails for DC roles
+- Subtle settings drift where one STIG silently wins over a conflicting rule from another STIG
+
+**Phase to address:**
+DSC Baselines phase. The role-to-STIG mapping must be designed to avoid multi-STIG single-MOF compilation upfront.
 
 ---
 
@@ -234,12 +316,12 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Using `-ErrorAction SilentlyContinue` | Script doesn't stop on errors | Silent failures, hard to debug | Never (except truly non-critical ops like removing existing objects) |
-| Hardcoding VM names/IPs | Quick deployment | Can't run multiple labs, conflicts | Never (use config file) |
-| Skipping pre-flight validation | Faster to "just run it" | Failures mid-deployment, wasted time | Never (pre-flight catches issues early) |
-| Assuming clean environment | Simpler scripts | Won't work after first failure | Never (must be idempotent) |
-| Using Default Switch | No network setup required | Unpredictable subnets, breaks after reboot | Never (use dedicated vSwitch) |
-| Manual intervention between steps | Works once | Can't automate end-to-end | Only for one-time emergency fixes |
+| Hard-code `StigVersion = '2.5'` in DSC config | No version-discovery logic needed | Breaks silently after any PowerSTIG update | Never — always resolve at runtime |
+| Copy ADMX from arbitrary source rather than DC's own `C:\Windows\PolicyDefinitions` | Simpler to source | "Extra Registry Settings" in GPMC, hard to debug | Never in automation |
+| Run DSC apply inline in the deploy orchestrator | Simpler flow, no async complexity | Deploy hangs if DSC takes >5 min or VM reboots | Never — always async/detached with status polling |
+| Register scheduled task without working directory | Works interactively | Silent failures in Task Scheduler SYSTEM context | Never — always explicit `-WorkingDirectory` |
+| Add all enriched VM data collection inside the DispatcherTimer tick | Simple, works for 1-2 VMs | GUI jank at 5+ VMs as I/O grows | Only for initial prototype; must be replaced before feature merge |
+| Skip `ContainsKey` checks on `$GlobalLabConfig` new keys | Less verbose code | Hard error on older config files under `Set-StrictMode` | Never — project coding standard requires defensive key access |
 
 ---
 
@@ -247,13 +329,12 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| AutomatedLab | Assuming it supports all OS versions | Check documentation for OS support, create unsupported VMs manually |
-| Hyper-V Default Switch | Using it for lab VMs | Create dedicated Internal vSwitch + NAT |
-| Windows Update | Not disabling WSUS redirect for feature installs | Temporarily bypass WSUS policy, install features, then restore |
-| DHCP on DC | Not installing DHCP role | Install DHCP on DC1 for Linux VMs (static IPs don't work well with cloud-init) |
-| SSH keys | Not generating keypair before deployment | Generate ed25519 keypair in Bootstrap, include in CIDATA for Linux VMs |
-| Git installation | Assuming winget or external access works | Fallback chain: winget -> local installer -> web download (with DNS check) |
-| Domain join | Assuming join happens immediately | Wait for WinRM, validate domain join before proceeding |
+| PowerSTIG + Invoke-Command | Running `Start-DscConfiguration` from host against guest without checking WinRM is tuned | Add `Set-LabVMWinRMForDsc` pre-flight that sets `MaxEnvelopeSizekb = 8192` on the guest before any DSC push |
+| Import-GPO + DC promotion timing | Calling `Import-GPO` immediately after `Wait-LabVMReady` returns | Gate on `Get-ADDomain` succeeding, not just WinRM; ADWS is slower than WinRM |
+| Register-ScheduledTask + SYSTEM principal | Assuming `-Force` on `Register-ScheduledTask` handles all re-registration cases | Unregister-then-register pattern; check `Get-ScheduledTask` before registration |
+| DSC + pending LCM state | Re-running `Start-DscConfiguration` without `-Force` on a VM that had an interrupted prior apply | Always use `-Force`; add `Get-DscLocalConfigurationManager` LCM state pre-check |
+| DispatcherTimer tick + Hyper-V data collection | Adding expensive calls directly inside the timer tick | Collect data in background runspace, push to synchronized hashtable, timer tick reads only from sync table |
+| PowerSTIG + $GlobalLabConfig | Adding `$GlobalLabConfig.DSC` block without backward-compat guards | All new config key reads must use `ContainsKey` defensive pattern per `Set-StrictMode` requirements |
 
 ---
 
@@ -261,10 +342,10 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Serial VM operations | Deployment takes hours | Parallelize where possible, use timeouts appropriately | On hosts with <16GB RAM (parallel operations cause memory pressure) |
-| No resource limits | Host becomes unusable during deployment | Set VM memory min/max appropriately, don't overcommit CPU | Always (but especially on laptops) |
-| Waiting for external downloads | Deployment hangs on slow connections | Check DNS resolution before downloading, use local cached installers | On networks with filtering or slow DNS |
-| Not using checkpoints | Have to redeploy from scratch after mistakes | Create "LabReady" checkpoint after successful deployment | After any long-running operation that could fail |
+| Synchronous Hyper-V calls in DispatcherTimer tick | GUI freezes 1–3 seconds every 5 seconds | Move data collection to background runspace; tick reads from sync hashtable | At 4+ VMs with enriched metrics |
+| `Get-VMSnapshot` for all VMs on every dashboard poll | Snapshot enumeration is O(n) with snapshot depth; slow on VMs with 10+ snapshots | Cache snapshot data with a longer refresh interval (60s vs. 5s) separate from VM state (5s) | At VMs with 15+ snapshots or 8+ VMs |
+| Compiling a PowerSTIG MOF per VM on each deploy | MOF compilation takes 10–30 seconds per VM; blocks deploy progress | Compile once per role type and cache the MOF file; reuse across same-role VMs | At 5+ VMs in a deploy run |
+| Full AD SYSVOL sync wait during ADMX import | ADMX copy returns immediately but GPMC shows stale data until SYSVOL replication completes | Add `Start-Sleep` or poll for SYSVOL replication completion before declaring import done | Always — SYSVOL replication is asynchronous |
 
 ---
 
@@ -272,11 +353,10 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Default passwords everywhere | Anyone can access your lab VMs | Use environment variable override for admin password, document password rotation |
-| Opening unnecessary firewall ports | Lab VMs exposed to network | Only open required ports (WinRM 5985/5986, SSH 22) |
-| Reusing same SSH keys | Key compromise affects all labs | Generate unique keys per lab, document key rotation |
-| No certificate validation | Man-in-the-middle attacks | Use self-signed certificates for WinRM HTTPS, validate thumbprints |
-| Sharing lab on public network | Unauthorized access | Use Internal vSwitch only, never External for lab VMs |
+| Storing credentials in the scheduled task action as plaintext `-Argument "-Password SimplePass"` | Credentials visible in Task Scheduler MMC and event logs | Run task as SYSTEM (no credentials needed for local Hyper-V) or use Windows credential manager via `Export-Clixml`/`Import-Clixml` with DPAPI |
+| Applying PowerSTIG baseline to DC without testing OrgSettings first | Security policy may lock out admin accounts or disable required services (e.g., WinRM, RDP) | Test against member server first; maintain a curated OrgSettings override file that exempts lab-required services |
+| Giving the scheduled task SYSTEM privileges and importing `Lab-Common.ps1` without path validation | Privilege escalation if `Lab-Common.ps1` path can be written by a non-privileged account | Task working directory and script path must be in a location only Administrators can write to |
+| ADMX import copies scripts alongside ADMX files into SYSVOL | SYSVOL contents replicate to all DCs and are readable by all domain users | Copy only `.admx` and `.adml` files to the central store; never place scripts in SYSVOL |
 
 ---
 
@@ -284,25 +364,23 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No progress indication | Users think script hung | Write progress for each major step (1/10, 2/10, etc.) |
-| Cryptic error messages | Users can't fix problems themselves | Include "what to do next" in error messages |
-| No confirmation before destructive operations | Accidental data loss | Require explicit `-Force` flag for destructive operations |
-| No dry-run mode | Can't predict what will happen | Implement `-DryRun` flag that shows what would happen |
-| No log files | Can't debug failures | Write structured log files (JSON + text) with timestamps and error details |
-| Interactive-only scripts | Can't automate or schedule | Support `-NonInteractive` flag for all operations |
+| Dashboard shows "compliance: unknown" with no explanation during DSC apply | Operator does not know if DSC is running, failed, or just slow | Show a per-VM "Applying baseline..." spinner state while DSC is in progress, not a static unknown state |
+| TTL auto-suspend fires while operator is actively using the lab | Unexpected VM suspension during active work is disruptive | Add a `LastActivityTimestamp` touch mechanism — any manual GUI action updates the lab TTL countdown |
+| ADMX import status gives no feedback (fire-and-forget) | Operator cannot tell if GPO import succeeded until they open GPMC manually | Return structured result from GPO import helper with success/failure counts; surface in GUI action log |
+| DSC baseline apply is synchronous and blocks the deploy progress display | Deploy progress bar freezes at "applying STIG baseline" for 5–10 minutes per VM | Apply DSC asynchronously (`Start-DscConfiguration -Wait:$false`) and poll `Get-DscConfigurationStatus` separately |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Domain join:** Often missing DNS resolution — verify `Resolve-DnsName dc1.$domain` works from client VMs
-- [ ] **Network connectivity:** Often missing actual connectivity — verify `Test-Connection` AND `Test-NetConnection` on WinRM/SSH ports
-- [ ] **Services running:** Often missing service readiness — verify NTDS, DNS, SSHD services are actually Running (not just exist)
-- [ ] **SMB shares:** Often missing permissions — verify share exists AND can be accessed from client VMs
-- [ ] **SSH access:** Often missing key authorization — verify SSH works with key, not just password
-- [ ] **Installer media detached:** Often leaves ISO attached — verify no installer DVDs attached to Linux VMs
-- [ ] **Checkpoints created:** Often assumes snapshot succeeded — verify "LabReady" snapshot actually exists
-- [ ] **External connectivity:** Often assumes outbound access works — verify `Resolve-DnsName` to external hosts works
+- [ ] **PowerSTIG DSC apply:** Compiled the MOF on the host but never verified `Start-DscConfiguration` completed on the guest — verify with `Test-DscConfiguration` after apply
+- [ ] **ADMX central store:** Copied `.admx` files but forgot the matching `.adml` files in the `en-US` subfolder — verify GPMC opens without "Administrative Templates Resource could not be found" errors
+- [ ] **GPO import:** Called `Import-GPO` but did not link the GPO to the domain or OU — verify with `Get-GPOReport` that GPO is linked and enabled
+- [ ] **Scheduled task registration:** Task appears in Task Scheduler but "Last Run Result" shows 0x1 (general failure) — verify the script runs interactively under SYSTEM via `psexec -s powershell.exe` before declaring it done
+- [ ] **TTL monitoring:** Task is registered and runs but TTL countdown does not reset on lab activity — verify `LastActivityTimestamp` is being updated by all lifecycle operations
+- [ ] **Dashboard enrichment:** Snapshot age column shows data in the UI but the background refresh runspace has no error handling — verify runspace errors are captured and don't silently stop data updates
+- [ ] **WinRM MaxEnvelopeSizekb:** Set on the host but not on guest VMs — verify setting is applied to each VM as part of the post-domain-join provisioning step
+- [ ] **OrgSettings override file:** DSC baseline applies without error but a lab-critical service (WinRM, RDP) is disabled — verify `OrgSettings.xml` explicitly skips or overrides rules that affect lab connectivity
 
 ---
 
@@ -310,14 +388,13 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Silent failure | HIGH | Add extensive logging, re-run with validation enabled, identify what silently failed |
-| Stale VM state | LOW | Run aggressive cleanup script (Remove-HyperVVMStale), delete lab metadata, re-run |
-| Network drift | MEDIUM | Delete and recreate vSwitch + NAT, verify host gateway IP, re-run deployment |
-| Timeout failure | LOW | Increase timeouts, re-run deployment (VMs usually in good state) |
-| AD DS failure | HIGH | Manual AD DS promotion using Install-ADDSForest, wait for restart, verify services |
-| Linux VM gaps | MEDIUM | Create Linux VMs manually with native cmdlets, use cloud-init for unattended install |
-| Connectivity failure | MEDIUM | Wait for services to start, use retry logic, validate ports before proceeding |
-| ISO detection failure | LOW | Verify ISO filenames and integrity, re-download if corrupted |
+| DSC resources in wrong scope (CurrentUser) | LOW | Re-install without `-Scope` as Administrator; restart WmiPrvSE process or reboot VM |
+| LCM pending configuration stuck | LOW | Run `Remove-DscConfigurationDocument -Stage Pending -Force` on the target VM; re-run `Start-DscConfiguration -Force` |
+| ADMX version conflict in central store | MEDIUM | Rename current `PolicyDefinitions` to `PolicyDefinitions-backup`; re-copy from a single consistent source; restart GPMC |
+| Scheduled task working directory silent failure | LOW | Re-register task with explicit `-WorkingDirectory`; test by running `schtasks /run /tn TaskName` and checking output |
+| DispatcherTimer UI freeze from slow data calls | HIGH | Refactor timer tick to read from sync hashtable; build background runspace; affects all VM card rendering logic |
+| PowerSTIG multi-STIG MOF duplicate resource conflict | MEDIUM | Split into per-STIG MOF files; apply sequentially; existing MOF files must be recompiled |
+| `$GlobalLabConfig` missing TTL keys crashing monitor | LOW | Add `ContainsKey` guards; add TTL defaults block to existing `Lab-Config.ps1` |
 
 ---
 
@@ -325,30 +402,34 @@ Scripts can't detect the operating system from ISO files, or detect the wrong OS
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Silent failures | Phase 1 (Foundation) | Structured error handling, validation gates after each step |
-| Stale VM state | Phase 1 (Foundation) | Pre-flight cleanup, idempotent operations |
-| Network drift | Phase 1 (Foundation) | Idempotent vSwitch/NAT setup, connectivity checks |
-| Timeout mismatches | Phase 1 (Foundation) | Configure timeouts based on host capabilities |
-| AD DS failures | Phase 2 (Core Lab) | Explicit AD DS validation, recovery promotion logic |
-| Linux support gaps | Phase 3 (Mixed OS) | Hybrid automation: framework for Windows, native for Linux |
-| Connectivity assumptions | Phase 1 (Foundation) | Wait for WinRM/SSH ports, retry with backoff |
-| ISO detection | Phase 1 (Foundation) | Pre-flight ISO validation, explicit OS names |
+| DSC module scope (CurrentUser vs SYSTEM) | DSC Baselines phase | `Test-PowerStigInstallation` helper passes; `Start-DscConfiguration` succeeds on a clean VM |
+| PowerSTIG/STIG version mismatch | DSC Baselines phase | Runtime version discovery helper returns valid version; Pester test validates version resolution logic |
+| WinRM MaxEnvelopeSizekb | DSC Baselines phase | `Invoke-LabApplyDscBaseline` includes pre-flight WinRM tuning; test against VM with default WinRM |
+| LCM pending configuration state | DSC Baselines phase | `Invoke-LabApplyDscBaseline` includes LCM state pre-check; `-Force` used on `Start-DscConfiguration` |
+| ADMX import before DC ready | ADMX/GPO Import phase | `Wait-LabADReady` helper gating all GPO operations; Pester test mocks AD unavailability |
+| ADMX central store version conflict | ADMX/GPO Import phase | Single-source ADMX copy; post-copy file count validation; manual GPMC open check in acceptance test |
+| Scheduled task working directory | Lab TTL phase | Task runs correctly as SYSTEM; `$PSScriptRoot` not used — absolute paths from `$GlobalLabConfig` only |
+| Task re-registration idempotency | Lab TTL phase | Second `Initialize-LabTTLMonitor` call succeeds without error; Pester test runs registration twice |
+| `$GlobalLabConfig` missing new keys | Lab TTL phase | `ContainsKey` guards on all new config reads; Pester test passes with a config that lacks the TTL block |
+| DispatcherTimer tick UI freeze | Dashboard Enrichment phase | GUI stays responsive (no freeze) with 8 VMs and full metric collection; background runspace pattern in place |
+| PowerSTIG multi-STIG conflict | DSC Baselines phase | Per-role STIG mapping defined; DC role applies STIG types sequentially; Pester tests compile each role's MOF |
+| SkipRule + SkipRuleType conflict | DSC Baselines phase | OrgSettings override file used instead of mixed SkipRule/SkipRuleType; MOF compilation verified in CI |
 
 ---
 
 ## Sources
 
-- [Building a PowerShell Script for Safe Hyper-V VM Updates (Medium)](https://medium.com/meetcyber/ultra-detailed-guide-building-a-powershell-script-for-safe-hyper-v-vm-updates-with-automatic-7154a4f3eb46) - Silent failure patterns
-- [Automating Hyper-V Network Adapter Cleanup (AwakeCoding)](https://awakecoding.com/posts/automating-hyper-v-network-adapter-cleanup-migration/) - Ghost adapter issues
-- [AutomatedLab Troubleshooting Basics](https://theautomatedlab.com/article.html?content=troubleshooting-1) - Official troubleshooting guide
-- [AutomatedLab GitHub Issues](https://github.com/AutomatedLab/AutomatedLab/issues) - Real-world issues and solutions
-- [Four Common Hyper-V Errors (RedmondMag)](https://redmondmag.com/articles/2026/01/09/four-common-hyperv-errors-and-how-to-correct-them.aspx) - Virtual switch and network adapter issues
-- [Link Between NAT VMSwitch and NetNat (ServerFault)](https://serverfault.com/questions/944129/link-between-nat-vmswitch-and-netnat-windows-powershell) - NAT configuration pitfalls
-- [A (not-so) Short Guide on Hyper-V (Reddit)](https://www.reddit.com/r/HyperV/comments/1limllg/a_notso_short_guide_on_quick_and_dirty_hyperv/) - Community best practices
-- [AutomatedLab Documentation](https://automatedlab.org/en/latest/Wiki/) - Official command reference and patterns
-- Project code analysis: `/mnt/projects/AutomatedLab/Deploy.ps1`, `/mnt/projects/AutomatedLab/Lab-Common.ps1`, `/mnt/projects/AutomatedLab/Test-OpenCodeLabHealth.ps1` - Existing patterns and recovery strategies
+- [PowerSTIG DscGettingStarted Wiki — microsoft/PowerStig](https://github.com/microsoft/PowerStig/wiki/DscGettingStarted) — module scope, WinRM MaxEnvelopeSizekb, STIG version requirements (HIGH confidence)
+- [PowerSTIG GettingStarted Wiki — microsoft/PowerStig](https://github.com/microsoft/PowerStig/wiki/GettingStarted) — StigVersion parameter validation, processed STIG data directory (HIGH confidence)
+- [Troubleshooting DSC — Microsoft Learn](https://learn.microsoft.com/en-us/powershell/dsc/troubleshooting/troubleshooting?view=dsc-1.1) — LCM pending state, WmiPrvSE cache, DSC event logs (HIGH confidence)
+- [Create and Manage Central Store — Microsoft Learn](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store) — ADMX version conflicts, "Extra Registry Settings" cause (HIGH confidence)
+- [Group Policy settings show as Extra Registry Settings — Microsoft Learn](https://learn.microsoft.com/en-us/troubleshoot/windows-server/group-policy/group-policy-settings-show-as-extra-registry-settings) — ADMX/ADML version conflict details (HIGH confidence)
+- [ServerManager Breaking / SkipRuleType issue #653 — microsoft/PowerStig GitHub](https://github.com/microsoft/PowerStig/issues/653) — SkipRule + SkipRuleType incompatibility (MEDIUM confidence)
+- [Optimizing Performance: Data Binding — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/advanced/optimizing-performance-data-binding) — WPF data binding performance patterns (HIGH confidence)
+- [PowerShell and WPF: Writing Data to a UI From a Different Runspace](https://learn-powershell.net/2012/10/14/powershell-and-wpf-writing-data-to-a-ui-from-a-different-runspace/) — synchronized hashtable pattern for background runspace + WPF (MEDIUM confidence)
+- [Troubleshooting PowerShell Based Scheduled Tasks — ramblingcookiemonster.github.io](http://ramblingcookiemonster.github.io/Task-Scheduler/) — working directory and SYSTEM context pitfalls (MEDIUM confidence)
+- Existing AutomatedLab codebase — `GUI/Start-OpenCodeLabGUI.ps1` DispatcherTimer pattern, `Lab-Config.ps1` structure, `Set-StrictMode` coding standard, `ContainsKey` pattern from v1.4 profile helpers (HIGH confidence)
 
 ---
-
-*Pitfalls research for: PowerShell Hyper-V Lab Automation*
-*Researched: 2025-02-09*
+*Pitfalls research for: PowerShell lab lifecycle automation — PowerSTIG DSC, ADMX/GPO import, lab TTL scheduled tasks, WPF dashboard enrichment*
+*Researched: 2026-02-20*

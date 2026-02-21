@@ -1,7 +1,7 @@
 # Stack Research
 
 **Domain:** PowerShell/Hyper-V Windows Domain Lab Automation
-**Researched:** 2026-02-09
+**Researched:** 2026-02-09 (v1.0 baseline) | Updated 2026-02-20 (v1.6 additions)
 **Confidence:** HIGH
 
 ## Recommended Stack
@@ -132,6 +132,137 @@ Restore-VMSnapshot -Name "DC1" -SnapshotName "Baseline"
 Remove-VM -Name "DC1" -Force
 ```
 
+---
+
+## v1.6 Stack Additions
+
+*Added 2026-02-20. Covers: Lab TTL/auto-suspend, PowerSTIG DSC baselines, ADMX/GPO auto-import, dashboard enrichment.*
+
+### New Core Technologies (v1.6)
+
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| **PowerSTIG** | 4.28.0 | Apply DISA STIG DSC baselines per VM role at deploy time | Official Microsoft module (microsoft/PowerStig), PS 5.1 minimum requirement verified on PSGallery. Quarterly release cadence — v4.28.0 released 2025-12-05. Composite DSC resources (`WindowsServer`) map directly to `OsRole` (MS/DC) and `OsVersion` (2019/2022). Eliminates hand-maintained STIG scripts. |
+| **ScheduledTasks module** | Built-in (Windows 8.1+) | Register recurring TTL monitor task on the Hyper-V host | Ships with OS. `Register-ScheduledTask`, `New-ScheduledTaskTrigger`, `New-ScheduledTaskAction`, `New-ScheduledTaskSettingsSet` cover the full lifecycle. Tasks survive host reboots and are visible in Task Scheduler UI for operator inspection. No install needed. |
+| **GroupPolicy module** | Built-in (DC role / RSAT) | Import GPO backups, link GPOs, copy ADMX to Central Store | Ships with Active Directory Domain Services role and RSAT. Available on DC VM after promotion. Invoked via `Invoke-LabCommand` against the DC — same pattern as all other post-provision steps. Key cmdlets: `Import-GPO`, `New-GPO`, `New-GPLink`. |
+| **System.Windows.Threading.DispatcherTimer** | Built-in (.NET 4.x / WPF) | Drive periodic dashboard refresh for new metrics | Already in use at `Start-OpenCodeLabGUI.ps1:794` as `$script:VMPollTimer` with 5-second interval. Extend existing tick handler — no new infrastructure. |
+
+### New Supporting Libraries (v1.6) — Guest VM Only
+
+These install **on each guest VM** via `Invoke-LabCommand`, not on the Hyper-V host. They are exact-version dependencies of PowerSTIG 4.28.0.
+
+| Library | Version | Purpose | Notes |
+|---------|---------|---------|-------|
+| **PSDscResources** | 2.12.0 | Core DSC composite resources | Required for all PowerSTIG targets |
+| **AccessControlDsc** | 1.4.3 | File/folder ACL enforcement | Windows Server STIG targets |
+| **AuditPolicyDsc** | 1.4.0 | Audit policy configuration | Windows Server STIG targets |
+| **AuditSystemDsc** | 1.1.0 | System audit settings | Windows Server STIG targets |
+| **CertificateDsc** | 5.0.0 | Certificate store management | Windows Server STIG targets |
+| **ComputerManagementDsc** | 8.4.0 | Computer configuration settings | Windows Server STIG targets |
+| **FileContentDsc** | 1.3.0.151 | File content configuration | Windows Server STIG targets |
+| **GPRegistryPolicyDsc** | 1.3.1 | Registry policy settings | Windows Server STIG targets |
+| **SecurityPolicyDsc** | 2.10.0 | Security policy enforcement | Windows Server STIG targets |
+| **WindowsDefenderDsc** | 2.2.0 | Windows Defender configuration | Windows Server STIG targets |
+
+> **Selective installation note:** PowerSTIG 4.28.0 lists 15 total dependencies; the 5 not listed above (`SqlServerDsc`, `Vmware.vSphereDsc`, `xWebAdministration`, `xDnsServer`, `nx`) apply only to SQL Server, VMware, IIS, DNS Server, and Linux STIG types respectively. For Windows Server OS STIGs (the v1.6 target), install only the 10 modules listed. Validate with `(Find-Module PowerSTIG -RequiredVersion 4.28.0).Dependencies` before finalising the install script.
+
+### v1.6 Installation (Guest VMs Only)
+
+```powershell
+# Executed via Invoke-LabCommand inside each Windows Server role PostInstall hook
+# Same pattern as existing DSCPullServer.ps1 Steps A-D
+
+# Trust PSGallery
+if ((Get-PSRepository -Name PSGallery).InstallationPolicy -ne 'Trusted') {
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+}
+
+# Install PowerSTIG dependencies (exact versions — PowerSTIG 4.28.0 requirement)
+$stigDeps = @(
+    @{ Name = 'AccessControlDsc';      RequiredVersion = '1.4.3'     }
+    @{ Name = 'AuditPolicyDsc';        RequiredVersion = '1.4.0'     }
+    @{ Name = 'AuditSystemDsc';        RequiredVersion = '1.1.0'     }
+    @{ Name = 'CertificateDsc';        RequiredVersion = '5.0.0'     }
+    @{ Name = 'ComputerManagementDsc'; RequiredVersion = '8.4.0'     }
+    @{ Name = 'FileContentDsc';        RequiredVersion = '1.3.0.151' }
+    @{ Name = 'GPRegistryPolicyDsc';   RequiredVersion = '1.3.1'     }
+    @{ Name = 'PSDscResources';        RequiredVersion = '2.12.0'    }
+    @{ Name = 'SecurityPolicyDsc';     RequiredVersion = '2.10.0'    }
+    @{ Name = 'WindowsDefenderDsc';    RequiredVersion = '2.2.0'     }
+)
+foreach ($dep in $stigDeps) {
+    if (-not (Get-Module -ListAvailable -Name $dep.Name |
+              Where-Object { $_.Version -eq $dep.RequiredVersion })) {
+        Install-Module @dep -Force -Scope AllUsers
+    }
+}
+
+# Install PowerSTIG
+if (-not (Get-Module -ListAvailable -Name PowerSTIG |
+          Where-Object { $_.Version -eq '4.28.0' })) {
+    Install-Module -Name PowerSTIG -RequiredVersion 4.28.0 -Force -Scope AllUsers
+}
+```
+
+### v1.6 Alternatives Considered
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| PowerSTIG 4.28.0 | Manual DSC scripts per STIG | Never for v1.6. PowerSTIG is Microsoft's official STIG automation module with quarterly-updated composite resources. Manual scripts require constant maintenance against DISA XCCDF releases. |
+| ScheduledTasks module (built-in) | `Start-Job` / persistent runspace | Use `Start-Job` for one-shot async tasks, not recurring monitoring. Scheduled tasks survive host reboots, run under a defined principal, and appear in Task Scheduler UI. |
+| GroupPolicy module via `Invoke-LabCommand` on DC | RSAT on Hyper-V host | GroupPolicy module is available on the DC after promotion. `Invoke-LabCommand` is the established project pattern — no additional RSAT install on the host. |
+| `Copy-Item` over PS remoting for ADMX files | `robocopy` | `Copy-Item` is sufficient for ADMX file sets (hundreds of files). `robocopy` adds no meaningful benefit and requires `Start-Process` or `cmd.exe` invocation. |
+| Extend existing `DispatcherTimer` tick handler | Separate runspace + synchronized hashtable | The 5-second `$script:VMPollTimer` already polls all VM state. Add snapshot age, disk, and compliance fields to `Get-LabStatus` output and `Update-VMCard`. A second runspace adds concurrency complexity with no benefit at this refresh rate. |
+
+### v1.6 What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| DSC v3 / PSDesiredStateConfiguration 3.x | Requires PowerShell 7.2+. Project is locked to PS 5.1. | DSC v1.1 (built-in to PS 5.1) + PowerSTIG 4.28.0 which explicitly declares `PowerShellVersion = '5.1'` in its manifest. |
+| DSC Pull mode for baseline application | Pull mode requires the DSCPullServer VM plus LCM registration per client. For one-time baseline application at deploy time, push mode is simpler, faster, and has no infrastructure dependency. | Push mode: compile MOF on host via `Invoke-Command`, apply with `Start-DscConfiguration -Path $mofPath -ComputerName $vmName -Wait -Force`. |
+| `nx` DSC module (PowerSTIG Linux dependency) | Linux STIG targets only. The project does not use DSC for Linux VMs — Linux is handled via cloud-init and SSH. Installing on Windows VMs wastes time. | Skip — it is not in the 10-module Windows dependency set. |
+| `Invoke-GPUpdate` to verify ADMX import | `Invoke-GPUpdate` schedules a refresh but does not wait for completion. Unreliable for post-import verification in automated scripts. | Use `Get-GPO -Name $gpoName` to verify import success. GP application to client VMs happens automatically on next refresh cycle. |
+
+### v1.6 Integration Points
+
+**Lab TTL / auto-suspend — Hyper-V host:**
+- `Register-ScheduledTask` on the host with `RepetitionInterval` trigger (e.g., 15 minutes)
+- Monitor script reads TTL config from `Lab-Config.ps1` (`$LabConfig.TTL.MaxIdleMinutes`)
+- Calls `Stop-VM` or `Suspend-VM` (configurable) on VMs that exceed TTL
+- Task registered under `\AutomatedLab\` folder in Task Scheduler
+
+**PowerSTIG baselines — guest VM PostInstall:**
+- Invocation point: inside `PostInstall` ScriptBlock of each Windows Server role (same as `DSCPullServer.ps1`)
+- `OsRole` mapping: DC role → `'DC'`; all other server roles → `'MS'`
+- `OsVersion` mapping: derived from `$Config.ServerOS` (e.g. `'2019'`, `'2022'`)
+- Compile `WindowsServer` composite resource MOF, apply with `Start-DscConfiguration -Wait -Force`
+- Store compliance result JSON to `.planning/compliance/<vmName>-latest.json`
+
+**ADMX / GPO import — DC PostInstall:**
+- After `Install-ADDSDomain` completes, run ADMX copy and GPO import as additional PostInstall steps
+- Step 1: `Copy-Item` ADMX/ADML from host source to `\\$dcVMName\SYSVOL\$domain\Policies\PolicyDefinitions\`
+- Step 2: `Invoke-LabCommand` on DC: `Import-Module GroupPolicy; Import-GPO -BackupId $guid -Path $backupPath -TargetName $gpoName`
+- Step 3: `New-GPLink -Name $gpoName -Target "DC=$domain,DC=..."` to link GPO to domain root
+
+**Dashboard enrichment — GUI tick handler:**
+- Extend `Get-LabStatus` to return `SnapshotAgeHours`, `DiskFreeGB`, `UptimeHours`, `ComplianceStatus`
+- `ComplianceStatus` reads from `.planning/compliance/<vmName>-latest.json` — file read only, no live DSC query
+- Extend `Update-VMCard` XAML data binding to surface new fields
+- No new timer — reuse `$script:VMPollTimer` at existing 5-second interval
+
+### v1.6 Version Compatibility
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| PowerSTIG 4.28.0 | PowerShell 5.1+ | PSGallery manifest `PowerShellVersion = '5.1'`. Released 2025-12-05. |
+| PSDscResources 2.12.0 | PowerShell 5.1 / DSC v1.1 | Exact version required by PowerSTIG 4.28.0. |
+| SecurityPolicyDsc 2.10.0 | PowerShell 5.1 / DSC v1.1 | Exact version required by PowerSTIG 4.28.0. |
+| ScheduledTasks module | Windows 8.1 / Server 2012+ (built-in) | No version concern. Present on all supported host OS. |
+| GroupPolicy module | Windows Server with AD DS or RSAT | Present on DC VM post-promotion. Not available on Hyper-V host without RSAT. |
+| System.Windows.Threading.DispatcherTimer | .NET 4.x (already loaded by WPF host) | In use at `Start-OpenCodeLabGUI.ps1:794`. No change to initialization. |
+
+---
+
 ## Sources
 
 - [Microsoft Learn - PowerShell Overview](https://docs.microsoft.com/en-us/powershell/scripting/overview?view=powershell-7.5) — HIGH confidence, official docs
@@ -143,8 +274,15 @@ Remove-VM -Name "DC1" -Force
 - [AutomatedLab GitHub](https://github.com/AutomatedLab/AutomatedLab) — HIGH confidence, source code review for complexity assessment
 - [AutomatedLab Official Site](https://automatedlab.org/) — MEDIUM confidence, feature documentation
 - [Windows Server 2025 Hyper-V Implementation](https://lenovopress.lenovo.com/lp2198-implementing-hyper-v-on-microsoft-windows-server-2025) — MEDIUM confidence, technical whitepaper (Apr 2025)
-- [PowerShell Direct - Microsoft Learn](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/powershell-direct) — HIGH confidence, official docs (Oct 2025)
+- [PowerShell Direct - Microsoft Learn](https://learn.microsoft.com/en-us/powershell/dsc/overview?view=dsc-1.1) — HIGH confidence, official docs (Oct 2025)
+- [PowerShell Gallery — PowerSTIG 4.28.0](https://www.powershellgallery.com/packages/PowerSTIG/4.28.0) — HIGH confidence, dependency list and PS minimum version verified directly
+- [Microsoft Learn — GroupPolicy Module (WS2025)](https://learn.microsoft.com/en-us/powershell/module/grouppolicy/?view=windowsserver2025-ps) — HIGH confidence, official cmdlet inventory
+- [Microsoft Learn — Register-ScheduledTask](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/register-scheduledtask?view=windowsserver2025-ps) — HIGH confidence, official API docs
+- [microsoft/PowerStig Wiki — WindowsServer](https://github.com/microsoft/PowerStig/wiki/WindowsServer) — HIGH confidence, OsRole/OsVersion parameters
+- Project codebase `GUI/Start-OpenCodeLabGUI.ps1:794` — HIGH confidence, existing DispatcherTimer pattern (direct read)
+- Project codebase `LabBuilder/Roles/DSCPullServer.ps1` — HIGH confidence, existing push-mode DSC pattern (direct read)
 
 ---
+
 *Stack research for: PowerShell/Hyper-V Windows Domain Lab Automation*
-*Researched: 2026-02-09*
+*Researched: 2026-02-09 | v1.6 additions: 2026-02-20*
