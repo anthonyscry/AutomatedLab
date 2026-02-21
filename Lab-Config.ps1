@@ -205,6 +205,17 @@ $GlobalLabConfig = @{
         HealthCheckTimeoutSeconds = 60
     }
 
+    TTL = @{
+        # Changing Enabled toggles whether lab TTL monitoring is active.
+        Enabled = $false
+        # Changing IdleMinutes sets how long all VMs must be idle before TTL fires (0 = disabled).
+        IdleMinutes = 0
+        # Changing WallClockHours sets maximum lab runtime before TTL fires.
+        WallClockHours = 8
+        # Changing Action sets what happens when TTL expires: 'Suspend' (Save-VM) or 'Off' (Stop-VM).
+        Action = 'Suspend'
+    }
+
     SSH = @{
         # Changing KnownHostsPath moves where lab SSH host keys are stored.
         # This file is cleared on teardown so redeploy gets fresh keys.
