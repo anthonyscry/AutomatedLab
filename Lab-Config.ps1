@@ -228,6 +228,16 @@ $GlobalLabConfig = @{
         Exceptions = @{}
     }
 
+    ADMX = @{
+        # Changing Enabled toggles whether ADMX Central Store is populated after DC promotion.
+        Enabled = $true
+        # Changing CreateBaselineGPO toggles whether baseline GPOs are created from JSON templates.
+        CreateBaselineGPO = $false
+        # Changing ThirdPartyADMX adds custom ADMX bundles to import (operator-provided local paths).
+        # Example: ThirdPartyADMX = @(@{ Name = 'Chrome'; Path = 'C:\ADMX\Chrome' })
+        ThirdPartyADMX = @()
+    }
+
     SSH = @{
         # Changing KnownHostsPath moves where lab SSH host keys are stored.
         # This file is cleared on teardown so redeploy gets fresh keys.
