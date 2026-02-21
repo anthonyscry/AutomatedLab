@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 ## Current Position
 
-Phase: 22 (Custom Role Templates) — not yet planned
-Plan: 0/TBD plans
-Status: Roadmap complete, ready for `/gsd:plan-phase 22`
-Last activity: 2026-02-20 — v1.5 roadmap created
+Phase: 22 (Custom Role Templates)
+Plan: 1/TBD plans — 22-01 complete
+Status: In progress — 22-01 complete, custom role engine built
+Last activity: 2026-02-21 — completed 22-01 (custom role template engine)
 
-Progress: [██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 5% (v1.5 roadmap done)
+Progress: [████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 10% (22-01 done)
 
 ## Performance Metrics
 
@@ -42,6 +42,11 @@ Progress: [██░░░░░░░░░░░░░░░░░░░░░
 
 Full log in PROJECT.md Key Decisions table.
 
+**22-01:**
+- Validator returns result object (not throw) so discovery can warn-and-skip invalid files
+- Memory strings parsed to numeric bytes at load time matching Get-LabRole_* output shape
+- PSCustomObject-to-hashtable helper uses [object] parameter type (PS5.1 strict mode binding fix)
+
 ### Pending Todos
 
 - None
@@ -52,8 +57,8 @@ Full log in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-20
-Stopped at: v1.5 roadmap created, ready for Phase 22 planning
+Last session: 2026-02-21
+Stopped at: Completed 22-01-PLAN.md (custom role template engine)
 Resume file: None
 
 ---
