@@ -8,6 +8,7 @@ BeforeAll {
     . (Join-Path $PSScriptRoot 'TestHelpers.ps1')
 
     . (Join-Path $script:repoRoot 'Private' 'Get-LabNetworkConfig.ps1')
+    . (Join-Path $script:repoRoot 'Private' 'New-LabVMNetworkAdapter.ps1')
     . (Join-Path $script:repoRoot 'Public' 'Initialize-LabNetwork.ps1')
 
     # Stub dependencies not under test (loaded on demand to avoid module conflicts)
@@ -47,11 +48,13 @@ BeforeAll {
     if (-not (Get-Command Get-NetRoute -ErrorAction SilentlyContinue)) {
         function Get-NetRoute { param($DestinationPrefix, $ErrorAction) @() }
     }
-    if (-not (Get-Command Invoke-Command -ErrorAction SilentlyContinue)) {
-        function Invoke-Command { param($VMName, $ScriptBlock, $ArgumentList) }
-    }
     if (-not (Get-Command Get-Module -ErrorAction SilentlyContinue)) {
         # Get-Module always exists in PS but may not return Hyper-V in CI
+    }
+    # Invoke-LabGatewayForwarding is a lab-private wrapper around Invoke-Command -VMName
+    # (avoids Pester/Invoke-Command parameter-set binding issues in non-Hyper-V environments)
+    if (-not (Get-Command Invoke-LabGatewayForwarding -ErrorAction SilentlyContinue)) {
+        function Invoke-LabGatewayForwarding { param($VMName) }
     }
 }
 
@@ -283,13 +286,6 @@ Describe 'Get-LabNetworkConfig - VMAssignments from IPPlan' {
 # ─── New-LabVMNetworkAdapter tests ───────────────────────────────────────────
 
 Describe 'New-LabVMNetworkAdapter' {
-
-    BeforeAll {
-        $adapterScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'Private' 'New-LabVMNetworkAdapter.ps1'
-        if (Test-Path $adapterScript) {
-            . $adapterScript
-        }
-    }
 
     Context 'when connecting VM to named switch (no VLAN)' {
         BeforeEach {
@@ -555,7 +551,7 @@ Describe 'Initialize-LabNetwork - multi-subnet' {
             }
             Mock New-NetRoute { }
             Mock Get-NetRoute { @() }
-            Mock Invoke-Command { }
+            Mock Invoke-LabGatewayForwarding { }
         }
         AfterEach {
             if ($null -ne $script:savedGlobalLabConfigGW) {
@@ -566,9 +562,9 @@ Describe 'Initialize-LabNetwork - multi-subnet' {
             }
         }
 
-        It 'calls Invoke-Command on the gateway VM when gateway routing mode is active' {
+        It 'calls Invoke-LabGatewayForwarding on the gateway VM when gateway routing mode is active' {
             Initialize-LabNetwork -VMNames @('DC1') | Out-Null
-            Should -Invoke Invoke-Command -Times 1
+            Should -Invoke Invoke-LabGatewayForwarding -Times 1
         }
     }
 
