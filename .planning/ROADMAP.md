@@ -127,7 +127,7 @@ Plans:
 - SSH role application has configurable retry count and timeout
 - All existing Linux roles work on both Ubuntu and CentOS
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 24-01-PLAN.md — Linux VM snapshot/profile parity (inventory, pruning, profile round-trip)
