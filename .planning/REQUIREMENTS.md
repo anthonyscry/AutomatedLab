@@ -17,11 +17,11 @@ Requirements for advanced scenarios and multi-OS milestone. Each maps to roadmap
 
 ### Complex Networking
 
-- [ ] **NET-01**: Operator can configure multiple vSwitches in a single lab (named switches with distinct subnets)
+- [x] **NET-01**: Operator can configure multiple vSwitches in a single lab (named switches with distinct subnets)
 - [ ] **NET-02**: VMs can be assigned to specific vSwitches by name in lab configuration
 - [ ] **NET-03**: System supports multi-subnet labs with routing between subnets
 - [ ] **NET-04**: Operator can configure VLAN tagging on VM network adapters
-- [ ] **NET-05**: Pre-deployment validation checks for subnet conflicts across multiple switches
+- [x] **NET-05**: Pre-deployment validation checks for subnet conflicts across multiple switches
 
 ### Linux VM Full Parity
 
@@ -73,11 +73,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ROLE-03 | Phase 22 | Complete |
 | ROLE-04 | Phase 22 | Complete |
 | ROLE-05 | Phase 22 | Complete |
-| NET-01 | Phase 23 | Pending |
+| NET-01 | Phase 23 | Complete |
 | NET-02 | Phase 23 | Pending |
 | NET-03 | Phase 23 | Pending |
 | NET-04 | Phase 23 | Pending |
-| NET-05 | Phase 23 | Pending |
+| NET-05 | Phase 23 | Complete |
 | LNX-01 | Phase 24 | Pending |
 | LNX-02 | Phase 24 | Pending |
 | LNX-03 | Phase 24 | Pending |

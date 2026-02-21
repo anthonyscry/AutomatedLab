@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 ## Current Position
 
-Phase: 22 (Custom Role Templates)
-Plan: 2/TBD plans — 22-02 complete
-Status: In progress — 22-01 and 22-02 complete, custom role integration done
-Last activity: 2026-02-21 — completed 22-02 (custom role LabBuilder integration)
+Phase: 23 (Complex Networking)
+Plan: 1/TBD plans — 23-01 complete
+Status: In progress — 23-01 complete (multi-switch config and subnet conflict detection)
+Last activity: 2026-02-21 — completed 23-01 (multi-switch networking foundation)
 
-Progress: [████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 20% (22-01, 22-02 done)
+Progress: [████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 20% (23-01 done)
 
 ## Performance Metrics
 
@@ -52,6 +52,14 @@ Full log in PROJECT.md Key Decisions table.
 - Invoke-LabBuilder expands validTags at runtime via Get-LabCustomRole -List — new custom roles auto-accepted without code changes
 - Custom role Phase 11 provisioning runs after Windows parallel jobs, before Linux post-installs
 
+**23-01:**
+- Switches array coexists with flat SwitchName/AddressSpace keys for full backward compat
+- Get-LabNetworkConfig reads Switches in priority order: Get-LabConfig.NetworkConfiguration > GlobalLabConfig.Network > flat-key fallback
+- NatName defaults to Name+NAT when omitted from Switches entries
+- New-LabSwitch/New-LabNAT use ParameterSetName (Single/Multi/All) to cleanly separate modes
+- Test-LabMultiSwitchSubnetOverlap is a new function in Test-LabVirtualSwitchSubnetConflict.ps1
+- WSL/CI test environments: Hyper-V cmdlet stubs in BeforeAll allow Pester to Mock them
+
 ### Pending Todos
 
 - None
@@ -63,7 +71,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 22-02-PLAN.md (custom role LabBuilder integration)
+Stopped at: Completed 23-01-PLAN.md (multi-switch networking foundation)
 Resume file: None
 
 ---
