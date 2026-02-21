@@ -1,0 +1,95 @@
+# Requirements: AutomatedLab v1.5 Advanced Scenarios & Multi-OS
+
+**Defined:** 2026-02-20
+**Core Value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
+
+## v1 Requirements
+
+Requirements for advanced scenarios and multi-OS milestone. Each maps to roadmap phases.
+
+### Custom Role Templates
+
+- [ ] **ROLE-01**: Operator can define custom roles as JSON files with provisioning steps mapped to existing primitives
+- [ ] **ROLE-02**: System auto-discovers custom role templates at runtime (file drop, no code changes)
+- [ ] **ROLE-03**: Custom roles integrate with existing role selection UI and CLI workflows
+- [ ] **ROLE-04**: Custom role templates validate on load (required fields, valid provisioning steps)
+- [ ] **ROLE-05**: Operator can list available custom roles with description and resource requirements
+
+### Complex Networking
+
+- [ ] **NET-01**: Operator can configure multiple vSwitches in a single lab (named switches with distinct subnets)
+- [ ] **NET-02**: VMs can be assigned to specific vSwitches by name in lab configuration
+- [ ] **NET-03**: System supports multi-subnet labs with routing between subnets
+- [ ] **NET-04**: Operator can configure VLAN tagging on VM network adapters
+- [ ] **NET-05**: Pre-deployment validation checks for subnet conflicts across multiple switches
+
+### Linux VM Full Parity
+
+- [ ] **LNX-01**: Linux VMs support full provisioning lifecycle (create, start, stop, snapshot, teardown) matching Windows VMs
+- [ ] **LNX-02**: SSH-based role application works for all existing Linux roles with retry and timeout handling
+- [ ] **LNX-03**: Linux VMs integrate with snapshot management (inventory, pruning, restore)
+- [ ] **LNX-04**: Linux VMs integrate with configuration profiles (save/load preserves Linux VM settings)
+- [ ] **LNX-05**: Mixed OS scenarios work end-to-end (Windows DC + Linux app servers in same lab)
+- [ ] **LNX-06**: CentOS/RHEL support added alongside existing Ubuntu (cloud-init or kickstart provisioning)
+
+## v2 Requirements
+
+Deferred to future milestones. Tracked but not in current roadmap.
+
+### Advanced Role System
+
+- **AROLE-01**: Role dependency resolution (e.g., SQL role requires DC role to be deployed first)
+- **AROLE-02**: Role parameter validation against live environment state
+
+### Advanced Networking
+
+- **ANET-01**: DMZ network patterns with firewall rules between segments
+- **ANET-02**: Network topology visualization in GUI dashboard
+
+### Advanced Multi-OS
+
+- **AOS-01**: Fedora/Debian distribution support
+- **AOS-02**: Linux-to-Windows domain join automation
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Azure/cloud backend support | Hyper-V local only — out of product direction |
+| Multi-domain forest scenarios | Niche, document manual approach |
+| Custom scenario builder GUI wizard | CLI + JSON templates sufficient |
+| Real-time network traffic monitoring | Out of scope for lab provisioning tool |
+| Container-native networking (CNI) | Hyper-V vSwitch networking only |
+| BSD/macOS VM support | Hyper-V Linux integration services scope |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ROLE-01 | TBD | Pending |
+| ROLE-02 | TBD | Pending |
+| ROLE-03 | TBD | Pending |
+| ROLE-04 | TBD | Pending |
+| ROLE-05 | TBD | Pending |
+| NET-01 | TBD | Pending |
+| NET-02 | TBD | Pending |
+| NET-03 | TBD | Pending |
+| NET-04 | TBD | Pending |
+| NET-05 | TBD | Pending |
+| LNX-01 | TBD | Pending |
+| LNX-02 | TBD | Pending |
+| LNX-03 | TBD | Pending |
+| LNX-04 | TBD | Pending |
+| LNX-05 | TBD | Pending |
+| LNX-06 | TBD | Pending |
+
+**Coverage:**
+- v1 requirements: 16 total
+- Mapped to phases: 0
+- Unmapped: 16
+
+---
+*Requirements defined: 2026-02-20*
+*Last updated: 2026-02-20*
