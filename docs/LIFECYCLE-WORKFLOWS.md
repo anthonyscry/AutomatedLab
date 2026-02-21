@@ -310,6 +310,95 @@ See `RUNBOOK-ROLLBACK.md` for full failure matrix and recovery procedures.
 
 ---
 
+## Mixed OS Lab Workflows
+
+Mixed OS labs combine Windows and Linux VMs in a single provisioning run using scenario templates. The MixedOSLab scenario deploys a Windows DC, an IIS web server, an Ubuntu nginx server, and an Ubuntu PostgreSQL database server.
+
+### Deploying a Mixed OS Lab
+
+```powershell
+$env:OPENCODELAB_ADMIN_PASSWORD = "YourStrongPasswordHere"
+.\OpenCodeLab-App.ps1 -Action deploy -Scenario MixedOSLab -NonInteractive
+```
+
+This deploys four VMs in the following provisioning order:
+
+1. **DC first** — Active Directory and DNS must be fully promoted before other VMs can join the domain.
+2. **Windows servers in parallel** — IIS and other Windows roles provision concurrently via AutomatedLab's Install-Lab.
+3. **Linux VMs in background (Phase 10-pre)** — Ubuntu VMs are created via Hyper-V cmdlets in parallel with the Windows AutomatedLab install.
+4. **Windows post-installs** — Role-specific configuration scripts run on Windows VMs after domain join.
+5. **Custom roles** — Any custom role provisioning steps run after Windows post-installs.
+6. **Linux post-installs via SSH** — Ubuntu VMs receive role configuration (nginx, PostgreSQL) after all Windows post-installs complete.
+
+To preview resource requirements before deploying:
+
+```powershell
+Get-LabScenarioResourceEstimate -Scenario MixedOSLab
+```
+
+Expected output: 4 VMs, 12GB RAM, 230GB disk, 10 CPUs.
+
+### Multi-Switch Networking in Mixed Labs
+
+VMs can be assigned to different Hyper-V switches for network isolation. Define multiple switches in the `Network` section of `Lab-Config.ps1`:
+
+```powershell
+# Lab-Config.ps1 — multi-switch example
+Network = @{
+    Switches = @(
+        @{ Name = 'LabCorpNet'; AddressSpace = '10.0.10.0/24'; GatewayIp = '10.0.10.1' }
+        @{ Name = 'LabDMZ';     AddressSpace = '10.0.20.0/24'; GatewayIp = '10.0.20.1' }
+    )
+}
+```
+
+Per-VM switch and VLAN assignments are configured in `Builder.IPPlan`:
+
+```powershell
+# Lab-Config.ps1 — IPPlan with switch assignment
+Builder = @{
+    IPPlan = @{
+        dc1     = @{ IP = '10.0.10.10';  Switch = 'LabCorpNet' }
+        iis1    = @{ IP = '10.0.10.50';  Switch = 'LabCorpNet' }
+        linweb1 = @{ IP = '10.0.10.111'; Switch = 'LabCorpNet' }
+        lindb1  = @{ IP = '10.0.10.112'; Switch = 'LabCorpNet'; VlanId = 10 }
+    }
+}
+```
+
+`Initialize-LabNetwork` reads `Get-LabNetworkConfig` to retrieve `VMAssignments` and `Switches`, then connects each VM adapter to its assigned switch and configures static IPs. For multi-switch configs, host-side static routes are added between subnets automatically.
+
+### Available Mixed OS Scenario Templates
+
+| Scenario | VMs | Description |
+|---|---|---|
+| `MixedOSLab` | DC + IIS + WebServerUbuntu + DatabaseUbuntu | Windows domain with Ubuntu nginx and PostgreSQL |
+| `SecurityLab` | DC + Client + Ubuntu | Windows domain with Ubuntu attack/pen-test VM |
+| `MultiTierApp` | DC + SQL + IIS + Client | Windows-only multi-tier app (DC, SQL, IIS, workstation) |
+
+All templates are located in `.planning/templates/` and can be extended or copied for custom scenarios.
+
+### Troubleshooting Mixed OS Labs
+
+**SSH connectivity**
+Linux VMs require the SSH service to be running before post-install scripts can connect. If SSH is not reachable:
+- Verify the Linux VM booted successfully: `Get-VM -Name linweb1`
+- Check retry configuration in `Lab-Config.ps1` under the `Timeouts` block (`SSH.RetryCount`, `SSH.RetryIntervalSec`)
+
+**Linux post-install failures**
+- Verify the SSH key path: `Builder.Linux.SSHKeyDir` in `Lab-Config.ps1` must point to a valid keypair
+- Check the ISO pattern: Ubuntu uses `Ubuntu*22.04*.iso` and CentOS uses `CentOS-Stream-9*.iso` — mismatched patterns cause VM creation to fail silently
+- Review `LabBuilder/Logs/LabBuild-*.log` for background job output
+
+**Domain integration**
+Windows DC must be fully promoted (AD/DNS running) before Linux VMs attempt DNS resolution. The provisioning order enforces this: DC post-install completes before Linux post-installs begin. If DNS resolution fails on Linux VMs, check DC status first:
+
+```powershell
+.\OpenCodeLab-App.ps1 -Action health
+```
+
+---
+
 ## Reference: Key Command Summary
 
 | Goal | Command |
