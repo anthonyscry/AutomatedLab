@@ -10,17 +10,19 @@ Every function handles errors explicitly, surfaces clear diagnostics, and stays 
 
 ## Current State
 
-**Version:** v1.4 shipped (2026-02-20)
+**Version:** v1.5 in progress (started 2026-02-20)
 **Tests:** 847+ Pester tests + ~263 new tests across v1.3 and v1.4
 **CI:** GitHub Actions PR pipeline (Pester + ScriptAnalyzer), release automation
 **Docs:** README, Getting Started guide, lifecycle workflows, rollback runbook, full Public function help
 
-All 5 milestones shipped:
+Previous milestones shipped:
 - v1.0 Brownfield Hardening & Integration (6 phases, 25 plans)
 - v1.1 Production Robustness (4 phases, 13 plans)
 - v1.2 Delivery Readiness (3 phases, 16 plans)
 - v1.3 Lab Scenarios & Operator Tooling (4 phases, 8 plans)
 - v1.4 Configuration Management & Reporting (4 phases, 8 plans)
+
+**v1.5 Goal:** Advanced scenarios with custom role templates, complex networking topologies, and full Linux VM parity.
 
 ## Requirements
 
@@ -42,16 +44,14 @@ All 5 milestones shipped:
 
 ### Active
 
-None — all milestones complete through v1.4.
+v1.5 Advanced Scenarios & Multi-OS — requirements being defined.
 
 ### Out of Scope
 
 - Azure/cloud backend support — Hyper-V local only
 - Multi-domain forest scenarios — niche, document manual approach
-- Custom role plugin system — validate core scenario templates first
 - Custom scenario builder GUI wizard — CLI + JSON templates sufficient
 - Snapshot diff/comparison — list and prune sufficient for operator needs
-- Linux VM behavior expansion — maintain compatibility only
 - Deep performance optimization — correctness and reliability first
 
 ## Context
@@ -61,7 +61,10 @@ None — all milestones complete through v1.4.
 - v1.2 delivered shipping infrastructure: docs, CI/CD, and test coverage
 - v1.3 reduced friction with scenario templates, validation, snapshot tools, and dashboard improvements
 - v1.4 added configuration persistence, deployment history, GUI log viewing, and portable lab packages
+- v1.5 expands scenario capability: custom role templates (JSON), complex networking (multi-subnet, VLAN), full Linux parity
 - Lab-Config.ps1 drives all lab topology — scenario templates generate valid configs for common patterns
+- Existing Linux support: Ubuntu 24.04 via cloud-init, SSH provisioning, 5 roles (base, DB, Docker, K8s, Web)
+- Existing networking: single vSwitch/NAT, static IP assignment, subnet conflict detection
 - Project is mature across 5 milestones with comprehensive test coverage and documentation
 
 ## Constraints
@@ -98,4 +101,4 @@ None — all milestones complete through v1.4.
 | Import reuses Save-LabProfile | No duplicate file-write logic, single source of truth | ✓ v1.4 |
 
 ---
-*Last updated: 2026-02-20 after v1.4 milestone complete*
+*Last updated: 2026-02-20 after v1.5 milestone started*

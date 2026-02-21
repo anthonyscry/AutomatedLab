@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-20)
 
 **Core value:** Every function handles errors explicitly, surfaces clear diagnostics, and the codebase is modular enough that each piece can be tested and maintained independently.
-**Current focus:** Between milestones — v1.4 shipped, planning next milestone
+**Current focus:** v1.5 Advanced Scenarios & Multi-OS — defining requirements
 
 ## Current Position
 
-Phase: All phases complete through v1.4
-Plan: 70 plans across 21 phases, 5 milestones
-Status: Between milestones
-Last activity: 2026-02-20 — v1.4 milestone archived
+Phase: Pre-phase (requirements + roadmap)
+Plan: None yet
+Status: Defining requirements for v1.5
+Last activity: 2026-02-20 — v1.5 milestone started
 
-Progress: [████████████████████████████████████████] 100% (v1.4 complete)
+Progress: [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v1.5 requirements)
 
 ## Performance Metrics
 
@@ -44,7 +44,8 @@ Full log in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-- None
+- Define v1.5 requirements (ROLE, NET, LNX prefixes)
+- Create v1.5 roadmap (phases start at 22)
 
 ### Blockers/Concerns
 
@@ -53,9 +54,9 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: v1.4 milestone archived
+Stopped at: Defining v1.5 requirements
 Resume file: None
 
 ---
 *State initialized: 2026-02-17 for v1.1 milestone*
-*Last updated: 2026-02-20 after v1.4 milestone archived*
+*Last updated: 2026-02-20 after v1.5 milestone started*
