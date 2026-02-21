@@ -10,6 +10,7 @@ public class LabConfig
     public NetworkConfig Network { get; set; } = new();
     public List<VMDefinition> VMs { get; set; } = new();
     public List<string> CustomRoles { get; set; } = new();
+    public string? DomainName { get; set; } = "contoso.com"; // Configurable domain name
 }
 
 public class NetworkConfig

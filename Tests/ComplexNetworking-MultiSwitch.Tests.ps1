@@ -59,7 +59,7 @@ BeforeAll {
     }
 }
 
-# ─── Get-LabNetworkConfig multi-switch support ────────────────────────────────
+# --- Get-LabNetworkConfig multi-switch support --------------------------------
 
 Describe 'Get-LabNetworkConfig - Switches array' {
 
@@ -226,7 +226,7 @@ Describe 'Get-LabNetworkConfig - Switches array' {
     }
 }
 
-# ─── Lab-Config.ps1 Switches array validation ─────────────────────────────────
+# --- Lab-Config.ps1 Switches array validation ---------------------------------
 
 Describe 'Lab-Config.ps1 Switches schema' {
     BeforeAll {
@@ -278,7 +278,7 @@ Describe 'Lab-Config.ps1 Switches schema' {
     }
 }
 
-# ─── New-LabSwitch multi-switch support ───────────────────────────────────────
+# --- New-LabSwitch multi-switch support ---------------------------------------
 
 Describe 'New-LabSwitch - multi-switch' {
 
@@ -372,7 +372,7 @@ Describe 'New-LabSwitch - multi-switch' {
     }
 }
 
-# ─── New-LabNAT multi-switch support ──────────────────────────────────────────
+# --- New-LabNAT multi-switch support ------------------------------------------
 
 Describe 'New-LabNAT - multi-switch' {
 
@@ -460,7 +460,7 @@ Describe 'New-LabNAT - multi-switch' {
     }
 }
 
-# ─── Test-LabMultiSwitchSubnetOverlap ─────────────────────────────────────────
+# --- Test-LabMultiSwitchSubnetOverlap -----------------------------------------
 
 Describe 'Test-LabMultiSwitchSubnetOverlap' {
 

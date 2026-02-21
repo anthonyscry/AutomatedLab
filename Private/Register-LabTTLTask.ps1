@@ -47,7 +47,7 @@ function Register-LabTTLTask {
 
         $null = Register-ScheduledTask -TaskName $taskName -Trigger $trigger `
             -Action $action -Principal $principal `
-            -Description 'OpenCodeLab TTL Monitor — auto-suspends lab VMs when TTL expires'
+            -Description 'OpenCodeLab TTL Monitor -- auto-suspends lab VMs when TTL expires'
 
         return [pscustomobject]@{
             TaskRegistered = $true

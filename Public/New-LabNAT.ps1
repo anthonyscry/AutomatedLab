@@ -81,7 +81,7 @@ function New-LabNAT {
         [switch]$Force
     )
 
-    # ── Helper: create NAT for a single switch definition ────────────────────
+    # -- Helper: create NAT for a single switch definition --------------------
     function New-SingleLabNAT {
         param(
             [string]$SwitchName,
@@ -256,7 +256,7 @@ function New-LabNAT {
         }
     }
 
-    # ── Multi-switch mode: -All ──────────────────────────────────────────────
+    # -- Multi-switch mode: -All ----------------------------------------------
     if ($PSCmdlet.ParameterSetName -eq 'All') {
         $networkConfig = Get-LabNetworkConfig
         $switchDefs    = $networkConfig.Switches
@@ -274,7 +274,7 @@ function New-LabNAT {
         return $results
     }
 
-    # ── Multi-switch mode: -Switches ─────────────────────────────────────────
+    # -- Multi-switch mode: -Switches -----------------------------------------
     if ($PSCmdlet.ParameterSetName -eq 'Multi') {
         $results = @()
         foreach ($sw in $Switches) {
@@ -289,7 +289,7 @@ function New-LabNAT {
         return $results
     }
 
-    # ── Single-switch mode (original behavior) ───────────────────────────────
+    # -- Single-switch mode (original behavior) -------------------------------
     try {
         # Get lab configuration
         $labConfig     = Get-LabConfig

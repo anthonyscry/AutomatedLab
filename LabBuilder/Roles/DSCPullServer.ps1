@@ -93,7 +93,7 @@ function Get-LabRole_DSC {
                 }
             } -Retries 2 -RetryIntervalInSeconds 15
 
-            # Step C: Generate registration key (idempotent — skip if file exists)
+            # Step C: Generate registration key (idempotent -- skip if file exists)
             Write-Host '    Step C: Ensuring registration key...' -ForegroundColor Gray
             Invoke-LabCommand -ComputerName $dscVMName -ActivityName 'DSC-Generate-RegistrationKey' -ScriptBlock {
                 param($KeyDir, $KeyFile)

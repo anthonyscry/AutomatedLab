@@ -107,8 +107,118 @@ public partial class NewLabDialog : Window
             SwitchName = SwitchNameBox.Text,
             SwitchType = ((ComboBoxItem)SwitchTypeBox.SelectedItem).Content.ToString()!
         },
-        VMs = new List<VMDefinition>(_vms)
+        VMs = new List<VMDefinition>(_vms),
+        DomainName = "contoso.com" // Default, could be made configurable via UI
     };
+}
+
+/// <summary>
+/// Dialog for prompting the user for admin password at deployment time
+/// </summary>
+public class PasswordDialog : Window
+{
+    public string Password { get; private set; } = string.Empty;
+
+    public PasswordDialog(string labName)
+    {
+        Title = "Deployment Credentials";
+        Width = 400;
+        Height = 200;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        ResizeMode = ResizeMode.NoResize;
+
+        var grid = new Grid { Margin = new Thickness(20) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        // Message
+        var message = new TextBlock
+        {
+            Text = $"Enter admin password for '{labName}':",
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 15)
+        };
+        grid.Children.Add(message);
+        Grid.SetRow(message, 0);
+
+        // Password input panel
+        var panel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var label = new TextBlock
+        {
+            Text = "Password:",
+            Margin = new Thickness(0, 0, 0, 5)
+        };
+        var passwordBox = new PasswordBox
+        {
+            Width = 250,
+            Height = 32
+        };
+
+        var envHint = new TextBlock
+        {
+            Text = "Or set OPENCODELAB_ADMIN_PASSWORD environment variable",
+            FontSize = 10,
+            Foreground = System.Windows.Media.Brushes.Gray,
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+
+        panel.Children.Add(label);
+        panel.Children.Add(passwordBox);
+        panel.Children.Add(envHint);
+        grid.Children.Add(panel);
+        Grid.SetRow(panel, 1);
+
+        // Buttons
+        var buttonPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 15, 0, 0)
+        };
+
+        var cancelBtn = new Button { Content = "Cancel", Width = 80, Height = 32, Margin = new Thickness(5) };
+        cancelBtn.Click += (s, e) => { DialogResult = false; Close(); };
+
+        var okBtn = new Button
+        {
+            Content = "Deploy",
+            Width = 80,
+            Height = 32,
+            Margin = new Thickness(5),
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 120, 212)),
+            Foreground = System.Windows.Media.Brushes.White
+        };
+        okBtn.Click += (s, e) =>
+        {
+            Password = passwordBox.Password;
+            if (string.IsNullOrEmpty(Password))
+            {
+                // Allow empty - will check environment variable later
+            }
+            DialogResult = true;
+            Close();
+        };
+
+        buttonPanel.Children.Add(cancelBtn);
+        buttonPanel.Children.Add(okBtn);
+        grid.Children.Add(buttonPanel);
+        Grid.SetRow(buttonPanel, 2);
+
+        Content = grid;
+        passwordBox.Focus();
+    }
+
+    public static string PromptForPassword(Window owner, string labName)
+    {
+        var dialog = new PasswordDialog(labName);
+        dialog.Owner = owner;
+        if (dialog.ShowDialog() == true)
+        {
+            return dialog.Password;
+        }
+        return string.Empty;
+    }
 }
 
 /// <summary>

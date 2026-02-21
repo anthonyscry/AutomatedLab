@@ -52,7 +52,7 @@ if ($Mode -eq 'quick') {
 
 # Deterministic lab install user (Windows is case-insensitive; Linux is not)
 $GlobalLabConfig.Credentials.InstallUser = if ([string]::IsNullOrWhiteSpace($GlobalLabConfig.Credentials.LinuxUser)) { 'labadmin' } else { $GlobalLabConfig.Credentials.LinuxUser }
-# Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
+# Password resolution: -AdminPassword param -> Lab-Config.ps1 -> env var -> error
 # Lab-Config.ps1 (dot-sourced above) sets $GlobalLabConfig.Credentials.AdminPassword if our param was empty.
 $GlobalLabConfig.Credentials.AdminPassword = Resolve-LabPassword -Password $(if ($PSBoundParameters.ContainsKey('AdminPassword')) { $AdminPassword } else { $GlobalLabConfig.Credentials.AdminPassword })
 
@@ -346,7 +346,7 @@ try {
     }
 
     if ($templateConfig) {
-        # ── Template-driven VM definitions ────────────────────────
+        # -- Template-driven VM definitions ------------------------
         $templateVMNames = @($templateConfig | ForEach-Object { $_.Name })
         Write-Host "`n[LAB] Defining machines from active template ($($templateVMNames -join ' + '))..." -ForegroundColor Cyan
 
@@ -403,7 +403,7 @@ try {
         }
     }
     else {
-        # ── Hardcoded fallback (original 3-VM topology) ───────────
+        # -- Hardcoded fallback (original 3-VM topology) -----------
         if ($IncludeLIN1) {
             Write-Host "`n[LAB] Defining all machines (dc1 + svr1 + ws1 + LIN1)..." -ForegroundColor Cyan
         } else {
@@ -1158,7 +1158,7 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
             $pubKeyFile   = "C:\ProgramData\ssh\$PubKeyFileName"
             if (Test-Path $pubKeyFile) {
                 Get-Content $pubKeyFile | Add-Content $authKeysFile -Force
-                # icacls is an external executable — 2>&1 | Out-Null intentionally suppresses all output
+                # icacls is an external executable -- 2>&1 | Out-Null intentionally suppresses all output
                 icacls $authKeysFile /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)" 2>&1 | Out-Null
                 Remove-Item $pubKeyFile -Force -ErrorAction SilentlyContinue
             }

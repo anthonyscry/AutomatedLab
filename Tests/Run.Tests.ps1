@@ -58,7 +58,7 @@ $config.CodeCoverage.OutputPath = (Join-Path $PSScriptRoot "coverage.xml")
 $config.CodeCoverage.OutputFormat = 'JaCoCo'
 $config.CodeCoverage.CoveragePercentTarget = 15
 
-# Display settings — use GitHub Actions format when running in CI
+# Display settings -- use GitHub Actions format when running in CI
 if ($env:GITHUB_ACTIONS) {
     $config.Output.CIFormat = 'GithubActions'
 } else {

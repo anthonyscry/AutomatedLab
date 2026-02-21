@@ -12,16 +12,16 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── WPF assemblies ──────────────────────────────────────────────────────────
+# -- WPF assemblies ----------------------------------------------------------
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 
-# ── Path roots ──────────────────────────────────────────────────────────────
+# -- Path roots --------------------------------------------------------------
 $script:GuiRoot  = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $script:RepoRoot = Split-Path -Parent $script:GuiRoot
 
-# ── Source shared Private / Public helpers from the repo root ───────────────
+# -- Source shared Private / Public helpers from the repo root ---------------
 foreach ($subDir in @('Private', 'Public')) {
     $dirPath = Join-Path $script:RepoRoot $subDir
     if (Test-Path $dirPath) {
@@ -37,7 +37,7 @@ foreach ($subDir in @('Private', 'Public')) {
     }
 }
 
-# ── Source Lab-Config.ps1 (may fail on non-Windows path resolution) ─────────
+# -- Source Lab-Config.ps1 (may fail on non-Windows path resolution) ---------
 $script:LabConfigPath = Join-Path $script:RepoRoot 'Lab-Config.ps1'
 if (Test-Path $script:LabConfigPath) {
     try { . $script:LabConfigPath } catch {
@@ -50,7 +50,7 @@ if (Test-Path $script:LabConfigPath) {
     $ErrorActionPreference = 'Stop'
 }
 
-# ── XAML loader ─────────────────────────────────────────────────────────────
+# -- XAML loader -------------------------------------------------------------
 function Import-XamlFile {
     <#
     .SYNOPSIS
@@ -88,7 +88,7 @@ function Import-XamlFile {
     }
 }
 
-# ── GUI settings persistence ───────────────────────────────────────────────
+# -- GUI settings persistence -----------------------------------------------
 $script:GuiSettingsPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'gui-settings.json'
 
 function Get-GuiSettings {
@@ -147,7 +147,7 @@ function Save-GuiSettings {
     }
 }
 
-# ── Theme switching ──────────────────────────────────────────────────────
+# -- Theme switching ------------------------------------------------------
 $script:CurrentTheme = $null
 
 function Set-AppTheme {
@@ -179,7 +179,7 @@ function Set-AppTheme {
     $script:CurrentTheme = $Theme
 }
 
-# ── View switching ───────────────────────────────────────────────────────
+# -- View switching -------------------------------------------------------
 $script:CurrentView = $null
 
 function Switch-View {
@@ -199,7 +199,7 @@ function Switch-View {
 
     $viewPath = Join-Path (Join-Path $script:GuiRoot 'Views') "${ViewName}View.xaml"
 
-    # ── Stop Dashboard timer when leaving ────────────────────────────
+    # -- Stop Dashboard timer when leaving ----------------------------
     if ($script:CurrentView -eq 'Dashboard') {
         if ($null -ne $script:VMPollTimer) {
             $script:VMPollTimer.Stop()
@@ -229,7 +229,7 @@ function Switch-View {
         return
     }
 
-    # ── Clear stale element refs when leaving a view ────────────────
+    # -- Clear stale element refs when leaving a view ----------------
     if ($script:CurrentView -eq 'Logs') {
         $script:LogOutputElement  = $null
         $script:LogScrollerElement = $null
@@ -240,7 +240,7 @@ function Switch-View {
 
     $script:CurrentView = $ViewName
 
-    # ── Post-load initialisation stubs ──────────────────────────────
+    # -- Post-load initialisation stubs ------------------------------
     switch ($ViewName) {
         'Dashboard'  { Initialize-DashboardView }
         'Actions'    { Initialize-ActionsView }
@@ -250,7 +250,7 @@ function Switch-View {
     }
 }
 
-# ── Load main window ────────────────────────────────────────────────────
+# -- Load main window ----------------------------------------------------
 $mainWindowPath = Join-Path $script:GuiRoot 'MainWindow.xaml'
 
 # Apply saved theme (or default to Dark) BEFORE loading the window so that
@@ -261,7 +261,7 @@ Set-AppTheme -Theme $initialTheme
 
 $mainWindow = Import-XamlFile -Path $mainWindowPath
 
-# ── Resolve named elements ──────────────────────────────────────────────
+# -- Resolve named elements ----------------------------------------------
 $script:btnNavDashboard  = $mainWindow.FindName('btnNavDashboard')
 $script:btnNavActions    = $mainWindow.FindName('btnNavActions')
 $script:btnNavCustomize  = $mainWindow.FindName('btnNavCustomize')
@@ -271,10 +271,10 @@ $script:btnThemeToggle  = $mainWindow.FindName('btnThemeToggle')
 $script:contentArea     = $mainWindow.FindName('contentArea')
 $script:txtPlaceholder  = $mainWindow.FindName('txtPlaceholder')
 
-# ── Set initial toggle state (Checked = Dark) ───────────────────────────
+# -- Set initial toggle state (Checked = Dark) ---------------------------
 $script:btnThemeToggle.IsChecked = ($initialTheme -eq 'Dark')
 
-# ── Theme toggle handler ────────────────────────────────────────────────
+# -- Theme toggle handler ------------------------------------------------
 $script:btnThemeToggle.Add_Click({
     $newTheme = if ($script:btnThemeToggle.IsChecked) { 'Dark' } else { 'Light' }
     Set-AppTheme -Theme $newTheme
@@ -284,14 +284,14 @@ $script:btnThemeToggle.Add_Click({
     Save-GuiSettings -Settings $settings
 })
 
-# ── Wire navigation buttons ─────────────────────────────────────────────
+# -- Wire navigation buttons ---------------------------------------------
 $script:btnNavDashboard.Add_Click({  Switch-View -ViewName 'Dashboard' })
 $script:btnNavActions.Add_Click({    Switch-View -ViewName 'Actions' })
 $script:btnNavCustomize.Add_Click({  Switch-View -ViewName 'Customize' })
 $script:btnNavLogs.Add_Click({       Switch-View -ViewName 'Logs' })
 $script:btnNavSettings.Add_Click({   Switch-View -ViewName 'Settings' })
 
-# ── Window Closing handler (cleanup timers and runspaces) ─────────────────────
+# -- Window Closing handler (cleanup timers and runspaces) ---------------------
 $mainWindow.Add_Closing({
     # Stop VM poll timer
     if ($null -ne $script:VMPollTimer) {
@@ -303,7 +303,7 @@ $mainWindow.Add_Closing({
     Stop-DashboardMetricsRefreshRunspace
 })
 
-# ── VM role display names ──────────────────────────────────────────────
+# -- VM role display names ----------------------------------------------
 $script:VMRoles = @{
     dc1  = 'Domain Controller'
     svr1 = 'Member Server'
@@ -311,12 +311,12 @@ $script:VMRoles = @{
     lin1 = 'Ubuntu Linux'
 }
 
-# ── Dashboard metrics hashtable (thread-safe for background runspace) ──
+# -- Dashboard metrics hashtable (thread-safe for background runspace) --
 $script:DashboardMetrics = [System.Collections.Hashtable]::Synchronized(@{})
 # Populate with empty hashtables for each VM name to avoid KeyNotFoundException
 $script:DashboardMetrics['Continue'] = $true  # Flag to control runspace loop
 
-# ── VM status colour mapping ──────────────────────────────────────────
+# -- VM status colour mapping ------------------------------------------
 function Get-StatusColor {
     <#
     .SYNOPSIS
@@ -337,14 +337,14 @@ function Get-StatusColor {
     }
 }
 
-# ── Status badge lookup for dashboard metrics ───────────────────────────
+# -- Status badge lookup for dashboard metrics ---------------------------
 function Get-StatusBadgeForMetric {
     <#
     .SYNOPSIS
         Returns an emoji status badge based on metric value and threshold.
 
     .DESCRIPTION
-        Maps metric values to emoji badges (🟢, 🟡, 🔴, ⚪) based on
+        Maps metric values to emoji badges (?, ?, ?, ?) based on
         configured thresholds from Get-LabDashboardConfig. Used by
         Update-VMCardWithMetrics to display status indicators.
 
@@ -372,34 +372,34 @@ function Get-StatusBadgeForMetric {
 
     switch ($MetricType) {
         'Snapshot' {
-            if ($null -eq $Value) { return '⚪' }
-            if ($Value -ge $config.SnapshotStaleCritical) { return '🔴' }
-            if ($Value -ge $config.SnapshotStaleDays) { return '🟡' }
-            return '🟢'
+            if ($null -eq $Value) { return '?' }
+            if ($Value -ge $config.SnapshotStaleCritical) { return '?' }
+            if ($Value -ge $config.SnapshotStaleDays) { return '?' }
+            return '?'
         }
         'Disk' {
-            if ($null -eq $Value) { return '⚪' }
-            if ($Value -ge $config.DiskUsageCritical) { return '🔴' }
-            if ($Value -ge $config.DiskUsagePercent) { return '🟡' }
-            return '🟢'
+            if ($null -eq $Value) { return '?' }
+            if ($Value -ge $config.DiskUsageCritical) { return '?' }
+            if ($Value -ge $config.DiskUsagePercent) { return '?' }
+            return '?'
         }
         'Uptime' {
-            if ($null -eq $Value) { return '⚪' }
-            if ($Value -ge $config.UptimeStaleHours) { return '🟡' }
-            return '🟢'
+            if ($null -eq $Value) { return '?' }
+            if ($Value -ge $config.UptimeStaleHours) { return '?' }
+            return '?'
         }
         'STIG' {
             switch ($Value) {
-                'Compliant'    { return '🟢' }
-                'NonCompliant' { return '🔴' }
-                'Applying'     { return '🟡' }
-                default        { return '⚪' }
+                'Compliant'    { return '?' }
+                'NonCompliant' { return '?' }
+                'Applying'     { return '?' }
+                default        { return '?' }
             }
         }
     }
 }
 
-# ── Create a single VM card element from XAML ─────────────────────────
+# -- Create a single VM card element from XAML -------------------------
 function New-VMCardElement {
     <#
     .SYNOPSIS
@@ -425,7 +425,7 @@ function New-VMCardElement {
     return $card
 }
 
-# ── Update an existing card with live VM data ─────────────────────────
+# -- Update an existing card with live VM data -------------------------
 function Update-VMCard {
     <#
     .SYNOPSIS
@@ -472,7 +472,7 @@ function Update-VMCard {
     $Card.FindName('btnConnect').IsEnabled = $isRunning
 }
 
-# ── Update VM card with enriched dashboard metrics ───────────────────────
+# -- Update VM card with enriched dashboard metrics -----------------------
 function Update-VMCardWithMetrics {
     <#
     .SYNOPSIS
@@ -509,9 +509,9 @@ function Update-VMCardWithMetrics {
     $snapshotAge = $metrics.SnapshotAge
     $snapshotBadge = Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value $snapshotAge
     $snapshotText = if ($null -eq $snapshotAge) {
-        '💾 Snapshot: No snapshots [⚪]'
+        '? Snapshot: No snapshots [?]'
     } else {
-        "💾 Snapshot: $snapshotAge days [$snapshotBadge]"
+        "? Snapshot: $snapshotAge days [$snapshotBadge]"
     }
     $Card.FindName('txtSnapshotAge').Text = $snapshotText
 
@@ -520,9 +520,9 @@ function Update-VMCardWithMetrics {
     $diskPercent = $metrics.DiskUsagePercent
     $diskBadge = Get-StatusBadgeForMetric -MetricType 'Disk' -Value $diskPercent
     $diskText = if ($null -eq $diskGB) {
-        '💾 Disk: -- [⚪]'
+        '? Disk: -- [?]'
     } else {
-        "💾 Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
+        "? Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
     }
     $Card.FindName('txtDiskUsage').Text = $diskText
 
@@ -530,14 +530,14 @@ function Update-VMCardWithMetrics {
     $uptimeHours = $metrics.UptimeHours
     $uptimeBadge = Get-StatusBadgeForMetric -MetricType 'Uptime' -Value $uptimeHours
     $uptimeText = if ($null -eq $uptimeHours) {
-        '⏱️ Uptime: -- [⚪]'
+        '? Uptime: -- [?]'
     } else {
         $uptimeStr = if ($uptimeHours -ge 24) {
             "$([math]::Floor($uptimeHours / 24))d $($uptimeHours % 24)h"
         } else {
             "$([math]::Round($uptimeHours, 1))h"
         }
-        "⏱️ Uptime: $uptimeStr [$uptimeBadge]"
+        "? Uptime: $uptimeStr [$uptimeBadge]"
     }
     $Card.FindName('txtUptime').Text = $uptimeText
 
@@ -545,14 +545,14 @@ function Update-VMCardWithMetrics {
     $stigStatus = $metrics.STIGStatus
     $stigBadge = Get-StatusBadgeForMetric -MetricType 'STIG' -Value $stigStatus
     $stigText = if ($null -eq $stigStatus -or $stigStatus -eq 'Unknown') {
-        '🔒 STIG: Unknown [⚪]'
+        '? STIG: Unknown [?]'
     } else {
-        "🔒 STIG: $stigStatus [$stigBadge]"
+        "? STIG: $stigStatus [$stigBadge]"
     }
     $Card.FindName('txtSTIGStatus').Text = $stigText
 }
 
-# ── Dashboard metrics background refresh runspace ────────────────────────
+# -- Dashboard metrics background refresh runspace ------------------------
 function Start-DashboardMetricsRefreshRunspace {
     <#
     .SYNOPSIS
@@ -639,7 +639,7 @@ function Start-DashboardMetricsRefreshRunspace {
     }
 }
 
-# ── Stop dashboard metrics refresh runspace ──────────────────────────────
+# -- Stop dashboard metrics refresh runspace ------------------------------
 function Stop-DashboardMetricsRefreshRunspace {
     <#
     .SYNOPSIS
@@ -676,7 +676,7 @@ function Stop-DashboardMetricsRefreshRunspace {
     }
 }
 
-# ── Network topology canvas drawing ───────────────────────────────────
+# -- Network topology canvas drawing -----------------------------------
 function Update-TopologyCanvas {
     <#
     .SYNOPSIS
@@ -694,18 +694,18 @@ function Update-TopologyCanvas {
 
     $Canvas.Children.Clear()
 
-    # ── Canvas dimensions (fall back if not yet laid out) ────────
+    # -- Canvas dimensions (fall back if not yet laid out) --------
     $cw = if ($Canvas.ActualWidth  -gt 0) { $Canvas.ActualWidth  } else { 500 }
     $ch = if ($Canvas.ActualHeight -gt 0) { $Canvas.ActualHeight } else { 400 }
 
-    # ── Theme brushes (inherited through the visual tree) ────────
+    # -- Theme brushes (inherited through the visual tree) --------
     $accentBrush  = $Canvas.FindResource('AccentBrush')
     $cardBgBrush  = $Canvas.FindResource('CardBackgroundBrush')
     $borderBrush  = $Canvas.FindResource('BorderBrush')
     $textBrush    = $Canvas.FindResource('TextPrimaryBrush')
     $subTextBrush = $Canvas.FindResource('TextSecondaryBrush')
 
-    # ── NAT Gateway box (top center) ────────────────────────────
+    # -- NAT Gateway box (top center) ----------------------------
     $gwWidth  = 140
     $gwHeight = 40
     $gwX = ($cw - $gwWidth) / 2
@@ -740,7 +740,7 @@ function Update-TopologyCanvas {
     [System.Windows.Controls.Canvas]::SetTop($gwLabel, $gwY + 4)
     [void]$Canvas.Children.Add($gwLabel)
 
-    # ── Virtual Switch bar (middle) ─────────────────────────────
+    # -- Virtual Switch bar (middle) -----------------------------
     $swMargin = 30
     $swWidth  = $cw - ($swMargin * 2)
     $swHeight = 30
@@ -777,7 +777,7 @@ function Update-TopologyCanvas {
     [System.Windows.Controls.Canvas]::SetTop($swLabel, $swY)
     [void]$Canvas.Children.Add($swLabel)
 
-    # ── Line from gateway to switch ─────────────────────────────
+    # -- Line from gateway to switch -----------------------------
     $gwLine = New-Object System.Windows.Shapes.Line
     $gwLine.X1              = $cw / 2
     $gwLine.Y1              = $gwY + $gwHeight
@@ -787,7 +787,7 @@ function Update-TopologyCanvas {
     $gwLine.StrokeThickness = 2
     [void]$Canvas.Children.Add($gwLine)
 
-    # ── VM nodes below the switch ───────────────────────────────
+    # -- VM nodes below the switch -------------------------------
     if (-not $VMStatuses -or $VMStatuses.Count -eq 0) { return }
 
     $nodeWidth  = 120
@@ -845,7 +845,7 @@ function Update-TopologyCanvas {
     }
 }
 
-# ── Lab health state helper ───────────────────────────────────────────
+# -- Lab health state helper -------------------------------------------
 function Get-LabHealthState {
     <#
     .SYNOPSIS
@@ -891,7 +891,7 @@ function Get-LabHealthState {
     }
 }
 
-# ── Dashboard initialisation ──────────────────────────────────────────
+# -- Dashboard initialisation ------------------------------------------
 function Initialize-DashboardView {
     <#
     .SYNOPSIS
@@ -917,7 +917,7 @@ function Initialize-DashboardView {
     $btnStopAll      = $viewElement.FindName('btnStopAll')
     $btnSaveCheckpoint = $viewElement.FindName('btnSaveCheckpoint')
 
-    # ── Health banner update helper ──────────────────────────────
+    # -- Health banner update helper ------------------------------
     $updateBanner = {
         param($VMStatuses)
         try {
@@ -949,7 +949,7 @@ function Initialize-DashboardView {
         }
     }.GetNewClosure()
 
-    # ── Resource summary update helper ───────────────────────────
+    # -- Resource summary update helper ---------------------------
     $updateResources = {
         param($VMStatuses)
         try {
@@ -1011,7 +1011,7 @@ function Initialize-DashboardView {
         $txtNoVMs.Visibility = [System.Windows.Visibility]::Collapsed
     }
 
-    # ── Wire bulk action buttons ──────────────────────────────────
+    # -- Wire bulk action buttons ----------------------------------
     $btnStartAll.Add_Click({
         foreach ($vmName in $vmNames) {
             try { Start-VM -Name $vmName -ErrorAction SilentlyContinue } catch {}
@@ -1042,7 +1042,7 @@ function Initialize-DashboardView {
         }
     }.GetNewClosure())
 
-    # ── Initial poll (immediate update) ───────────────────────────
+    # -- Initial poll (immediate update) ---------------------------
     try {
         $statuses = Get-LabStatus
         foreach ($vmData in $statuses) {
@@ -1061,7 +1061,7 @@ function Initialize-DashboardView {
         # Silently ignore initial poll errors
     }
 
-    # ── Polling timer (5-second interval) ─────────────────────────
+    # -- Polling timer (5-second interval) -------------------------
     if ($null -ne $script:VMPollTimer) {
         # Timer already exists from previous Dashboard visit - just restart it
         $script:VMPollTimer.Start()
@@ -1092,13 +1092,13 @@ function Initialize-DashboardView {
         $script:VMPollTimer.Start()
     }
 
-    # ── Start background metrics refresh runspace ────────────────────
+    # -- Start background metrics refresh runspace --------------------
     if ($null -eq $script:MetricsRefreshRunspace) {
         $script:MetricsRefreshRunspace = Start-DashboardMetricsRefreshRunspace
     }
 }
 
-# ── Customize view initialisation ──────────────────────────────────────
+# -- Customize view initialisation --------------------------------------
 function Initialize-CustomizeView {
     <#
     .SYNOPSIS
@@ -1111,7 +1111,7 @@ function Initialize-CustomizeView {
     try {
         $viewElement = $script:contentArea.Children[0]
 
-    # ── Resolve named controls ────────────────────────────────────
+    # -- Resolve named controls ------------------------------------
     $cmbTemplate          = $viewElement.FindName('cmbTemplate')
     $btnNewTemplate       = $viewElement.FindName('btnNewTemplate')
     $btnDeleteTemplate    = $viewElement.FindName('btnDeleteTemplate')
@@ -1126,18 +1126,18 @@ function Initialize-CustomizeView {
     $btnSaveTemplate      = $viewElement.FindName('btnSaveTemplate')
     $btnApplyTemplate     = $viewElement.FindName('btnApplyTemplate')
 
-    # ── Available roles ───────────────────────────────────────────
+    # -- Available roles -------------------------------------------
     $roles = @('DC', 'Server', 'Client', 'DSC', 'IIS', 'SQL', 'WSUS', 'DHCP',
                'FileServer', 'PrintServer', 'Jumpbox', 'Ubuntu')
 
-    # ── Capture function references and paths for closures ───────
+    # -- Capture function references and paths for closures -------
     $fnSaveTemplate = Get-Command -Name Save-LabTemplate -ErrorAction Stop
     $repoRoot = $script:RepoRoot
 
-    # ── Templates directory ───────────────────────────────────────
+    # -- Templates directory ---------------------------------------
     $templatesDir = Join-Path (Join-Path $repoRoot '.planning') 'templates'
 
-    # ── Helper: create a VM editor row ────────────────────────────
+    # -- Helper: create a VM editor row ----------------------------
     $newVMEditorRow = {
         param(
             [string]$VMName = '',
@@ -1226,7 +1226,7 @@ function Initialize-CustomizeView {
         return $rowBorder
     }.GetNewClosure()
 
-    # ── Helper: read VM data from editor rows ─────────────────────
+    # -- Helper: read VM data from editor rows ---------------------
     $getVMsFromEditor = {
         $vmList = @()
         foreach ($row in $vmEditorContainer.Children) {
@@ -1262,7 +1262,7 @@ function Initialize-CustomizeView {
         return $vmList
     }.GetNewClosure()
 
-    # ── Helper: load a template into the editor ───────────────────
+    # -- Helper: load a template into the editor -------------------
     $loadTemplate = {
         param([string]$TemplateName)
 
@@ -1289,7 +1289,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure()
 
-    # ── Helper: compute auto-incremented IP ───────────────────────
+    # -- Helper: compute auto-incremented IP -----------------------
     $getNextIP = {
         $lastOctet = 10
         foreach ($row in $vmEditorContainer.Children) {
@@ -1305,7 +1305,7 @@ function Initialize-CustomizeView {
         return "10.0.10.$newOctet"
     }.GetNewClosure()
 
-    # ── Populate template ComboBox ────────────────────────────────
+    # -- Populate template ComboBox --------------------------------
     $refreshTemplateList = {
         param([string]$SelectName = '')
 
@@ -1327,7 +1327,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure()
 
-    # ── Wire template selection ───────────────────────────────────
+    # -- Wire template selection -----------------------------------
     $cmbTemplate.Add_SelectionChanged({
         $selected = $cmbTemplate.SelectedItem
         if ($selected) {
@@ -1335,7 +1335,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure())
 
-    # ── New template button ───────────────────────────────────────
+    # -- New template button ---------------------------------------
     $btnNewTemplate.Add_Click({
         $pnlNewTemplate.Visibility = [System.Windows.Visibility]::Visible
         $txtNewTemplateName.Text = ''
@@ -1396,7 +1396,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure())
 
-    # ── Delete template button ────────────────────────────────────
+    # -- Delete template button ------------------------------------
     $btnDeleteTemplate.Add_Click({
         $selected = $cmbTemplate.SelectedItem
         if (-not $selected) { return }
@@ -1431,7 +1431,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure())
 
-    # ── Add VM button ─────────────────────────────────────────────
+    # -- Add VM button ---------------------------------------------
     $btnAddVM.Add_Click({
         $nextIP = & $getNextIP
         $row = & $newVMEditorRow -VMName '' -VMRole 'Server' `
@@ -1439,7 +1439,7 @@ function Initialize-CustomizeView {
         [void]$vmEditorContainer.Children.Add($row)
     }.GetNewClosure())
 
-    # ── Save template button ──────────────────────────────────────
+    # -- Save template button --------------------------------------
     $btnSaveTemplate.Add_Click({
         $selected = $cmbTemplate.SelectedItem
         if (-not $selected) {
@@ -1492,7 +1492,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure())
 
-    # ── Apply to Lab button ───────────────────────────────────────
+    # -- Apply to Lab button ---------------------------------------
     $btnApplyTemplate.Add_Click({
         $selected = $cmbTemplate.SelectedItem
         if (-not $selected) {
@@ -1600,7 +1600,7 @@ function Initialize-CustomizeView {
         }
     }.GetNewClosure())
 
-        # ── Initial load ──────────────────────────────────────────────
+        # -- Initial load ----------------------------------------------
         & $refreshTemplateList -SelectName 'default'
     }
     catch {
@@ -1621,7 +1621,7 @@ function Initialize-CustomizeView {
     }
 }
 
-# ── Actions view initialisation ────────────────────────────────────────
+# -- Actions view initialisation ----------------------------------------
 $script:ActionsInitialized = $false
 
 function Initialize-ActionsView {
@@ -1637,7 +1637,7 @@ function Initialize-ActionsView {
 
     $viewElement = $script:contentArea.Children[0]
 
-    # ── Resolve named controls ────────────────────────────────────
+    # -- Resolve named controls ------------------------------------
     $cmbAction          = $viewElement.FindName('cmbAction')
     $cmbMode            = $viewElement.FindName('cmbMode')
     $tglNonInteractive  = $viewElement.FindName('tglNonInteractive')
@@ -1654,7 +1654,7 @@ function Initialize-ActionsView {
     $txtDescription     = $viewElement.FindName('txtDescription')
     $btnRunAction       = $viewElement.FindName('btnRunAction')
 
-    # ── Populate combo boxes ──────────────────────────────────────
+    # -- Populate combo boxes --------------------------------------
     $actions = @('deploy', 'teardown', 'status', 'health', 'setup',
                  'one-button-setup', 'one-button-reset', 'blow-away',
                  'preflight', 'bootstrap', 'add-lin1', 'lin1-config',
@@ -1668,7 +1668,7 @@ function Initialize-ActionsView {
     foreach ($m in $modes) { [void]$cmbMode.Items.Add($m) }
     $cmbMode.SelectedIndex = 0
 
-    # ── Action/mode descriptions ─────────────────────────────────
+    # -- Action/mode descriptions ---------------------------------
     $actionDescriptions = @{
         'deploy'           = 'Create and configure lab VMs. Builds the virtual switch, provisions VMs from ISOs, joins them to the domain, and installs roles.'
         'teardown'         = 'Remove lab VMs and clean up resources. Stops and deletes VMs, removes virtual disks, and optionally removes the virtual switch.'
@@ -1722,7 +1722,7 @@ function Initialize-ActionsView {
         $txtDescription.Text = ($parts -join "`n`n")
     }.GetNewClosure()
 
-    # ── Collect options from controls ─────────────────────────────
+    # -- Collect options from controls -----------------------------
     $getOptions = {
         $opts = @{
             Action            = $cmbAction.SelectedItem
@@ -1740,13 +1740,13 @@ function Initialize-ActionsView {
         return $opts
     }.GetNewClosure()
 
-    # ── Capture function references for closures ──────────────────
+    # -- Capture function references for closures ------------------
     $fnCommandPreview    = Get-Command -Name New-LabGuiCommandPreview -ErrorAction Stop
     $fnLayoutState       = Get-Command -Name Get-LabGuiLayoutState -ErrorAction Stop
     $fnDestructiveGuard  = Get-Command -Name Get-LabGuiDestructiveGuard -ErrorAction Stop
     $fnArgList           = Get-Command -Name New-LabAppArgumentList -ErrorAction Stop
 
-    # ── Update command preview ────────────────────────────────────
+    # -- Update command preview ------------------------------------
     $appScriptPath = Join-Path $script:RepoRoot 'OpenCodeLab-App.ps1'
 
     $updatePreview = {
@@ -1755,7 +1755,7 @@ function Initialize-ActionsView {
         $txtCommandPreview.Text = $preview
     }.GetNewClosure()
 
-    # ── Update layout (auto-expand advanced for destructive) ──────
+    # -- Update layout (auto-expand advanced for destructive) ------
     $updateLayout = {
         $opts = & $getOptions
         $layout = & $fnLayoutState -Action $opts.Action -Mode $opts.Mode `
@@ -1765,7 +1765,7 @@ function Initialize-ActionsView {
         }
     }.GetNewClosure()
 
-    # ── Wire events ───────────────────────────────────────────────
+    # -- Wire events -----------------------------------------------
     $onChanged = {
         & $updatePreview
         & $updateLayout
@@ -1786,7 +1786,7 @@ function Initialize-ActionsView {
     $txtTargetHosts.Add_TextChanged($onChanged)
     $txtConfirmationToken.Add_TextChanged({ & $updatePreview }.GetNewClosure())
 
-    # ── Run button handler ────────────────────────────────────────
+    # -- Run button handler ----------------------------------------
     $btnRunAction.Add_Click({
         $opts = & $getOptions
 
@@ -1841,14 +1841,14 @@ function Initialize-ActionsView {
         Switch-View -ViewName 'Logs'
     }.GetNewClosure())
 
-    # ── Initial preview + description ────────────────────────────
+    # -- Initial preview + description ----------------------------
     & $updatePreview
     & $updateDescription
 
     $script:ActionsInitialized = $true
 }
 
-# ── Log management ──────────────────────────────────────────────────────
+# -- Log management ------------------------------------------------------
 $script:LogEntries        = [System.Collections.Generic.List[PSCustomObject]]::new()
 $script:LogEntriesMaxCount = 2000
 $script:LogFilter         = 'All'
@@ -1934,7 +1934,7 @@ function Initialize-LogsView {
 
     $viewElement = $script:contentArea.Children[0]
 
-    # ── Run History elements ──────────────────────────────────────────────
+    # -- Run History elements ----------------------------------------------
     $runHistoryGrid      = $viewElement.FindName('runHistoryGrid')
     $cmbRunHistoryFilter = $viewElement.FindName('cmbRunHistoryFilter')
     $btnRefreshHistory   = $viewElement.FindName('btnRefreshHistory')
@@ -2037,7 +2037,7 @@ function Initialize-LogsView {
     # Initial load of run history
     & $loadRunHistory
 
-    # ── Session Log elements (existing functionality) ─────────────────────
+    # -- Session Log elements (existing functionality) ---------------------
     $script:LogOutputElement   = $viewElement.FindName('txtLogOutput')
     $script:LogScrollerElement = $viewElement.FindName('logScroller')
     $cmbLogFilter              = $viewElement.FindName('cmbLogFilter')
@@ -2072,7 +2072,7 @@ function Initialize-LogsView {
     Render-LogEntries
 }
 
-# ── Settings view initialisation ─────────────────────────────────────────
+# -- Settings view initialisation -----------------------------------------
 function Initialize-SettingsView {
     <#
     .SYNOPSIS
@@ -2084,7 +2084,7 @@ function Initialize-SettingsView {
 
     $viewElement = $script:contentArea.Children[0]
 
-    # ── Resolve named controls ────────────────────────────────────
+    # -- Resolve named controls ------------------------------------
     $txtLabRoot       = $viewElement.FindName('txtLabRoot')
     $txtIsoServer     = $viewElement.FindName('txtIsoServer')
     $txtIsoWin11      = $viewElement.FindName('txtIsoWin11')
@@ -2098,7 +2098,7 @@ function Initialize-SettingsView {
     $tglSettingsTheme = $viewElement.FindName('tglSettingsTheme')
     $btnSaveSettings  = $viewElement.FindName('btnSaveSettings')
 
-    # ── Populate from GlobalLabConfig ─────────────────────────────
+    # -- Populate from GlobalLabConfig -----------------------------
     $configJsonPath = Join-Path (Join-Path $script:RepoRoot '.planning') 'config.json'
 
     if (Test-Path variable:GlobalLabConfig) {
@@ -2127,7 +2127,7 @@ function Initialize-SettingsView {
         }
     }
 
-    # ── Populate ISO paths from .planning/config.json ─────────────
+    # -- Populate ISO paths from .planning/config.json -------------
     if (Test-Path $configJsonPath) {
         try {
             $configJson = Get-Content -Path $configJsonPath -Raw | ConvertFrom-Json
@@ -2141,7 +2141,7 @@ function Initialize-SettingsView {
         }
     }
 
-    # ── Theme toggle ──────────────────────────────────────────────
+    # -- Theme toggle ----------------------------------------------
     $tglSettingsTheme.IsChecked = ($script:CurrentTheme -eq 'Dark')
 
     $tglSettingsTheme.Add_Click({
@@ -2156,7 +2156,7 @@ function Initialize-SettingsView {
         $script:btnThemeToggle.IsChecked = $tglSettingsTheme.IsChecked
     }.GetNewClosure())
 
-    # ── Browse buttons (ISO file dialogs) ─────────────────────────
+    # -- Browse buttons (ISO file dialogs) -------------------------
     Add-Type -AssemblyName System.Windows.Forms
 
     $btnBrowseServer.Add_Click({
@@ -2177,7 +2177,7 @@ function Initialize-SettingsView {
         }
     }.GetNewClosure())
 
-    # ── Save button handler ───────────────────────────────────────
+    # -- Save button handler ---------------------------------------
     $btnSaveSettings.Add_Click({
         # Validate subnet format
         $subnet = $txtSubnet.Text.Trim()
@@ -2277,8 +2277,8 @@ function Initialize-SettingsView {
     }.GetNewClosure())
 }
 
-# ── Default view ────────────────────────────────────────────────────────
+# -- Default view --------------------------------------------------------
 Switch-View -ViewName 'Dashboard'
 
-# ── Show window (blocks until closed) ───────────────────────────────────
+# -- Show window (blocks until closed) -----------------------------------
 [void]$mainWindow.ShowDialog()

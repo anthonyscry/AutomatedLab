@@ -175,7 +175,7 @@ function Invoke-LabSTIGBaselineCore {
 
                 # Build the DSC Configuration scriptblock as a string and invoke it remotely.
                 # Using Invoke-Expression to evaluate the Configuration keyword on the remote
-                # Windows VM — avoids DSC parse errors on non-Windows test runners.
+                # Windows VM -- avoids DSC parse errors on non-Windows test runners.
                 if ($exceptionHash.Count -gt 0) {
                     $configScript = @"
 Configuration LabSTIGBaseline {

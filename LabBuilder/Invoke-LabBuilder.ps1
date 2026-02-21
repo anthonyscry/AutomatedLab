@@ -8,9 +8,9 @@
     AutomatedLab with per-role post-install configuration.
 
     Supports three operations:
-      Menu  — Interactive role toggler (default)
-      Build — Non-interactive build with -Roles parameter
-      Help  — Print usage information
+      Menu  -- Interactive role toggler (default)
+      Build -- Non-interactive build with -Roles parameter
+      Help  -- Print usage information
 
 .PARAMETER Operation
     The operation to perform: Menu (default), Build, or Help.

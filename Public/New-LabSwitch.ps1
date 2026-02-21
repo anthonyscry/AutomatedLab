@@ -65,7 +65,7 @@ function New-LabSwitch {
         [switch]$Force
     )
 
-    # ── Helper: create a single vSwitch by name ──────────────────────────────
+    # -- Helper: create a single vSwitch by name ------------------------------
     function New-SingleLabVSwitch {
         param(
             [string]$Name,
@@ -137,7 +137,7 @@ function New-LabSwitch {
         return $result
     }
 
-    # ── Multi-switch mode: -All ──────────────────────────────────────────────
+    # -- Multi-switch mode: -All ----------------------------------------------
     if ($PSCmdlet.ParameterSetName -eq 'All') {
         $networkConfig = Get-LabNetworkConfig
         $switchDefs    = $networkConfig.Switches
@@ -150,7 +150,7 @@ function New-LabSwitch {
         return $results
     }
 
-    # ── Multi-switch mode: -Switches ─────────────────────────────────────────
+    # -- Multi-switch mode: -Switches -----------------------------------------
     if ($PSCmdlet.ParameterSetName -eq 'Multi') {
         $results = @()
         foreach ($sw in $Switches) {
@@ -160,7 +160,7 @@ function New-LabSwitch {
         return $results
     }
 
-    # ── Single-switch mode (original behavior) ───────────────────────────────
+    # -- Single-switch mode (original behavior) -------------------------------
     $result = [PSCustomObject]@{
         SwitchName = $SwitchName
         Created    = $false

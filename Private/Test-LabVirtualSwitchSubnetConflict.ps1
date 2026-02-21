@@ -246,7 +246,7 @@ function Test-LabMultiSwitchSubnetOverlap {
         [object[]]$Switches
     )
 
-    # ── Inner helpers (reuse logic from Test-LabVirtualSwitchSubnetConflict) ──
+    # -- Inner helpers (reuse logic from Test-LabVirtualSwitchSubnetConflict) --
 
     function ConvertTo-IPv4UInt32Inner {
         param([string]$Address)
@@ -297,7 +297,7 @@ function Test-LabMultiSwitchSubnetOverlap {
         return ($rangeA.NetworkStart -le $rangeB.Broadcast) -and ($rangeB.NetworkStart -le $rangeA.Broadcast)
     }
 
-    # ── Pairwise check ───────────────────────────────────────────────────────
+    # -- Pairwise check -------------------------------------------------------
 
     $overlaps = New-Object System.Collections.Generic.List[object]
 

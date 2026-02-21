@@ -291,7 +291,7 @@ Describe 'Import-LabPackage Validation' {
             $pkgDir = Join-Path $repoRoot 'bad-packages'
             $null = New-Item -ItemType Directory -Path $pkgDir -Force
             $pkgPath = Join-Path $pkgDir 'multi-error.json'
-            # Only exportedAt present — missing packageVersion, sourceName, and config
+            # Only exportedAt present -- missing packageVersion, sourceName, and config
             '{ "exportedAt": "2026-01-01T00:00:00Z" }' | Set-Content $pkgPath -Encoding UTF8
 
             try {

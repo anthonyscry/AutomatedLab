@@ -1,6 +1,6 @@
 # Entry-doc coverage tests (DOC-01)
 # Asserts that README and GETTING-STARTED.md remain aligned with current CLI/GUI behavior.
-# Anchored to key phrases — update these tests when documented behavior changes.
+# Anchored to key phrases -- update these tests when documented behavior changes.
 
 BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot

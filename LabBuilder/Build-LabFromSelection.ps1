@@ -196,7 +196,7 @@ function Build-LabFromSelection {
         foreach ($tag in $SelectedRoles) {
             $entry = $roleScriptMap[$tag]
             if (-not $entry) {
-                # Unknown to built-in map — will be handled as custom role below
+                # Unknown to built-in map -- will be handled as custom role below
                 continue
             }
             $scriptPath = Join-Path $PSScriptRoot "Roles\$($entry.File)"
@@ -419,7 +419,7 @@ function Build-LabFromSelection {
         Write-Host '  [Phase 11] Running post-install scripts...' -ForegroundColor Yellow
         $phaseStart = Get-Date
 
-        # DC must run first (AD services needed by other post-installs) — DC failure is FATAL
+        # DC must run first (AD services needed by other post-installs) -- DC failure is FATAL
         $dcRole = $roleDefs | Where-Object { $_.Tag -eq 'DC' }
         if ($dcRole -and $dcRole.PostInstall) {
             Write-Host "    Running post-install: $($dcRole.VMName) [CRITICAL - AD services]..." -ForegroundColor Yellow

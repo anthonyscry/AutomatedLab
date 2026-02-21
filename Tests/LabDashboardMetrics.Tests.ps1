@@ -161,55 +161,55 @@ Describe 'LabDashboardMetrics Integration' {
 
             switch ($MetricType) {
                 'Snapshot' {
-                    if ($null -eq $Value) { return '⚪' }
-                    if ($Value -ge $config.SnapshotStaleCritical) { return '🔴' }
-                    if ($Value -ge $config.SnapshotStaleDays) { return '🟡' }
-                    return '🟢'
+                    if ($null -eq $Value) { return '?' }
+                    if ($Value -ge $config.SnapshotStaleCritical) { return '?' }
+                    if ($Value -ge $config.SnapshotStaleDays) { return '?' }
+                    return '?'
                 }
                 'Disk' {
-                    if ($null -eq $Value) { return '⚪' }
-                    if ($Value -ge $config.DiskUsageCritical) { return '🔴' }
-                    if ($Value -ge $config.DiskUsagePercent) { return '🟡' }
-                    return '🟢'
+                    if ($null -eq $Value) { return '?' }
+                    if ($Value -ge $config.DiskUsageCritical) { return '?' }
+                    if ($Value -ge $config.DiskUsagePercent) { return '?' }
+                    return '?'
                 }
                 'Uptime' {
-                    if ($null -eq $Value) { return '⚪' }
-                    if ($Value -ge $config.UptimeStaleHours) { return '🟡' }
-                    return '🟢'
+                    if ($null -eq $Value) { return '?' }
+                    if ($Value -ge $config.UptimeStaleHours) { return '?' }
+                    return '?'
                 }
                 'STIG' {
                     switch ($Value) {
-                        'Compliant'    { return '🟢' }
-                        'NonCompliant' { return '🔴' }
-                        'Applying'     { return '🟡' }
-                        default        { return '⚪' }
+                        'Compliant'    { return '?' }
+                        'NonCompliant' { return '?' }
+                        'Applying'     { return '?' }
+                        default        { return '?' }
                     }
                 }
             }
         }
 
         # Snapshot thresholds
-        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value 5 | Should -Be '🟢'  # Below warning
-        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value 15 | Should -Be '🟡'  # Warning
-        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value 35 | Should -Be '🔴'  # Critical
-        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value $null | Should -Be '⚪'  # Unknown
+        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value 5 | Should -Be '?'  # Below warning
+        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value 15 | Should -Be '?'  # Warning
+        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value 35 | Should -Be '?'  # Critical
+        Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value $null | Should -Be '?'  # Unknown
 
         # Disk thresholds
-        Get-StatusBadgeForMetric -MetricType 'Disk' -Value 75 | Should -Be '🟢'
-        Get-StatusBadgeForMetric -MetricType 'Disk' -Value 82 | Should -Be '🟡'
-        Get-StatusBadgeForMetric -MetricType 'Disk' -Value 96 | Should -Be '🔴'
-        Get-StatusBadgeForMetric -MetricType 'Disk' -Value $null | Should -Be '⚪'
+        Get-StatusBadgeForMetric -MetricType 'Disk' -Value 75 | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'Disk' -Value 82 | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'Disk' -Value 96 | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'Disk' -Value $null | Should -Be '?'
 
         # Uptime thresholds
-        Get-StatusBadgeForMetric -MetricType 'Uptime' -Value 50 | Should -Be '🟢'
-        Get-StatusBadgeForMetric -MetricType 'Uptime' -Value 76 | Should -Be '🟡'
-        Get-StatusBadgeForMetric -MetricType 'Uptime' -Value $null | Should -Be '⚪'
+        Get-StatusBadgeForMetric -MetricType 'Uptime' -Value 50 | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'Uptime' -Value 76 | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'Uptime' -Value $null | Should -Be '?'
 
         # STIG status
-        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'Compliant' | Should -Be '🟢'
-        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'NonCompliant' | Should -Be '🔴'
-        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'Applying' | Should -Be '🟡'
-        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'Unknown' | Should -Be '⚪'
+        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'Compliant' | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'NonCompliant' | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'Applying' | Should -Be '?'
+        Get-StatusBadgeForMetric -MetricType 'STIG' -Value 'Unknown' | Should -Be '?'
     }
 
     It 'Update-VMCardWithMetrics formats metrics correctly' {
@@ -231,28 +231,28 @@ Describe 'LabDashboardMetrics Integration' {
 
             switch ($MetricType) {
                 'Snapshot' {
-                    if ($null -eq $Value) { return '⚪' }
-                    if ($Value -ge $config.SnapshotStaleCritical) { return '🔴' }
-                    if ($Value -ge $config.SnapshotStaleDays) { return '🟡' }
-                    return '🟢'
+                    if ($null -eq $Value) { return '?' }
+                    if ($Value -ge $config.SnapshotStaleCritical) { return '?' }
+                    if ($Value -ge $config.SnapshotStaleDays) { return '?' }
+                    return '?'
                 }
                 'Disk' {
-                    if ($null -eq $Value) { return '⚪' }
-                    if ($Value -ge $config.DiskUsageCritical) { return '🔴' }
-                    if ($Value -ge $config.DiskUsagePercent) { return '🟡' }
-                    return '🟢'
+                    if ($null -eq $Value) { return '?' }
+                    if ($Value -ge $config.DiskUsageCritical) { return '?' }
+                    if ($Value -ge $config.DiskUsagePercent) { return '?' }
+                    return '?'
                 }
                 'Uptime' {
-                    if ($null -eq $Value) { return '⚪' }
-                    if ($Value -ge $config.UptimeStaleHours) { return '🟡' }
-                    return '🟢'
+                    if ($null -eq $Value) { return '?' }
+                    if ($Value -ge $config.UptimeStaleHours) { return '?' }
+                    return '?'
                 }
                 'STIG' {
                     switch ($Value) {
-                        'Compliant'    { return '🟢' }
-                        'NonCompliant' { return '🔴' }
-                        'Applying'     { return '🟡' }
-                        default        { return '⚪' }
+                        'Compliant'    { return '?' }
+                        'NonCompliant' { return '?' }
+                        'Applying'     { return '?' }
+                        default        { return '?' }
                     }
                 }
             }
@@ -277,9 +277,9 @@ Describe 'LabDashboardMetrics Integration' {
             $snapshotAge = $metrics.SnapshotAge
             $snapshotBadge = Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value $snapshotAge
             $snapshotText = if ($null -eq $snapshotAge) {
-                '💾 Snapshot: No snapshots [⚪]'
+                '? Snapshot: No snapshots [?]'
             } else {
-                "💾 Snapshot: $snapshotAge days [$snapshotBadge]"
+                "? Snapshot: $snapshotAge days [$snapshotBadge]"
             }
             $Card.FindName('txtSnapshotAge').Text = $snapshotText
 
@@ -287,32 +287,32 @@ Describe 'LabDashboardMetrics Integration' {
             $diskPercent = $metrics.DiskUsagePercent
             $diskBadge = Get-StatusBadgeForMetric -MetricType 'Disk' -Value $diskPercent
             $diskText = if ($null -eq $diskGB) {
-                '💾 Disk: -- [⚪]'
+                '? Disk: -- [?]'
             } else {
-                "💾 Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
+                "? Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
             }
             $Card.FindName('txtDiskUsage').Text = $diskText
 
             $uptimeHours = $metrics.UptimeHours
             $uptimeBadge = Get-StatusBadgeForMetric -MetricType 'Uptime' -Value $uptimeHours
             $uptimeText = if ($null -eq $uptimeHours) {
-                '⏱️ Uptime: -- [⚪]'
+                '? Uptime: -- [?]'
             } else {
                 $uptimeStr = if ($uptimeHours -ge 24) {
                     "$([math]::Floor($uptimeHours / 24))d $($uptimeHours % 24)h"
                 } else {
                     "$([math]::Round($uptimeHours, 1))h"
                 }
-                "⏱️ Uptime: $uptimeStr [$uptimeBadge]"
+                "? Uptime: $uptimeStr [$uptimeBadge]"
             }
             $Card.FindName('txtUptime').Text = $uptimeText
 
             $stigStatus = $metrics.STIGStatus
             $stigBadge = Get-StatusBadgeForMetric -MetricType 'STIG' -Value $stigStatus
             $stigText = if ($null -eq $stigStatus -or $stigStatus -eq 'Unknown') {
-                '🔒 STIG: Unknown [⚪]'
+                '? STIG: Unknown [?]'
             } else {
-                "🔒 STIG: $stigStatus [$stigBadge]"
+                "? STIG: $stigStatus [$stigBadge]"
             }
             $Card.FindName('txtSTIGStatus').Text = $stigText
         }
@@ -354,9 +354,9 @@ Describe 'LabDashboardMetrics Integration' {
             $snapshotAge = $metrics.SnapshotAge
             $snapshotBadge = Get-StatusBadgeForMetric -MetricType 'Snapshot' -Value $snapshotAge
             $snapshotText = if ($null -eq $snapshotAge) {
-                '💾 Snapshot: No snapshots [⚪]'
+                '? Snapshot: No snapshots [?]'
             } else {
-                "💾 Snapshot: $snapshotAge days [$snapshotBadge]"
+                "? Snapshot: $snapshotAge days [$snapshotBadge]"
             }
             $Card.txtSnapshotAge.Text = $snapshotText
 
@@ -364,32 +364,32 @@ Describe 'LabDashboardMetrics Integration' {
             $diskPercent = $metrics.DiskUsagePercent
             $diskBadge = Get-StatusBadgeForMetric -MetricType 'Disk' -Value $diskPercent
             $diskText = if ($null -eq $diskGB) {
-                '💾 Disk: -- [⚪]'
+                '? Disk: -- [?]'
             } else {
-                "💾 Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
+                "? Disk: $diskGB GB ($diskPercent%) [$diskBadge]"
             }
             $Card.txtDiskUsage.Text = $diskText
 
             $uptimeHours = $metrics.UptimeHours
             $uptimeBadge = Get-StatusBadgeForMetric -MetricType 'Uptime' -Value $uptimeHours
             $uptimeText = if ($null -eq $uptimeHours) {
-                '⏱️ Uptime: -- [⚪]'
+                '? Uptime: -- [?]'
             } else {
                 $uptimeStr = if ($uptimeHours -ge 24) {
                     "$([math]::Floor($uptimeHours / 24))d $($uptimeHours % 24)h"
                 } else {
                     "$([math]::Round($uptimeHours, 1))h"
                 }
-                "⏱️ Uptime: $uptimeStr [$uptimeBadge]"
+                "? Uptime: $uptimeStr [$uptimeBadge]"
             }
             $Card.txtUptime.Text = $uptimeText
 
             $stigStatus = $metrics.STIGStatus
             $stigBadge = Get-StatusBadgeForMetric -MetricType 'STIG' -Value $stigStatus
             $stigText = if ($null -eq $stigStatus -or $stigStatus -eq 'Unknown') {
-                '🔒 STIG: Unknown [⚪]'
+                '? STIG: Unknown [?]'
             } else {
-                "🔒 STIG: $stigStatus [$stigBadge]"
+                "? STIG: $stigStatus [$stigBadge]"
             }
             $Card.txtSTIGStatus.Text = $stigText
         }

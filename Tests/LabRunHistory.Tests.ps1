@@ -126,7 +126,7 @@ Describe 'Get-LabRunHistory' {
                 $result = @(Get-LabRunHistory -LogRoot $logRoot)
                 $result.Count | Should -Be 3
 
-                # First result should be the newest — check RunId for ordering proof
+                # First result should be the newest -- check RunId for ordering proof
                 # (EndedUtc may be a locale-formatted string after ConvertFrom-Json DateTime coercion)
                 $result[0].RunId | Should -Be 'newest03'
                 $result[0].EndedUtc | Should -Not -BeNullOrEmpty
@@ -174,7 +174,7 @@ Describe 'Get-LabRunHistory' {
 
                 $result = @(Get-LabRunHistory -LogRoot $logRoot)
 
-                # Should only return 1 entry (not 2) — the .txt duplicate is ignored
+                # Should only return 1 entry (not 2) -- the .txt duplicate is ignored
                 $result.Count | Should -Be 1
                 $result[0].RunId | Should -Be 'jsononly'
             }
@@ -286,7 +286,7 @@ Describe 'Get-LabRunHistory' {
         It 'Returns empty array when LogRoot directory does not exist' {
             $nonExistentPath = Join-Path ([System.IO.Path]::GetTempPath()) "DoesNotExist_$(New-Guid)"
 
-            # Should not throw — graceful empty result
+            # Should not throw -- graceful empty result
             $result = @(Get-LabRunHistory -LogRoot $nonExistentPath)
             $result.Count | Should -Be 0
         }

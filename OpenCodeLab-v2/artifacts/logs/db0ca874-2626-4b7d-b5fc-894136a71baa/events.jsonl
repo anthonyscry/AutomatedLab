@@ -1,0 +1,2 @@
+{"timestamp":"2026-02-21T15:36:59.5375168+00:00","mode":"full","type":"run-started","action":"dashboard"}
+{"timestamp":"2026-02-21T15:36:59.7679374+00:00","durationMs":30,"type":"run-finished","failureCategory":"ConfigError","succeeded":false}

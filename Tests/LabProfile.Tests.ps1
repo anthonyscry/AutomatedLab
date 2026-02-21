@@ -302,12 +302,12 @@ Describe 'Profile CRUD Integration' {
             $saveResult = Save-LabProfile -Name 'lifecycle' -Config $config -RepoRoot $repoRoot -Description 'Integration test'
             $saveResult.Success | Should -Be $true
 
-            # List — expect exactly 1 profile
+            # List -- expect exactly 1 profile
             $listing = @(Get-LabProfile -RepoRoot $repoRoot)
             $listing.Count    | Should -Be 1
             $listing[0].Name  | Should -Be 'lifecycle'
 
-            # Load — verify config round-trips correctly
+            # Load -- verify config round-trips correctly
             $loaded = Load-LabProfile -Name 'lifecycle' -RepoRoot $repoRoot
             $loaded               | Should -BeOfType [hashtable]
             $loaded.Lab.Name      | Should -Be 'TestLab'
@@ -317,7 +317,7 @@ Describe 'Profile CRUD Integration' {
             $removeResult = Remove-LabProfile -Name 'lifecycle' -RepoRoot $repoRoot
             $removeResult.Success | Should -Be $true
 
-            # List again — expect 0 profiles
+            # List again -- expect 0 profiles
             $emptyListing = @(Get-LabProfile -RepoRoot $repoRoot)
             $emptyListing.Count | Should -Be 0
         }

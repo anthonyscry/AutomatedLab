@@ -23,7 +23,7 @@ function Select-LabRoles {
     # Resolve config object (supports global Lab-Config.ps1 and legacy psd1).
     $Config = Resolve-LabBuilderConfig -ConfigPath $ConfigPath
 
-    # Initialize selection state — one bool per RoleMenu entry
+    # Initialize selection state -- one bool per RoleMenu entry
     $roleMenu = $Config.RoleMenu
 
     # Append custom roles (auto-discovered from .planning/roles/)
@@ -66,7 +66,7 @@ function Select-LabRoles {
         }
     }
 
-    # Main loop — initial clear, then reposition cursor to avoid flicker
+    # Main loop -- initial clear, then reposition cursor to avoid flicker
     Clear-Host
     $firstDraw = $true
     while ($true) {
@@ -191,7 +191,7 @@ function Select-LabRoles {
             Write-Host ''
             Write-Host '  Roles:' -ForegroundColor White
             Write-Host '    DC         Domain Controller + DNS + Certificate Authority (always on)' -ForegroundColor Gray
-            Write-Host '    DSC        DSC Pull Server — HTTP endpoints on port 8080 + 9080' -ForegroundColor Gray
+            Write-Host '    DSC        DSC Pull Server -- HTTP endpoints on port 8080 + 9080' -ForegroundColor Gray
             Write-Host '    IIS        IIS Web Server with sample site' -ForegroundColor Gray
             Write-Host '    SQL        SQL Server (unattended setup from SQL ISO)' -ForegroundColor Gray
             Write-Host '    WSUS       WSUS Server (feature + wsusutil postinstall)' -ForegroundColor Gray

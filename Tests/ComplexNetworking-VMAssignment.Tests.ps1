@@ -283,7 +283,7 @@ Describe 'Get-LabNetworkConfig - VMAssignments from IPPlan' {
     }
 }
 
-# ─── New-LabVMNetworkAdapter tests ───────────────────────────────────────────
+# --- New-LabVMNetworkAdapter tests -------------------------------------------
 
 Describe 'New-LabVMNetworkAdapter' {
 
@@ -393,7 +393,7 @@ Describe 'New-LabVMNetworkAdapter' {
     }
 }
 
-# ─── Initialize-LabNetwork multi-subnet tests ─────────────────────────────────
+# --- Initialize-LabNetwork multi-subnet tests ---------------------------------
 
 Describe 'Initialize-LabNetwork - multi-subnet' {
 

@@ -33,7 +33,7 @@ function Test-LabCustomRoleSchema {
         }
     }
 
-    # Validate tag format (alphanumeric, hyphen, underscore only — no spaces or special chars)
+    # Validate tag format (alphanumeric, hyphen, underscore only -- no spaces or special chars)
     if ($RoleData.ContainsKey('tag') -and -not [string]::IsNullOrWhiteSpace($RoleData['tag'])) {
         if ($RoleData['tag'] -notmatch '^[A-Za-z0-9_-]+$') {
             $errors.Add("Custom role '$FilePath': field 'tag' must be alphanumeric (hyphens and underscores allowed, no spaces or special characters). Got: '$($RoleData['tag'])'")

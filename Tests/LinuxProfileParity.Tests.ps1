@@ -119,7 +119,7 @@ Describe 'Save-LabProfile - Linux VM metadata' {
                     Memory     = 2147483648
                     Processors = 2
                 }
-                # No VMNames key — triggers the LinuxVM fallback
+                # No VMNames key -- triggers the LinuxVM fallback
             }
         }
         $result = Save-LabProfile -Name 'test-linux-fallback' -Config $builderOnlyConfig -RepoRoot $script:tempDir

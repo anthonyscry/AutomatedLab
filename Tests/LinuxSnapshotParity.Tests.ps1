@@ -163,7 +163,7 @@ Describe 'Get-LabSnapshotInventory - Backward compat when GlobalLabConfig not lo
         # If someone passes -VMName @('LIN1') explicitly, LIN1 should not be duplicated
         $results = Get-LabSnapshotInventory -VMName 'LIN1'
         $lin1Results = @($results | Where-Object { $_.VMName -eq 'LIN1' })
-        # With explicit VMName, no auto-detection runs — just that one VM
+        # With explicit VMName, no auto-detection runs -- just that one VM
         $lin1Results | Should -Not -BeNullOrEmpty
         $vmNames = @($results | Select-Object -ExpandProperty VMName -Unique)
         @($vmNames | Where-Object { $_ -eq 'LIN1' }).Count | Should -Be 1

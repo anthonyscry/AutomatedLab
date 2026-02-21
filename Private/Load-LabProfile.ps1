@@ -5,7 +5,7 @@ function Load-LabProfile {
     .DESCRIPTION
         Reads the profile JSON, validates it contains a 'config' key, converts the PSCustomObject back to
         a nested hashtable, and returns it ready for assignment to $GlobalLabConfig.
-        The function does NOT modify global state directly — the caller is responsible for assigning the result.
+        The function does NOT modify global state directly -- the caller is responsible for assigning the result.
     .PARAMETER Name
         Profile name to load (must be filesystem-safe: alphanumeric, hyphens, underscores).
     .PARAMETER RepoRoot

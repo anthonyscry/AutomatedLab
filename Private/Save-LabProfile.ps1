@@ -48,7 +48,7 @@ function Save-LabProfile {
             $linuxVmCount = @($linuxKeys | Where-Object { $Config.Builder.VMNames.ContainsKey($_) }).Count
         }
         elseif ($Config.Builder.ContainsKey('LinuxVM') -and $Config.Builder.LinuxVM -is [hashtable]) {
-            $linuxVmCount = 1  # LinuxVM config present but no VMNames — at least one Linux VM
+            $linuxVmCount = 1  # LinuxVM config present but no VMNames -- at least one Linux VM
         }
     }
 

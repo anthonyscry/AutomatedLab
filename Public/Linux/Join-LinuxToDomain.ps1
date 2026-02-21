@@ -7,7 +7,7 @@ function Join-LinuxToDomain {
     .DESCRIPTION
     Connects via SSH and installs/configures realmd + SSSD for AD integration.
     Requires the domain controller to be reachable from the Linux VM.
-    NOTE: Uses direct SSH — does not require AutomatedLab lab import.
+    NOTE: Uses direct SSH -- does not require AutomatedLab lab import.
     The join script installs realmd, sssd, adcli, and krb5-user; discovers the
     domain; runs realm join; writes a minimal sssd.conf; and enables automatic
     home-directory creation via pam-auth-update.
@@ -44,7 +44,7 @@ function Join-LinuxToDomain {
 
     .EXAMPLE
     $joined = Join-LinuxToDomain -VMName 'LIN1'
-    if (-not $joined) { Write-Warning 'Domain join failed — check DC reachability.' }
+    if (-not $joined) { Write-Warning 'Domain join failed -- check DC reachability.' }
     #>
     [CmdletBinding()]
     param(

@@ -33,7 +33,7 @@ function Get-LabCustomRole {
         [hashtable]$Config
     )
 
-    # ── Path resolution ──────────────────────────────────────────────────────
+    # -- Path resolution ------------------------------------------------------
     if (-not $PSBoundParameters.ContainsKey('RolesPath') -or [string]::IsNullOrWhiteSpace($RolesPath)) {
         # PS 5.1 compatible: nested Join-Path (no 3-arg form)
         $RolesPath = Join-Path (Join-Path $PSScriptRoot '..') '.planning'
@@ -49,7 +49,7 @@ function Get-LabCustomRole {
         return $null
     }
 
-    # ── Ensure schema validator is available ─────────────────────────────────
+    # -- Ensure schema validator is available ---------------------------------
     if (-not (Get-Command 'Test-LabCustomRoleSchema' -ErrorAction SilentlyContinue)) {
         $validatorPath = Join-Path $PSScriptRoot 'Test-LabCustomRoleSchema.ps1'
         if (Test-Path -LiteralPath $validatorPath) {
@@ -60,7 +60,7 @@ function Get-LabCustomRole {
         }
     }
 
-    # ── Discover JSON files ───────────────────────────────────────────────────
+    # -- Discover JSON files ---------------------------------------------------
     $jsonFiles = @(Get-ChildItem -Path $RolesPath -Filter '*.json' -File -ErrorAction SilentlyContinue)
     $validRoles = [System.Collections.Generic.List[hashtable]]::new()
 
@@ -95,7 +95,7 @@ function Get-LabCustomRole {
             $validation = Test-LabCustomRoleSchema -RoleData $roleHt -FilePath $file.FullName
             if (-not $validation.Valid) {
                 $errList = $validation.Errors -join '; '
-                Write-Warning "Get-LabCustomRole: skipping '$($file.FullName)' — validation errors: $errList"
+                Write-Warning "Get-LabCustomRole: skipping '$($file.FullName)' -- validation errors: $errList"
                 continue
             }
 
@@ -104,11 +104,11 @@ function Get-LabCustomRole {
             $validRoles.Add($roleHt)
         }
         catch {
-            Write-Warning "Get-LabCustomRole: failed to parse '$($file.FullName)' — $($_.Exception.Message)"
+            Write-Warning "Get-LabCustomRole: failed to parse '$($file.FullName)' -- $($_.Exception.Message)"
         }
     }
 
-    # ── -List mode ────────────────────────────────────────────────────────────
+    # -- -List mode ------------------------------------------------------------
     if ($List) {
         $listResult = foreach ($role in $validRoles) {
             $stepCount = 0
@@ -135,7 +135,7 @@ function Get-LabCustomRole {
         return @($listResult | Sort-Object -Property Name)
     }
 
-    # ── -Name mode ────────────────────────────────────────────────────────────
+    # -- -Name mode ------------------------------------------------------------
     if ($PSBoundParameters.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($Name)) {
         $match = $null
         foreach ($role in $validRoles) {
@@ -230,7 +230,7 @@ function Get-LabCustomRole {
     return $null
 }
 
-# ── Private helpers ───────────────────────────────────────────────────────────
+# -- Private helpers -----------------------------------------------------------
 
 function Convert-PsObjectToHashtable {
     <#

@@ -1,0 +1,5 @@
+{
+  "ErrorCode": "CONFIG_LOAD_FAILED",
+  "FailureCategory": "ConfigError",
+  "RecoveryHint": "Config file not found: /tmp/d707407f-df61-480f-894b-dce9eec97b6a/missing.settings.psd1"
+}

@@ -58,7 +58,7 @@ try {
         $staleCount = @($snapInventory | Where-Object { $_.AgeDays -gt 7 }).Count
         Write-Host "    Count: $($snapInventory.Count)  |  Oldest: $($oldest.AgeDays)d ($($oldest.VMName)/$($oldest.CheckpointName))  |  Newest: $($newest.AgeDays)d ($($newest.VMName)/$($newest.CheckpointName))" -ForegroundColor Gray
         if ($staleCount -gt 0) {
-            Write-Host "    Stale (>7d): $staleCount — run 'snapshot-prune' to clean up" -ForegroundColor Yellow
+            Write-Host "    Stale (>7d): $staleCount -- run 'snapshot-prune' to clean up" -ForegroundColor Yellow
         }
     }
     else {

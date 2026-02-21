@@ -542,7 +542,7 @@ $GlobalLabConfig = @{
 # Expose Builder config for LabBuilder scripts (intentional coupling -- see 01-RESEARCH.md)
 $LabBuilderConfig = $GlobalLabConfig.Builder
 
-# ── Configuration Validation ──────────────────────────────────────────────
+# -- Configuration Validation ----------------------------------------------
 # Validates required fields exist and have valid values.
 # Fails loudly per design: missing required fields = script stops.
 

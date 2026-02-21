@@ -71,7 +71,7 @@ function Restore-LabCheckpoint {
             return $result
         }
 
-        # Restore order: reverse (clients first, then DC) — dynamic from config + auto-detect LIN1
+        # Restore order: reverse (clients first, then DC) -- dynamic from config + auto-detect LIN1
         $configVMs = @(if ($LabVMs) { $LabVMs } elseif (Test-Path variable:GlobalLabConfig) { $GlobalLabConfig.Lab.CoreVMNames } else { @('dc1','svr1','ws1') })
         $lin1VM = Get-VM -Name 'LIN1' -ErrorAction SilentlyContinue
         if ($lin1VM -and ('LIN1' -notin $configVMs)) { $configVMs += 'LIN1' }

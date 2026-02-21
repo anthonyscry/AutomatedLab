@@ -30,7 +30,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
 
-# ── Config ──
+# -- Config --
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ConfigPath     = Join-Path $ScriptDir 'Lab-Config.ps1'
 if (Test-Path $ConfigPath) { . $ConfigPath }
@@ -50,7 +50,7 @@ $RequiredFolders = @(
     "$($GlobalLabConfig.Paths.LabSourcesRoot)\Logs"
 )
 
-# ── Functions ──
+# -- Functions --
 function Write-Step {
     param([string]$Step, [string]$Message)
     Write-Host "`n[$Step] $Message" -ForegroundColor Cyan

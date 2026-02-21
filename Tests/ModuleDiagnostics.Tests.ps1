@@ -16,7 +16,7 @@ BeforeAll {
     $guiPath   = Join-Path $repoRoot (Join-Path 'GUI' 'Start-OpenCodeLabGUI.ps1')
     $publicDir = Join-Path $repoRoot 'Public'
 
-    # ── Parse psm1 Export-ModuleMember block ─────────────────────────────
+    # -- Parse psm1 Export-ModuleMember block -----------------------------
     $psm1Content = Get-Content -Path $psm1Path -Raw
 
     $psm1BlockStart = $psm1Content.IndexOf('@(', $psm1Content.IndexOf('Export-ModuleMember'))
@@ -35,7 +35,7 @@ BeforeAll {
         ([regex]::Matches($psm1Block, "'([A-Za-z][\w-]+)'") | ForEach-Object { $_.Groups[1].Value })
     )
 
-    # ── Parse psd1 FunctionsToExport block ───────────────────────────────
+    # -- Parse psd1 FunctionsToExport block -------------------------------
     $psd1Content = Get-Content -Path $psd1Path -Raw
 
     $psd1BlockStart = $psd1Content.IndexOf('@(', $psd1Content.IndexOf('FunctionsToExport'))
@@ -54,13 +54,13 @@ BeforeAll {
         ([regex]::Matches($psd1Block, "'([A-Za-z][\w-]+)'") | ForEach-Object { $_.Groups[1].Value })
     )
 
-    # ── Collect actual Public/ function names ────────────────────────────
+    # -- Collect actual Public/ function names ----------------------------
     $publicFiles = Get-ChildItem -Path $publicDir -Filter '*.ps1' -Recurse -File
     $script:PublicFunctionNames = [System.Collections.Generic.SortedSet[string]] @(
         ($publicFiles | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) })
     )
 
-    # ── GUI content ──────────────────────────────────────────────────────
+    # -- GUI content ------------------------------------------------------
     $script:GuiContent = Get-Content -Path $guiPath -Raw
 }
 

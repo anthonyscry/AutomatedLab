@@ -97,7 +97,7 @@ Describe 'No Invalid Param Syntax (Regression Prevention)' {
     ) {
         $filePath = Join-Path $script:RolesDir $File
         $content = Get-Content $filePath -Raw
-        # Match param($Variable.Property) pattern — invalid in PowerShell param blocks
+        # Match param($Variable.Property) pattern -- invalid in PowerShell param blocks
         $content | Should -Not -Match 'param\(\$\w+\.\w+' -Because "ScriptBlock params must use simple variable names, not dotted properties"
     }
 }
@@ -161,7 +161,7 @@ Describe 'DHCP Prerequisite Validation' {
         $roleDef = Get-LabRole_DHCP -Config $configNoDhcp
         $postInstall = $roleDef.PostInstall
 
-        # Execute PostInstall — capture warning stream (stream 3)
+        # Execute PostInstall -- capture warning stream (stream 3)
         $warningOutput = $postInstall.Invoke($configNoDhcp) 3>&1 | Where-Object { $_ -is [System.Management.Automation.WarningRecord] }
 
         $warningOutput | Should -Not -BeNullOrEmpty -Because "Missing DHCP config should produce a warning"
@@ -238,7 +238,7 @@ Describe 'Linux Role Null-Safety' {
             DomainName = 'lab.local'
         }
 
-        # Should not throw — call directly and capture result
+        # Should not throw -- call directly and capture result
         $result = & $Function -Config $minimalConfig -WarningAction SilentlyContinue
 
         # Should return stub with SkipInstallLab

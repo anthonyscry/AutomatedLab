@@ -50,7 +50,7 @@ function Import-LabPackage {
         throw "Failed to read package '$Path': $($_.Exception.Message)"
     }
 
-    # Validate package integrity — collect ALL errors before throwing (XFER-03)
+    # Validate package integrity -- collect ALL errors before throwing (XFER-03)
     $validationErrors = @()
 
     $hasPackageVersion = ($data -is [System.Management.Automation.PSCustomObject]) -and

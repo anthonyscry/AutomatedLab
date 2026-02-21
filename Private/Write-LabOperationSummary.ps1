@@ -83,12 +83,12 @@ function Write-LabOperationSummary {
 
         foreach ($stepResult in $Result.Results) {
             $stepStatus = switch ($stepResult.Status) {
-                'Completed' { '✓' }
-                'OK' { '✓' }
-                'Partial' { '⚠' }
-                'Warning' { '⚠' }
-                'Failed' { '✗' }
-                'Error' { '✗' }
+                'Completed' { '?' }
+                'OK' { '?' }
+                'Partial' { '?' }
+                'Warning' { '?' }
+                'Failed' { '?' }
+                'Error' { '?' }
                 default { '?' }
             }
 

@@ -59,7 +59,7 @@ Describe 'Validation script contract' {
     }
 
     It 'validation script has Invoke-Pester-style CmdletBinding' {
-        # Script must be invocable by pwsh — confirm param block present
+        # Script must be invocable by pwsh -- confirm param block present
         $content = Get-Content -Path $scriptPath -Raw
         $content | Should -Match '\[CmdletBinding\(\)\]'
     }
@@ -117,7 +117,7 @@ Describe 'Skip semantics contract' {
         $content = Get-Content -Path $scriptPath -Raw
         # catch block must set SKIPPED state
         $content | Should -Match 'catch'
-        # Count SKIPPED occurrences — there must be more than one (multiple skip paths)
+        # Count SKIPPED occurrences -- there must be more than one (multiple skip paths)
         $matches = ([regex]::Matches($content, "'SKIPPED'")).Count
         $matches | Should -BeGreaterThan 1
     }
@@ -133,7 +133,7 @@ Describe 'Skip semantics contract' {
     }
 
     It 'validation script outputs report scaffold even in skip path' {
-        # The Set-Content call is always reached — confirm it is outside try/catch
+        # The Set-Content call is always reached -- confirm it is outside try/catch
         $content = Get-Content -Path $scriptPath -Raw
         # The report write and Set-Content must appear after the function definitions
         # (i.e., not only inside a try block)

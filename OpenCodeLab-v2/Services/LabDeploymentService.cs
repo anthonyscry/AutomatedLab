@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using OpenCodeLab.Models;
 
@@ -15,12 +16,20 @@ public class LabDeploymentService
 
     private const string AutomatedLabModulePath = @"C:\Program Files\WindowsPowerShell\Modules\AutomatedLab";
     private const string LabSourcesRoot = @"C:\LabSources";
+    private const string PasswordEnvVar = "OPENCODELAB_ADMIN_PASSWORD";
 
     public async Task<bool> DeployLabAsync(LabConfig config, Action<string>? log = null)
     {
         try
         {
             Report(0, "Starting deployment...", log);
+
+            // Validate inputs to prevent command injection
+            if (!ValidateConfigInputs(config, log))
+            {
+                log?.Invoke("Invalid configuration. Please check VM names and network settings.");
+                return false;
+            }
 
             // Determine the working directory for VMs
             string workingDir = GetWorkingDirectory(config);
@@ -54,24 +63,41 @@ public class LabDeploymentService
         {
             Report(0, "Removing lab...", log);
 
-            // Use PowerShell to remove VMs
+            // Validate inputs to prevent command injection
+            if (!ValidateConfigInputs(config, log))
+            {
+                log?.Invoke("Invalid configuration for removal.");
+                return false;
+            }
+
+            // Use PowerShell to remove VMs via AutomatedLab
             var script = new StringBuilder();
+            script.AppendLine("Import-Module AutomatedLab -ErrorAction SilentlyContinue");
             script.AppendLine("Import-Module Hyper-V -ErrorAction SilentlyContinue");
 
+            // Remove lab definition if it exists
+            script.AppendLine($"$lab = Get-Lab -Name '{EscapePowerShellString(config.LabName)}' -ErrorAction SilentlyContinue");
+            script.AppendLine("if ($lab) {");
+            script.AppendLine($"  Write-Host 'Removing lab definition: {config.LabName}'");
+            script.AppendLine($"  Remove-Lab -Name '{EscapePowerShellString(config.LabName)}' -Confirm:$false -ErrorAction SilentlyContinue");
+            script.AppendLine("}");
+
+            // Also remove any orphaned VMs
             foreach (var vm in config.VMs)
             {
-                script.AppendLine($"$vm = Get-VM -Name '{vm.Name}' -ErrorAction SilentlyContinue");
+                var safeVmName = EscapePowerShellString(vm.Name);
+                script.AppendLine($"$vm = Get-VM -Name '{safeVmName}' -ErrorAction SilentlyContinue");
                 script.AppendLine("if ($vm) {");
-                script.AppendLine($"  Write-Host \"Stopping {vm.Name}...\"");
-                script.AppendLine($"  Stop-VM -Name '{vm.Name}' -TurnOff -Force -ErrorAction SilentlyContinue");
-                script.AppendLine($"  Write-Host \"Removing {vm.Name}...\"");
-                script.AppendLine($"  Remove-VM -Name '{vm.Name}' -Force -ErrorAction SilentlyContinue");
+                script.AppendLine($"  Write-Host \"Stopping {safeVmName}...\"");
+                script.AppendLine($"  Stop-VM -Name '{safeVmName}' -TurnOff -Force -ErrorAction SilentlyContinue");
+                script.AppendLine($"  Write-Host \"Removing {safeVmName}...\"");
+                script.AppendLine($"  Remove-VM -Name '{safeVmName}' -Force -ErrorAction SilentlyContinue");
                 script.AppendLine("}");
             }
 
-            await RunPowerShellAsync(script.ToString(), log);
+            var result = await RunPowerShellAsync(script.ToString(), log);
             Report(100, "Lab removed!", log);
-            return true;
+            return result.Success;
         }
         catch (Exception ex)
         {
@@ -95,10 +121,8 @@ public class LabDeploymentService
     {
         try
         {
-            // Check if module directory exists
             if (!Directory.Exists(AutomatedLabModulePath))
             {
-                // Also check user module path
                 var userModulePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                     @"Documents\WindowsPowerShell\Modules\AutomatedLab");
@@ -119,17 +143,8 @@ public class LabDeploymentService
     private async Task<bool> InvokeAutomatedLabDeployAsync(LabConfig config, string workingDir, Action<string>? log)
     {
         var script = BuildAutomatedLabScript(config, workingDir);
-        var output = await RunPowerShellAsync(script, log);
-
-        // Check for common failure indicators in output
-        if (output.Contains("error", StringComparison.OrdinalIgnoreCase) &&
-            output.Contains("failed", StringComparison.OrdinalIgnoreCase))
-        {
-            log?.Invoke("Deployment may have failed. Check logs above.");
-            return false;
-        }
-
-        return true;
+        var result = await RunPowerShellAsync(script, log);
+        return result.Success;
     }
 
     private string BuildAutomatedLabScript(LabConfig config, string workingDir)
@@ -144,36 +159,51 @@ public class LabDeploymentService
         script.AppendLine("Import-Module Hyper-V -ErrorAction SilentlyContinue");
         script.AppendLine();
 
+        // Set lab sources location
+        script.AppendLine($"Write-Host 'Setting lab sources location: {workingDir}'");
+        script.AppendLine($"Set-LabSourcesLocation -Path '{workingDir.Replace("\\", "\\\\")}' -ErrorAction SilentlyContinue");
+        script.AppendLine();
+
         // Create lab definition
-        script.AppendLine($"Write-Host 'Creating lab definition: {config.LabName}'");
-        script.AppendLine($"New-LabDefinition -Name '{config.LabName}' -DefaultVirtualizationEngine HyperV -VmPath '{workingDir}'");
+        var safeLabName = EscapePowerShellString(config.LabName);
+        script.AppendLine($"Write-Host 'Creating lab definition: {safeLabName}'");
+        script.AppendLine($"New-LabDefinition -Name '{safeLabName}' -DefaultVirtualizationEngine HyperV");
         script.AppendLine();
 
         // Set up network
-        script.AppendLine($"Write-Host 'Setting up virtual switch: {config.Network.SwitchName}'");
-        script.AppendLine($"$switch = Get-VMSwitch -Name '{config.Network.SwitchName}' -ErrorAction SilentlyContinue");
+        var safeSwitchName = EscapePowerShellString(config.Network.SwitchName);
+        script.AppendLine($"Write-Host 'Setting up virtual switch: {safeSwitchName}'");
+        script.AppendLine($"$switch = Get-VMSwitch -Name '{safeSwitchName}' -ErrorAction SilentlyContinue");
         script.AppendLine("if (-not $switch) {");
-        script.AppendLine($"  Write-Host 'Creating virtual switch: {config.Network.SwitchName}'");
-        script.AppendLine($"  New-VMSwitch -Name '{config.Network.SwitchName}' -SwitchType {config.Network.SwitchType} -ErrorAction Stop");
+        script.AppendLine($"  Write-Host 'Creating virtual switch: {safeSwitchName}'");
+        script.AppendLine($"  New-VMSwitch -Name '{safeSwitchName}' -SwitchType {config.Network.SwitchType} -ErrorAction Stop");
         script.AppendLine("} else {");
-        script.AppendLine($"  Write-Host 'Switch already exists: {config.Network.SwitchName}'");
+        script.AppendLine($"  Write-Host 'Switch already exists: {safeSwitchName}'");
         script.AppendLine("}");
         script.AppendLine();
 
         // Add virtual network definition to AutomatedLab
-        var addressSpace = "192.168.10.0/24"; // Default, could be configurable
-        script.AppendLine($"Add-LabVirtualNetworkDefinition -Name '{config.Network.SwitchName}' -AddressSpace {addressSpace}");
+        var addressSpace = "192.168.10.0/24";
+        script.AppendLine($"Add-LabVirtualNetworkDefinition -Name '{safeSwitchName}' -AddressSpace {addressSpace}");
         script.AppendLine();
 
         // Add domain definition (if we have a DC role)
         var dcVM = config.VMs.FirstOrDefault(v => v.Role.Contains("DC", StringComparison.OrdinalIgnoreCase));
-        string domainName = "contoso.com"; // Default, could be made configurable
+        string domainName = config.DomainName ?? "contoso.com";
+
+        // Password will be passed via environment variable
+        string adminUser = "Administrator";
+
         if (dcVM != null)
         {
-            string adminUser = "Administrator";
             script.AppendLine($"Write-Host 'Adding domain definition: {domainName}'");
-            script.AppendLine($"Add-LabDomainDefinition -Name {domainName} -AdminUser {adminUser} -AdminPassword 'P@ssw0rd'");
-            script.AppendLine($"Set-LabInstallationCredential -Username {adminUser} -Password 'P@ssw0rd'");
+            script.AppendLine($"if ($env:OPENCODELAB_ADMIN_PASSWORD) {{");
+            script.AppendLine($"  Add-LabDomainDefinition -Name {domainName} -AdminUser {adminUser} -AdminPassword $env:OPENCODELAB_ADMIN_PASSWORD");
+            script.AppendLine($"  Set-LabInstallationCredential -Username {adminUser} -Password $env:OPENCODELAB_ADMIN_PASSWORD");
+            script.AppendLine("} else {");
+            script.AppendLine("  Write-Error 'Admin password not set. Please set OPENCODELAB_ADMIN_PASSWORD environment variable or provide password in the GUI.'");
+            script.AppendLine("  exit 1");
+            script.AppendLine("}");
             script.AppendLine();
         }
 
@@ -181,15 +211,17 @@ public class LabDeploymentService
         script.AppendLine("Write-Host 'Adding machine definitions...'");
         foreach (var vm in config.VMs)
         {
+            var safeVmName = EscapePowerShellString(vm.Name);
             var vmParams = new StringBuilder();
-            vmParams.Append($"-Name '{vm.Name}' ");
+            vmParams.Append($"-Name '{safeVmName}' ");
             vmParams.Append($"-Memory {vm.MemoryGB}GB ");
             vmParams.Append($"-ProcessorCount {vm.Processors} ");
 
             // Network
-            vmParams.Append($"-Network '{vm.SwitchName ?? config.Network.SwitchName}' ");
+            var safeSwitch = EscapePowerShellString(vm.SwitchName ?? config.Network.SwitchName);
+            vmParams.Append($"-Network '{safeSwitch}' ");
 
-            // Operating System - use Server OS for DC roles, Client OS otherwise
+            // Operating System
             string osType = vm.Role.Contains("DC", StringComparison.OrdinalIgnoreCase) ||
                            vm.Role.Contains("Server", StringComparison.OrdinalIgnoreCase)
                 ? "Windows Server 2022 Datacenter Evaluation (Desktop Experience)"
@@ -209,8 +241,13 @@ public class LabDeploymentService
                 var rolesList = string.Join("', '", roles);
                 vmParams.Append($"-Roles @('{rolesList}') ");
             }
+            else
+            {
+                // Warn about unrecognized roles
+                script.AppendLine($"Write-Host '  [WARN] Unrecognized role: {vm.Role} for VM {safeVmName} - deploying without specific roles'");
+            }
 
-            script.AppendLine($"Write-Host '  Adding: {vm.Name} ({vm.Role})'");
+            script.AppendLine($"Write-Host '  Adding: {safeVmName} ({vm.Role})'");
             script.AppendLine($"Add-LabMachineDefinition {vmParams}");
         }
         script.AppendLine();
@@ -258,27 +295,47 @@ public class LabDeploymentService
         return roles;
     }
 
-    private async Task<string> RunPowerShellAsync(string script, Action<string>? log)
+    private string GetAdminPassword()
+    {
+        // Try to get password from environment variable
+        var envPassword = Environment.GetEnvironmentVariable(PasswordEnvVar);
+        if (!string.IsNullOrEmpty(envPassword))
+            return envPassword;
+
+        // Return empty - user will be prompted via GUI
+        return string.Empty;
+    }
+
+    private async Task<PowerShellResult> RunPowerShellAsync(string script, Action<string>? log)
     {
         return await Task.Run(() =>
         {
+            string tempScript = null;
             try
             {
-                // Write script to temp file for complex scripts
-                var tempScript = Path.Combine(Path.GetTempPath(), $"lab-deploy-{Guid.NewGuid():N}.ps1");
-                File.WriteAllText(tempScript, script, Encoding.UTF8);
-
-                var psi = new ProcessStartInfo
+                // Set password environment variable for the script
+                var envPassword = GetAdminPassword();
+                var startInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = $"-ExecutionPolicy Bypass -File \"{tempScript}\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true
                 };
 
-                using var process = Process.Start(psi);
+                // Set environment variables for the process
+                if (!string.IsNullOrEmpty(envPassword))
+                {
+                    startInfo.Environment[PasswordEnvVar] = envPassword;
+                }
+
+                // Write script to temp file
+                tempScript = Path.Combine(Path.GetTempPath(), $"lab-deploy-{Guid.NewGuid():N}.ps1");
+                File.WriteAllText(tempScript, script, Encoding.UTF8);
+                startInfo.Arguments = $"-ExecutionPolicy Bypass -File \"{tempScript}\"";
+
+                using var process = Process.Start(startInfo);
                 var output = new StringBuilder();
 
                 // Read output asynchronously
@@ -303,18 +360,86 @@ public class LabDeploymentService
                 process.WaitForExit();
                 Task.WaitAll(stdoutTask, stderrTask);
 
-                // Clean up temp file
-                try { File.Delete(tempScript); } catch { }
+                // Check exit code for proper error detection
+                int exitCode = process.ExitCode;
+                bool success = exitCode == 0;
 
-                return output.ToString();
+                if (!success)
+                {
+                    log?.Invoke($"PowerShell exited with code: {exitCode}");
+                }
+
+                return new PowerShellResult
+                {
+                    Output = output.ToString(),
+                    ExitCode = exitCode,
+                    Success = success && !output.ToString().Contains("error", StringComparison.OrdinalIgnoreCase)
+                };
             }
             catch (Exception ex)
             {
                 var error = $"PowerShell execution failed: {ex.Message}";
                 log?.Invoke(error);
-                return error;
+                return new PowerShellResult { Output = error, Success = false, ExitCode = -1 };
+            }
+            finally
+            {
+                // Clean up temp file
+                try { if (tempScript != null) File.Delete(tempScript); } catch { }
             }
         });
+    }
+
+    private bool ValidateConfigInputs(LabConfig config, Action<string>? log)
+    {
+        // Validate lab name (allow alphanumeric, hyphen, underscore, spaces)
+        var validLabName = Regex.IsMatch(config.LabName, @"^[a-zA-Z0-9\-_\s]+$");
+        if (!validLabName)
+        {
+            log?.Invoke($"Invalid lab name: {config.LabName}");
+            return false;
+        }
+
+        // Validate switch name
+        var validSwitch = Regex.IsMatch(config.Network.SwitchName, @"^[a-zA-Z0-9\-_]+$");
+        if (!validSwitch)
+        {
+            log?.Invoke($"Invalid switch name: {config.Network.SwitchName}");
+            return false;
+        }
+
+        // Validate VM names
+        foreach (var vm in config.VMs)
+        {
+            var validVmName = Regex.IsMatch(vm.Name, @"^[a-zA-Z0-9\-_]+$");
+            if (!validVmName)
+            {
+                log?.Invoke($"Invalid VM name: {vm.Name}");
+                return false;
+            }
+
+            // Validate switch name in VM if present
+            if (!string.IsNullOrEmpty(vm.SwitchName))
+            {
+                var validVmSwitch = Regex.IsMatch(vm.SwitchName, @"^[a-zA-Z0-9\-_]+$");
+                if (!validVmSwitch)
+                {
+                    log?.Invoke($"Invalid VM switch name: {vm.SwitchName}");
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private string EscapePowerShellString(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
+
+        // Escape single quotes by doubling them (PowerShell escape mechanism)
+        return input.Replace("'", "''");
     }
 
     private void Report(int pct, string msg, Action<string>? log)
@@ -333,4 +458,11 @@ public class DeploymentProgressArgs : EventArgs
         Percent = pct;
         Message = msg;
     }
+}
+
+internal class PowerShellResult
+{
+    public string Output { get; set; } = string.Empty;
+    public int ExitCode { get; set; }
+    public bool Success { get; set; }
 }

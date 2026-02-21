@@ -18,7 +18,7 @@ if (Test-Path $CommonPath) { . $CommonPath }
 
 $ErrorActionPreference = 'Stop'
 
-# Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
+# Password resolution: -AdminPassword param -> Lab-Config.ps1 -> env var -> error
 $AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
 if (-not (Import-OpenCodeLab -Name $GlobalLabConfig.Lab.Name)) {

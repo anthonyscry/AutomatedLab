@@ -28,7 +28,7 @@ $GlobalLabConfig.Credentials.InstallUser = if ([string]::IsNullOrWhiteSpace($Glo
 
 $ErrorActionPreference = 'Stop'
 
-# Password resolution: -AdminPassword param → Lab-Config.ps1 → env var → error
+# Password resolution: -AdminPassword param -> Lab-Config.ps1 -> env var -> error
 $AdminPassword = Resolve-LabPassword -Password $AdminPassword
 
 Write-Host ""

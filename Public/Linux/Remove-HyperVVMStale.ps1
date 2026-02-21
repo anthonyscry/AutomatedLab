@@ -28,7 +28,7 @@ function Remove-HyperVVMStale {
 
     .EXAMPLE
     $removed = Remove-HyperVVMStale -VMName 'GoldenTemplate-20260219' -Context 'golden-template-cleanup'
-    if (-not $removed) { Write-Warning 'VM could not be removed — check Hyper-V event log.' }
+    if (-not $removed) { Write-Warning 'VM could not be removed -- check Hyper-V event log.' }
 
     .EXAMPLE
     # Use in a cleanup block after a failed lab provisioning run
