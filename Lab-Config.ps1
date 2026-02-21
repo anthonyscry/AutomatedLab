@@ -270,6 +270,7 @@ $GlobalLabConfig = @{
             DatabaseUbuntu = '10.0.10.112'
             DockerUbuntu = '10.0.10.113'
             K8sUbuntu = '10.0.10.114'
+            CentOS = '10.0.10.115'
         }
 
         VMNames = @{
@@ -289,6 +290,7 @@ $GlobalLabConfig = @{
             DatabaseUbuntu = 'LINDB1'
             DockerUbuntu = 'LINDOCK1'
             K8sUbuntu = 'LINK8S1'
+            CentOS = 'LINCENT1'
         }
 
         # Changing these values changes default OS selection in role definitions.
@@ -312,6 +314,11 @@ $GlobalLabConfig = @{
                 DisplayName = 'Rocky Linux 9'
                 ISOPattern = 'Rocky-9*.iso'
                 CloudInit = 'nocloud'
+            }
+            CentOS9 = @{
+                DisplayName = 'CentOS Stream 9'
+                ISOPattern  = 'CentOS-Stream-9*.iso'
+                CloudInit   = 'nocloud'
             }
         }
 
@@ -431,6 +438,7 @@ $GlobalLabConfig = @{
             @{ Tag = 'Client'; Label = 'Client VM (WIN10-01)'; Locked = $false }
             @{ Separator = $true; Label = '-- Linux VMs --' }
             @{ Tag = 'Ubuntu'; Label = 'Ubuntu Server (LIN1)'; Locked = $false }
+            @{ Tag = 'CentOS'; Label = 'CentOS Stream (LINCENT1)'; Locked = $false }
             @{ Tag = 'WebServerUbuntu'; Label = 'Web Server (Ubuntu/nginx)'; Default = $false }
             @{ Tag = 'DatabaseUbuntu'; Label = 'Database (Ubuntu/PostgreSQL)'; Default = $false }
             @{ Tag = 'DockerUbuntu'; Label = 'Docker (Ubuntu)'; Default = $false }
