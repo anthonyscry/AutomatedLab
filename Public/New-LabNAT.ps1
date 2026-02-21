@@ -9,6 +9,8 @@ function New-LabNAT {
         simple internal switch created by New-LabSwitch. All parameters default
         to values from the lab network configuration when available.
 
+        Supports multi-switch NAT creation via -Switches or -All parameters.
+
     .PARAMETER SwitchName
         Name of the Hyper-V internal virtual switch to create or reuse.
         Defaults to the SwitchName from network config, or "SimpleLab".
@@ -24,6 +26,15 @@ function New-LabNAT {
     .PARAMETER NatName
         Name for the Windows NAT object. Defaults to "${SwitchName}NAT".
 
+    .PARAMETER Switches
+        Array of switch definitions (hashtable or PSCustomObject) with Name,
+        AddressSpace, GatewayIp, and NatName properties.
+        When provided, configures NAT for each switch entry.
+
+    .PARAMETER All
+        When specified, reads the Switches array from Get-LabNetworkConfig and
+        configures NAT for all configured switches.
+
     .PARAMETER Force
         Remove and recreate an existing switch or NAT if the configuration
         does not match. Without -Force, mismatches return a failure result.
@@ -37,32 +48,251 @@ function New-LabNAT {
         Creates a NAT switch named LabNAT with a custom gateway IP.
 
     .EXAMPLE
+        New-LabNAT -All
+        Creates NAT configuration for all switches in Get-LabNetworkConfig.
+
+    .EXAMPLE
         New-LabNAT -Force
         Recreates the NAT and switch even if they already exist.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Single')]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Single')]
         [string]$SwitchName,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Single')]
         [ValidatePattern('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')]
         [string]$GatewayIP,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Single')]
         [string]$AddressSpace = "255.255.255.0",
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Single')]
         [string]$NatName,
+
+        [Parameter(ParameterSetName = 'Multi')]
+        [object[]]$Switches,
+
+        [Parameter(ParameterSetName = 'All')]
+        [switch]$All,
 
         [Parameter()]
         [switch]$Force
     )
 
+    # ── Helper: create NAT for a single switch definition ────────────────────
+    function New-SingleLabNAT {
+        param(
+            [string]$SwitchName,
+            [string]$GatewayIP,
+            [string]$AddressSpace,
+            [string]$NatName,
+            [switch]$Force
+        )
+
+        # Check for Hyper-V module
+        if (-not (Get-Module -ListAvailable -Name Hyper-V -ErrorAction SilentlyContinue)) {
+            return [PSCustomObject]@{
+                OverallStatus     = 'Failed'
+                Status            = 'Failed'
+                Message           = "Hyper-V module not available. Install Hyper-V feature."
+                SwitchCreated     = $false
+                GatewayConfigured = $false
+                NATCreated        = $false
+            }
+        }
+
+        # Prefix length from address space
+        $prefixLength = if ($AddressSpace -match '/(\d+)') {
+            [int]$Matches[1]
+        } else {
+            24
+        }
+
+        # Validate prefix length
+        if ($prefixLength -lt 1 -or $prefixLength -gt 32) {
+            return [PSCustomObject]@{
+                OverallStatus     = 'Failed'
+                Status            = 'Failed'
+                Message           = "Invalid CIDR prefix length '$prefixLength' in AddressSpace '$AddressSpace'. Must be 1-32."
+                SwitchCreated     = $false
+                GatewayConfigured = $false
+                NATCreated        = $false
+            }
+        }
+
+        $results = @{
+            SwitchCreated     = $false
+            GatewayConfigured = $false
+            NATCreated        = $false
+            SwitchName        = $SwitchName
+            GatewayIP         = $GatewayIP
+            NatName           = $NatName
+        }
+
+        try {
+            # Create or verify vSwitch
+            $existingSwitch = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
+            if ($existingSwitch) {
+                if ($existingSwitch.SwitchType -ne 'Internal') {
+                    if ($Force) {
+                        Remove-VMSwitch -Name $SwitchName -Force -ErrorAction SilentlyContinue
+                        $switchRemovalDeadline = [datetime]::Now.AddSeconds(10)
+                        while ([datetime]::Now -lt $switchRemovalDeadline) {
+                            $switchCheck = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
+                            if (-not $switchCheck) { break }
+                            Start-Sleep -Seconds 1
+                        }
+                        if (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue) {
+                            throw "Failed to remove non-internal switch '$SwitchName' before recreation."
+                        }
+                    } else {
+                        return [PSCustomObject]@{
+                            OverallStatus     = 'Failed'
+                            Status            = 'Failed'
+                            Message           = "Switch '$SwitchName' exists but is not Internal type. Use -Force to recreate."
+                            SwitchCreated     = $false
+                            GatewayConfigured = $false
+                            NATCreated        = $false
+                        }
+                    }
+                } else {
+                    Write-LabStatus -Status OK -Message "VMSwitch exists: $SwitchName" -Indent 0
+                    $results.SwitchCreated = $true
+                }
+            }
+
+            if (-not $results.SwitchCreated) {
+                $null = New-VMSwitch -Name $SwitchName -SwitchType Internal
+                Write-LabStatus -Status OK -Message "Created VMSwitch: $SwitchName (Internal)" -Indent 0
+                $results.SwitchCreated = $true
+            }
+
+            # Configure gateway IP on host
+            $ifAlias         = "vEthernet ($SwitchName)"
+            $existingGateway = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                               Where-Object { $_.IPAddress -eq $GatewayIP }
+
+            if (-not $existingGateway) {
+                # Remove existing IPs on interface
+                Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                    Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
+
+                # Add gateway IP
+                $null = New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIP -PrefixLength $prefixLength
+                Write-LabStatus -Status OK -Message "Set host gateway IP: $GatewayIP on $ifAlias" -Indent 0
+                $results.GatewayConfigured = $true
+            } else {
+                Write-LabStatus -Status OK -Message "Host gateway IP already set: $GatewayIP" -Indent 0
+                $results.GatewayConfigured = $true
+            }
+
+            # Create or verify NAT
+            $existingNat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+            if ($existingNat) {
+                if ($existingNat.InternalIPInterfaceAddressPrefix -ne $AddressSpace) {
+                    if ($Force) {
+                        $null = Remove-NetNat -Name $NatName -Confirm:$false
+                        $natRemovalDeadline = [datetime]::Now.AddSeconds(10)
+                        while ([datetime]::Now -lt $natRemovalDeadline) {
+                            $natCheck = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+                            if (-not $natCheck) { break }
+                            Start-Sleep -Seconds 1
+                        }
+                        if (Get-NetNat -Name $NatName -ErrorAction SilentlyContinue) {
+                            throw "Failed to remove NAT '$NatName' before recreation."
+                        }
+                    } else {
+                        return [PSCustomObject]@{
+                            OverallStatus     = 'Partial'
+                            Status            = 'Partial'
+                            Message           = "NAT '$NatName' exists with different prefix. Use -Force to recreate."
+                            SwitchCreated     = $results.SwitchCreated
+                            GatewayConfigured = $results.GatewayConfigured
+                            NATCreated        = $false
+                        }
+                    }
+                } else {
+                    Write-LabStatus -Status OK -Message "NAT exists: $NatName" -Indent 0
+                    $results.NATCreated = $true
+                }
+            }
+
+            if (-not $results.NATCreated) {
+                $null = New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace
+                Write-LabStatus -Status OK -Message "Created NAT: $NatName for $AddressSpace" -Indent 0
+                $results.NATCreated = $true
+            }
+
+            $overallStatus = if ($results.SwitchCreated -and $results.GatewayConfigured -and $results.NATCreated) {
+                'OK'
+            } else {
+                'Partial'
+            }
+
+            return [PSCustomObject]@{
+                OverallStatus     = $overallStatus
+                Status            = $overallStatus
+                Message           = "NAT network configuration complete for '$SwitchName'"
+                SwitchName        = $SwitchName
+                GatewayIP         = $GatewayIP
+                NatName           = $NatName
+                AddressSpace      = $AddressSpace
+                SwitchCreated     = $results.SwitchCreated
+                GatewayConfigured = $results.GatewayConfigured
+                NATCreated        = $results.NATCreated
+            }
+        }
+        catch {
+            return [PSCustomObject]@{
+                OverallStatus     = 'Failed'
+                Status            = 'Failed'
+                Message           = "New-LabNAT: failed to create NAT configuration for '$SwitchName' - $_"
+                SwitchCreated     = $results.SwitchCreated
+                GatewayConfigured = $results.GatewayConfigured
+                NATCreated        = $false
+            }
+        }
+    }
+
+    # ── Multi-switch mode: -All ──────────────────────────────────────────────
+    if ($PSCmdlet.ParameterSetName -eq 'All') {
+        $networkConfig = Get-LabNetworkConfig
+        $switchDefs    = $networkConfig.Switches
+
+        $results = @()
+        foreach ($sw in $switchDefs) {
+            $swName    = if ($sw -is [hashtable]) { $sw['Name'] }         else { $sw.Name }
+            $swAddr    = if ($sw -is [hashtable]) { $sw['AddressSpace'] } else { $sw.AddressSpace }
+            $swGateway = if ($sw -is [hashtable]) { $sw['GatewayIp'] }    else { $sw.GatewayIp }
+            $swNat     = if ($sw -is [hashtable]) { $sw['NatName'] }      else { $sw.NatName }
+            if ([string]::IsNullOrWhiteSpace($swNat)) { $swNat = "${swName}NAT" }
+
+            $results += New-SingleLabNAT -SwitchName $swName -GatewayIP $swGateway -AddressSpace $swAddr -NatName $swNat -Force:$Force
+        }
+        return $results
+    }
+
+    # ── Multi-switch mode: -Switches ─────────────────────────────────────────
+    if ($PSCmdlet.ParameterSetName -eq 'Multi') {
+        $results = @()
+        foreach ($sw in $Switches) {
+            $swName    = if ($sw -is [hashtable]) { $sw['Name'] }         else { $sw.Name }
+            $swAddr    = if ($sw -is [hashtable]) { $sw['AddressSpace'] } else { $sw.AddressSpace }
+            $swGateway = if ($sw -is [hashtable]) { $sw['GatewayIp'] }    else { $sw.GatewayIp }
+            $swNat     = if ($sw -is [hashtable]) { $sw['NatName'] }      else { $sw.NatName }
+            if ([string]::IsNullOrWhiteSpace($swNat)) { $swNat = "${swName}NAT" }
+
+            $results += New-SingleLabNAT -SwitchName $swName -GatewayIP $swGateway -AddressSpace $swAddr -NatName $swNat -Force:$Force
+        }
+        return $results
+    }
+
+    # ── Single-switch mode (original behavior) ───────────────────────────────
     try {
         # Get lab configuration
-        $labConfig = Get-LabConfig
+        $labConfig     = Get-LabConfig
         $networkConfig = Get-LabNetworkConfig
 
         # Use config values or defaults
@@ -96,159 +326,16 @@ function New-LabNAT {
             "10.0.0.0/24"
         }
 
-        # Prefix length from address space
-        $prefixLength = if ($AddressSpace -match '/(\d+)') {
-            [int]$Matches[1]
-        } else {
-            24
-        }
+        $singleResult = New-SingleLabNAT -SwitchName $SwitchName -GatewayIP $GatewayIP -AddressSpace $AddressSpace -NatName $NatName -Force:$Force
 
-        # Validate prefix length
-        if ($prefixLength -lt 1 -or $prefixLength -gt 32) {
-            return [PSCustomObject]@{
-                OverallStatus = 'Failed'
-                Message = "Invalid CIDR prefix length '$prefixLength' in AddressSpace '$AddressSpace'. Must be 1-32."
-                SwitchCreated = $false
-                GatewayConfigured = $false
-                NATCreated = $false
-            }
-        }
-
-        $results = @{
-            SwitchCreated = $false
-            GatewayConfigured = $false
-            NATCreated = $false
-            SwitchName = $SwitchName
-            GatewayIP = $GatewayIP
-            NatName = $NatName
-        }
-
-        # Check for Hyper-V module
-        if (-not (Get-Module -ListAvailable -Name Hyper-V -ErrorAction SilentlyContinue)) {
-            return [PSCustomObject]@{
-                OverallStatus = 'Failed'
-                Message = "Hyper-V module not available. Install Hyper-V feature."
-                SwitchCreated = $false
-                GatewayConfigured = $false
-                NATCreated = $false
-            }
-        }
-
-        # Create or verify vSwitch
-        $existingSwitch = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
-        if ($existingSwitch) {
-            if ($existingSwitch.SwitchType -ne 'Internal') {
-                if ($Force) {
-                    Remove-VMSwitch -Name $SwitchName -Force -ErrorAction SilentlyContinue
-                    $switchRemovalDeadline = [datetime]::Now.AddSeconds(10)
-                    while ([datetime]::Now -lt $switchRemovalDeadline) {
-                        $switchCheck = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
-                        if (-not $switchCheck) { break }
-                        Start-Sleep -Seconds 1
-                    }
-                    if (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue) {
-                        throw "Failed to remove non-internal switch '$SwitchName' before recreation."
-                    }
-                } else {
-                    return [PSCustomObject]@{
-                        OverallStatus = 'Failed'
-                        Message = "Switch '$SwitchName' exists but is not Internal type. Use -Force to recreate."
-                        SwitchCreated = $false
-                        GatewayConfigured = $false
-                        NATCreated = $false
-                    }
-                }
-            } else {
-                Write-LabStatus -Status OK -Message "VMSwitch exists: $SwitchName" -Indent 0
-                $results.SwitchCreated = $true
-            }
-        }
-
-        if (-not $results.SwitchCreated) {
-            $null = New-VMSwitch -Name $SwitchName -SwitchType Internal
-            Write-LabStatus -Status OK -Message "Created VMSwitch: $SwitchName (Internal)" -Indent 0
-            $results.SwitchCreated = $true
-        }
-
-        # Configure gateway IP on host
-        $ifAlias = "vEthernet ($SwitchName)"
-        $existingGateway = Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                          Where-Object { $_.IPAddress -eq $GatewayIP }
-
-        if (-not $existingGateway) {
-            # Remove existing IPs on interface
-            Get-NetIPAddress -InterfaceAlias $ifAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-
-            # Add gateway IP
-            $null = New-NetIPAddress -InterfaceAlias $ifAlias -IPAddress $GatewayIP -PrefixLength $prefixLength
-            Write-LabStatus -Status OK -Message "Set host gateway IP: $GatewayIP on $ifAlias" -Indent 0
-            $results.GatewayConfigured = $true
-        } else {
-            Write-LabStatus -Status OK -Message "Host gateway IP already set: $GatewayIP" -Indent 0
-            $results.GatewayConfigured = $true
-        }
-
-        # Create or verify NAT
-        $existingNat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
-        if ($existingNat) {
-            if ($existingNat.InternalIPInterfaceAddressPrefix -ne $AddressSpace) {
-                if ($Force) {
-                    $null = Remove-NetNat -Name $NatName -Confirm:$false
-                    $natRemovalDeadline = [datetime]::Now.AddSeconds(10)
-                    while ([datetime]::Now -lt $natRemovalDeadline) {
-                        $natCheck = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
-                        if (-not $natCheck) { break }
-                        Start-Sleep -Seconds 1
-                    }
-                    if (Get-NetNat -Name $NatName -ErrorAction SilentlyContinue) {
-                        throw "Failed to remove NAT '$NatName' before recreation."
-                    }
-                } else {
-                    return [PSCustomObject]@{
-                        OverallStatus = 'Partial'
-                        Message = "NAT '$NatName' exists with different prefix. Use -Force to recreate."
-                        SwitchCreated = $results.SwitchCreated
-                        GatewayConfigured = $results.GatewayConfigured
-                        NATCreated = $false
-                    }
-                }
-            } else {
-                Write-LabStatus -Status OK -Message "NAT exists: $NatName" -Indent 0
-                $results.NATCreated = $true
-            }
-        }
-
-        if (-not $results.NATCreated) {
-            $null = New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $AddressSpace
-            Write-LabStatus -Status OK -Message "Created NAT: $NatName for $AddressSpace" -Indent 0
-            $results.NATCreated = $true
-        }
-
-        # Update network config to track NAT mode
+        # Update network config to track NAT mode (legacy compat)
         if ($labConfig) {
             if ($labConfig.PSObject.Properties.Name -contains 'LabSettings') {
                 $labConfig.LabSettings | Add-Member -NotePropertyName 'EnableNAT' -NotePropertyValue $true -Force
             }
         }
 
-        $overallStatus = if ($results.SwitchCreated -and $results.GatewayConfigured -and $results.NATCreated) {
-            'OK'
-        } else {
-            'Partial'
-        }
-
-        return [PSCustomObject]@{
-            OverallStatus = $overallStatus
-            Message = "NAT network configuration complete"
-            SwitchName = $SwitchName
-            GatewayIP = $GatewayIP
-            NatName = $NatName
-            AddressSpace = $AddressSpace
-            SwitchCreated = $results.SwitchCreated
-            GatewayConfigured = $results.GatewayConfigured
-            NATCreated = $results.NATCreated
-        }
+        return $singleResult
     }
     catch {
         throw "New-LabNAT: failed to create NAT configuration - $_"
