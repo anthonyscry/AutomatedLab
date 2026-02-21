@@ -85,6 +85,8 @@ FunctionsToExport = @(
     'Get-LabComplianceReport', 'Get-LabResourceReport',
     'Schedule-LabReport', 'Get-LabReportSchedule', 'Remove-LabReportSchedule',
     'Get-LabReportHistory',
+    # Workflows
+    'Get-LabWorkflow', 'Invoke-LabWorkflow', 'Save-LabWorkflow',
     # Lab export/import
     'Export-LabPackage', 'Import-LabPackage',
     # Linux VM helpers (Public/Linux)

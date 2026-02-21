@@ -54,6 +54,8 @@ Export-ModuleMember -Function @(
     'Get-LabComplianceReport', 'Get-LabResourceReport',
     'Schedule-LabReport', 'Get-LabReportSchedule', 'Remove-LabReportSchedule',
     'Get-LabReportHistory',
+    # Workflows
+    'Get-LabWorkflow', 'Invoke-LabWorkflow', 'Save-LabWorkflow',
     # Linux VM helpers (Public/Linux)
     'Add-LinuxDhcpReservation', 'Finalize-LinuxInstallMedia', 'Get-LinuxSSHConnectionInfo',
     'Get-LinuxVMIPv4', 'Get-Sha512PasswordHash', 'Invoke-BashOnLinuxVM',
