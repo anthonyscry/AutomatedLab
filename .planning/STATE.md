@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 22 (Custom Role Templates)
-Plan: 1/TBD plans — 22-01 complete
-Status: In progress — 22-01 complete, custom role engine built
-Last activity: 2026-02-21 — completed 22-01 (custom role template engine)
+Plan: 2/TBD plans — 22-02 complete
+Status: In progress — 22-01 and 22-02 complete, custom role integration done
+Last activity: 2026-02-21 — completed 22-02 (custom role LabBuilder integration)
 
-Progress: [████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 10% (22-01 done)
+Progress: [████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 20% (22-01, 22-02 done)
 
 ## Performance Metrics
 
@@ -47,6 +47,11 @@ Full log in PROJECT.md Key Decisions table.
 - Memory strings parsed to numeric bytes at load time matching Get-LabRole_* output shape
 - PSCustomObject-to-hashtable helper uses [object] parameter type (PS5.1 strict mode binding fix)
 
+**22-02:**
+- Built-in role loop uses continue (not throw) for unknown tags; custom role section handles them separately
+- Invoke-LabBuilder expands validTags at runtime via Get-LabCustomRole -List — new custom roles auto-accepted without code changes
+- Custom role Phase 11 provisioning runs after Windows parallel jobs, before Linux post-installs
+
 ### Pending Todos
 
 - None
@@ -58,7 +63,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 22-01-PLAN.md (custom role template engine)
+Stopped at: Completed 22-02-PLAN.md (custom role LabBuilder integration)
 Resume file: None
 
 ---
