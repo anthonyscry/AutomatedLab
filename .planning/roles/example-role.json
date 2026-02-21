@@ -1,0 +1,31 @@
+{
+  "name": "MonitoringServer",
+  "tag": "MonitoringServer",
+  "description": "A Windows monitoring server with SNMP enabled for network device polling and alerting",
+  "os": "windows",
+  "resources": {
+    "memory": "4GB",
+    "minMemory": "2GB",
+    "maxMemory": "6GB",
+    "processors": 2
+  },
+  "provisioningSteps": [
+    {
+      "name": "Install-SNMP",
+      "type": "windowsFeature",
+      "value": "SNMP-Service"
+    },
+    {
+      "name": "Install-SNMP-WMI",
+      "type": "windowsFeature",
+      "value": "SNMP-WMI-Provider"
+    },
+    {
+      "name": "Configure-SNMP-Community",
+      "type": "powershellScript",
+      "value": "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\SNMP\\Parameters\\ValidCommunities' -Name 'public' -Value 4 -Type DWord -Force"
+    }
+  ],
+  "vmNameDefault": "MON1",
+  "autoLabRoles": []
+}
