@@ -98,6 +98,32 @@ function Get-LabRole_DC {
                         }
                     }
                 }
+
+                # 4. Populate ADMX Central Store and create baseline GPOs (if enabled)
+                if (Test-Path variable:GlobalLabConfig) {
+                    if ($GlobalLabConfig.ContainsKey('ADMX') -and $GlobalLabConfig.ADMX.ContainsKey('Enabled') -and $GlobalLabConfig.ADMX.Enabled) {
+                        try {
+                            Write-Host "  Waiting for ADWS readiness..." -ForegroundColor Cyan
+                            $adReady = Wait-LabADReady -DomainName $LabConfig.DomainName
+                            if (-not $adReady.Ready) {
+                                Write-Warning "DC role: ADWS did not become ready within timeout. Skipping ADMX/GPO operations."
+                            }
+                            else {
+                                Write-Host "  Populating ADMX Central Store and creating baseline GPOs..." -ForegroundColor Cyan
+                                $admxResult = Invoke-LabADMXImport -DCName $dcName -DomainName $LabConfig.DomainName
+                                if ($admxResult.Success) {
+                                    Write-Host "  [OK] ADMX import complete: $($admxResult.FilesImported) files imported, $($admxResult.ThirdPartyBundlesProcessed) third-party bundles processed." -ForegroundColor Green
+                                }
+                                else {
+                                    Write-Warning "DC role: ADMX import failed: $($admxResult.Message)"
+                                }
+                            }
+                        }
+                        catch {
+                            Write-Warning "DC role: ADMX/GPO operations failed on ${dcName}: $($_.Exception.Message). Lab deployment continues."
+                        }
+                    }
+                }
             }
             catch {
                 Write-Warning "DC role post-install failed on ${dcName}: $($_.Exception.Message). Check: AD DS features installed, VM has network connectivity, DNS server service started. Run on DC: Get-Service NTDS,ADWS,DNS | Format-Table Name,Status"
