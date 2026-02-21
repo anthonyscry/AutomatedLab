@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 23 (Complex Networking)
-Plan: 1/TBD plans — 23-01 complete
-Status: In progress — 23-01 complete (multi-switch config and subnet conflict detection)
-Last activity: 2026-02-21 — completed 23-01 (multi-switch networking foundation)
+Plan: 2/TBD plans — 23-02 complete
+Status: In progress — 23-02 complete (VM-switch assignment, VLAN tagging, inter-subnet routing)
+Last activity: 2026-02-21 — completed 23-02 (per-VM switch/VLAN config, New-LabVMNetworkAdapter, multi-subnet Initialize-LabNetwork)
 
-Progress: [████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 20% (23-01 done)
+Progress: [████████████████░░░░░░░░░░░░░░░░░░░░░░░░] 40% (23-01, 23-02 done)
 
 ## Performance Metrics
 
@@ -60,6 +60,13 @@ Full log in PROJECT.md Key Decisions table.
 - Test-LabMultiSwitchSubnetOverlap is a new function in Test-LabVirtualSwitchSubnetConflict.ps1
 - WSL/CI test environments: Hyper-V cmdlet stubs in BeforeAll allow Pester to Mock them
 
+**23-02:**
+- IPPlan hashtable format: per-VM @{IP; Switch; VlanId} with plain string backward compat
+- Get-LabNetworkConfig returns VMAssignments (per-VM Switch/VlanId/PrefixLength) and Routing (mode/gateway config)
+- New-LabVMNetworkAdapter: empty SwitchName = unconnected (not wrong-switch); no -Force needed
+- Routing defaults: Mode=host, GatewayVM='', EnableForwarding=true when Routing block absent
+- Invoke-LabGatewayForwarding wrapper: Pester cannot reliably mock Invoke-Command -VMName; named wrapper solves it
+
 ### Pending Todos
 
 - None
@@ -71,7 +78,7 @@ Full log in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 23-01-PLAN.md (multi-switch networking foundation)
+Stopped at: Completed 23-02-PLAN.md (VM-switch assignment, VLAN tagging, inter-subnet routing)
 Resume file: None
 
 ---
