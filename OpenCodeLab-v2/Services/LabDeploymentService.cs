@@ -210,9 +210,9 @@ public class LabDeploymentService
 
         // Find ISOs
         script.AppendLine("Write-Host 'Locating ISO files...'");
-        script.AppendLine("$isosPath = 'C:\\LabSources\\ISOs'");
+        script.AppendLine($"$isosPath = '{LabSourcesRoot}\\ISOs'");
         script.AppendLine("if (-not (Test-Path $isosPath)) {");
-        script.AppendLine("    Write-Error 'ISO folder not found: C:\\LabSources\\ISOs'");
+        script.AppendLine($"    Write-Error 'ISO folder not found: {LabSourcesRoot}\\ISOs'");
         script.AppendLine("    exit 1");
         script.AppendLine("}");
         script.AppendLine();
@@ -316,32 +316,6 @@ public class LabDeploymentService
         return script.ToString();
     }
 
-    private List<string> GetAutomatedLabRoles(VMDefinition vm)
-    {
-        var roles = new List<string>();
-
-        // Map our role names to AutomatedLab built-in roles
-        if (vm.Role.Contains("DC", StringComparison.OrdinalIgnoreCase))
-        {
-            roles.Add("RootDC");
-            roles.Add("CaRoot");
-        }
-        if (vm.Role.Contains("DHCP", StringComparison.OrdinalIgnoreCase))
-            roles.Add("DHCP");
-        if (vm.Role.Contains("DNS", StringComparison.OrdinalIgnoreCase))
-            roles.Add("DNS");
-        if (vm.Role.Contains("FileServer", StringComparison.OrdinalIgnoreCase) ||
-            vm.Role.Contains("FS", StringComparison.OrdinalIgnoreCase))
-            roles.Add("FileServer");
-        if (vm.Role.Contains("WebServer", StringComparison.OrdinalIgnoreCase) ||
-            vm.Role.Contains("WEB", StringComparison.OrdinalIgnoreCase))
-            roles.Add("WebServer");
-        if (vm.Role.Contains("SQL", StringComparison.OrdinalIgnoreCase))
-            roles.Add("SQLServer");
-
-        return roles;
-    }
-
     private string GetAdminPassword()
     {
         // Try to get password from environment variable
@@ -435,11 +409,16 @@ public class LabDeploymentService
                     log?.Invoke($"PowerShell exited with code: {exitCode}");
                 }
 
+                // Check for actual PowerShell errors (not just the word "error" in output)
+                var outputStr = output.ToString();
+                bool hasRealErrors = outputStr.Contains("Exception:", StringComparison.OrdinalIgnoreCase) ||
+                                    outputStr.Contains("FullyQualifiedErrorId", StringComparison.OrdinalIgnoreCase);
+
                 return new PowerShellResult
                 {
-                    Output = output.ToString(),
+                    Output = outputStr,
                     ExitCode = exitCode,
-                    Success = success && !output.ToString().Contains("error", StringComparison.OrdinalIgnoreCase)
+                    Success = success && !hasRealErrors
                 };
             }
             catch (Exception ex)
@@ -455,6 +434,13 @@ public class LabDeploymentService
             }
         });
     }
+
+    private static readonly HashSet<string> ReservedWindowsNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
 
     private bool ValidateConfigInputs(LabConfig config, Action<string>? log)
     {
@@ -481,6 +467,20 @@ public class LabDeploymentService
             if (!validVmName)
             {
                 log?.Invoke($"Invalid VM name: {vm.Name}");
+                return false;
+            }
+
+            // Check for reserved Windows names that would cause issues
+            if (ReservedWindowsNames.Contains(vm.Name))
+            {
+                log?.Invoke($"VM name cannot be a reserved Windows name: {vm.Name}");
+                return false;
+            }
+
+            // Check VM name length (Hyper-V has limits)
+            if (vm.Name.Length > 15)
+            {
+                log?.Invoke($"VM name too long (max 15 characters): {vm.Name}");
                 return false;
             }
 
