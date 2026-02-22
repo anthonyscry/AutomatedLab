@@ -39,8 +39,45 @@ public class LabDeploymentService
             Report(5, "Checking AutomatedLab module...", log);
             if (!IsAutomatedLabInstalled(log))
             {
-                log?.Invoke("AutomatedLab module not found. Please install: Install-Module AutomatedLab -Force -Scope CurrentUser");
+                log?.Invoke("AutomatedLab module not found!");
+                log?.Invoke("Please install AutomatedLab from the included MSI:");
+                log?.Invoke($"  {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AutomatedLab.msi")}");
+                log?.Invoke("Or run: Install-Module AutomatedLab -Force -Scope CurrentUser");
                 return false;
+            }
+
+            // Clean up any previous deployment lock
+            try
+            {
+                var lockFile = @"C:\ProgramData\AutomatedLab\LabDiskDeploymentInProgress.txt";
+                if (File.Exists(lockFile))
+                {
+                    log?.Invoke("Removing previous deployment lock file...");
+                    File.Delete(lockFile);
+                }
+            }
+            catch (Exception ex)
+            {
+                log?.Invoke($"Warning: Could not remove lock file: {ex.Message}");
+            }
+
+            // Clean up orphaned disk files
+            try
+            {
+                log?.Invoke("Checking for orphaned VM disks...");
+                foreach (var vm in config.VMs)
+                {
+                    var diskPath = Path.Combine(workingDir, vm.Name, $"{vm.Name}.vhdx");
+                    if (File.Exists(diskPath))
+                    {
+                        log?.Invoke($"  Removing orphaned disk: {diskPath}");
+                        File.Delete(diskPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log?.Invoke($"Warning: Could not clean up disks: {ex.Message}");
             }
 
             // Import AutomatedLab and deploy using its cmdlets
@@ -153,119 +190,129 @@ public class LabDeploymentService
         script.AppendLine("$ErrorActionPreference = 'Stop'");
         script.AppendLine();
 
-        // Import AutomatedLab
-        script.AppendLine("Write-Host 'Importing AutomatedLab module...'");
-        script.AppendLine("Import-Module AutomatedLab -ErrorAction Stop");
-        script.AppendLine("Import-Module Hyper-V -ErrorAction SilentlyContinue");
+        // Import Hyper-V module directly - no need for AutomatedLab's complex OS detection
+        script.AppendLine("Write-Host 'Importing Hyper-V module...'");
+        script.AppendLine("Import-Module Hyper-V -ErrorAction Stop");
         script.AppendLine();
 
-        // Set lab sources location
-        script.AppendLine($"Write-Host 'Setting lab sources location: {workingDir}'");
-        script.AppendLine($"Set-LabSourcesLocation -Path '{workingDir.Replace("\\", "\\\\")}' -ErrorAction SilentlyContinue");
-        script.AppendLine();
-
-        // Create lab definition
-        var safeLabName = EscapePowerShellString(config.LabName);
-        script.AppendLine($"Write-Host 'Creating lab definition: {safeLabName}'");
-        script.AppendLine($"New-LabDefinition -Name '{safeLabName}' -DefaultVirtualizationEngine HyperV");
-        script.AppendLine();
-
-        // Set up network
+        // Set up network - create virtual switch if needed
         var safeSwitchName = EscapePowerShellString(config.Network.SwitchName);
         script.AppendLine($"Write-Host 'Setting up virtual switch: {safeSwitchName}'");
         script.AppendLine($"$switch = Get-VMSwitch -Name '{safeSwitchName}' -ErrorAction SilentlyContinue");
         script.AppendLine("if (-not $switch) {");
         script.AppendLine($"  Write-Host 'Creating virtual switch: {safeSwitchName}'");
-        script.AppendLine($"  New-VMSwitch -Name '{safeSwitchName}' -SwitchType {config.Network.SwitchType} -ErrorAction Stop");
+        script.AppendLine($"  New-VMSwitch -Name '{safeSwitchName}' -SwitchType {config.Network.SwitchType} -ErrorAction Stop | Out-Null");
+        script.AppendLine("  Write-Host '  Switch created successfully'");
         script.AppendLine("} else {");
-        script.AppendLine($"  Write-Host 'Switch already exists: {safeSwitchName}'");
+        script.AppendLine($"  Write-Host '  Switch already exists: {safeSwitchName}'");
         script.AppendLine("}");
         script.AppendLine();
 
-        // Add virtual network definition to AutomatedLab
-        var addressSpace = "192.168.10.0/24";
-        script.AppendLine($"Add-LabVirtualNetworkDefinition -Name '{safeSwitchName}' -AddressSpace {addressSpace}");
+        // Find ISOs
+        script.AppendLine("Write-Host 'Locating ISO files...'");
+        script.AppendLine("$isosPath = 'C:\\LabSources\\ISOs'");
+        script.AppendLine("if (-not (Test-Path $isosPath)) {");
+        script.AppendLine("    Write-Error 'ISO folder not found: C:\\LabSources\\ISOs'");
+        script.AppendLine("    exit 1");
+        script.AppendLine("}");
+        script.AppendLine();
+        script.AppendLine("# Find Server and Client ISOs");
+        script.AppendLine("$serverIso = Get-ChildItem $isosPath -Filter '*Server*.iso' -ErrorAction SilentlyContinue | ");
+        script.AppendLine("    Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName");
+        script.AppendLine("$clientIso = Get-ChildItem $isosPath -Filter '*Windows*.iso' -ErrorAction SilentlyContinue | ");
+        script.AppendLine("    Where-Object { $_.Name -notlike '*Server*' } | ");
+        script.AppendLine("    Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName");
+        script.AppendLine();
+        script.AppendLine("if (-not $serverIso) { Write-Error 'No Server ISO found in C:\\LabSources\\ISOs'; exit 1 }");
+        script.AppendLine("if (-not $clientIso) { Write-Error 'No Client Windows ISO found in C:\\LabSources\\ISOs'; exit 1 }");
+        script.AppendLine();
+        script.AppendLine("Write-Host \"  Server ISO: $(Split-Path $serverIso -Leaf)\"");
+        script.AppendLine("Write-Host \"  Client ISO: $(Split-Path $clientIso -Leaf)\"");
         script.AppendLine();
 
-        // Add domain definition (if we have a DC role)
-        var dcVM = config.VMs.FirstOrDefault(v => v.Role.Contains("DC", StringComparison.OrdinalIgnoreCase));
-        string domainName = config.DomainName ?? "contoso.com";
+        // Create VMs directly with Hyper-V cmdlets - simplest approach
+        script.AppendLine("Write-Host 'Creating virtual machines...'");
+        script.AppendLine();
 
-        // Password will be passed via environment variable
-        string adminUser = "Administrator";
-
-        if (dcVM != null)
-        {
-            script.AppendLine($"Write-Host 'Adding domain definition: {domainName}'");
-            script.AppendLine($"if ($env:OPENCODELAB_ADMIN_PASSWORD) {{");
-            script.AppendLine($"  Add-LabDomainDefinition -Name {domainName} -AdminUser {adminUser} -AdminPassword $env:OPENCODELAB_ADMIN_PASSWORD");
-            script.AppendLine($"  Set-LabInstallationCredential -Username {adminUser} -Password $env:OPENCODELAB_ADMIN_PASSWORD");
-            script.AppendLine("} else {");
-            script.AppendLine("  Write-Error 'Admin password not set. Please set OPENCODELAB_ADMIN_PASSWORD environment variable or provide password in the GUI.'");
-            script.AppendLine("  exit 1");
-            script.AppendLine("}");
-            script.AppendLine();
-        }
-
-        // Add machine definitions
-        script.AppendLine("Write-Host 'Adding machine definitions...'");
         foreach (var vm in config.VMs)
         {
             var safeVmName = EscapePowerShellString(vm.Name);
-            var vmParams = new StringBuilder();
-            vmParams.Append($"-Name '{safeVmName}' ");
-            vmParams.Append($"-Memory {vm.MemoryGB}GB ");
-            vmParams.Append($"-ProcessorCount {vm.Processors} ");
-
-            // Network
             var safeSwitch = EscapePowerShellString(vm.SwitchName ?? config.Network.SwitchName);
-            vmParams.Append($"-Network '{safeSwitch}' ");
 
-            // Operating System
-            string osType = vm.Role.Contains("DC", StringComparison.OrdinalIgnoreCase) ||
-                           vm.Role.Contains("Server", StringComparison.OrdinalIgnoreCase)
-                ? "Windows Server 2022 Datacenter Evaluation (Desktop Experience)"
-                : "Windows 11 Pro";
-            vmParams.Append($"-OperatingSystem '{osType}' ");
+            // Determine which ISO to use
+            bool isServerRole = vm.Role.Contains("DC", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("Server", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("FileServer", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("WebServer", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("SQL", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("DHCP", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("DNS", StringComparison.OrdinalIgnoreCase) ||
+                vm.Role.Contains("MemberServer", StringComparison.OrdinalIgnoreCase);
 
-            // Domain (if DC exists)
-            if (dcVM != null)
-            {
-                vmParams.Append($"-DomainName {domainName} ");
-            }
+            var isoVar = isServerRole ? "$serverIso" : "$clientIso";
+            var osType = isServerRole ? "Server" : "Client";
 
-            // Roles for AutomatedLab
-            var roles = GetAutomatedLabRoles(vm);
-            if (roles.Count > 0)
-            {
-                var rolesList = string.Join("', '", roles);
-                vmParams.Append($"-Roles @('{rolesList}') ");
-            }
-            else
-            {
-                // Warn about unrecognized roles
-                script.AppendLine($"Write-Host '  [WARN] Unrecognized role: {vm.Role} for VM {safeVmName} - deploying without specific roles'");
-            }
+            script.AppendLine($"# VM: {vm.Name} ({osType})");
+            script.AppendLine($"Write-Host '  Creating {vm.Name}...'");
 
-            script.AppendLine($"Write-Host '  Adding: {safeVmName} ({vm.Role})'");
-            script.AppendLine($"Add-LabMachineDefinition {vmParams}");
+            // Remove existing VM if present
+            script.AppendLine($"$existingVM = Get-VM -Name '{safeVmName}' -ErrorAction SilentlyContinue");
+            script.AppendLine("if ($existingVM) {");
+            script.AppendLine($"  Write-Host '    Removing existing VM...'");
+            script.AppendLine($"  Stop-VM -Name '{safeVmName}' -TurnOff -Force -ErrorAction SilentlyContinue");
+            script.AppendLine($"  Remove-VM -Name '{safeVmName}' -Force -ErrorAction SilentlyContinue");
+            script.AppendLine("}");
+
+            // Create VM path
+            var vmPath = workingDir.Replace("\\", "\\\\");
+            script.AppendLine($"$vmPath = '{vmPath}'");
+
+            // Create new VM with no disk initially
+            script.AppendLine($"$newVM = New-VM -Name '{safeVmName}' -MemoryStartupBytes {vm.MemoryGB}GB -SwitchName '{safeSwitchName}' -NoVHD -Path $vmPath -ErrorAction Stop");
+            script.AppendLine($"$newVM | Set-VMProcessor -Count {vm.Processors} -ErrorAction Stop | Out-Null");
+
+            // Disable dynamic memory for stability
+            script.AppendLine($"$newVM | Set-VMMemory -DynamicMemoryEnabled $false -ErrorAction Stop | Out-Null");
+
+            // Create and attach new VHDX
+            script.AppendLine($"$vhdPath = Join-Path $vmPath '{safeVmName}\\{safeVmName}.vhdx'");
+            script.AppendLine("$vhdFolder = Split-Path $vhdPath");
+            script.AppendLine("if (-not (Test-Path $vhdFolder)) { New-Item -Path $vhdFolder -ItemType Directory -Force | Out-Null }");
+            script.AppendLine($"$vhd = New-VHD -Path $vhdPath -SizeBytes 127GB -Dynamic -ErrorAction Stop");
+            script.AppendLine($"$newVM | Add-VMHardDiskDrive -DiskPath $vhdPath -ErrorAction Stop | Out-Null");
+
+            // Attach DVD drive with ISO
+            script.AppendLine($"$dvd = Add-VMDvdDrive -VMName '{safeVmName}' -Path {isoVar} -ErrorAction Stop");
+
+            // Set boot order: DVD first, then hard disk
+            script.AppendLine($"$bootOrder = @((Get-VMDvdDrive -VMName '{safeVmName}'), (Get-VMHardDiskDrive -VMName '{safeVmName}'))");
+            script.AppendLine($"Set-VMFirmware -VMName '{safeVmName}' -BootOrder $bootOrder -ErrorAction Stop | Out-Null");
+
+            script.AppendLine($"Write-Host '    {vm.Name} created successfully'");
+            script.AppendLine();
+        }
+
+        // Create checkpoint for all VMs
+        script.AppendLine("Write-Host 'Creating LabReady checkpoints...'");
+        foreach (var vm in config.VMs)
+        {
+            var safeVmName = EscapePowerShellString(vm.Name);
+            script.AppendLine($"Checkpoint-VM -Name '{safeVmName}' -SnapshotName 'LabReady' -ErrorAction SilentlyContinue");
+            script.AppendLine($"Write-Host '  Checkpoint created: {vm.Name}'");
         }
         script.AppendLine();
 
-        // Install the lab
-        script.AppendLine("Write-Host 'Installing lab (this will take 15-45 minutes)...'");
-        script.AppendLine("Install-Lab -ErrorAction Stop");
-        script.AppendLine();
-
-        // Create checkpoint
-        script.AppendLine("Write-Host 'Creating LabReady checkpoint...'");
-        script.AppendLine("foreach ($vm in (Get-LabVM)) {");
-        script.AppendLine("  Checkpoint-LabVM -VMName $vm.Name -SnapshotName 'LabReady' -ErrorAction SilentlyContinue");
-        script.AppendLine("  Write-Host \"Checkpoint created: $($vm.Name)\"");
-        script.AppendLine("}");
-        script.AppendLine();
-
+        script.AppendLine("Write-Host ''");
+        script.AppendLine("Write-Host '========================================'");
         script.AppendLine("Write-Host 'Deployment complete!'");
+        script.AppendLine("Write-Host '========================================'");
+        script.AppendLine("Write-Host ''");
+        script.AppendLine("Write-Host 'Next steps:'");
+        script.AppendLine("Write-Host '  1. Start the VMs from the Dashboard'");
+        script.AppendLine("Write-Host '  2. Connect to each VM to complete OS installation'");
+        script.AppendLine("Write-Host '  3. For the DC, install AD DS and promote to domain controller'");
+        script.AppendLine("Write-Host ''");
+
         return script.ToString();
     }
 
@@ -315,9 +362,28 @@ public class LabDeploymentService
             {
                 // Set password environment variable for the script
                 var envPassword = GetAdminPassword();
+
+                // Find PowerShell 7 - check multiple locations
+                var pwshPaths = new List<string>
+                {
+                    @"C:\Projects\AutomatedLab\pwsh\pwsh.exe",  // User-saved location
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pwsh", "pwsh.exe"),  // Bundled with app
+                    Path.Combine(Path.GetDirectoryName(AppContext.BaseDirectory) ?? "", "pwsh", "pwsh.exe")  // Next to exe
+                };
+
+                // Add the parent directory of the exe (for single-file extraction temp folder)
+                var exeDir = Path.GetDirectoryName(Environment.ProcessPath);
+                if (!string.IsNullOrEmpty(exeDir))
+                {
+                    pwshPaths.Insert(0, Path.Combine(exeDir, "pwsh", "pwsh.exe"));
+                }
+
+                var powershellExe = pwshPaths.FirstOrDefault(File.Exists) ?? "powershell.exe";
+                log?.Invoke($"Using PowerShell: {powershellExe}");
+
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = "powershell.exe",
+                    FileName = powershellExe,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
