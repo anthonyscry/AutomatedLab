@@ -1,6 +1,6 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-02-16
+**Analysis Date:** 2025-02-21
 
 ## Security Concerns
 
@@ -10,58 +10,64 @@
 
 - **Issue:** Default passwords are hardcoded in configuration files and exposed in plaintext during credential resolution
 - **Files:**
-  - `Lab-Config.ps1` (lines 62, 71, 333, 456)
+  - `Lab-Config.ps1` (lines 62, 71, 15)
   - `LabBuilder/Build-LabFromSelection.ps1` (lines 60-62)
+  - `Private/Resolve-LabPassword.ps1` (referenced in Deploy.ps1 line 57)
 - **Details:**
   - Default password `SimpleLab123!` is set in `Lab-Config.ps1` with only a warning message
   - Default SQL SA password `SimpleLabSqlSa123!` is exposed in config
-  - Password is converted from SecureString to plaintext (`PtrToStringAuto`) in LabBuilder for AutomatedLab credential handling
-  - While environment variable fallback exists (`OPENCODELAB_ADMIN_PASSWORD`), plaintext defaults remain accessible
+  - Password is converted from SecureString to plaintext during credential resolution
+  - While environment variable fallback exists (`OPENCODELAB_ADMIN_PASSWORD`, `LAB_ADMIN_PASSWORD`), plaintext defaults remain accessible
+  - 28 occurrences of hardcoded default passwords found across codebase
 - **Impact:**
   - Lab VMs deployed with default password are vulnerable if config is committed or shared
   - Plaintext password strings in memory during credential resolution
   - SQL SA account uses predictable default password
+  - Tests verify passwords are not in Initialize-LabVMs but config file itself is unprotected
 - **Fix approach:**
-  - Remove hardcoded defaults from Lab-Config.ps1
-  - Enforce environment variable or secure credential store usage
-  - Add validation that password != default value before VM deployment
-  - Consider using ConvertFrom-SecureString with encryption for stored credentials
+  - Remove hardcoded defaults from Lab-Config.ps1 entirely
+  - Enforce environment variable requirement with validation in Resolve-LabPassword
+  - Add preflight check that fails loudly if env vars not set
+  - Consider using Windows Credential Manager or DPAPI for stored credentials
 
 ### SSH StrictHostKeyChecking Disabled
 
 **Severity:** Medium
 
-- **Issue:** Recent commit history shows fixes for `StrictHostKeyChecking=no`, but codebase may still have residual insecure SSH patterns
-- **Files:** (identified in commit ef9003f)
+- **Issue:** SSH operations may bypass host key verification; fixed in recent commits but patterns need audit
+- **Files:** `Public/Linux/` directory, `Deploy.ps1` SSH sections
 - **Details:**
-  - Linux SSH operations may have previously bypassed host key verification
-  - Recent fix moved to `accept-new` which is more secure but still permissive on first connection
+  - Recent commit f1347a8 addressed security issues from code review
+  - StrictHostKeyChecking patterns in Linux deployment scripts
+  - SSH key generation and host key verification may not be robust
 - **Impact:**
   - Man-in-the-middle attack vulnerability on SSH connections
   - Linux domain join and configuration scripts may be exploitable
+  - First-time SSH connection to new VMs accepts any key
 - **Fix approach:**
-  - Audit all SSH-related scripts in `Public/Linux/` directory
-  - Use pre-populated known_hosts where possible
-  - Document SSH security model for lab vs. production
+  - Pre-populate known_hosts before SSH operations where possible
+  - Use SSH key pinning for Linux VM connections
+  - Implement key-based auth only (disable password SSH where possible)
 
-### Git Package Download Integrity
+### PowerShell ExecutionPolicy Bypass
 
 **Severity:** Medium
 
-- **Issue:** SHA256 checksum validation added recently (commit e6c019e) but similar patterns may exist elsewhere
-- **Files:**
-  - `Lab-Config.ps1` (lines 176-182) - Git package config with SHA256
-  - Potentially other software package downloads
+- **Issue:** LabDeploymentService.cs executes PowerShell with `-ExecutionPolicy Bypass`
+- **Files:** `OpenCodeLab-v2/Services/LabDeploymentService.cs` (implied from architecture)
 - **Details:**
-  - Git installer download URL and SHA256 are now validated
-  - Other software packages in `SoftwarePackages` config may lack integrity checks
+  - C# deployment service may invoke scripts without policy verification
+  - Scripts executed with elevated privileges (admin context)
+  - No validation of script sources before execution
 - **Impact:**
-  - Supply chain attack if installer downloads are compromised
-  - Man-in-the-middle injection during package downloads
+  - Execution bypass allows unsigned scripts to run
+  - Could enable injection attacks if script paths are user-controlled
+  - No audit trail of what scripts executed
 - **Fix approach:**
-  - Extend SHA256 validation pattern to all external downloads
-  - Add checksum validation helper function
-  - Consider using signed installers where available
+  - Validate PowerShell scripts with Invoke-ScriptAnalyzer before execution
+  - Use signed scripts where possible; document code signing process
+  - Log all PowerShell invocations with arguments (redact passwords)
+  - Consider constraining to local file sources only
 
 ## Reliability Concerns
 
@@ -71,69 +77,77 @@
 
 - **Issue:** Inconsistent error handling patterns across major orchestration scripts
 - **Files:**
-  - `OpenCodeLab-App.ps1` (1971 lines) - complex orchestration with deep nesting
-  - `Deploy.ps1` (1242 lines) - large script with multiple error paths
-  - `GUI/Start-OpenCodeLabGUI.ps1` (1534 lines) - WPF GUI with event handlers
+  - `OpenCodeLab-App.ps1` (1081 lines) - complex orchestration
+  - `Deploy.ps1` (1418 lines) - large deployment script
+  - `GUI/Start-OpenCodeLabGUI.ps1` (2284 lines) - WPF GUI with event handlers
 - **Details:**
-  - No use of `trap` or consistent catch blocks detected in grep search
-  - `$ErrorActionPreference = 'Stop'` is set globally but error recovery is unclear
+  - `$ErrorActionPreference = 'Stop'` set globally but error recovery is unclear
   - Long scripts with complex state management increase risk of partial failures
-  - AutoHeal feature (`Invoke-LabQuickModeHeal.ps1`) attempts automatic recovery but may mask underlying issues
+  - AutoHeal feature attempts automatic recovery but may mask underlying issues
+  - Deploy.ps1 has many WARN statuses that allow continuation (DHCP, LIN1 post-install, etc.)
 - **Impact:**
   - Partial lab deployments leave infrastructure in inconsistent state
   - Errors during quick-mode operations may not properly fallback to full mode
-  - WPF GUI crashes could lose user state without proper exception handling
+  - WARN status messages may go unnoticed in long deployment logs
+  - Health checks may pass on partially-broken labs
 - **Fix approach:**
-  - Add try-catch blocks around critical operations (VM creation, network setup, domain promotion)
+  - Wrap critical operations in try-catch blocks (VM creation, network setup, DC promotion)
   - Implement transaction-like patterns with explicit rollback on failure
   - Add error boundary pattern to GUI event handlers
+  - Distinguish between recoverable warnings and blocking failures
   - Log all errors to artifact files for post-mortem analysis
 
-### State Probing Race Conditions
+### Snapshot Healing Race Conditions
 
 **Severity:** Medium
 
-- **Issue:** State probing and auto-heal operate on snapshots of system state without locks
+- **Issue:** Invoke-LabQuickModeHeal may timeout waiting for LabReady snapshot health checks
 - **Files:**
-  - `Private/Get-LabStateProbe.ps1`
-  - `Private/Invoke-LabQuickModeHeal.ps1` (lines 52-100)
-  - `OpenCodeLab-App.ps1` (lines 1524-1567) - auto-heal orchestration
+  - `Private/Invoke-LabQuickModeHeal.ps1` (lines 57-110)
+  - `Lab-Config.ps1` (AutoHeal.TimeoutSeconds = 120)
+  - `Private/Invoke-LabOneButtonSetup.ps1` (auto-heal orchestration)
 - **Details:**
-  - State probe captures infrastructure state (VMs, switches, NAT, snapshots)
-  - Auto-heal runs repairs based on stale state snapshot
-  - No locking mechanism to prevent concurrent operations
-  - Time gap between state probe and repair execution
+  - State probing and auto-heal operate on snapshots of system state without locks
+  - Time gap between state probe and repair execution can cause issues
+  - Multiple retry loops with hardcoded sleep times
+  - Healing timeout (120s) may be exceeded on slow hosts
 - **Impact:**
-  - Concurrent OpenCodeLab-App invocations could conflict
+  - Concurrent deployments could conflict
   - Auto-heal may recreate infrastructure that another process is fixing
   - Switch/NAT operations may partially succeed leaving orphaned resources
+  - "heal_timeout_exceeded" failure mode not clearly communicated to user
 - **Fix approach:**
-  - Implement file-based or registry-based lock mechanism
-  - Add retry logic with exponential backoff for infrastructure operations
+  - Implement file-based or registry-based lock mechanism for serialization
+  - Add retry logic with exponential backoff (1s, 2s, 4s, 8s) for infrastructure operations
   - Re-probe state after each repair to detect concurrent changes
   - Document single-operator assumption in README
+  - Increase timeout or make it configurable based on hardware
 
 ### AutomatedLab Timeout Configuration
 
 **Severity:** Medium
 
-- **Issue:** Timeout values are configurable but not consistently applied across all operations
+- **Issue:** Timeout values are configurable but not consistently enforced
 - **Files:**
-  - `Lab-Config.ps1` (lines 149-164, 301-311) - timeout configuration blocks
-  - Various public functions that wait for VM readiness
+  - `Lab-Config.ps1` (Timeouts section, lines 182-196)
+  - `Deploy.ps1` (lines 217-225 timeout override setup)
+  - `Private/Wait-LabADReady.ps1` (timeout parameters)
 - **Details:**
   - Separate timeout configs for AutomatedLab core and Linux operations
   - Some operations (DC restart, ADWS readiness) have dedicated timeouts
-  - Unclear if timeouts are enforced consistently in all wait operations
+  - WinRM timeout failures trigger WARN status and continue (line 688 Deploy.ps1)
+  - LIN1 SSH wait defaults to 30 minutes but can hit soft timeouts
   - HealthCheck timeout is separate from overall auto-heal timeout
 - **Impact:**
   - Scripts may hang indefinitely if timeout configuration is ignored
   - Insufficient timeouts cause false failures on slower hardware
   - Excessive timeouts delay feedback on real failures
+  - Mixed timeout semantics (hard vs. soft) across operations
 - **Fix approach:**
   - Audit all Wait-* and Start-* functions for timeout parameter usage
   - Add timeout enforcement to all loops and retry logic
   - Document timeout tuning guidance for different hardware profiles
+  - Implement hard timeout boundaries that prevent infinite waits
   - Add timeout telemetry to run artifacts
 
 ## Maintainability Concerns
@@ -144,306 +158,350 @@
 
 - **Issue:** Core orchestration scripts exceed 1000-2000 lines making them difficult to maintain
 - **Files:**
-  - `OpenCodeLab-App.ps1` (1971 lines) - main orchestrator
-  - `GUI/Start-OpenCodeLabGUI.ps1` (1534 lines) - WPF GUI entry point
-  - `Deploy.ps1` (1242 lines) - lab deployment script
+  - `OpenCodeLab-App.ps1` (1081 lines) - main orchestrator
+  - `GUI/Start-OpenCodeLabGUI.ps1` (2284 lines) - WPF GUI entry point
+  - `Deploy.ps1` (1418 lines) - lab deployment script
 - **Details:**
-  - OpenCodeLab-App.ps1 handles 25+ actions with complex routing logic
-  - Deep nesting for mode decision, auto-heal, and dispatch coordination
+  - OpenCodeLab-App.ps1 handles 20+ actions with complex routing logic
+  - GUI contains embedded PowerShell cmdlet definitions mixed with XAML binding
+  - Deploy.ps1 has 11+ section results with cascading error handling
   - Inline function definitions mixed with orchestration logic
   - State management spread across multiple variable scopes
 - **Impact:**
   - High cognitive load for code reviewers and contributors
   - Difficult to test individual code paths in isolation
   - Bug fixes risk introducing regressions in adjacent logic
-  - Refactoring becomes increasingly risky
+  - Refactoring becomes increasingly risky as script grows
+  - New contributors struggle with understanding control flow
 - **Fix approach:**
-  - Extract inline functions to Private/ helpers
-  - Split action handlers into separate modules per concern (deploy, teardown, health, etc.)
+  - Extract inline functions to Private/ helpers (target: <500 lines per script)
+  - Split action handlers into separate modules per concern (deploy, teardown, health)
   - Create orchestration state object to encapsulate run context
   - Add integration tests that exercise full action flows
+  - Implement helper function search/discovery pattern in Lab-Common.ps1 instead of manual registration
 
 ### Configuration Complexity
 
 **Severity:** Medium
 
-- **Issue:** Dual configuration system with both structured hashtables and legacy variables
+- **Issue:** Lab-Config.ps1 spans 600+ lines with many nested hashtables and interdependent settings
 - **Files:**
-  - `Lab-Config.ps1` (516 lines) - defines both `$GlobalLabConfig` hashtable and legacy exports
+  - `Lab-Config.ps1` (603 lines) - defines `$GlobalLabConfig` with 15+ top-level keys
 - **Details:**
-  - Lines 1-398 define structured `$GlobalLabConfig` hashtable
-  - Lines 400-516 export legacy variables like `$LabName`, `$LabSwitch`, etc.
-  - Backward compatibility layer maintained for "existing scripts"
-  - Two parallel config systems for LabBuilder vs. core lab
-  - Config changes require updating both hashtable and legacy variable
+  - Complex nested hashtables (Network.Switches, IPPlan, VMSizing, LabBuilder subconfig)
+  - 337 Private/ helper functions scattered throughout codebase
+  - Config changes require understanding full dependency graph
+  - Multiple validation layers (Test-LabConfigRequired, deployment preflight, etc.)
+  - Backward compatibility with legacy variables maintained but unclear
 - **Impact:**
-  - New contributors confused about which config pattern to use
-  - Risk of config drift between hashtable and legacy variables
-  - Testing complexity due to dual state representation
+  - New contributors confused about which config values to use
+  - Risk of config drift between related settings
+  - Testing complexity due to large config state space
   - Refactoring blocked by backward compatibility constraints
+  - Configuration errors only caught at deploy time, not at startup
 - **Fix approach:**
+  - Add immediate validation of Lab-Config.ps1 at sourcing time (Test-LabConfigRequired runs but doesn't catch all issues)
+  - Create config schema validation that runs early
+  - Document which config changes require redeploy vs. which are hot-reloadable
+  - Implement config accessor functions that abstract source
   - Deprecation plan for legacy variables with migration guide
-  - Add validation that hashtable and legacy variables stay in sync
-  - Create config accessor functions that abstract source
-  - Migrate all new code to use `$GlobalLabConfig` exclusively
 
 ### Helper Function Sourcing Pattern
 
 **Severity:** Medium
 
-- **Issue:** Complex helper sourcing with inconsistent patterns across entry points
+- **Issue:** 337 Private/ helper functions sourced via dynamic Import-LabScriptTree pattern
 - **Files:**
-  - `OpenCodeLab-App.ps1` (lines 69-94) - explicit array of orchestration helper paths
-  - `Lab-Common.ps1` (lines 1-33) - dynamic script tree import
-  - `GUI/Start-OpenCodeLabGUI.ps1` (lines 25-31) - foreach loop over subdirectories
+  - `Lab-Common.ps1` (lines 1-33) - dynamic script tree import using Import-LabScriptTree helper
+  - `Private/Import-LabScriptTree.ps1` - recursive file discovery
+  - Multiple modules load helpers differently (Deploy.ps1, OpenCodeLab-App.ps1, GUI)
 - **Details:**
-  - OpenCodeLab-App maintains hardcoded list of 18 orchestration helper paths
-  - Adding new Private/ helper requires updating `$OrchestrationHelperPaths` array
-  - Lab-Common.ps1 uses Import-LabScriptTree helper for dynamic loading
-  - GUI uses Get-ChildItem with recursive directory traversal
-  - Three different sourcing patterns across the codebase
+  - Import-LabScriptTree provides dynamic loading but loading order not guaranteed
+  - New helpers just dropped in Private/ directory without manual registration
+  - No dependency tracking between helpers
+  - Function name collisions possible if multiple helpers define same function
+  - Some helpers may not be sourced by all entry points
 - **Impact:**
-  - New helpers may be forgotten in manual registration
-  - Helper load order matters but isn't explicit
-  - Debugging failures due to missing sourced functions
-  - Pattern inconsistency confuses contributors
+  - Helper load order matters but isn't explicit or documented
+  - New helpers might work in one context but not another
+  - Debugging failures due to unsourced functions
+  - Difficult to understand which helpers are available to which scripts
 - **Fix approach:**
-  - Standardize on Import-LabScriptTree pattern everywhere
-  - Add validation that all helpers load successfully
-  - Document helper registration conventions in CONVENTIONS.md
-  - Consider PowerShell module manifest for better dependency management
+  - Document helper sourcing order and dependency requirements
+  - Add validation that all helpers load successfully at startup
+  - Implement topological sort for helper dependencies (if complex)
+  - Add helper registry for runtime function discovery
+  - Create "required" vs. "optional" helper categories with clear markers
 
-### Test-Path Variable Checks
+### Test Coverage & Validation Gaps
 
-**Severity:** Low
+**Severity:** High
 
-- **Issue:** Variables checked with Get-Variable -ErrorAction SilentlyContinue pattern instead of Test-Path variable:
+- **Issue:** 337 Private/ helpers but test coverage is sparse; many critical paths untested
 - **Files:**
-  - `OpenCodeLab-App.ps1` (lines 99-103, 1524, 1528)
-  - `Deploy.ps1` (lines 52-62)
+  - `Tests/` directory - 60+ test files but gaps in Deploy.ps1 error paths
+  - `Tests/DeployErrorHandling.Tests.ps1` - limited coverage
+  - `Tests/DeployModeHandoff.Tests.ps1` - mode switching only
 - **Details:**
-  - Pattern: `Get-Variable -Name VarName -ErrorAction SilentlyContinue`
-  - More verbose than Set-StrictMode compliant `Test-Path variable:VarName`
-  - Memory knowledge document mentions this as preferred pattern
+  - Failure scenarios during Install-Lab, DNS forwarder, LIN1 post-install not fully tested
+  - Transient WinRM failure retry logic detected but not stress-tested
+  - Multi-switch network integration defined in config but no integration test
+  - LabBuilder role dependencies (DC before SQL join) not enforced by validation
+  - GUI state consistency under concurrent operations not tested
 - **Impact:**
-  - Verbose code reduces readability
-  - Inconsistent with Set-StrictMode best practices documented in MEMORY.md
+  - Critical failure paths like "AD not operational after Install-Lab" may fail in production
+  - Deployments fail unexpectedly on flaky networks due to untested retry logic
+  - Users attempting multi-switch setup hit undocumented failures
+  - Role combination conflicts discovered during user deployments, not in CI
+  - GUI may have race conditions in concurrent operation scenarios
 - **Fix approach:**
-  - Update OpenCodeLab-App and Deploy to use `Test-Path variable:` pattern
-  - Add PSScriptAnalyzer rule to enforce consistent variable checking
-  - Update CONVENTIONS.md with preferred pattern
+  - Add parametrized tests for each Deploy.ps1 exception handler; mock Install-Lab failures
+  - Add stress test simulating intermittent WinRM failures; verify retry count compliance
+  - Add integration test for Deploy.ps1 with multi-switch config; verify routing
+  - Create role dependency matrix with integration tests for all supported combinations
+  - Add stress test launching 3+ concurrent operations; verify UI responsiveness
+  - Target: >80% code coverage for Deploy.ps1 and critical helpers
 
-## Scalability Limitations
+## Performance Bottlenecks
 
-### Single-Host Assumption
+### Synchronous VM State Polling in GUI
 
 **Severity:** Medium
 
-- **Issue:** Architecture assumes single Hyper-V host despite multi-host coordinator infrastructure
+- **Issue:** GUI may block on synchronous Hyper-V queries during state refresh
 - **Files:**
-  - `Private/Get-LabHostInventory.ps1` - supports inventory with multiple hosts
-  - `Private/Invoke-LabCoordinatorDispatch.ps1` - dispatch logic for remote execution
-  - `Private/Resolve-LabDispatchMode.ps1` - dispatch mode resolution
-  - `Private/Test-LabScopedConfirmationToken.ps1` - multi-host safety tokens
+  - `OpenCodeLab-v2/ViewModels/ActionsViewModel.cs`
+  - `OpenCodeLab-v2/Services/HyperVService.cs` (lines 14-42)
 - **Details:**
-  - Coordinator/dispatch framework exists for multi-host operations
-  - Most core operations (Deploy, Bootstrap) assume local Hyper-V execution
-  - No remote PowerShell or SSH transport for core lab operations
-  - Inventory file format defined but limited usage
+  - GetVirtualMachinesAsync() awaits Task.Run() around ManagementObjectSearcher.Get()
+  - ManagementObjectSearcher.Get() blocks on WMI query; no caching layer
+  - UI thread may wait for VM enumeration on every dashboard refresh
+  - Memory objects created on each query; no pooling
 - **Impact:**
-  - Coordinator infrastructure adds complexity without clear benefit for single-host use case
-  - Multi-host dispatch not tested or documented
-  - Unclear scaling path for multiple Hyper-V hosts
-  - Dispatch mode (off/canary/enforced) is configurable but execution unclear
+  - GUI responsiveness degradation during large labs (10+ VMs)
+  - Dashboard updates may be slow and blocking
+  - No indication to user that state query is in progress
 - **Fix approach:**
-  - Document intended multi-host usage scenarios
-  - Either complete multi-host implementation or simplify to single-host
-  - Add integration tests for dispatch modes
-  - Clarify whether this is dev-only feature or production capability
+  - Implement background worker thread with configurable poll interval (e.g., 30s)
+  - Cache VM state; notify UI only on changes
+  - Add loading indicator while state query in progress
+  - Consider WMI event subscriptions instead of polling for event-driven updates
 
-### Memory Sizing Hardcoded
-
-**Severity:** Low
-
-- **Issue:** VM memory allocations are fixed in configuration without dynamic host capacity detection
-- **Files:**
-  - `Lab-Config.ps1` (lines 107-139, 279-299) - VM sizing configuration
-- **Details:**
-  - All VMs configured with 4GB base memory, 2-6GB dynamic range
-  - No detection of host available memory
-  - No validation that total VM memory fits on host
-  - Ubuntu VMs configured with 2GB (less than typical Windows VMs)
-- **Impact:**
-  - Lab deployment may fail on hosts with < 16GB RAM
-  - Over-commitment can cause VM performance degradation
-  - No guidance for users to tune VM sizes for their hardware
-- **Fix approach:**
-  - Add host capacity check to Bootstrap.ps1 preflight
-  - Calculate recommended VM counts based on available memory
-  - Add "-Light" preset for resource-constrained hosts
-  - Document minimum/recommended host specs in README
-
-### LabBuilder Role Explosion
-
-**Severity:** Low
-
-- **Issue:** Growing list of roles increases configuration matrix complexity
-- **Files:**
-  - `Lab-Config.ps1` (lines 378-396) - RoleMenu with 15+ role options
-  - `LabBuilder/Roles/` - role-specific configuration scripts
-- **Details:**
-  - Core roles: DC, DSC, IIS, SQL, WSUS, DHCP, FileServer, PrintServer, Jumpbox, Client
-  - Linux roles: Ubuntu, WebServerUbuntu, DatabaseUbuntu, DockerUbuntu, K8sUbuntu
-  - Each role requires IP plan entry, VM name mapping, and role handler
-  - Testing all role combinations is exponentially complex
-- **Impact:**
-  - Untested role combinations may have conflicts (IP, DNS, ports)
-  - Role-specific scripts may have drift in patterns and conventions
-  - Adding new roles increases maintenance burden
-- **Fix approach:**
-  - Define core supported role sets with integration tests
-  - Document which role combinations are tested vs. experimental
-  - Consider role composition patterns instead of full-matrix support
-  - Add role dependency validation (e.g., require DC for all domain-joined roles)
-
-## Missing Features
-
-### No Partial Rollback
+### Snapshot Restoration Speed
 
 **Severity:** Medium
 
-- **Issue:** Teardown operations are all-or-nothing without selective VM removal
+- **Issue:** Quick teardown and quick mode rely on snapshot restore (30-60s per VM on typical storage)
 - **Files:**
-  - `OpenCodeLab-App.ps1` (teardown action)
-  - `Public/Remove-LabVM.ps1` - single VM removal
-  - `Public/Remove-LabVMs.ps1` - multiple VM removal
+  - `Private/Invoke-LabQuickTeardown.ps1` - checkpoint restoration
+  - `Deploy.ps1` auto-heal flow with LabReady snapshot restoration
+  - Transient backoff loops with hardcoded 5-second delays
 - **Details:**
-  - Teardown removes entire lab or nothing
-  - No "-TargetVMs" parameter to selectively tear down specific VMs
-  - Quick mode teardown restores LabReady snapshot affecting all VMs
-  - Cannot remove experimental VMs while keeping core lab intact
+  - Hyper-V checkpoint restore I/O bound on storage performance
+  - No parallelization of multi-VM snapshot restores
+  - Hardcoded sleep(5) between WinRM retry attempts (lines 688-700 Deploy.ps1)
+  - No exponential backoff; fixed delay even after multiple timeouts
 - **Impact:**
-  - Testing new roles requires full lab rebuild on failure
-  - Cannot incrementally scale down lab to free resources
-  - Experimentation workflow is rebuild-heavy
+  - Quick-mode failover takes 60-120s for 3-5 VM labs
+  - Slow network responses during retry loops cause 5-10 minute delay before falling back
+  - Poor user experience during frequent redeploy cycles
 - **Fix approach:**
-  - Add TargetVMs parameter to teardown action
-  - Support selective VM removal while preserving lab registration
-  - Add "reset-vm" action to restore single VM from checkpoint
-  - Document which operations are safe for partial teardown
+  - Restore multiple VM snapshots in parallel using background jobs
+  - Monitor and report snapshot restore progress to GUI
+  - Implement exponential backoff (1s, 2s, 4s, 8s max jitter) for WinRM retries
+  - Add timeout-aware retry logic that backs off faster on resource contention
 
-### Limited Checkpoint Management
+### Linear VM Creation Speed
 
 **Severity:** Low
 
-- **Issue:** Only LabReady checkpoint is managed; no user-defined checkpoints
+- **Issue:** AutomatedLab Install-Lab runs sequentially; no parallel VM provisioning
 - **Files:**
-  - `Public/Save-LabReadyCheckpoint.ps1` - creates single checkpoint
-  - `Public/Restore-LabCheckpoint.ps1` - restore generic checkpoint
-  - `Public/Get-LabCheckpoint.ps1` - list checkpoints
+  - `Deploy.ps1` (lines 400-500) - Install-Lab call followed by sequential post-install
 - **Details:**
-  - LabReady checkpoint is special-cased in quick mode logic
-  - No UI or CLI for creating named checkpoints
-  - Cannot checkpoint before risky operations (e.g., testing DSC configs)
-  - Restore operations are manual, not integrated into orchestrator
+  - 3-5 minute per VM on typical SSD (full 3VM deployment = 15-25 min)
+  - Install-Lab from AutomatedLab module doesn't parallelize
+  - Post-install steps (DHCP, DNS, shares) run after all VMs created
 - **Impact:**
-  - Users must manually create checkpoints via Hyper-V Manager
-  - No checkpoint naming conventions or metadata
-  - Quick-mode rollback limited to single LabReady state
+  - Slow feedback loop for development iteration
+  - Resource underutilization on multi-CPU hosts
 - **Fix approach:**
-  - Add "save" action with optional checkpoint name
-  - Add "rollback" action with checkpoint selection
-  - Store checkpoint metadata (timestamp, description) in run artifacts
-  - Integrate checkpoint list into GUI dashboard
+  - Profile Install-Lab performance bottleneck
+  - Consider AutomatedLab module upgrade or native parallel provisioning
+  - Parallelize independent post-install tasks (e.g., DNS setup vs. DHCP scope)
 
-### No Cost Estimation
+## Fragile Areas
 
-**Severity:** Low
+### Deploy.ps1 Install-Lab Error Handling
 
-- **Issue:** No disk space or resource requirement calculation before deployment
-- **Files:**
-  - `Private/Test-DiskSpace.ps1` - exists but usage unclear
-- **Details:**
-  - Test-DiskSpace helper exists but not integrated into preflight
-  - No calculation of expected disk usage for VMs + VHDx
-  - No warning about disk space exhaustion mid-deployment
-  - ISO requirements listed but total storage need not calculated
-- **Impact:**
-  - Deployments fail mid-process due to disk space exhaustion
-  - Users unaware of storage requirements before starting
-  - No guidance on cleanup to free space
-- **Fix approach:**
-  - Integrate Test-DiskSpace into Bootstrap.ps1 preflight
-  - Calculate expected disk usage: ISOs + VHDx (expand) + checkpoints
-  - Add disk space monitoring to health checks
-  - Suggest cleanup actions when space is low
+**Files:** `Deploy.ps1` (lines 467-469, 538)
 
-## Technical Debt
+- **Why fragile:** Catch block logs WARN status for Install-Lab failures but does not stop deployment; subsequent steps assume DC1 ADDS operational
+- **Safe modification:**
+  - Add AD validation check after Install-Lab (already done at line 538 with service check)
+  - Throw if critical services (NTDS, ADWS) not running within health gate
+  - Make WARN status more prominent (bold, color, sound alert)
+- **Test coverage:**
+  - Gaps in error path testing for "AD not operational post-Install-Lab"
+  - No test for cascading failure (AD down → subsequent steps fail → confusing error messages)
 
-### Archive Directory Size
+### Multi-Switch Networking Configuration
 
-**Severity:** Low
+**Files:** `Lab-Config.ps1` (Network.Switches array, lines 101-114), `Deploy.ps1` subnet conflict detection
 
-- **Issue:** Large deprecated code archive committed to repository
-- **Files:**
-  - `.archive/deprecated-builders/` - old New-AutomatedLab.ps1, SimpleLab.ps1
-  - `.archive/SimpleLab-20260210/` - full directory snapshot with 60+ files
-- **Details:**
-  - Archive contains 60+ deprecated scripts from 2026-02-10
-  - Deprecated builders are preserved in git history anyway
-  - Increases repository clone size and search noise
-- **Impact:**
-  - Repository size bloat
-  - Search results polluted with deprecated code
-  - Confusion about which code is current
-- **Fix approach:**
-  - Remove `.archive/` from main branch (available in git history)
-  - Document migration from deprecated patterns in README
-  - Add note in STRUCTURE.md about git history access
-  - Keep `.gitignore` exclusion comment for clarity
+- **Why fragile:**
+  - Complex nested subnet validation only runs if helper Test-LabVirtualSwitchSubnetConflict exists
+  - Graceful fallback hides real conflicts behind WARN status
+  - Multi-switch config defined but Deploy.ps1 doesn't validate all switches created
+- **Safe modification:**
+  - Refactor subnet conflict detection into mandatory pre-flight step
+  - Fail loudly on conflicts instead of warning and continuing
+  - Validate all configured switches exist before VM creation
+- **Test coverage:**
+  - Limited multi-switch integration tests; most tests use single LabCorpNet
+  - No test for cross-subnet VM communication (routing)
 
-### PowerShell LSP Tools Committed
+### LabBuilder Dynamic Role Loading
 
-**Severity:** Low
+**Files:** `LabBuilder/Build-LabFromSelection.ps1` (VM creation loop), role handlers in `LabBuilder/Roles/`
 
-- **Issue:** PowerShell Language Server Protocol tools committed to repository
-- **Files:**
-  - `.tools/powershell-lsp/` directory (multiple MB)
-- **Details:**
-  - Full PSES (PowerShell Editor Services) distribution in .tools/
-  - PSReadLine and PSScriptAnalyzer modules included
-  - Typically installed via editor extension, not committed
-  - Ignored in .gitignore but still tracked
-- **Impact:**
-  - Repository size increase
-  - Tools may be outdated compared to latest releases
-  - Editor-specific tooling in shared repository
-- **Fix approach:**
-  - Move to .gitignore if not already (appears to be ignored per .gitignore line 27)
-  - Remove from git history using git-filter-repo or BFG
-  - Document required VS Code extensions in README
-  - Consider dev container approach for consistent tooling
+- **Why fragile:**
+  - Each role (DC.ps1, SQL.ps1, Linux*.ps1) manages its own configuration validation
+  - No validation that all required fields present before role runs
+  - Role dependencies (DC before SQL join) not enforced
+  - SQL role may attempt join before DC is ready
+- **Safe modification:**
+  - Create role schema validation helper that runs before any role
+  - Fail with clear error message listing missing config fields
+  - Add explicit dependency check (DC promoted before SQL join attempt)
+  - Create role execution order specification
+- **Test coverage:**
+  - Individual role tests exist but integration test gaps
+  - No test matrix for role dependency combinations
+  - Missing tests for "DC not ready when SQL tries to join"
 
-### Test Coverage Artifacts Committed
+### GUI Event Log Memory Growth
 
-**Severity:** Low
+**Files:** `GUI/Start-OpenCodeLabGUI.ps1` (log circular buffer with $script:LogEntriesMaxCount = 2000)
 
-- **Issue:** Coverage.xml file appears in test directory (681K)
-- **Files:**
-  - `Tests/coverage.xml` (361K per ls output)
-- **Details:**
-  - Coverage report from Pester test runs
-  - Should be generated locally or in CI, not committed
-  - Already in .gitignore (line 4) but still tracked
-- **Impact:**
-  - Repository churn on every test run with coverage
-  - Merge conflicts on coverage reports
-  - No value in versioning test artifacts
-- **Fix approach:**
-  - Remove from git: `git rm Tests/coverage.xml`
-  - Verify .gitignore pattern catches it
-  - Document coverage report generation in TESTING.md
+- **Why fragile:**
+  - Long-running deployments (4+ hours) may exceed 2000 entry limit
+  - Old entries dropped without warning when buffer full
+  - No indication to user that log is truncated
+  - WPF TextBox performance degrades with large collections
+- **Safe modification:**
+  - Implement background log archival to file when nearing max
+  - Emit warning when 80% of buffer full
+  - Make buffer size configurable in Lab-Config
+  - Implement virtual scrolling for log display
+- **Test coverage:**
+  - No stress test for extended deployment logging
+  - No test verifying log entries don't drop unexpectedly
+
+## Scaling Limits
+
+### Single Domain Limitation
+
+- **Current capacity:** Lab supports only one domain (simplelab.local); multi-domain scenarios blocked
+- **Limit:** Cannot deploy complex multi-trust scenarios (parent-child, external trust forests)
+- **Scaling path:** Extend AutomatedLab integration to support domain definitions array in Lab-Config; enhance VM domain-join logic
+
+### Snapshot Proliferation
+
+- **Current capacity:** Up to ~10 snapshots per VM before Hyper-V performance degrades noticeably
+- **Limit:** LabReady checkpoint + user-created checkpoints; >10 causes snapshot chain slowdown
+- **Scaling path:** Implement snapshot cleanup policy in Lab-Config; archive old snapshots; consolidate snapshot chains on deploy completion
+
+### VHDx File Growth
+
+- **Current capacity:** ~20-30GB per VM typical deployment (Server + apps)
+- **Limit:** Snapshot chains can double storage; 5VM lab on single SSD can exhaust space
+- **Scaling path:** Implement disk space monitoring and warning; add snapshot consolidation automation; consider thin provisioning
+
+### GUI Event Loop Responsiveness
+
+- **Current capacity:** GUI remains responsive for deployments <4 hours; log rendering slows after 5000+ entries
+- **Limit:** WPF TextBox performance degrades with large item collections
+- **Scaling path:** Implement virtual scrolling for log display; background-thread log updates; separate display layer from data
+
+## Dependencies at Risk
+
+### AutomatedLab Module Version Pinning
+
+- **Risk:** Deploy.ps1 and LabBuilder depend on AutomatedLab module but do not enforce minimum version
+- **Files:** `Deploy.ps1` (Import-Module AutomatedLab), `LabBuilder/Build-LabFromSelection.ps1`
+- **Impact:** Breaking changes in AutomatedLab can break deployment silently
+- **Migration plan:**
+  - Pin AutomatedLab module version in Lab-Config.ps1
+  - Add version check to Bootstrap.ps1 before deployment
+  - Document tested versions in README
+
+### PowerShell 5.1 Language Constraints
+
+- **Risk:** Project targets Windows PowerShell 5.1; ternary operator not supported (PS 7+ only)
+- **Files:** Multiple helpers in `Private/` use `if-else` workaround instead of ternary
+- **Impact:** Code is verbose; contributors may accidentally use PS7-only syntax
+- **Migration plan:**
+  - Document PowerShell 5.1 constraints in CONVENTIONS.md
+  - Add pre-commit check for unsupported syntax
+  - Plan PS7 migration path
+
+### Join-Path Limitation in PowerShell 5.1
+
+- **Risk:** PowerShell 5.1 Join-Path only accepts 2 arguments; PS6+ supports 3+
+- **Files:** `Deploy.ps1` line 22 uses nested Join-Path calls (documented in memory)
+- **Impact:** Nested path joining is less readable; easy to introduce bugs
+- **Migration plan:**
+  - Create wrapper function Path-Combine that handles multiple segments
+  - Document in CONVENTIONS.md (already in memory)
+
+### Windows-Only Execution Model
+
+- **Risk:** Deployment scripts assume Windows-only environment; no cross-platform testing
+- **Files:** All shell integration uses PowerShell.exe; SSH key generation uses Windows OpenSSH
+- **Impact:** CI/CD pipelines cannot run on non-Windows runners
+- **Migration plan:**
+  - Refactor core logic into PowerShell Core scripts
+  - Containerize test environment
+  - Support Docker-based lab simulation
+
+## Missing Critical Features
+
+### No Lab Rollback on Partial Failure
+
+- **Problem:** If Deploy.ps1 fails midway (e.g., after DC creation but before SVR1 join), lab left in inconsistent state
+- **Blocks:** Automated recovery workflows; safe "undo" for exploratory deployments
+- **Suggested approach:**
+  - Implement transactional checkpoint before each major section (VM creation, DC promotion, member join)
+  - On exception, restore prior checkpoint and roll forward cleanup
+
+### No Multi-Lab Instance Support
+
+- **Problem:** Lab-Config.ps1 and Deploy.ps1 assume single lab per host
+- **Blocks:** Multi-tenant lab scenarios; parallel testing of different configurations
+- **Suggested approach:**
+  - Extend Lab-Config to support lab instance ID
+  - Namespace all Hyper-V objects with instance ID
+  - Coordinate via instance registry in .planning/
+
+### No Lab State Persistence API
+
+- **Problem:** Lab state not persisted to queryable store; each script re-discovers state from Hyper-V
+- **Blocks:** Audit trail; state-aware failover; historical tracking
+- **Suggested approach:**
+  - Create JSON-based lab state manifest (saved to .planning/labs/)
+  - Track VM creation times, snapshot dates, deployment duration
+  - Query via Get-LabState helper
+
+### No Integrated Lab Backup/Restore
+
+- **Problem:** No built-in mechanism to backup/restore full lab state for archival
+- **Blocks:** Lab disaster recovery; off-site backup; version control of lab disk state
+- **Suggested approach:**
+  - Create Export-LabSnapshot / Import-LabSnapshot helpers
+  - Archive VHDx files + metadata to .planning/backups/
+  - Integration with cloud storage
 
 ---
 
-*Concerns audit: 2026-02-16*
+*Concerns audit: 2025-02-21*

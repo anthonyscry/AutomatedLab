@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using OpenCodeLab.Models;
 using OpenCodeLab.Services;
 
@@ -10,6 +11,7 @@ namespace OpenCodeLab.ViewModels;
 public class DashboardViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
+    private readonly LabDeploymentService _deploymentService = new();
     private VirtualMachine? _selectedVM;
 
     public ObservableCollection<VirtualMachine> VirtualMachines { get; } = new();
@@ -18,11 +20,26 @@ public class DashboardViewModel : ObservableObject
     public AsyncCommand StopCommand { get; }
     public AsyncCommand RestartCommand { get; }
     public AsyncCommand PauseCommand { get; }
+    public AsyncCommand BlowAwayCommand { get; }
 
     public VirtualMachine? SelectedVM
     {
         get => _selectedVM;
-        set { _selectedVM = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanStop)); OnPropertyChanged(nameof(CanRestart)); OnPropertyChanged(nameof(CanPause)); }
+        set
+        {
+            _selectedVM = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CanStart));
+            OnPropertyChanged(nameof(CanStop));
+            OnPropertyChanged(nameof(CanRestart));
+            OnPropertyChanged(nameof(CanPause));
+            // Notify commands to re-evaluate CanExecute
+            StartCommand.RaiseCanExecuteChanged();
+            StopCommand.RaiseCanExecuteChanged();
+            RestartCommand.RaiseCanExecuteChanged();
+            PauseCommand.RaiseCanExecuteChanged();
+            BlowAwayCommand?.RaiseCanExecuteChanged();
+        }
     }
 
     public bool CanStart => SelectedVM?.CanStart ?? false;
@@ -43,6 +60,7 @@ public class DashboardViewModel : ObservableObject
         StopCommand = new AsyncCommand(StopSelectedAsync, () => CanStop);
         RestartCommand = new AsyncCommand(RestartSelectedAsync, () => CanRestart);
         PauseCommand = new AsyncCommand(PauseSelectedAsync, () => CanPause);
+        BlowAwayCommand = new AsyncCommand(BlowAwayAllAsync, () => TotalVMs > 0);
     }
 
     public async Task LoadAsync()
@@ -53,6 +71,8 @@ public class DashboardViewModel : ObservableObject
         OnPropertyChanged(nameof(TotalVMs)); OnPropertyChanged(nameof(RunningVMs));
         OnPropertyChanged(nameof(StoppedVMs)); OnPropertyChanged(nameof(TotalMemoryGB));
         OnPropertyChanged(nameof(TotalProcessors));
+        // Update BlowAway command state
+        BlowAwayCommand.RaiseCanExecuteChanged();
     }
 
     private async Task RefreshAsync()
@@ -87,6 +107,38 @@ public class DashboardViewModel : ObservableObject
     {
         if (SelectedVM == null) return;
         await _hvService.PauseVMAsync(SelectedVM.Name);
+        await RefreshAsync();
+    }
+
+    private async Task BlowAwayAllAsync()
+    {
+        if (VirtualMachines.Count == 0) return;
+
+        // Show confirmation dialog on UI thread
+        MessageBoxResult result = MessageBoxResult.No;
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            result = System.Windows.MessageBox.Show(
+                $"This will permanently delete ALL {VirtualMachines.Count} VM(s) and their disk files.\n\nThis action CANNOT be undone!\n\nContinue?",
+                "Confirm Destruction",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+        });
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        // Stop all VMs and delete them along with their disks
+        foreach (var vm in VirtualMachines.ToList())
+        {
+            try
+            {
+                await _hvService.StopVMAsync(vm.Name);
+                await _hvService.RemoveVMAsync(vm.Name, deleteDisk: true);
+            }
+            catch { }
+        }
         await RefreshAsync();
     }
 }

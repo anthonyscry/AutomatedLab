@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32;
 using OpenCodeLab.Models;
 
 namespace OpenCodeLab.Views;
@@ -21,6 +19,32 @@ public partial class NewLabDialog : Window
             EditVMButton.IsEnabled = VMListBox.SelectedItem != null;
             DeleteVMButton.IsEnabled = VMListBox.SelectedItem != null;
         };
+    }
+
+    /// <summary>
+    /// Constructor for editing an existing lab configuration
+    /// </summary>
+    public NewLabDialog(LabConfig existing) : this()
+    {
+        Title = "Edit Lab";
+        LabNameBox.Text = existing.LabName;
+        DomainNameBox.Text = existing.DomainName ?? "lab.com";
+        DescriptionBox.Text = existing.Description ?? "";
+        SwitchNameBox.Text = existing.Network?.SwitchName ?? "LabSwitch";
+
+        // Set switch type combo
+        var switchType = existing.Network?.SwitchType ?? "Internal";
+        for (int i = 0; i < SwitchTypeBox.Items.Count; i++)
+        {
+            if (((ComboBoxItem)SwitchTypeBox.Items[i]).Content.ToString() == switchType)
+            {
+                SwitchTypeBox.SelectedIndex = i;
+                break;
+            }
+        }
+
+        _vms = new List<VMDefinition>(existing.VMs ?? new List<VMDefinition>());
+        RefreshVMList();
     }
 
     private void AddVMButton_Click(object sender, RoutedEventArgs e)
@@ -108,7 +132,7 @@ public partial class NewLabDialog : Window
             SwitchType = ((ComboBoxItem)SwitchTypeBox.SelectedItem).Content.ToString()!
         },
         VMs = new List<VMDefinition>(_vms),
-        DomainName = "contoso.com" // Default, could be made configurable via UI
+        DomainName = string.IsNullOrWhiteSpace(DomainNameBox.Text) ? "lab.com" : DomainNameBox.Text.Trim()
     };
 }
 
@@ -122,8 +146,8 @@ public class PasswordDialog : Window
     public PasswordDialog(string labName)
     {
         Title = "Deployment Credentials";
-        Width = 400;
-        Height = 200;
+        Width = 420;
+        Height = 340;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
 
@@ -132,15 +156,24 @@ public class PasswordDialog : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        // Message
+        // Message panel with default password hint
+        var hintPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 15) };
         var message = new TextBlock
         {
             Text = $"Enter admin password for '{labName}':",
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 15)
+            Margin = new Thickness(0, 0, 0, 5)
         };
-        grid.Children.Add(message);
-        Grid.SetRow(message, 0);
+        var defaultHint = new TextBlock
+        {
+            Text = "Leave blank to use default: Server123!",
+            FontSize = 10,
+            Foreground = System.Windows.Media.Brushes.Gray
+        };
+        hintPanel.Children.Add(message);
+        hintPanel.Children.Add(defaultHint);
+        grid.Children.Add(hintPanel);
+        Grid.SetRow(hintPanel, 0);
 
         // Password input panel
         var panel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -155,9 +188,20 @@ public class PasswordDialog : Window
             Height = 32
         };
 
+        var confirmLabel = new TextBlock
+        {
+            Text = "Confirm Password:",
+            Margin = new Thickness(0, 10, 0, 5)
+        };
+        var confirmBox = new PasswordBox
+        {
+            Width = 250,
+            Height = 32
+        };
+
         var envHint = new TextBlock
         {
-            Text = "Or set OPENCODELAB_ADMIN_PASSWORD environment variable",
+            Text = "Or set OPENCODELAB_ADMIN_PASSWORD environment variable to skip this prompt",
             FontSize = 10,
             Foreground = System.Windows.Media.Brushes.Gray,
             Margin = new Thickness(0, 10, 0, 0)
@@ -165,6 +209,8 @@ public class PasswordDialog : Window
 
         panel.Children.Add(label);
         panel.Children.Add(passwordBox);
+        panel.Children.Add(confirmLabel);
+        panel.Children.Add(confirmBox);
         panel.Children.Add(envHint);
         grid.Children.Add(panel);
         Grid.SetRow(panel, 1);
@@ -191,11 +237,28 @@ public class PasswordDialog : Window
         };
         okBtn.Click += (s, e) =>
         {
-            Password = passwordBox.Password;
-            if (string.IsNullOrEmpty(Password))
+            var pwd = passwordBox.Password;
+            var confirm = confirmBox.Password;
+
+            if (string.IsNullOrEmpty(pwd))
             {
-                // Allow empty - will check environment variable later
+                // Use default password if both fields left blank
+                Password = "Server123!";
+                DialogResult = true;
+                Close();
+                return;
             }
+
+            if (pwd != confirm)
+            {
+                MessageBox.Show("Passwords do not match. Please try again.",
+                    "Password Mismatch", MessageBoxButton.OK, MessageBoxImage.Warning);
+                confirmBox.Clear();
+                confirmBox.Focus();
+                return;
+            }
+
+            Password = pwd;
             DialogResult = true;
             Close();
         };
@@ -228,12 +291,21 @@ public class NewVMDialog : Window
 {
     private TextBox NameBox = new() { Text = "VM1" };
     private ComboBox RoleBox = new();
-    private TextBox MemoryBox = new() { Text = "2" };
+    private TextBox MemoryBox = new() { Text = "4" };
     private TextBox CPUBox = new() { Text = "2" };
-    private TextBox DiskBox = new() { Text = "40" };
-    private TextBox ISOPathBox = new() { IsReadOnly = true };
-    private Button BrowseButton = new() { Content = "Browse...", Width = 80 };
+    private TextBox DiskBox = new() { Text = "80" };
+    private TextBlock OSDisplay = new() { FontStyle = FontStyles.Italic, Foreground = System.Windows.Media.Brushes.Gray };
     private List<VMDefinition> _existingVMs = new();
+
+    /// <summary>
+    /// Maps roles to the OS image that Deploy-Lab.ps1 will use.
+    /// Must stay in sync with Deploy-Lab.ps1 role→OS mapping.
+    /// </summary>
+    private static readonly Dictionary<string, string> RoleOSMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "Client", "Windows 11 Enterprise Evaluation" }
+    };
+    private const string DefaultOS = "Windows Server 2019 Datacenter (Desktop Experience)";
 
     private static readonly string[] CommonRoles = new[]
     {
@@ -265,7 +337,7 @@ public class NewVMDialog : Window
 
         Title = existingVM == null ? "Add Virtual Machine" : "Edit Virtual Machine";
         Width = 450;
-        Height = existingVM == null ? 520 : 520;
+        Height = 440;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
 
@@ -287,8 +359,8 @@ public class NewVMDialog : Window
             RoleBox.Items.Add(role);
         RoleBox.SelectedIndex = 0;
         panel.Children.Add(RoleBox);
-        // Auto-generate VM name when role changes
-        RoleBox.SelectionChanged += (s, e) => GenerateVMName();
+        // Auto-generate VM name and update OS when role changes
+        RoleBox.SelectionChanged += (s, e) => { GenerateVMName(); UpdateOSDisplay(); };
         panel.Children.Add(new SpacerControl { Height = 10 });
 
         // Hardware Settings in Grid
@@ -321,18 +393,11 @@ public class NewVMDialog : Window
         panel.Children.Add(hwGrid);
         panel.Children.Add(new SpacerControl { Height = 10 });
 
-        // ISO Path
-        panel.Children.Add(CreateLabel("ISO Path (Installation Media):"));
-        var isoGrid = new Grid();
-        isoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        isoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        ISOPathBox.Margin = new Thickness(0, 0, 5, 0);
-        isoGrid.Children.Add(ISOPathBox);
-        isoGrid.Children.Add(BrowseButton);
-        Grid.SetColumn(BrowseButton, 1);
-        panel.Children.Add(isoGrid);
-        panel.Children.Add(new SpacerControl { Height = 5 });
-        panel.Children.Add(CreateLabel("Tip: Leave empty to create VM without OS media.", 10));
+        // OS (auto-detected from role)
+        panel.Children.Add(CreateLabel("Operating System (auto-detected from role):"));
+        OSDisplay.Margin = new Thickness(0, 0, 0, 5);
+        panel.Children.Add(OSDisplay);
+        panel.Children.Add(CreateLabel("ISOs must be placed in C:\\LabSources\\ISOs", 10));
 
         // Load existing values if editing
         if (existingVM != null)
@@ -343,7 +408,6 @@ public class NewVMDialog : Window
             MemoryBox.Text = existingVM.MemoryGB.ToString();
             CPUBox.Text = existingVM.Processors.ToString();
             DiskBox.Text = existingVM.DiskSizeGB.ToString();
-            ISOPathBox.Text = existingVM.ISOPath ?? string.Empty;
         }
         else
         {
@@ -351,7 +415,7 @@ public class NewVMDialog : Window
             GenerateVMName();
         }
 
-        BrowseButton.Click += (s, e) => BrowseISO();
+        UpdateOSDisplay();
 
         // Button Panel
         var buttonPanel = new StackPanel
@@ -406,23 +470,10 @@ public class NewVMDialog : Window
         };
     }
 
-    private void BrowseISO()
+    private void UpdateOSDisplay()
     {
-        var defaultIsoPath = @"C:\LabSources\ISOs";
-
-        var dialog = new OpenFileDialog
-        {
-            Filter = "ISO Files (*.iso)|*.iso|All Files (*.*)|*.*",
-            Title = "Select ISO File",
-            CheckFileExists = true,
-            Multiselect = false,
-            InitialDirectory = System.IO.Directory.Exists(defaultIsoPath) ? defaultIsoPath : Environment.GetFolderPath(Environment.SpecialFolder.MyComputer)
-        };
-
-        if (dialog.ShowDialog() == true)
-        {
-            ISOPathBox.Text = dialog.FileName;
-        }
+        var role = RoleBox.SelectedItem?.ToString() ?? "";
+        OSDisplay.Text = RoleOSMap.TryGetValue(role, out var os) ? os : DefaultOS;
     }
 
     private void GenerateVMName()
@@ -461,10 +512,9 @@ public class NewVMDialog : Window
     {
         Name = NameBox.Text,
         Role = RoleBox.SelectedItem?.ToString() ?? "MemberServer",
-        MemoryGB = long.TryParse(MemoryBox.Text, out var mem) ? mem : 2,
+        MemoryGB = long.TryParse(MemoryBox.Text, out var mem) ? mem : 4,
         Processors = int.TryParse(CPUBox.Text, out var cpu) ? cpu : 2,
-        DiskSizeGB = long.TryParse(DiskBox.Text, out var disk) ? disk : 40,
-        ISOPath = string.IsNullOrWhiteSpace(ISOPathBox.Text) ? null : ISOPathBox.Text
+        DiskSizeGB = long.TryParse(DiskBox.Text, out var disk) ? disk : 80
     };
 }
 

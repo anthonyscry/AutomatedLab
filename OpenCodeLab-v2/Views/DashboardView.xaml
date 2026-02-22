@@ -66,10 +66,11 @@
         <!-- Action Buttons -->
         <Border Grid.Row="2" Background="{StaticResource CardBrush}" Padding="15" Margin="10" CornerRadius="5">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Content="▶ Start" Command="{Binding StartCommand}" Width="100" Height="36" Margin="5"/>
-                <Button Content="■ Stop" Command="{Binding StopCommand}" Width="100" Height="36" Margin="5"/>
-                <Button Content="↻ Restart" Command="{Binding RestartCommand}" Width="100" Height="36" Margin="5"/>
-                <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Width="100" Height="36" Margin="5"/>
+                <Button Content="▶ Start" Command="{Binding StartCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
+                <Button Content="■ Stop" Command="{Binding StopCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
+                <Button Content="↻ Restart" Command="{Binding RestartCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
+                <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
+                <Button Content="💥 Blow Away All" Command="{Binding BlowAwayCommand}" Width="120" Height="36" Margin="5" Style="{StaticResource RedButton}"/>
             </StackPanel>
         </Border>
     </Grid>

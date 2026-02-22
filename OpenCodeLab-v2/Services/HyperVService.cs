@@ -51,6 +51,62 @@ public class HyperVService
         return await StartVMAsync(vmName);
     }
 
+    public async Task<bool> RemoveVMAsync(string vmName, bool deleteDisk = true)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                // First, ensure VM is stopped
+                ExecuteVMStateChangeAsync(vmName, 3).Wait();
+                System.Threading.Thread.Sleep(2000);
+
+                // Use PowerShell for reliable VM removal
+                var script = new System.Text.StringBuilder();
+                script.AppendLine("Import-Module Hyper-V -ErrorAction SilentlyContinue");
+
+                // Get VM and disk paths before removal
+                script.AppendLine($"$vm = Get-VM -Name '{vmName}' -ErrorAction SilentlyContinue");
+                script.AppendLine("if ($vm) {");
+                script.AppendLine("  $diskPaths = $vm.HardDrives.Path");
+                script.AppendLine($"  Write-Host 'Removing VM: {vmName}'");
+                script.AppendLine($"  Remove-VM -Name '{vmName}' -Force -ErrorAction Stop");
+
+                if (deleteDisk)
+                {
+                    script.AppendLine("  foreach ($disk in $diskPaths) {");
+                    script.AppendLine("    if (Test-Path $disk) {");
+                    script.AppendLine("      Write-Host \"Deleting disk: $disk\"");
+                    script.AppendLine("      Remove-Item -Path $disk -Force -ErrorAction SilentlyContinue");
+                    script.AppendLine("    }");
+                    script.AppendLine("  }");
+                }
+                script.AppendLine("}");
+
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-ExecutionPolicy Bypass -Command \"{script}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using var process = System.Diagnostics.Process.Start(startInfo);
+                if (process == null) return false;
+                process.WaitForExit();
+
+                return process.ExitCode == 0;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error removing VM: {ex.Message}");
+                return false;
+            }
+        });
+    }
+
     private static string GetStateText(ushort state) => state switch
     {
         2 => "Running", 3 => "Off", 6 => "Saved", 9 => "Paused", _ => "Unknown"

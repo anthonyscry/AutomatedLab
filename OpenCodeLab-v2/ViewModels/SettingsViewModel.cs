@@ -33,6 +33,12 @@ public class SettingsViewModel : ObservableObject
         set { _settings.ISOPath = value; OnPropertyChanged(); }
     }
 
+    public string VMPath
+    {
+        get => _settings.VMPath;
+        set { _settings.VMPath = value; OnPropertyChanged(); }
+    }
+
     public string DefaultSwitchName
     {
         get => _settings.DefaultSwitchName;
@@ -87,6 +93,7 @@ public class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(DefaultLabPath));
         OnPropertyChanged(nameof(LabConfigPath));
         OnPropertyChanged(nameof(ISOPath));
+        OnPropertyChanged(nameof(VMPath));
         OnPropertyChanged(nameof(DefaultSwitchName));
         OnPropertyChanged(nameof(DefaultSwitchType));
         OnPropertyChanged(nameof(EnableAutoStart));
@@ -145,6 +152,7 @@ public class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(DefaultLabPath));
         OnPropertyChanged(nameof(LabConfigPath));
         OnPropertyChanged(nameof(ISOPath));
+        OnPropertyChanged(nameof(VMPath));
         OnPropertyChanged(nameof(DefaultSwitchName));
         OnPropertyChanged(nameof(DefaultSwitchType));
         OnPropertyChanged(nameof(EnableAutoStart));
@@ -158,6 +166,7 @@ public class AppSettings
     public string DefaultLabPath { get; set; } = @"C:\LabSources";
     public string LabConfigPath { get; set; } = @"C:\LabSources\LabConfig";
     public string ISOPath { get; set; } = @"C:\LabSources\ISOs";
+    public string VMPath { get; set; } = @"C:\LabSources\VMs";
     public string DefaultSwitchName { get; set; } = "LabSwitch";
     public string DefaultSwitchType { get; set; } = "Internal";
     public bool EnableAutoStart { get; set; }

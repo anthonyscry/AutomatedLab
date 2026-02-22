@@ -59,6 +59,13 @@ $GlobalLabConfig.Credentials.AdminPassword = Resolve-LabPassword -Password $(if 
 $IsoPath        = "$($GlobalLabConfig.Paths.LabSourcesRoot)\ISOs"
 $HostPublicKeyFileName = [System.IO.Path]::GetFileName((Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519.pub))
 
+# Resolve IPPlan entries to plain IP strings.
+# IPPlan supports both hashtable (@{ IP=...; Switch=... }) and plain string formats.
+$IP_DC1  = Resolve-LabIPAddress -Entry $GlobalLabConfig.IPPlan.DC1  -EntryName 'DC1'
+$IP_SVR1 = Resolve-LabIPAddress -Entry $GlobalLabConfig.IPPlan.SVR1 -EntryName 'SVR1'
+$IP_WS1  = Resolve-LabIPAddress -Entry $GlobalLabConfig.IPPlan.WS1  -EntryName 'WS1'
+$IP_LIN1 = if ($GlobalLabConfig.IPPlan.ContainsKey('LIN1')) { Resolve-LabIPAddress -Entry $GlobalLabConfig.IPPlan.LIN1 -EntryName 'LIN1' } else { $null }
+
 # Remove-HyperVVMStale is provided by Lab-Common.ps1 (dot-sourced at line 19)
 
 function Invoke-WindowsSshKeygen {
@@ -415,7 +422,7 @@ try {
             -Roles RootDC, CaRoot `
             -DomainName $GlobalLabConfig.Lab.DomainName `
             -Network $GlobalLabConfig.Network.SwitchName `
-            -IpAddress $GlobalLabConfig.IPPlan.DC1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.IPPlan.DC1 `
+            -IpAddress $IP_DC1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $IP_DC1 `
             -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
             -Memory $GlobalLabConfig.VMSizing.DC.Memory -MinMemory $GlobalLabConfig.VMSizing.DC.MinMemory -MaxMemory $GlobalLabConfig.VMSizing.DC.MaxMemory `
             -Processors $GlobalLabConfig.VMSizing.DC.Processors
@@ -423,7 +430,7 @@ try {
         Add-LabMachineDefinition -Name 'svr1' `
             -DomainName $GlobalLabConfig.Lab.DomainName `
             -Network $GlobalLabConfig.Network.SwitchName `
-            -IpAddress $GlobalLabConfig.IPPlan.SVR1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.Network.DnsIp `
+            -IpAddress $IP_SVR1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.Network.DnsIp `
             -OperatingSystem 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)' `
             -Memory $GlobalLabConfig.VMSizing.Server.Memory -MinMemory $GlobalLabConfig.VMSizing.Server.MinMemory -MaxMemory $GlobalLabConfig.VMSizing.Server.MaxMemory `
             -Processors $GlobalLabConfig.VMSizing.Server.Processors
@@ -431,7 +438,7 @@ try {
         Add-LabMachineDefinition -Name 'ws1' `
             -DomainName $GlobalLabConfig.Lab.DomainName `
             -Network $GlobalLabConfig.Network.SwitchName `
-            -IpAddress $GlobalLabConfig.IPPlan.WS1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.Network.DnsIp `
+            -IpAddress $IP_WS1 -Gateway $GlobalLabConfig.Network.GatewayIp -DnsServer1 $GlobalLabConfig.Network.DnsIp `
             -OperatingSystem 'Windows 11 Enterprise Evaluation' `
             -Memory $GlobalLabConfig.VMSizing.Client.Memory -MinMemory $GlobalLabConfig.VMSizing.Client.MinMemory -MaxMemory $GlobalLabConfig.VMSizing.Client.MaxMemory `
             -Processors $GlobalLabConfig.VMSizing.Client.Processors
@@ -464,12 +471,51 @@ try {
         Install-Lab -ErrorAction Stop
     } catch {
         $installLabError = $_
+        Write-Host "`n  ============================================" -ForegroundColor Red
+        Write-Host "  INSTALL-LAB ERROR" -ForegroundColor Red
+        Write-Host "  ============================================" -ForegroundColor Red
         Write-LabStatus -Status WARN -Message "Install-Lab encountered an error: $($_.Exception.Message)"
         Write-LabStatus -Status WARN -Message "Exception type: $($_.Exception.GetType().FullName)"
-        Write-Host "  Will attempt to validate and recover DC1 AD DS installation..." -ForegroundColor Yellow
+        Write-Host "  Will verify VM creation and attempt recovery..." -ForegroundColor Yellow
     }
     $installElapsed = (Get-Date) - $installStart
     Write-Host ("  Install-Lab completed in {0:D2}m {1:D2}s" -f [int]$installElapsed.TotalMinutes, $installElapsed.Seconds) -ForegroundColor Green
+
+    # ============================================================
+    # POST-INSTALL-LAB: Verify VMs were created and boot media is attached
+    # ============================================================
+    Write-Host "`n[VERIFY] Checking VMs were created and boot configuration is valid..." -ForegroundColor Cyan
+    $missingVMs = @()
+    foreach ($vmName in @($GlobalLabConfig.Lab.CoreVMNames)) {
+        $vm = Hyper-V\Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            $missingVMs += $vmName
+            Write-LabStatus -Status WARN -Message "VM '$vmName' was NOT created by Install-Lab"
+        } else {
+            Write-LabStatus -Status OK -Message "VM '$vmName' exists (State: $($vm.State))"
+            # Verify Gen2 firmware boot device is set correctly
+            if ($vm.Generation -eq 2) {
+                $firmware = Get-VMFirmware -VMName $vmName -ErrorAction SilentlyContinue
+                $dvd = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
+                if ($firmware -and $firmware.BootOrder.Count -gt 0) {
+                    $firstBoot = $firmware.BootOrder[0].BootType
+                    Write-LabStatus -Status INFO -Message "  Boot order[0]: $firstBoot" -Indent 2
+                }
+                if ($dvd -and $dvd.Path) {
+                    Write-LabStatus -Status OK -Message "  DVD drive attached: $($dvd.Path)" -Indent 2
+                } elseif ($dvd) {
+                    Write-LabStatus -Status INFO -Message "  DVD drive present (no media - expected for VHDX-based boot)" -Indent 2
+                }
+            }
+        }
+    }
+    if ($missingVMs.Count -gt 0) {
+        $installContext = ''
+        if ($installLabError) {
+            $installContext = "`nInstall-Lab error: $($installLabError.Exception.Message)"
+        }
+        throw "Install-Lab failed to create VMs: $($missingVMs -join ', ').$installContext`nTroubleshooting:`n  1. Check C:\LabSources\ISOs\ contains required ISOs: $($GlobalLabConfig.RequiredISOs -join ', ')`n  2. Run: Get-LabAvailableOperatingSystem -Path '$($GlobalLabConfig.Paths.LabSourcesRoot)\ISOs'`n  3. Clear stale lab data: Remove-Lab -Name '$($GlobalLabConfig.Lab.Name)' -Confirm:`$false`n  4. Check Hyper-V Manager for error details"
+    }
 
     # ============================================================
     # STAGE 1 AD DS VALIDATION: Verify DC promotion succeeded
@@ -501,13 +547,13 @@ try {
     Write-Host "  Waiting for WinRM (Windows Remote Management, port 5985) on DC1..." -ForegroundColor Gray
     $winrmReady = $false
     for ($w = 1; $w -le 12; $w++) {
-        $wrmCheck = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        $wrmCheck = Test-NetConnection -ComputerName $IP_DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         if ($wrmCheck.TcpTestSucceeded) { $winrmReady = $true; break }
         Write-Host "    WinRM attempt $w/12..." -ForegroundColor Gray
         Start-Sleep -Seconds 15
     }
     if (-not $winrmReady) {
-        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation.`nTroubleshooting:`n  1. Check DC1 VM is running in Hyper-V Manager`n  2. Verify DC1 IP ($GlobalLabConfig.IPPlan.DC1) is pingable: Test-Connection $($GlobalLabConfig.IPPlan.DC1)`n  3. Check Windows Firewall on DC1 allows WinRM (port 5985)"
+        throw "DC1 WinRM (port 5985) is unreachable. Cannot validate AD DS installation.`nTroubleshooting:`n  1. Check DC1 VM is running in Hyper-V Manager`n  2. Verify DC1 IP ($IP_DC1) is pingable: Test-Connection $($IP_DC1)`n  3. Check Windows Firewall on DC1 allows WinRM (port 5985)"
     }
 
     # Check AD DS status on DC1
@@ -577,7 +623,7 @@ try {
         # Wait for DC1 to go offline (restart initiated)
         $offlineDeadline = [datetime]::Now.AddSeconds(90)
         while ([datetime]::Now -lt $offlineDeadline) {
-            $dc1Check = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $dc1Check = Test-NetConnection -ComputerName $IP_DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if (-not $dc1Check.TcpTestSucceeded) { break }
             Start-Sleep -Seconds 5
         }
@@ -585,7 +631,7 @@ try {
         $dc1Back = $false
         $restartDeadline = [datetime]::Now.AddMinutes(15)
         while ([datetime]::Now -lt $restartDeadline) {
-            $rCheck = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $rCheck = Test-NetConnection -ComputerName $IP_DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if ($rCheck.TcpTestSucceeded) { $dc1Back = $true; break }
             Write-Host "    Waiting for DC1 to come back online..." -ForegroundColor Gray
             Start-Sleep -Seconds 15
@@ -599,7 +645,7 @@ try {
         # Wait for WinRM to become reachable before checking services
         $warmupDeadline = [datetime]::Now.AddSeconds(90)
         while ([datetime]::Now -lt $warmupDeadline) {
-            $warmupCheck = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $warmupCheck = Test-NetConnection -ComputerName $IP_DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if ($warmupCheck.TcpTestSucceeded) { break }
             Write-Host "    Waiting for WinRM after AD promotion..." -ForegroundColor Gray
             Start-Sleep -Seconds 10
@@ -676,30 +722,30 @@ try {
     }
 
     # 3. Ping DC1 to verify L3 connectivity
-    $pingOk = Test-Connection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Count 3 -Quiet -ErrorAction SilentlyContinue
+    $pingOk = Test-Connection -ComputerName $IP_DC1 -Count 3 -Quiet -ErrorAction SilentlyContinue
     if (-not $pingOk) {
-        throw "Cannot ping DC1 ($GlobalLabConfig.IPPlan.DC1) from host after Stage 1. Check vSwitch '$($GlobalLabConfig.Network.SwitchName)' and host adapter '$ifAlias'. Aborting before Stage 2."
+        throw "Cannot ping DC1 ($IP_DC1) from host after Stage 1. Check vSwitch '$($GlobalLabConfig.Network.SwitchName)' and host adapter '$ifAlias'. Aborting before Stage 2."
     }
-    Write-LabStatus -Status OK -Message "DC1 ($($GlobalLabConfig.IPPlan.DC1)) responds to ping"
+    Write-LabStatus -Status OK -Message "DC1 ($($IP_DC1)) responds to ping"
 
     # 4. Verify WinRM connectivity (this is what AutomatedLab uses internally)
-    $winrmOk = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    $winrmOk = Test-NetConnection -ComputerName $IP_DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
     if (-not $winrmOk.TcpTestSucceeded) {
-        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($($GlobalLabConfig.IPPlan.DC1)). AD may still be starting."
+        Write-LabStatus -Status WARN -Message "WinRM port 5985 not reachable on DC1 ($($IP_DC1)). AD may still be starting."
         Write-Host "  Waiting 60s for WinRM to become available..." -ForegroundColor Yellow
         $retries = 6
         $winrmUp = $false
         for ($i = 1; $i -le $retries; $i++) {
             Start-Sleep -Seconds 10
-            $check = Test-NetConnection -ComputerName $GlobalLabConfig.IPPlan.DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $check = Test-NetConnection -ComputerName $IP_DC1 -Port 5985 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             if ($check.TcpTestSucceeded) { $winrmUp = $true; break }
             Write-Host "    Retry $i/$retries..." -ForegroundColor Gray
         }
         if (-not $winrmUp) {
-            throw "WinRM (port 5985) on DC1 ($($GlobalLabConfig.IPPlan.DC1)) is unreachable after 60s. Cannot proceed to Stage 2."
+            throw "WinRM (port 5985) on DC1 ($($IP_DC1)) is unreachable after 60s. Cannot proceed to Stage 2."
         }
     }
-    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($($GlobalLabConfig.IPPlan.DC1)):5985"
+    Write-LabStatus -Status OK -Message "WinRM reachable on DC1 ($($IP_DC1)):5985"
     Write-LabStatus -Status OK -Message "Stage 1 validation passed - proceeding to DHCP + Stage 2"
 
     # ============================================================
@@ -1318,7 +1364,7 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
         PASS = $escapedPassword
         GATEWAY = $GlobalLabConfig.Network.GatewayIp
         DNS = $GlobalLabConfig.Network.DnsIp
-        STATIC_IP = $GlobalLabConfig.IPPlan.LIN1
+        STATIC_IP = $IP_LIN1
         HOST_PUBKEY = $HostPublicKeyFileName
     }
 
@@ -1390,17 +1436,17 @@ $lin1WaitMinutes = $GlobalLabConfig.Timeouts.Linux.LIN1WaitMinutes
     # SUMMARY
     # ============================================================
     Write-Host "`n[SUMMARY]" -ForegroundColor Cyan
-    Write-Host "  DC1:  $($GlobalLabConfig.IPPlan.DC1)" -ForegroundColor Gray
-    Write-Host "  svr1:  $($GlobalLabConfig.IPPlan.SVR1)" -ForegroundColor Gray
-    Write-Host "  ws1:   $($GlobalLabConfig.IPPlan.WS1)" -ForegroundColor Gray
+    Write-Host "  DC1:  $($IP_DC1)" -ForegroundColor Gray
+    Write-Host "  svr1:  $($IP_SVR1)" -ForegroundColor Gray
+    Write-Host "  ws1:   $($IP_WS1)" -ForegroundColor Gray
     if ($IncludeLIN1 -and $lin1Ready) {
-        Write-Host "  LIN1: $($GlobalLabConfig.IPPlan.LIN1) (static configured by script)" -ForegroundColor Gray
+        Write-Host "  LIN1: $($IP_LIN1) (static configured by script)" -ForegroundColor Gray
         Write-Host ""
         Write-Host "  Host -> LIN1 SSH:" -ForegroundColor Cyan
-        Write-Host "    ssh -o IdentitiesOnly=yes -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) $($GlobalLabConfig.Credentials.InstallUser)@$($GlobalLabConfig.IPPlan.LIN1)" -ForegroundColor Yellow
+        Write-Host "    ssh -o IdentitiesOnly=yes -i (Join-Path (Join-Path $GlobalLabConfig.Paths.LabSourcesRoot SSHKeys) id_ed25519) $($GlobalLabConfig.Credentials.InstallUser)@$($IP_LIN1)" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "  If you see the 'REMOTE HOST IDENTIFICATION HAS CHANGED' warning after a rebuild:" -ForegroundColor Cyan
-        Write-Host "    ssh-keygen -R $($GlobalLabConfig.IPPlan.LIN1)" -ForegroundColor Yellow
+        Write-Host "    ssh-keygen -R $($IP_LIN1)" -ForegroundColor Yellow
     } else {
         Write-Host "  Linux nodes: not included in this topology" -ForegroundColor DarkGray
     }

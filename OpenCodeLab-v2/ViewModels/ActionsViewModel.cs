@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -17,6 +18,7 @@ public class ActionsViewModel : ObservableObject
     private string _logOutput = string.Empty;
     private int _deploymentProgress;
     private bool _isDeploying;
+    private System.Threading.CancellationTokenSource? _deployCts;
 
     // Default paths
     private const string DefaultLabSources = @"C:\LabSources";
@@ -26,11 +28,12 @@ public class ActionsViewModel : ObservableObject
 
     public ObservableCollection<LabConfig> RecentLabs { get; } = new();
     public AsyncCommand NewLabCommand { get; }
-    public AsyncCommand LoadLabCommand { get; }
+    public AsyncCommand EditLabCommand { get; }
     public AsyncCommand DeployLabCommand { get; }
+    public AsyncCommand CancelDeployCommand { get; }
     public AsyncCommand RemoveLabCommand { get; }
     public AsyncCommand ClearLogsCommand { get; }
-    public AsyncCommand SaveLabCommand { get; }
+    public AsyncCommand CopyLogsCommand { get; }
 
     public string LogOutput { get => _logOutput; set { _logOutput = value; OnPropertyChanged(); } }
     public int DeploymentProgress { get => _deploymentProgress; set { _deploymentProgress = value; OnPropertyChanged(); } }
@@ -39,18 +42,28 @@ public class ActionsViewModel : ObservableObject
     public ActionsViewModel()
     {
         NewLabCommand = new AsyncCommand(ShowNewLabDialogAsync);
-        LoadLabCommand = new AsyncCommand(LoadLabAsync);
+        EditLabCommand = new AsyncCommand(EditLabAsync, () => SelectedLab != null && !IsDeploying);
         DeployLabCommand = new AsyncCommand(DeployLabAsync, () => SelectedLab != null && !IsDeploying);
+        CancelDeployCommand = new AsyncCommand(CancelDeploymentAsync, () => IsDeploying);
         RemoveLabCommand = new AsyncCommand(RemoveLabAsync, () => SelectedLab != null && !IsDeploying);
         ClearLogsCommand = new AsyncCommand(() => Task.Run(() => LogOutput = string.Empty));
-        SaveLabCommand = new AsyncCommand(SaveLabAsync, () => SelectedLab != null);
+        CopyLogsCommand = new AsyncCommand(() =>
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var text = string.IsNullOrEmpty(LogOutput) ? " " : LogOutput;
+                for (int i = 0; i < 5; i++)
+                {
+                    try { Clipboard.SetDataObject(text, true); return; }
+                    catch { System.Threading.Thread.Sleep(50); }
+                }
+            });
+            return Task.CompletedTask;
+        });
 
         _deploymentService.Progress += (s, e) =>
         {
             DeploymentProgress = e.Percent;
-            var msg = $"[{e.Percent}%] {e.Message}{Environment.NewLine}";
-            LogOutput += msg;
-            WriteToLog(msg);
         };
 
         // Ensure directories exist
@@ -76,10 +89,27 @@ public class ActionsViewModel : ObservableObject
         try
         {
             ((AsyncCommand)DeployLabCommand).RaiseCanExecuteChanged();
+            ((AsyncCommand)CancelDeployCommand).RaiseCanExecuteChanged();
             ((AsyncCommand)RemoveLabCommand).RaiseCanExecuteChanged();
-            ((AsyncCommand)SaveLabCommand).RaiseCanExecuteChanged();
+            ((AsyncCommand)EditLabCommand).RaiseCanExecuteChanged();
         }
         catch { }
+    }
+
+    private Task CancelDeploymentAsync()
+    {
+        try
+        {
+            _deployCts?.Cancel();
+            LogOutput += $"Deployment cancellation requested...{Environment.NewLine}";
+            LogOutput += $"Note: The deployment process will continue in the background. Close and reopen the app to deploy again.{Environment.NewLine}";
+        }
+        catch { }
+        finally
+        {
+            IsDeploying = false;
+        }
+        return Task.CompletedTask;
     }
 
     private void EnsureDirectoriesExist()
@@ -180,10 +210,23 @@ public class ActionsViewModel : ObservableObject
                 if (dialog.ShowDialog() == true)
                 {
                     var lab = dialog.GetLabConfig();
+
+                    // Auto-save to default config folder
+                    try
+                    {
+                        Directory.CreateDirectory(DefaultLabConfigPath);
+                        lab.LabPath = Path.Combine(DefaultLabConfigPath, $"{lab.LabName}.json");
+                        var json = System.Text.Json.JsonSerializer.Serialize(lab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(lab.LabPath, json);
+                    }
+                    catch { }
+
+                    // Replace existing entry with same name, or add new
+                    var existing = RecentLabs.FirstOrDefault(l => l.LabName == lab.LabName);
+                    if (existing != null) RecentLabs.Remove(existing);
                     RecentLabs.Add(lab);
                     SelectedLab = lab;
-                    LogOutput += $"Created new lab: {lab.LabName} with {lab.VMs.Count} VM(s){Environment.NewLine}";
-                    LogOutput += $"Note: Lab is not saved yet. Click 'Save Lab' to save it.{Environment.NewLine}";
+                    LogOutput += $"Created lab: {lab.LabName} with {lab.VMs.Count} VM(s) - saved to {lab.LabPath}{Environment.NewLine}";
                 }
             }
             catch (Exception ex)
@@ -193,40 +236,46 @@ public class ActionsViewModel : ObservableObject
         }));
     }
 
-    private async Task LoadLabAsync()
+    private async Task EditLabAsync()
     {
+        if (SelectedLab == null) return;
+
         await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
         {
             try
             {
-                var dialog = new OpenFileDialog
-                {
-                    Filter = "Lab Files|*.json|All Files|*.*",
-                    Title = "Select Lab Configuration",
-                    InitialDirectory = DefaultLabConfigPath
-                };
+                var dialog = new NewLabDialog(SelectedLab);
                 if (dialog.ShowDialog() == true)
                 {
-                    var json = File.ReadAllText(dialog.FileName);
-                    var lab = System.Text.Json.JsonSerializer.Deserialize<LabConfig>(json);
-                    if (lab != null)
+                    var lab = dialog.GetLabConfig();
+                    lab.LabPath = SelectedLab.LabPath;
+
+                    // Auto-save changes
+                    try
                     {
-                        var existing = RecentLabs.FirstOrDefault(l => l.LabName == lab.LabName);
-                        if (existing != null) RecentLabs.Remove(existing);
-                        lab.LabPath = dialog.FileName;
-                        RecentLabs.Add(lab);
-                        SelectedLab = lab;
-                        LogOutput += $"Loaded lab: {lab.LabName}{Environment.NewLine}";
+                        if (string.IsNullOrEmpty(lab.LabPath))
+                            lab.LabPath = Path.Combine(DefaultLabConfigPath, $"{lab.LabName}.json");
+                        Directory.CreateDirectory(DefaultLabConfigPath);
+                        var json = System.Text.Json.JsonSerializer.Serialize(lab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(lab.LabPath, json);
                     }
+                    catch { }
+
+                    var index = RecentLabs.IndexOf(SelectedLab);
+                    if (index >= 0) RecentLabs[index] = lab;
+                    else RecentLabs.Add(lab);
+                    SelectedLab = lab;
+                    LogOutput += $"Updated lab: {lab.LabName} with {lab.VMs.Count} VM(s){Environment.NewLine}";
                 }
             }
             catch (Exception ex)
             {
-                LogError("Error loading lab", ex);
+                LogError("Error editing lab", ex);
             }
         }));
     }
 
+    // Keep SaveLabAsync as internal helper (no longer exposed as button)
     private async Task SaveLabAsync()
     {
         if (SelectedLab == null) return;
@@ -285,7 +334,8 @@ public class ActionsViewModel : ObservableObject
 
                     if (string.IsNullOrEmpty(adminPassword))
                     {
-                        LogOutput += "Deployment cancelled: No password provided.{Environment.NewLine}";
+                        LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
+                        IsDeploying = false;
                         return;
                     }
                 }
@@ -313,11 +363,81 @@ public class ActionsViewModel : ObservableObject
             _currentLogFile = Path.Combine(LogDirectory, $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             WriteToLog($"Starting deployment of lab: {SelectedLab.LabName}{Environment.NewLine}");
 
+            // Check if any VMs already exist - offer incremental deployment
+            bool useIncremental = false;
+            var existingVMs = new List<string>();
+            foreach (var vm in SelectedLab.VMs)
+            {
+                try
+                {
+                    // Use PowerShell to check Hyper-V
+                    var psi = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+                        $"-NoProfile -Command \"if (Get-VM -Name '{vm.Name}' -ErrorAction SilentlyContinue) {{ 'EXISTS' }}\"")
+                    { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                    using var p = System.Diagnostics.Process.Start(psi);
+                    var output = p?.StandardOutput.ReadToEnd()?.Trim() ?? "";
+                    p?.WaitForExit();
+                    if (output == "EXISTS") existingVMs.Add(vm.Name);
+                }
+                catch { }
+            }
+
+            if (existingVMs.Count > 0 && existingVMs.Count < SelectedLab.VMs.Count)
+            {
+                // Some VMs exist, some are new - ask user
+                var newVMs = SelectedLab.VMs.Where(v => !existingVMs.Contains(v.Name)).Select(v => v.Name);
+                await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var result = MessageBox.Show(
+                        $"Existing VMs found: {string.Join(", ", existingVMs)}\n" +
+                        $"New VMs to create: {string.Join(", ", newVMs)}\n\n" +
+                        "Click YES to add new VMs (keep existing).\n" +
+                        "Click NO to redeploy everything from scratch.",
+                        "Incremental Deployment?",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+                    if (result == MessageBoxResult.Yes) useIncremental = true;
+                    else if (result == MessageBoxResult.Cancel) { useIncremental = false; adminPassword = null; } // signal cancel
+                }));
+                if (adminPassword == null && hasDC) { IsDeploying = false; return; }
+            }
+            else if (existingVMs.Count > 0 && existingVMs.Count == SelectedLab.VMs.Count)
+            {
+                // All VMs already exist
+                await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var result = MessageBox.Show(
+                        $"All VMs already exist: {string.Join(", ", existingVMs)}\n\n" +
+                        "Click YES to redeploy everything from scratch.\n" +
+                        "Click NO to cancel.",
+                        "Lab Already Deployed",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    if (result == MessageBoxResult.No) adminPassword = null; // signal cancel
+                }));
+                if (adminPassword == null && hasDC) { IsDeploying = false; return; }
+            }
+
+            var deployStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var deployStartTime = DateTime.Now;
+            LogOutput += $"Deployment started at {deployStartTime:HH:mm:ss}{Environment.NewLine}";
+            WriteToLog($"Deployment started at {deployStartTime:HH:mm:ss}{Environment.NewLine}");
+
+            _deployCts = new System.Threading.CancellationTokenSource();
             var success = await _deploymentService.DeployLabAsync(SelectedLab, msg =>
             {
-                LogOutput += msg + Environment.NewLine;
+                Application.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    LogOutput += msg + Environment.NewLine;
+                });
                 WriteToLog(msg + Environment.NewLine);
-            });
+            }, adminPassword, useIncremental, _deployCts.Token);
+
+            deployStopwatch.Stop();
+            var elapsed = deployStopwatch.Elapsed;
+            var timeStr = elapsed.TotalHours >= 1
+                ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes:D2}m {elapsed.Seconds:D2}s"
+                : $"{(int)elapsed.TotalMinutes}m {elapsed.Seconds:D2}s";
 
             // Clear password from environment after deployment
             if (hasDC)
@@ -325,24 +445,25 @@ public class ActionsViewModel : ObservableObject
                 Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", null);
             }
 
-            IsDeploying = false;
-
             if (success)
             {
-                LogOutput += $"{Environment.NewLine}*** Deployment completed successfully! ***{Environment.NewLine}";
-                WriteToLog($"{Environment.NewLine}*** Deployment completed successfully! ***{Environment.NewLine}");
+                LogOutput += $"{Environment.NewLine}*** Deployment completed successfully in {timeStr}! ***{Environment.NewLine}";
+                WriteToLog($"{Environment.NewLine}*** Deployment completed successfully in {timeStr}! ***{Environment.NewLine}");
             }
             else
             {
-                LogOutput += $"{Environment.NewLine}*** Deployment failed. Check log for details. ***{Environment.NewLine}";
-                WriteToLog($"{Environment.NewLine}*** Deployment failed. ***{Environment.NewLine}");
+                LogOutput += $"{Environment.NewLine}*** Deployment failed after {timeStr}. Check log for details. ***{Environment.NewLine}";
+                WriteToLog($"{Environment.NewLine}*** Deployment failed after {timeStr}. ***{Environment.NewLine}");
             }
         }
         catch (Exception ex)
         {
-            IsDeploying = false;
             LogError("Deployment failed with exception", ex);
             LogOutput += $"{Environment.NewLine}*** Deployment crashed. See log file: {_currentLogFile} ***{Environment.NewLine}";
+        }
+        finally
+        {
+            IsDeploying = false;
         }
     }
 
@@ -363,22 +484,23 @@ public class ActionsViewModel : ObservableObject
                 WriteToLog(msg + Environment.NewLine);
             });
 
-            IsDeploying = false;
-
             if (success)
             {
-                LogOutput += "Lab removed successfully!{Environment.NewLine}";
+                LogOutput += $"Lab removed successfully!{Environment.NewLine}";
                 RecentLabs.Remove(SelectedLab);
             }
             else
             {
-                LogOutput += "Removal failed. Check log for details.{Environment.NewLine}";
+                LogOutput += $"Removal failed. Check log for details.{Environment.NewLine}";
             }
         }
         catch (Exception ex)
         {
-            IsDeploying = false;
             LogError("Removal failed with exception", ex);
+        }
+        finally
+        {
+            IsDeploying = false;
         }
     }
 }

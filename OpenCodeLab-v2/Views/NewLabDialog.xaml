@@ -19,6 +19,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="100"/>
@@ -28,8 +29,11 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Lab Name:" VerticalAlignment="Center" Margin="0,0,0,10"/>
                         <TextBox Grid.Row="0" Grid.Column="1" Name="LabNameBox" Text="MyLab" Margin="0,0,0,10"/>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Name="DescriptionBox" Height="50" TextWrapping="Wrap" AcceptsReturn="True"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Domain Name:" VerticalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Name="DomainNameBox" Text="lab.com" Margin="0,0,0,10"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Description:" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Name="DescriptionBox" Height="50" TextWrapping="Wrap" AcceptsReturn="True"/>
                     </Grid>
                 </GroupBox>
 
@@ -79,7 +83,7 @@
                                         <GridViewColumn Header="RAM" Width="60" DisplayMemberBinding="{Binding MemoryGB}"/>
                                         <GridViewColumn Header="CPU" Width="50" DisplayMemberBinding="{Binding Processors}"/>
                                         <GridViewColumn Header="Disk" Width="60" DisplayMemberBinding="{Binding DiskSizeGB}"/>
-                                        <GridViewColumn Header="ISO" Width="150" DisplayMemberBinding="{Binding ISOPath}"/>
+                                        <GridViewColumn Header="OS" Width="200" DisplayMemberBinding="{Binding OperatingSystem}"/>
                                     </GridView>
                                 </ListView.View>
                             </ListView>

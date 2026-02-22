@@ -132,12 +132,18 @@ if (-not (Get-Module -Name SHiPS -ListAvailable)) {
 # ============================================================
 Write-Step "5/10" "AutomatedLab module"
 
-$al = Get-Module -Name AutomatedLab -ListAvailable
+$alMinVersion = '5.47.0'  # Tested compatible version - includes cluster awareness and ISO path fixes
+$al = Get-Module -Name AutomatedLab -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
 if (-not $al) {
-    Install-Module -Name AutomatedLab -AllowClobber -Force -SkipPublisherCheck -Scope AllUsers
-    Write-OK "AutomatedLab installed"
+    Install-Module -Name AutomatedLab -MinimumVersion $alMinVersion -AllowClobber -Force -SkipPublisherCheck -Scope AllUsers
+    Write-OK "AutomatedLab installed (>= $alMinVersion)"
+} elseif ($al.Version -lt [version]$alMinVersion) {
+    Write-Warn "AutomatedLab v$($al.Version) is below minimum $alMinVersion. Updating..."
+    Update-Module -Name AutomatedLab -Force -ErrorAction SilentlyContinue
+    Install-Module -Name AutomatedLab -MinimumVersion $alMinVersion -AllowClobber -Force -SkipPublisherCheck -Scope AllUsers -ErrorAction SilentlyContinue
+    Write-OK "AutomatedLab updated (>= $alMinVersion)"
 } else {
-    Write-Skip "AutomatedLab already installed (v$(($al | Select-Object -First 1).Version))"
+    Write-Skip "AutomatedLab already installed (v$($al.Version), meets minimum $alMinVersion)"
 }
 
 # Import it now so we can use its cmdlets
