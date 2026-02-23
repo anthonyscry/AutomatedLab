@@ -1,19 +1,16 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Install AutomatedLab module - supports both online and airgapped/offline scenarios.
+    Install AutomatedLab module from bundled modules (airgapped/offline).
 
 .DESCRIPTION
-    Checks if AutomatedLab is already installed. If not:
-    - Online: Installs from PSGallery
-    - Offline/Airgapped: Copies pre-bundled modules from LabSources\Modules\
+    Copies pre-bundled AutomatedLab modules from LabSources\Modules\ into
+    the system PowerShell modules directory. Designed for airgapped servers
+    with no internet access.
 
-.PARAMETER Offline
-    Force offline installation from bundled modules even if internet is available.
+    To create the bundle on a connected machine:
+      Save-Module AutomatedLab -Path LabSources\Modules\ -Repository PSGallery
 #>
-param(
-    [switch]$Offline
-)
 
 $ErrorActionPreference = 'Stop'
 
@@ -29,58 +26,39 @@ if ($existing) {
     exit 0
 }
 
-# Determine install method
+# Locate bundled modules
 $bundledModules = Join-Path $PSScriptRoot "LabSources\Modules"
-$hasBundled = Test-Path $bundledModules
-
-if ($Offline -or -not (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue)) {
-    # Offline install
-    if (-not $hasBundled) {
-        Write-Host "[ERROR] No internet and no bundled modules found at:" -ForegroundColor Red
-        Write-Host "        $bundledModules" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "To create an offline bundle, run on a connected machine:" -ForegroundColor Yellow
-        Write-Host "  Save-Module AutomatedLab -Path LabSources\Modules\" -ForegroundColor Yellow
-        exit 1
-    }
-
-    Write-Host "[OFFLINE] Installing from bundled modules..." -ForegroundColor Yellow
-    $targetPath = Join-Path $env:ProgramFiles "WindowsPowerShell\Modules"
-
-    $moduleNames = Get-ChildItem $bundledModules -Directory | Select-Object -ExpandProperty Name
-    foreach ($mod in $moduleNames) {
-        $src = Join-Path $bundledModules $mod
-        $dst = Join-Path $targetPath $mod
-        if (Test-Path $dst) {
-            Write-Host "  [SKIP] $mod (already exists)" -ForegroundColor DarkGray
-        } else {
-            Write-Host "  [COPY] $mod -> $dst" -ForegroundColor Cyan
-            Copy-Item $src $dst -Recurse -Force
-        }
-    }
-
+if (-not (Test-Path $bundledModules)) {
+    Write-Host "[ERROR] Bundled modules not found at:" -ForegroundColor Red
+    Write-Host "        $bundledModules" -ForegroundColor Red
     Write-Host ""
-    Write-Host "[OK] Offline installation complete!" -ForegroundColor Green
-} else {
-    # Online install
-    Write-Host "[ONLINE] Installing from PowerShell Gallery..." -ForegroundColor Yellow
+    Write-Host "To create the bundle, run on a connected machine:" -ForegroundColor Yellow
+    Write-Host "  Save-Module AutomatedLab -Path LabSources\Modules\" -ForegroundColor Yellow
+    exit 1
+}
 
-    # Ensure NuGet provider
-    if (-not (Get-PackageProvider NuGet -ErrorAction SilentlyContinue)) {
-        Write-Host "  Installing NuGet provider..." -ForegroundColor Gray
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
-    }
-
-    # Trust PSGallery
-    if ((Get-PSRepository PSGallery).InstallationPolicy -ne 'Trusted') {
-        Set-PSRepository PSGallery -InstallationPolicy Trusted
-    }
-
-    Write-Host "  Installing AutomatedLab (this may take a minute)..." -ForegroundColor Gray
-    Install-Module AutomatedLab -Force -AllowClobber -SkipPublisherCheck
-
+$moduleNames = Get-ChildItem $bundledModules -Directory | Select-Object -ExpandProperty Name
+if ($moduleNames.Count -eq 0) {
+    Write-Host "[ERROR] No modules found in $bundledModules" -ForegroundColor Red
     Write-Host ""
-    Write-Host "[OK] Online installation complete!" -ForegroundColor Green
+    Write-Host "To create the bundle, run on a connected machine:" -ForegroundColor Yellow
+    Write-Host "  Save-Module AutomatedLab -Path LabSources\Modules\" -ForegroundColor Yellow
+    exit 1
+}
+
+# Copy modules to system path
+Write-Host "Installing from bundled modules..." -ForegroundColor Yellow
+$targetPath = Join-Path $env:ProgramFiles "WindowsPowerShell\Modules"
+
+foreach ($mod in $moduleNames) {
+    $src = Join-Path $bundledModules $mod
+    $dst = Join-Path $targetPath $mod
+    if (Test-Path $dst) {
+        Write-Host "  [SKIP] $mod (already exists)" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  [COPY] $mod -> $dst" -ForegroundColor Cyan
+        Copy-Item $src $dst -Recurse -Force
+    }
 }
 
 # Create LabSources if needed
@@ -90,7 +68,6 @@ if (-not (Test-Path $labSourcesPath)) {
     Write-Host "Creating LabSources folder structure at $labSourcesPath..." -ForegroundColor Yellow
     New-LabSourcesFolder -DriveLetter C -ErrorAction SilentlyContinue
     if (-not (Test-Path $labSourcesPath)) {
-        # Fallback: create manually
         $dirs = @('ISOs', 'VMs', 'Logs', 'LabConfig', 'CustomRoles', 'Tools',
                   'PostInstallationActivities', 'SoftwarePackages', 'SampleScripts',
                   'SSHKeys', 'OSUpdates')
