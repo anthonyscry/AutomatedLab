@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adaptive heartbeat polling in `Ensure-VMRunning` (500ms intervals, 15s deadline) replacing fixed 2s sleep
 - `Write-Verbose` and `Write-Progress` output for `Test-LabDNS` health checks
 - Configurable `$LabTimeZone` in `Lab-Config.ps1` (auto-detected from host) used by `New-LabUnattendXml`
+- Added `Build-ReleaseArtifacts.ps1` to generate split release artifacts (`app-only` + optional `dotnet-bundle`) with SHA256 output and runtime-bundle change reporting.
+- Added `RELEASE-PACKAGING.md` with release-note template guidance for runtime bundle change status.
 
 ### Changed
 - Updated operator docs to publish multi-host orchestration arguments (`-TargetHosts`, `-InventoryPath`, `-ConfirmationToken`) and fail-closed coordinator outcomes including `EscalationRequired`.
@@ -70,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized admin password resolution for deploy/LIN1 flows through `Resolve-LabPassword` and removed insecure default-password fallback behavior.
 - Updated Linux/network defaults to align helper scripts with the `10.0.10.0/24` topology.
 - Updated test runner to execute only `*.Tests.ps1` suites (excluding `Run.Tests.ps1`) and fixed noninteractive output-path handling.
+- Updated operator docs with explicit ISO download sources and artifact selection guidance so users without .NET runtime choose the `dotnet-bundle` zip.
 
 ### Added
 - Added `docs/ARCHITECTURE.md` with runtime model and workflow boundaries.
@@ -116,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run artifact tracking
 - Default lab configuration (DC, Server, Win11)
 
-[Unreleased]: https://github.com/anthonyscry/OpenCodeLab/compare/v2.1.5...HEAD
+[Unreleased]: https://github.com/anthonyscry/OpenCodeLab/compare/v2.1.6...HEAD
+[2.1.6]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.6
 [2.1.5]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.5
 [2.1.4]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.4
 [2.1.3]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.3

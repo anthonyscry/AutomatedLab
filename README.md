@@ -18,21 +18,46 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 ## Requirements
 
 - Windows 10/11 Pro or Enterprise (Hyper-V required)
-- .NET 8 Runtime (or use the self-contained portable release)
+- .NET 8 Desktop Runtime (required for app-only release zip)
 - AutomatedLab PowerShell module (`Install-Module AutomatedLab`)
 - 16GB+ RAM recommended for multi-VM labs
 
 ## Quick Start
 
 1. Download the latest release from [Releases](https://github.com/anthonyscry/OpenCodeLab/releases)
-2. Extract the zip
-3. Run `OpenCodeLab-V2.exe` as Administrator
-4. Review the **Preflight Checks** panel on the Dashboard
-5. Click **Initialize Env** to install prerequisites (AutomatedLab, LabSources, network)
-6. Place ISOs in `C:\LabSources\ISOs\` (see `LabSources/ISOs/README.md`)
-7. Click **New Lab**, configure VMs, click **Deploy**
+2. Choose the correct artifact:
+   - `OpenCodeLab-v<version>-app-only-win-x64.zip` (smaller, requires installed .NET 8 Desktop Runtime)
+   - `OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip` (larger, includes runtime; just extract and run)
+3. Extract the selected zip
+4. Run `OpenCodeLab-V2.exe` as Administrator
+5. Review the **Preflight Checks** panel on the Dashboard
+6. Click **Initialize Env** to install prerequisites (AutomatedLab, LabSources, network)
+7. Place ISOs in `C:\LabSources\ISOs\` (see `LabSources/ISOs/README.md`)
+8. Click **New Lab**, configure VMs, click **Deploy**
+
+IMPORTANT: If .NET 8 Desktop Runtime is not installed on the host, use the `dotnet-bundle` zip.
+You do not install the bundle separately; it is already packaged with the app in that zip.
 
 Incremental redeploy applies updated per-VM host internet policy to existing VMs without recreating them.
+
+## Required ISOs (Where to Download)
+
+Place ISOs in `C:\LabSources\ISOs\`.
+
+- Windows Server 2019 Evaluation:
+  `https://www.microsoft.com/en-us/evalcenter/download-windows-server-2019`
+- Windows 11 Enterprise Evaluation:
+  `https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise`
+- Ubuntu Server (optional):
+  `https://ubuntu.com/download/server`
+
+To validate what deployment can detect from your ISOs, run:
+
+```powershell
+Get-LabAvailableOperatingSystem -Path 'C:\LabSources\ISOs'
+```
+
+If deployment reports an OS mismatch, verify your ISO edition names against this output.
 
 ## Default Configuration
 
@@ -75,6 +100,23 @@ dotnet build -c Release -r win-x64
 # Self-contained portable exe
 dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish
 ```
+
+## Release Packaging
+
+For release maintainers, use the split-artifact packaging script:
+
+```powershell
+pwsh -NoProfile -File Build-ReleaseArtifacts.ps1 -Version <x.y.z>
+```
+
+This produces:
+
+- `OpenCodeLab-v<version>-app-only-win-x64.zip`
+- `OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip`
+
+It also prints SHA256 hashes and whether the runtime bundle changed compared to the previous release.
+
+See `RELEASE-PACKAGING.md` for release-note template text.
 
 ## VM Roles
 

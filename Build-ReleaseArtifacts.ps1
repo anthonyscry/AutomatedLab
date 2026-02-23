@@ -1,0 +1,260 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
+
+    [Parameter(Mandatory = $false)]
+    [string]$OutputRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$PreviousTag,
+
+    [Parameter(Mandatory = $false)]
+    [string]$GitHubRepo = 'anthonyscry/OpenCodeLab'
+)
+
+$ErrorActionPreference = 'Stop'
+
+function Get-RepoRoot {
+    return (Resolve-Path $PSScriptRoot).Path
+}
+
+function Publish-Artifact {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectDir,
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDir,
+        [Parameter(Mandatory = $true)]
+        [bool]$SelfContained
+    )
+
+    $selfContainedArg = if ($SelfContained) { 'true' } else { 'false' }
+    $publishArgs = @(
+        'publish',
+        '-c', 'Release',
+        '-r', 'win-x64',
+        '--self-contained', $selfContainedArg,
+        '/p:PublishSingleFile=true',
+        '/p:IncludeNativeLibrariesForSelfExtract=true',
+        '-o', $OutputDir
+    )
+
+    Push-Location $ProjectDir
+    try {
+        & dotnet @publishArgs
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Copy-ReleasePayload {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublishDir,
+        [Parameter(Mandatory = $true)]
+        [string]$StageDir,
+        [Parameter(Mandatory = $true)]
+        [string]$SetupScriptPath,
+        [Parameter(Mandatory = $true)]
+        [string]$RootReadmePath,
+        [Parameter(Mandatory = $true)]
+        [string]$LabSourcesPath
+    )
+
+    if (Test-Path $StageDir) {
+        Remove-Item $StageDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
+
+    Copy-Item (Join-Path $PublishDir '*') -Destination $StageDir -Recurse -Force
+    Copy-Item $SetupScriptPath -Destination $StageDir -Force
+    Copy-Item $RootReadmePath -Destination $StageDir -Force
+
+    $stageLabSources = Join-Path $StageDir 'LabSources'
+    New-Item -ItemType Directory -Path $stageLabSources -Force | Out-Null
+
+    Get-ChildItem -Path $LabSourcesPath -Recurse -File |
+        Where-Object { $_.Extension -ne '.iso' } |
+        ForEach-Object {
+            $relative = $_.FullName.Substring($LabSourcesPath.Length).TrimStart('\\')
+            $target = Join-Path $stageLabSources $relative
+            $targetDir = Split-Path $target -Parent
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+            Copy-Item $_.FullName -Destination $target -Force
+        }
+}
+
+function Get-LatestReleaseTag {
+    param([string]$Repo)
+
+    try {
+        $null = Get-Command gh -ErrorAction Stop
+        $json = & gh release list --repo $Repo --limit 1 --json tagName
+        if ([string]::IsNullOrWhiteSpace($json)) {
+            return $null
+        }
+
+        $result = $json | ConvertFrom-Json
+        if ($result.Count -eq 0) {
+            return $null
+        }
+
+        return $result[0].tagName
+    }
+    catch {
+        return $null
+    }
+}
+
+function Get-PreviousBundleHash {
+    param(
+        [string]$Repo,
+        [string]$Tag
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Tag)) {
+        return $null
+    }
+
+    try {
+        $null = Get-Command gh -ErrorAction Stop
+        $json = & gh release view $Tag --repo $Repo --json assets
+        if ([string]::IsNullOrWhiteSpace($json)) {
+            return $null
+        }
+
+        $release = $json | ConvertFrom-Json
+        $asset = $release.assets |
+            Where-Object { $_.name -like '*-dotnet-bundle-win-x64.zip' } |
+            Select-Object -First 1
+
+        if (-not $asset) {
+            return $null
+        }
+
+        if ($asset.digest -and $asset.digest -like 'sha256:*') {
+            return ($asset.digest -replace '^sha256:', '')
+        }
+
+        return $null
+    }
+    catch {
+        return $null
+    }
+}
+
+$repoRoot = Get-RepoRoot
+$projectDir = Join-Path $repoRoot 'OpenCodeLab-v2'
+$labSourcesPath = Join-Path $repoRoot 'LabSources'
+$setupScriptPath = Join-Path $repoRoot 'Setup-AutomatedLab.ps1'
+$rootReadmePath = Join-Path $repoRoot 'README.md'
+
+if (-not (Test-Path $projectDir)) {
+    throw "Project directory not found: $projectDir"
+}
+
+if (-not (Test-Path $labSourcesPath)) {
+    throw "LabSources directory not found: $labSourcesPath"
+}
+
+if (-not (Test-Path $setupScriptPath)) {
+    throw "Setup script not found: $setupScriptPath"
+}
+
+if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
+    $OutputRoot = Join-Path $repoRoot '_release'
+}
+
+$normalizedVersion = $Version.TrimStart('v')
+$releaseRoot = Join-Path $OutputRoot "v$normalizedVersion"
+
+$publishAppOnly = Join-Path $releaseRoot 'publish-app-only'
+$publishDotNetBundle = Join-Path $releaseRoot 'publish-dotnet-bundle'
+
+$appStageDir = Join-Path $releaseRoot "OpenCodeLab-v$normalizedVersion-app-only-win-x64"
+$bundleStageDir = Join-Path $releaseRoot "OpenCodeLab-v$normalizedVersion-dotnet-bundle-win-x64"
+
+$appZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-app-only-win-x64.zip"
+$bundleZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-dotnet-bundle-win-x64.zip"
+
+New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
+if (Test-Path $releaseRoot) {
+    Remove-Item $releaseRoot -Recurse -Force
+}
+New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+
+if (Test-Path $appZipPath) { Remove-Item $appZipPath -Force }
+if (Test-Path $bundleZipPath) { Remove-Item $bundleZipPath -Force }
+
+Write-Host "Publishing app-only artifact (framework-dependent)..." -ForegroundColor Cyan
+Publish-Artifact -ProjectDir $projectDir -OutputDir $publishAppOnly -SelfContained:$false
+
+Write-Host "Publishing .NET bundle artifact (self-contained)..." -ForegroundColor Cyan
+Publish-Artifact -ProjectDir $projectDir -OutputDir $publishDotNetBundle -SelfContained:$true
+
+Write-Host "Staging app-only payload..." -ForegroundColor Cyan
+Copy-ReleasePayload -PublishDir $publishAppOnly -StageDir $appStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
+
+Write-Host "Staging .NET bundle payload..." -ForegroundColor Cyan
+Copy-ReleasePayload -PublishDir $publishDotNetBundle -StageDir $bundleStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
+
+Write-Host "Creating release archives..." -ForegroundColor Cyan
+Compress-Archive -Path (Join-Path $appStageDir '*') -DestinationPath $appZipPath -Force
+Compress-Archive -Path (Join-Path $bundleStageDir '*') -DestinationPath $bundleZipPath -Force
+
+$appHash = (Get-FileHash -Path $appZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$bundleHash = (Get-FileHash -Path $bundleZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+
+if ([string]::IsNullOrWhiteSpace($PreviousTag)) {
+    $PreviousTag = Get-LatestReleaseTag -Repo $GitHubRepo
+    if ($PreviousTag -eq "v$normalizedVersion") {
+        $PreviousTag = $null
+    }
+}
+
+$previousBundleHash = Get-PreviousBundleHash -Repo $GitHubRepo -Tag $PreviousTag
+$bundleChanged = if ([string]::IsNullOrWhiteSpace($previousBundleHash)) {
+    'Unknown (no prior bundle hash found)'
+}
+elseif ($previousBundleHash -eq $bundleHash) {
+    'No'
+}
+else {
+    'Yes'
+}
+
+$metadata = [pscustomobject]@{
+    Version = $normalizedVersion
+    AppOnlyZip = $appZipPath
+    DotNetBundleZip = $bundleZipPath
+    AppOnlySha256 = $appHash
+    DotNetBundleSha256 = $bundleHash
+    PreviousTag = $PreviousTag
+    PreviousDotNetBundleSha256 = $previousBundleHash
+    DotNetBundleChanged = $bundleChanged
+    GeneratedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+}
+
+$metadataPath = Join-Path $releaseRoot 'artifact-metadata.json'
+$metadata | ConvertTo-Json -Depth 4 | Set-Content -Path $metadataPath -Encoding UTF8
+
+Write-Host ''
+Write-Host 'Release artifacts created:' -ForegroundColor Green
+Write-Host "- $appZipPath"
+Write-Host "- $bundleZipPath"
+Write-Host ''
+Write-Host "App-only SHA256:      $appHash" -ForegroundColor Yellow
+Write-Host "Dotnet-bundle SHA256: $bundleHash" -ForegroundColor Yellow
+Write-Host "Runtime bundle changed: $bundleChanged" -ForegroundColor Yellow
+if ($PreviousTag) {
+    Write-Host "Compared against: $PreviousTag" -ForegroundColor DarkGray
+}
+
+Write-Host ''
+Write-Host 'Release notes snippet:' -ForegroundColor Green
+Write-Host "- Runtime bundle changed: $bundleChanged"
+Write-Host "- Reuse prior runtime bundle: $(if ($bundleChanged -eq 'No') { 'Yes' } elseif ($bundleChanged -eq 'Yes') { 'No' } else { 'Review required' })"
+Write-Host "- App-only SHA256: $appHash"
+Write-Host "- Dotnet-bundle SHA256: $bundleHash"
