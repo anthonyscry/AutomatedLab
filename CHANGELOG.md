@@ -1,9 +1,36 @@
 # Changelog
 
-All notable changes to SimpleLab will be documented in this file.
+All notable changes to OpenCodeLab will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.1.0] - 2026-02-22
+
+### Added
+- Collapsible Preflight Checks panel on Dashboard showing Hyper-V, AutomatedLab, LabSources, and network status
+- Initialize Environment button to install prerequisites and configure the host in one click
+- Help window with quick reference guide (getting started, VM roles, default config)
+- About window with version, tech stack, and GitHub link
+- Help and About buttons in sidebar navigation
+- Offline-only installation mode in Setup-AutomatedLab.ps1
+
+### Changed
+- Repository reorganized: removed legacy folders, added LabSources scaffold with .gitkeep structure
+- Setup script simplified to offline-only installation (removed internet detection logic)
+- README rewritten for WPF desktop app workflow
+- GETTING-STARTED.md rewritten for GUI-first flow
+- ARCHITECTURE.md updated to describe WPF MVVM architecture
+- CHANGELOG updated to reflect OpenCodeLab branding
+
+### Fixed
+- Incremental deployment now re-adds existing VMs to lab definition including RootDC role
+- Preflight panel button alignment using Grid layout instead of DockPanel
+
+### Removed
+- Legacy CLI files (OpenCodeLab-App.ps1, OpenCodeLab-GUI.ps1, SimpleLab module)
+- Legacy CI workflows
+- Development artifacts and tests from v1
 
 ## [Unreleased]
 

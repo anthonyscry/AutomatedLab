@@ -4,12 +4,15 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 
 ## Features
 
+- **Preflight checks** - Dashboard panel validates Hyper-V, AutomatedLab, LabSources, and network before deployment
+- **Initialize Environment** - One-click button to install prerequisites and configure the host
 - **One-click deployment** - Create Active Directory domains with DCs, member servers, and workstations
 - **Incremental labs** - Add VMs to existing labs without starting over
 - **EFI boot repair** - Automatic 3-method repair for Gen2 VM boot failures
 - **NAT networking** - Internal switch with NAT for VM internet access (no Wi-Fi bridge conflicts)
 - **Dashboard** - Live VM status, RAM, CPU, IP, and role information from Hyper-V
 - **Lab management** - Create, edit, deploy, and remove labs through the GUI
+- **Help & About** - Built-in quick reference guide and app information
 
 ## Requirements
 
@@ -22,9 +25,11 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 
 1. Download the latest release from [Releases](https://github.com/anthonyscry/LabBuilder/releases)
 2. Extract the zip
-3. Place ISOs in `C:\LabSources\ISOs\` (see `LabSources/ISOs/README.md`)
-4. Run `OpenCodeLab-V2.exe` (requires admin for Hyper-V access)
-5. Click **New Lab**, configure VMs, click **Deploy**
+3. Run `OpenCodeLab-V2.exe` as Administrator
+4. Review the **Preflight Checks** panel on the Dashboard
+5. Click **Initialize Env** to install prerequisites (AutomatedLab, LabSources, network)
+6. Place ISOs in `C:\LabSources\ISOs\` (see `LabSources/ISOs/README.md`)
+7. Click **New Lab**, configure VMs, click **Deploy**
 
 ## Default Configuration
 

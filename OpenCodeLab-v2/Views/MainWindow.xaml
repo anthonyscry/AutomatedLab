@@ -42,6 +42,22 @@
 
                 <Separator Margin="15,20"/>
 
+                <!-- Help & About -->
+                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="?" FontSize="16" Margin="0,0,10,0" FontWeight="Bold"/>
+                        <TextBlock Text="Help" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="i" FontSize="16" Margin="0,0,10,0" FontWeight="Bold" FontStyle="Italic"/>
+                        <TextBlock Text="About" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+
+                <Separator Margin="15,15"/>
+
                 <!-- Info Section -->
                 <StackPanel Margin="20,0">
                     <TextBlock Text="Version 2.0.0" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>

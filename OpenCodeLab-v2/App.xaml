@@ -4,6 +4,7 @@
              StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <SolidColorBrush x:Key="PrimaryBrush" Color="#0078D4" />
             <SolidColorBrush x:Key="BackgroundBrush" Color="#F5F5F5" />
             <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />

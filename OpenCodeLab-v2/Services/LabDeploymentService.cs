@@ -231,7 +231,7 @@ public class LabDeploymentService
     /// <summary>
     /// Run an inline PowerShell script string via system-installed pwsh.exe.
     /// </summary>
-    private async Task RunPowerShellInlineAsync(string script, Action<string>? log,
+    public async Task RunPowerShellInlineAsync(string script, Action<string>? log,
         CancellationToken ct)
     {
         var pwsh = FindPowerShell();

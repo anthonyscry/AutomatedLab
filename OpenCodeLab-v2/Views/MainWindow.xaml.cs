@@ -79,4 +79,16 @@ public partial class MainWindow : Window
         ActionsButton.Background = Brushes.Transparent;
         SettingsButton.Background = Brushes.Transparent;
     }
+
+    private void HelpButton_Click(object sender, RoutedEventArgs e)
+    {
+        var help = new HelpWindow { Owner = this };
+        help.ShowDialog();
+    }
+
+    private void AboutButton_Click(object sender, RoutedEventArgs e)
+    {
+        var about = new AboutWindow { Owner = this };
+        about.ShowDialog();
+    }
 }
