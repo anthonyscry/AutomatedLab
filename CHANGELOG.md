@@ -54,8 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adaptive heartbeat polling in `Ensure-VMRunning` (500ms intervals, 15s deadline) replacing fixed 2s sleep
 - `Write-Verbose` and `Write-Progress` output for `Test-LabDNS` health checks
 - Configurable `$LabTimeZone` in `Lab-Config.ps1` (auto-detected from host) used by `New-LabUnattendXml`
-- Added `Build-ReleaseArtifacts.ps1` to generate split release artifacts (`app-only` + optional `dotnet-bundle`) with SHA256 output and runtime-bundle change reporting.
-- Added `RELEASE-PACKAGING.md` with release-note template guidance for runtime bundle change status.
+- Added `Build-ReleaseArtifacts.ps1` to generate split release artifacts (`app-only` + optional `dotnet-bundle`) with SHA256 output, optional `-SkipDotNetBundle`, and dotnet-bundle artifact change reporting.
+- Added `RELEASE-PACKAGING.md` with release-note template guidance for dotnet-bundle artifact change status.
 
 ### Changed
 - Updated operator docs to publish multi-host orchestration arguments (`-TargetHosts`, `-InventoryPath`, `-ConfirmationToken`) and fail-closed coordinator outcomes including `EscalationRequired`.
@@ -119,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run artifact tracking
 - Default lab configuration (DC, Server, Win11)
 
-[Unreleased]: https://github.com/anthonyscry/OpenCodeLab/compare/v2.1.6...HEAD
+[Unreleased]: https://github.com/anthonyscry/OpenCodeLab/compare/v2.1.7...HEAD
+[2.1.7]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.7
 [2.1.6]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.6
 [2.1.5]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.5
 [2.1.4]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.4

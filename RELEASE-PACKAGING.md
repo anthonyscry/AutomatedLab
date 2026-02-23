@@ -30,13 +30,17 @@ Optional parameters:
 
 - `-OutputRoot <path>`
 - `-PreviousTag v<prev-version>`
+- `-PreviousDotNetBundleSha256 <sha256>`
 - `-GitHubRepo anthonyscry/OpenCodeLab`
+- `-SkipDotNetBundle` (build app-only artifact only)
+
+If `gh` is unavailable in your PowerShell environment, pass `-PreviousDotNetBundleSha256` explicitly so bundle change reporting can still be computed.
 
 The script outputs:
 
-- two release zips,
+- one or two release zips (depending on `-SkipDotNetBundle`),
 - SHA256 hashes,
-- `Runtime bundle changed: Yes/No/Unknown`,
+- `Dotnet-bundle artifact changed: Yes/No/Unknown/Skipped`,
 - release-note snippet text.
 
 ## Release Notes Template
@@ -49,7 +53,7 @@ Include this section in every release:
 - OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip
 
 ## Runtime Bundle Status
-- Runtime bundle changed: <Yes|No|Unknown>
+- Dotnet-bundle artifact changed: <Yes|No|Unknown|Skipped>
 - Reuse prior runtime bundle: <Yes|No|Review required>
 
 ## SHA256

@@ -112,9 +112,9 @@ pwsh -NoProfile -File Build-ReleaseArtifacts.ps1 -Version <x.y.z>
 This produces:
 
 - `OpenCodeLab-v<version>-app-only-win-x64.zip`
-- `OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip`
+- `OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip` (unless `-SkipDotNetBundle` is used)
 
-It also prints SHA256 hashes and whether the runtime bundle changed compared to the previous release.
+It also prints SHA256 hashes and whether the `dotnet-bundle` artifact changed compared to the previous release.
 
 See `RELEASE-PACKAGING.md` for release-note template text.
 

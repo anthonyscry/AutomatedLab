@@ -10,6 +10,12 @@ param(
     [string]$PreviousTag,
 
     [Parameter(Mandatory = $false)]
+    [string]$PreviousDotNetBundleSha256,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipDotNetBundle,
+
+    [Parameter(Mandatory = $false)]
     [string]$GitHubRepo = 'anthonyscry/OpenCodeLab'
 )
 
@@ -78,7 +84,7 @@ function Copy-ReleasePayload {
     Get-ChildItem -Path $LabSourcesPath -Recurse -File |
         Where-Object { $_.Extension -ne '.iso' } |
         ForEach-Object {
-            $relative = $_.FullName.Substring($LabSourcesPath.Length).TrimStart('\\')
+            $relative = $_.FullName.Substring($LabSourcesPath.Length).TrimStart([char[]]@('\', '/'))
             $target = Join-Path $stageLabSources $relative
             $targetDir = Split-Path $target -Parent
             New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
@@ -173,8 +179,8 @@ $releaseRoot = Join-Path $OutputRoot "v$normalizedVersion"
 $publishAppOnly = Join-Path $releaseRoot 'publish-app-only'
 $publishDotNetBundle = Join-Path $releaseRoot 'publish-dotnet-bundle'
 
-$appStageDir = Join-Path $releaseRoot "OpenCodeLab-v$normalizedVersion-app-only-win-x64"
-$bundleStageDir = Join-Path $releaseRoot "OpenCodeLab-v$normalizedVersion-dotnet-bundle-win-x64"
+$appStageDir = Join-Path $releaseRoot 'app-stage'
+$bundleStageDir = Join-Path $releaseRoot 'dotnet-bundle-stage'
 
 $appZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-app-only-win-x64.zip"
 $bundleZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-dotnet-bundle-win-x64.zip"
@@ -191,21 +197,30 @@ if (Test-Path $bundleZipPath) { Remove-Item $bundleZipPath -Force }
 Write-Host "Publishing app-only artifact (framework-dependent)..." -ForegroundColor Cyan
 Publish-Artifact -ProjectDir $projectDir -OutputDir $publishAppOnly -SelfContained:$false
 
-Write-Host "Publishing .NET bundle artifact (self-contained)..." -ForegroundColor Cyan
-Publish-Artifact -ProjectDir $projectDir -OutputDir $publishDotNetBundle -SelfContained:$true
+if (-not $SkipDotNetBundle) {
+    Write-Host "Publishing .NET bundle artifact (self-contained)..." -ForegroundColor Cyan
+    Publish-Artifact -ProjectDir $projectDir -OutputDir $publishDotNetBundle -SelfContained:$true
+}
 
 Write-Host "Staging app-only payload..." -ForegroundColor Cyan
 Copy-ReleasePayload -PublishDir $publishAppOnly -StageDir $appStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
 
-Write-Host "Staging .NET bundle payload..." -ForegroundColor Cyan
-Copy-ReleasePayload -PublishDir $publishDotNetBundle -StageDir $bundleStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
+if (-not $SkipDotNetBundle) {
+    Write-Host "Staging .NET bundle payload..." -ForegroundColor Cyan
+    Copy-ReleasePayload -PublishDir $publishDotNetBundle -StageDir $bundleStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
+}
 
 Write-Host "Creating release archives..." -ForegroundColor Cyan
 Compress-Archive -Path (Join-Path $appStageDir '*') -DestinationPath $appZipPath -Force
-Compress-Archive -Path (Join-Path $bundleStageDir '*') -DestinationPath $bundleZipPath -Force
+if (-not $SkipDotNetBundle) {
+    Compress-Archive -Path (Join-Path $bundleStageDir '*') -DestinationPath $bundleZipPath -Force
+}
 
 $appHash = (Get-FileHash -Path $appZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-$bundleHash = (Get-FileHash -Path $bundleZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$bundleHash = $null
+if (-not $SkipDotNetBundle) {
+    $bundleHash = (Get-FileHash -Path $bundleZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+}
 
 if ([string]::IsNullOrWhiteSpace($PreviousTag)) {
     $PreviousTag = Get-LatestReleaseTag -Repo $GitHubRepo
@@ -214,26 +229,38 @@ if ([string]::IsNullOrWhiteSpace($PreviousTag)) {
     }
 }
 
-$previousBundleHash = Get-PreviousBundleHash -Repo $GitHubRepo -Tag $PreviousTag
-$bundleChanged = if ([string]::IsNullOrWhiteSpace($previousBundleHash)) {
-    'Unknown (no prior bundle hash found)'
-}
-elseif ($previousBundleHash -eq $bundleHash) {
-    'No'
+$previousBundleHash = if ([string]::IsNullOrWhiteSpace($PreviousDotNetBundleSha256)) {
+    $null
 }
 else {
-    'Yes'
+    $PreviousDotNetBundleSha256.Trim().ToLowerInvariant()
+}
+$bundleArtifactChanged = 'Skipped (dotnet bundle not produced)'
+if (-not $SkipDotNetBundle) {
+    if ([string]::IsNullOrWhiteSpace($previousBundleHash)) {
+        $previousBundleHash = Get-PreviousBundleHash -Repo $GitHubRepo -Tag $PreviousTag
+    }
+    $bundleArtifactChanged = if ([string]::IsNullOrWhiteSpace($previousBundleHash)) {
+        'Unknown (no prior dotnet-bundle hash found)'
+    }
+    elseif ($previousBundleHash -eq $bundleHash) {
+        'No'
+    }
+    else {
+        'Yes'
+    }
 }
 
 $metadata = [pscustomobject]@{
     Version = $normalizedVersion
+    DotNetBundleBuilt = (-not $SkipDotNetBundle)
     AppOnlyZip = $appZipPath
-    DotNetBundleZip = $bundleZipPath
+    DotNetBundleZip = if ($SkipDotNetBundle) { $null } else { $bundleZipPath }
     AppOnlySha256 = $appHash
     DotNetBundleSha256 = $bundleHash
     PreviousTag = $PreviousTag
     PreviousDotNetBundleSha256 = $previousBundleHash
-    DotNetBundleChanged = $bundleChanged
+    DotNetBundleArtifactChanged = $bundleArtifactChanged
     GeneratedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
 }
 
@@ -243,18 +270,29 @@ $metadata | ConvertTo-Json -Depth 4 | Set-Content -Path $metadataPath -Encoding 
 Write-Host ''
 Write-Host 'Release artifacts created:' -ForegroundColor Green
 Write-Host "- $appZipPath"
-Write-Host "- $bundleZipPath"
+if (-not $SkipDotNetBundle) {
+    Write-Host "- $bundleZipPath"
+}
 Write-Host ''
 Write-Host "App-only SHA256:      $appHash" -ForegroundColor Yellow
-Write-Host "Dotnet-bundle SHA256: $bundleHash" -ForegroundColor Yellow
-Write-Host "Runtime bundle changed: $bundleChanged" -ForegroundColor Yellow
-if ($PreviousTag) {
+if (-not $SkipDotNetBundle) {
+    Write-Host "Dotnet-bundle SHA256: $bundleHash" -ForegroundColor Yellow
+}
+Write-Host "Dotnet-bundle artifact changed: $bundleArtifactChanged" -ForegroundColor Yellow
+if ($PreviousTag -and -not $SkipDotNetBundle) {
     Write-Host "Compared against: $PreviousTag" -ForegroundColor DarkGray
 }
 
 Write-Host ''
 Write-Host 'Release notes snippet:' -ForegroundColor Green
-Write-Host "- Runtime bundle changed: $bundleChanged"
-Write-Host "- Reuse prior runtime bundle: $(if ($bundleChanged -eq 'No') { 'Yes' } elseif ($bundleChanged -eq 'Yes') { 'No' } else { 'Review required' })"
+Write-Host "- Dotnet-bundle artifact changed: $bundleArtifactChanged"
+if ($SkipDotNetBundle) {
+    Write-Host '- Reuse prior runtime bundle: Yes (bundle not rebuilt in this release)'
+}
+else {
+    Write-Host "- Reuse prior runtime bundle: $(if ($bundleArtifactChanged -eq 'No') { 'Yes' } elseif ($bundleArtifactChanged -eq 'Yes') { 'No' } else { 'Review required' })"
+}
 Write-Host "- App-only SHA256: $appHash"
-Write-Host "- Dotnet-bundle SHA256: $bundleHash"
+if (-not $SkipDotNetBundle) {
+    Write-Host "- Dotnet-bundle SHA256: $bundleHash"
+}
