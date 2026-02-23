@@ -114,11 +114,11 @@ public class HyperVService
         if (string.IsNullOrWhiteSpace(role))
             return "Unknown";
 
-        return role.Trim() switch
+        return role.Trim().ToLowerInvariant() switch
         {
-            "MS" => "MemberServer",
-            "Member" => "MemberServer",
-            "Server" => "MemberServer",
+            "ms" => "MemberServer",
+            "member" => "MemberServer",
+            "server" => "MemberServer",
             _ => role.Trim()
         };
     }
