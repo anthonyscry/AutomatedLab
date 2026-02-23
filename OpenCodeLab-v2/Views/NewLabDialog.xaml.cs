@@ -11,6 +11,20 @@ public partial class NewLabDialog : Window
 {
     private List<VMDefinition> _vms = new();
 
+    internal static string NormalizeVmRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+            return "MemberServer";
+
+        return role.Trim() switch
+        {
+            "MS" => "MemberServer",
+            "Member" => "MemberServer",
+            "Server" => "MemberServer",
+            _ => role.Trim()
+        };
+    }
+
     public NewLabDialog()
     {
         InitializeComponent();
@@ -44,6 +58,10 @@ public partial class NewLabDialog : Window
         }
 
         _vms = new List<VMDefinition>(existing.VMs ?? new List<VMDefinition>());
+        foreach (var vm in _vms)
+        {
+            vm.Role = NormalizeVmRole(vm.Role);
+        }
         RefreshVMList();
     }
 
@@ -131,7 +149,11 @@ public partial class NewLabDialog : Window
             SwitchName = SwitchNameBox.Text,
             SwitchType = ((ComboBoxItem)SwitchTypeBox.SelectedItem).Content.ToString()!
         },
-        VMs = new List<VMDefinition>(_vms),
+        VMs = new List<VMDefinition>(_vms.Select(vm =>
+        {
+            vm.Role = NormalizeVmRole(vm.Role);
+            return vm;
+        })),
         DomainName = string.IsNullOrWhiteSpace(DomainNameBox.Text) ? "lab.com" : DomainNameBox.Text.Trim()
     };
 }
@@ -302,6 +324,8 @@ public class NewVMDialog : Window
     private TextBox DiskBox = new() { Text = "80" };
     private TextBlock OSDisplay = new() { FontStyle = FontStyles.Italic, Foreground = System.Windows.Media.Brushes.Gray };
     private List<VMDefinition> _existingVMs = new();
+    private readonly bool _isEditMode;
+    private bool _suspendAutoName;
 
     /// <summary>
     /// Maps roles to the OS image that Deploy-Lab.ps1 will use.
@@ -339,6 +363,7 @@ public class NewVMDialog : Window
     public NewVMDialog(List<VMDefinition>? existingVMs = null, VMDefinition? existingVM = null)
     {
         if (existingVMs != null) _existingVMs = new List<VMDefinition>(existingVMs);
+        _isEditMode = existingVM != null;
 
 
         Title = existingVM == null ? "Add Virtual Machine" : "Edit Virtual Machine";
@@ -366,7 +391,14 @@ public class NewVMDialog : Window
         RoleBox.SelectedIndex = 0;
         panel.Children.Add(RoleBox);
         // Auto-generate VM name and update OS when role changes
-        RoleBox.SelectionChanged += (s, e) => { GenerateVMName(); UpdateOSDisplay(); };
+        RoleBox.SelectionChanged += (s, e) =>
+        {
+            if (!_isEditMode && !_suspendAutoName)
+            {
+                GenerateVMName();
+            }
+            UpdateOSDisplay();
+        };
         panel.Children.Add(new SpacerControl { Height = 10 });
 
         // Hardware Settings in Grid
@@ -410,13 +442,18 @@ public class NewVMDialog : Window
         // Load existing values if editing
         if (existingVM != null)
         {
+            _suspendAutoName = true;
             NameBox.Text = existingVM.Name;
-            var roleIndex = Array.IndexOf(CommonRoles, existingVM.Role);
+            var normalizedRole = NewLabDialog.NormalizeVmRole(existingVM.Role);
+            var roleIndex = Array.IndexOf(CommonRoles, normalizedRole);
+            if (roleIndex < 0)
+                roleIndex = Array.IndexOf(CommonRoles, "MemberServer");
             RoleBox.SelectedIndex = roleIndex >= 0 ? roleIndex : 0;
             HostInternetBox.IsChecked = existingVM.EnableHostInternet;
             MemoryBox.Text = existingVM.MemoryGB.ToString();
             CPUBox.Text = existingVM.Processors.ToString();
             DiskBox.Text = existingVM.DiskSizeGB.ToString();
+            _suspendAutoName = false;
         }
         else
         {
@@ -520,7 +557,7 @@ public class NewVMDialog : Window
     public VMDefinition GetVMDefinition() => new()
     {
         Name = NameBox.Text,
-        Role = RoleBox.SelectedItem?.ToString() ?? "MemberServer",
+        Role = NewLabDialog.NormalizeVmRole(RoleBox.SelectedItem?.ToString()),
         EnableHostInternet = HostInternetBox.IsChecked == true,
         MemoryGB = long.TryParse(MemoryBox.Text, out var mem) ? mem : 4,
         Processors = int.TryParse(CPUBox.Text, out var cpu) ? cpu : 2,

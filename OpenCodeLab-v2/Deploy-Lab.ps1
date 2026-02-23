@@ -386,11 +386,19 @@ foreach ($vm in $vms) {
         $procCount = [int]$vm.Processors
     }
 
+    $vmRole = [string]$vm.Role
+    if ([string]::IsNullOrWhiteSpace($vmRole)) {
+        $vmRole = 'MemberServer'
+    }
+    elseif ($vmRole -eq 'MS') {
+        $vmRole = 'MemberServer'
+    }
+
     $alRole = $null
     $isClient = $false
     $os = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
 
-    switch -Regex ($vm.Role) {
+    switch -Regex ($vmRole) {
         '^DC$' {
             $firstDC = @($vms | Where-Object { $_.Role -eq 'DC' })[0]
             if ($vm.Name -eq $firstDC.Name) {
@@ -423,9 +431,9 @@ foreach ($vm in $vms) {
     if ($alRole) { $params['Roles'] = $alRole }
 
     if ($vmAlreadyExists) {
-        Write-Host "  [EXISTING] $vmName ($($vm.Role)) - $os, IP: $ip (will be kept)" -ForegroundColor DarkGray
+        Write-Host "  [EXISTING] $vmName ($vmRole) - $os, IP: $ip (will be kept)" -ForegroundColor DarkGray
     } else {
-        Write-Host "  $vmName ($($vm.Role)) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
+        Write-Host "  $vmName ($vmRole) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
     }
 
     # Always add to lab definition so AutomatedLab validates domain topology correctly
