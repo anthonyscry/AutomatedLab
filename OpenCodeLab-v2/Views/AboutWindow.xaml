@@ -41,8 +41,8 @@
 
             <!-- GitHub Link -->
             <TextBlock FontSize="12">
-                <Hyperlink NavigateUri="https://github.com/anthonyscry/LabBuilder" RequestNavigate="Hyperlink_RequestNavigate">
-                    github.com/anthonyscry/LabBuilder
+                <Hyperlink NavigateUri="https://github.com/anthonyscry/OpenCodeLab" RequestNavigate="Hyperlink_RequestNavigate">
+                    github.com/anthonyscry/OpenCodeLab
                 </Hyperlink>
             </TextBlock>
         </StackPanel>

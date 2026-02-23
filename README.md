@@ -23,7 +23,7 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 
 ## Quick Start
 
-1. Download the latest release from [Releases](https://github.com/anthonyscry/LabBuilder/releases)
+1. Download the latest release from [Releases](https://github.com/anthonyscry/OpenCodeLab/releases)
 2. Extract the zip
 3. Run `OpenCodeLab-V2.exe` as Administrator
 4. Review the **Preflight Checks** panel on the Dashboard
