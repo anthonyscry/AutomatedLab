@@ -58,6 +58,9 @@ Templates/
 Ansible/
 Tests/
 docs/
+!docs/
+docs/*
+!docs/GETTING-STARTED.md
 .planning/
 .opencode/
 .tools/

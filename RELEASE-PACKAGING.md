@@ -4,13 +4,13 @@ This guide defines the release artifact split for OpenCodeLab so users can avoid
 
 ## Artifact Model
 
-Each release publishes two zip files:
+Each release publishes one or two zip files:
 
 1. `OpenCodeLab-v<version>-app-only-win-x64.zip`
    - Smaller download
    - Requires installed .NET 8 Desktop Runtime
 
-2. `OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip`
+2. `OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip` (optional)
    - Larger download
    - Includes runtime for hosts without .NET 8 installed
    - Extract and run directly (no separate runtime install required)
@@ -50,15 +50,15 @@ Include this section in every release:
 ```markdown
 ## Downloads
 - OpenCodeLab-v<version>-app-only-win-x64.zip
-- OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip
+- OpenCodeLab-v<version>-dotnet-bundle-win-x64.zip (omit if `-SkipDotNetBundle` used)
 
-## Runtime Bundle Status
+## Dotnet-Bundle Status
 - Dotnet-bundle artifact changed: <Yes|No|Unknown|Skipped>
 - Reuse prior runtime bundle: <Yes|No|Review required>
 
 ## SHA256
 - App-only SHA256: <hash>
-- Dotnet-bundle SHA256: <hash>
+- Dotnet-bundle SHA256: <hash or N/A when skipped>
 
 ## Requirement Reminder
 - If .NET 8 Desktop Runtime is not installed, use the `dotnet-bundle` zip.
