@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using OpenCodeLab;
 using OpenCodeLab.ViewModels;
 
 namespace OpenCodeLab.Views;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SidebarVersionText.Text = $"Version {AppVersion.Display}";
         DashboardVM = new DashboardViewModel();
         ActionsVM = new ActionsViewModel();
         SettingsVM = new SettingsViewModel();

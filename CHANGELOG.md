@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added quick/full orchestration helpers for action dispatch, mode fallback decisions, execution intent, and profile resolution used by `OpenCodeLab-App.ps1`.
 - Added `OpenCodeLab-GUI.ps1` WinForms wrapper and GUI helper functions for safe argument building, command preview, and latest-run artifact summaries.
 - Added coordinator metadata to run artifacts (`policy_outcome`, `policy_reason`, `host_outcomes`, `blast_radius`) for post-run auditability of host scope and policy decisions.
+- Added per-VM `EnableHostInternet` policy with VM editor checkbox and deploy-time route enforcement for full and incremental redeploys.
 - Disk space validation (65 GB minimum) in `New-LabVM` before VHD creation
 - SCP exit code checking in `Copy-LinuxFile` — throws on non-zero exit
 - SSH default timeout fallback (10s) and exit code warning in `Invoke-LinuxSSH`
@@ -115,6 +116,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run artifact tracking
 - Default lab configuration (DC, Server, Win11)
 
-[Unreleased]: https://github.com/yourusername/SimpleLab/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/yourusername/SimpleLab/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/yourusername/SimpleLab/releases/tag/v0.1.0
+[Unreleased]: https://github.com/anthonyscry/OpenCodeLab/compare/v2.1.5...HEAD
+[2.1.5]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.5
+[2.1.4]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.4
+[2.1.3]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.3
+[2.1.2]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.2
+[2.1.1]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.1
+[2.1.0]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v2.1.0
+[0.2.0]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v0.2.0
+[0.1.0]: https://github.com/anthonyscry/OpenCodeLab/releases/tag/v0.1.0

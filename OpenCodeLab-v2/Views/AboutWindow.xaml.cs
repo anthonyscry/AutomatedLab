@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Navigation;
+using OpenCodeLab;
 
 namespace OpenCodeLab.Views;
 
@@ -9,6 +10,7 @@ public partial class AboutWindow : Window
     public AboutWindow()
     {
         InitializeComponent();
+        VersionValueRun.Text = $" {AppVersion.Display}";
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();

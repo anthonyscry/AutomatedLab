@@ -60,7 +60,7 @@
 
                 <!-- Info Section -->
                 <StackPanel Margin="20,0">
-                    <TextBlock Text="Version 2.0.0" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock x:Name="SidebarVersionText" Text="Version" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                     <TextBlock Text=".NET 8 WPF" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                 </StackPanel>
             </StackPanel>
