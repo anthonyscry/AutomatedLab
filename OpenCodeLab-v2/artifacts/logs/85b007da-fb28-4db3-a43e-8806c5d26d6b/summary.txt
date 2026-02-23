@@ -1,6 +1,0 @@
-Action: dashboard
-Succeeded: True
-FailureCategory: 
-ErrorCode: 
-DurationMs: 69
-ArtifactPath: /mnt/c/projects/AutomatedLab/OpenCodeLab-v2/artifacts/logs/85b007da-fb28-4db3-a43e-8806c5d26d6b

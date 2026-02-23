@@ -44,6 +44,9 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
+# Dev artifacts
+OpenCodeLab-v2/artifacts/
+
 # Legacy / deprecated (kept on disk but not tracked)
 GUI/
 OpenCodeLab-WPF/
@@ -60,3 +63,17 @@ docs/
 .tools/
 .worktrees/
 .archive/
+
+# Removed legacy files (prevent re-add)
+OpenCodeLab-App.ps1
+OpenCodeLab-GUI.ps1
+SimpleLab.psd1
+SimpleLab.psm1
+Lab-Common.ps1
+Lab-Config.ps1
+Bootstrap.ps1
+Deploy.ps1
+run-lab.cmd
+run-lab.ps1
+Dockerfile
+docker-compose.yml

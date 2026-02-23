@@ -1,6 +1,0 @@
-Action: dashboard
-Succeeded: False
-FailureCategory: ConfigError
-ErrorCode: CONFIG_LOAD_FAILED
-DurationMs: 264
-ArtifactPath: /mnt/c/projects/AutomatedLab/OpenCodeLab-v2/artifacts/logs/a62dd300-50c1-4416-9e03-3caf619fa92e

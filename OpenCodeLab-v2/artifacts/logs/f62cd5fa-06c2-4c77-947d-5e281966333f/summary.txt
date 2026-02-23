@@ -1,6 +1,0 @@
-Action: unsupported-command
-Succeeded: False
-FailureCategory: ConfigError
-ErrorCode: UNSUPPORTED_COMMAND
-DurationMs: 23
-ArtifactPath: /mnt/c/projects/AutomatedLab/OpenCodeLab-v2/artifacts/logs/f62cd5fa-06c2-4c77-947d-5e281966333f

@@ -1,5 +1,0 @@
-{
-  "ErrorCode": "UNSUPPORTED_COMMAND",
-  "FailureCategory": "ConfigError",
-  "RecoveryHint": "Unsupported command: unsupported-command"
-}
