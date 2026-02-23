@@ -7,6 +7,7 @@ public class VirtualMachine
     public string Name { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
     public string Role { get; set; } = "Unknown";
+    public string? DetectedRole { get; set; }
     public long MemoryGB { get; set; }
     public int Processors { get; set; }
     public long DiskSizeGB { get; set; }
@@ -15,6 +16,15 @@ public class VirtualMachine
     public string? SnapshotName { get; set; }
     public DateTime? CreatedAt { get; set; }
     public bool IsSelected { get; set; }
+
+    public string DetectedServices => string.IsNullOrWhiteSpace(DetectedRole)
+        ? "-"
+        : DetectedRole;
+
+    public string DisplayRole => string.IsNullOrWhiteSpace(DetectedRole) ||
+                                 string.Equals(DetectedRole, Role, StringComparison.OrdinalIgnoreCase)
+        ? Role
+        : $"{Role} ({DetectedRole} detected)";
 
     public string StateEmoji => State switch
     {

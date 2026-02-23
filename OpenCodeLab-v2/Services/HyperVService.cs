@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Tasks;
 using OpenCodeLab.Models;
@@ -12,6 +14,8 @@ namespace OpenCodeLab.Services;
 public class HyperVService
 {
     private const string HyperVNamespace = @"root\virtualization\v2";
+    private static readonly ConcurrentDictionary<string, (string? DetectedRole, DateTime ExpiresUtc)> DetectionCache = new();
+    private static readonly TimeSpan DetectionCacheTtl = TimeSpan.FromSeconds(30);
 
     public async Task<List<VirtualMachine>> GetVirtualMachinesAsync()
     {
@@ -59,10 +63,12 @@ public class HyperVService
                     // Enrich with lab config data (role, configured IP if not running)
                     if (labLookup.TryGetValue(name, out var labVm))
                     {
-                        vmObj.Role = labVm.Role ?? "Unknown";
+                        vmObj.Role = NormalizeRole(labVm.Role);
                         if (string.IsNullOrEmpty(vmObj.IPAddress) && !string.IsNullOrEmpty(labVm.IPAddress))
                             vmObj.IPAddress = labVm.IPAddress;
                     }
+
+                    vmObj.DetectedRole = DetectRoleFromLiveSignals(vmObj);
 
                     vms.Add(vmObj);
                 }
@@ -101,6 +107,59 @@ public class HyperVService
         }
         catch { }
         return lookup;
+    }
+
+    private static string NormalizeRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+            return "Unknown";
+
+        return role.Trim() switch
+        {
+            "MS" => "MemberServer",
+            "Member" => "MemberServer",
+            "Server" => "MemberServer",
+            _ => role.Trim()
+        };
+    }
+
+    private static string? DetectRoleFromLiveSignals(VirtualMachine vm)
+    {
+        if (vm.State != "Running" || string.IsNullOrWhiteSpace(vm.IPAddress))
+            return null;
+
+        if (!string.Equals(vm.Role, "MemberServer", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(vm.Role, "Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var cacheKey = $"{vm.Name}|{vm.IPAddress}";
+        if (DetectionCache.TryGetValue(cacheKey, out var cached) && cached.ExpiresUtc > DateTime.UtcNow)
+            return cached.DetectedRole;
+
+        string? detectedRole = null;
+        if (IsTcpPortOpen(vm.IPAddress, 8530, 150) || IsTcpPortOpen(vm.IPAddress, 8531, 150))
+            detectedRole = "WSUS";
+
+        DetectionCache[cacheKey] = (detectedRole, DateTime.UtcNow.Add(DetectionCacheTtl));
+
+        return detectedRole;
+    }
+
+    private static bool IsTcpPortOpen(string host, int port, int timeoutMs)
+    {
+        try
+        {
+            using var client = new TcpClient();
+            var connectTask = client.ConnectAsync(host, port);
+            var completed = connectTask.Wait(timeoutMs);
+            return completed && client.Connected;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

@@ -390,8 +390,13 @@ foreach ($vm in $vms) {
     if ([string]::IsNullOrWhiteSpace($vmRole)) {
         $vmRole = 'MemberServer'
     }
-    elseif ($vmRole -eq 'MS') {
-        $vmRole = 'MemberServer'
+    else {
+        switch ($vmRole.Trim()) {
+            'MS'     { $vmRole = 'MemberServer'; break }
+            'Member' { $vmRole = 'MemberServer'; break }
+            'Server' { $vmRole = 'MemberServer'; break }
+            default  { $vmRole = $vmRole.Trim() }
+        }
     }
 
     $alRole = $null
