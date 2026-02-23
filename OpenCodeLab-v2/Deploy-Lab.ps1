@@ -310,14 +310,8 @@ foreach ($vm in $vms) {
         continue
     }
 
-    # In incremental mode, skip VMs that already exist
-    if ($Incremental -and $vmName -in $existingVMNames) {
-        Write-Host "  [SKIP] $vmName already exists" -ForegroundColor DarkGray
-        # Still increment IP counters to keep addresses consistent
-        $isClient = $vm.Role -eq 'Client'
-        if ($isClient) { $clientIP++ } else { $serverIP++ }
-        continue
-    }
+    # Track whether this VM already exists (incremental mode)
+    $vmAlreadyExists = $Incremental -and $vmName -in $existingVMNames
 
     $memoryBytes = [int64]$vm.MemoryGB * 1GB
     $procCount = 2
@@ -361,8 +355,14 @@ foreach ($vm in $vms) {
     }
     if ($alRole) { $params['Roles'] = $alRole }
 
-    Write-Host "  $vmName ($($vm.Role)) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
+    if ($vmAlreadyExists) {
+        Write-Host "  [EXISTING] $vmName ($($vm.Role)) - $os, IP: $ip (will be kept)" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  $vmName ($($vm.Role)) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
+    }
 
+    # Always add to lab definition so AutomatedLab validates domain topology correctly
+    # Install-Lab will detect existing VMs and skip re-creating them
     Add-LabMachineDefinition @params
 }
 

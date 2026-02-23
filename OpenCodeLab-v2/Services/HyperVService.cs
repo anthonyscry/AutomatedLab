@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Management;
+using System.Text.Json;
 using System.Threading.Tasks;
 using OpenCodeLab.Models;
 
@@ -16,8 +18,14 @@ public class HyperVService
         var vms = new List<VirtualMachine>();
         try
         {
+            // Load lab config to get Role and IP info
+            var labLookup = LoadLabConfigLookup();
+
             await Task.Run(() =>
             {
+                // Get all VM details via PowerShell (memory, CPU, IP) in one call
+                var vmDetails = GetAllVMDetails();
+
                 using var searcher = new ManagementObjectSearcher(HyperVNamespace,
                     "SELECT * FROM Msvm_ComputerSystem WHERE Caption = 'Virtual Machine'");
 
@@ -27,18 +35,112 @@ public class HyperVService
                     var state = vm["EnabledState"] != null
                         ? GetStateText((ushort)vm["EnabledState"]) : "Unknown";
 
-                    vms.Add(new VirtualMachine
+                    long memGB = 0;
+                    int cpus = 0;
+                    string? ip = null;
+
+                    // Use PowerShell data if available (more reliable than WMI)
+                    if (vmDetails.TryGetValue(name, out var details))
+                    {
+                        memGB = details.MemoryMB / 1024; // MB to GB
+                        cpus = details.Processors;
+                        ip = details.IP;
+                    }
+
+                    var vmObj = new VirtualMachine
                     {
                         Name = name, State = state,
-                        MemoryGB = GetVMMemoryGB(name),
-                        Processors = GetVMProcessors(name),
-                        Uptime = state == "Running" ? GetVMUptime(name) : TimeSpan.Zero
-                    });
+                        MemoryGB = memGB,
+                        Processors = cpus,
+                        Uptime = state == "Running" ? GetVMUptime(name) : TimeSpan.Zero,
+                        IPAddress = ip
+                    };
+
+                    // Enrich with lab config data (role, configured IP if not running)
+                    if (labLookup.TryGetValue(name, out var labVm))
+                    {
+                        vmObj.Role = labVm.Role ?? "Unknown";
+                        if (string.IsNullOrEmpty(vmObj.IPAddress) && !string.IsNullOrEmpty(labVm.IPAddress))
+                            vmObj.IPAddress = labVm.IPAddress;
+                    }
+
+                    vms.Add(vmObj);
                 }
             });
         }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}"); }
         return vms;
+    }
+
+    /// <summary>
+    /// Load the most recent lab config to get Role/IP mappings for VMs.
+    /// </summary>
+    private static Dictionary<string, VMDefinition> LoadLabConfigLookup()
+    {
+        var lookup = new Dictionary<string, VMDefinition>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var configDir = @"C:\LabSources\LabConfig";
+            if (!Directory.Exists(configDir)) return lookup;
+
+            // Find most recently modified lab config
+            var latestConfig = Directory.GetFiles(configDir, "*.json")
+                .OrderByDescending(File.GetLastWriteTime)
+                .FirstOrDefault();
+            if (latestConfig == null) return lookup;
+
+            var json = File.ReadAllText(latestConfig);
+            var config = JsonSerializer.Deserialize<LabConfig>(json);
+            if (config?.VMs == null) return lookup;
+
+            foreach (var vm in config.VMs)
+            {
+                if (!string.IsNullOrEmpty(vm.Name))
+                    lookup[vm.Name] = vm;
+            }
+        }
+        catch { }
+        return lookup;
+    }
+
+    /// <summary>
+    /// Get all VM details (memory, CPU, IP) via a single PowerShell call for efficiency.
+    /// </summary>
+    private static Dictionary<string, (long MemoryMB, int Processors, string? IP)> GetAllVMDetails()
+    {
+        var result = new Dictionary<string, (long, int, string?)>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -Command \"Get-VM | ForEach-Object { $ip = ($_ | Get-VMNetworkAdapter | Select-Object -ExpandProperty IPAddresses | Where-Object { $_ -match '^\\d+\\.\\d+\\.\\d+\\.\\d+$' -and $_ -ne '127.0.0.1' } | Select-Object -First 1); Write-Output \\\"$($_.Name)|$($_.MemoryAssigned / 1MB)|$($_.ProcessorCount)|$ip\\\" }\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(startInfo);
+            if (process == null) return result;
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = line.Trim().Split('|');
+                if (parts.Length >= 4)
+                {
+                    var name = parts[0];
+                    long.TryParse(parts[1], out var memMB);
+                    int.TryParse(parts[2], out var cpus);
+                    var ip = string.IsNullOrWhiteSpace(parts[3]) ? null : parts[3].Trim();
+                    result[name] = (memMB, cpus, ip);
+                }
+            }
+        }
+        catch { }
+        return result;
     }
 
     public async Task<bool> StartVMAsync(string vmName) => await ExecuteVMStateChangeAsync(vmName, 2);
