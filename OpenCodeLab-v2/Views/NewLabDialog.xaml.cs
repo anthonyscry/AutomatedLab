@@ -291,6 +291,12 @@ public class NewVMDialog : Window
 {
     private TextBox NameBox = new() { Text = "VM1" };
     private ComboBox RoleBox = new();
+    private CheckBox HostInternetBox = new()
+    {
+        Content = "Allow host internet (NAT)",
+        IsChecked = false,
+        ToolTip = "Controls outbound internet access via host NAT for this VM."
+    };
     private TextBox MemoryBox = new() { Text = "4" };
     private TextBox CPUBox = new() { Text = "2" };
     private TextBox DiskBox = new() { Text = "80" };
@@ -397,6 +403,8 @@ public class NewVMDialog : Window
         panel.Children.Add(CreateLabel("Operating System (auto-detected from role):"));
         OSDisplay.Margin = new Thickness(0, 0, 0, 5);
         panel.Children.Add(OSDisplay);
+        HostInternetBox.Margin = new Thickness(0, 0, 0, 5);
+        panel.Children.Add(HostInternetBox);
         panel.Children.Add(CreateLabel("ISOs must be placed in C:\\LabSources\\ISOs", 10));
 
         // Load existing values if editing
@@ -405,6 +413,7 @@ public class NewVMDialog : Window
             NameBox.Text = existingVM.Name;
             var roleIndex = Array.IndexOf(CommonRoles, existingVM.Role);
             RoleBox.SelectedIndex = roleIndex >= 0 ? roleIndex : 0;
+            HostInternetBox.IsChecked = existingVM.EnableHostInternet;
             MemoryBox.Text = existingVM.MemoryGB.ToString();
             CPUBox.Text = existingVM.Processors.ToString();
             DiskBox.Text = existingVM.DiskSizeGB.ToString();
@@ -512,6 +521,7 @@ public class NewVMDialog : Window
     {
         Name = NameBox.Text,
         Role = RoleBox.SelectedItem?.ToString() ?? "MemberServer",
+        EnableHostInternet = HostInternetBox.IsChecked == true,
         MemoryGB = long.TryParse(MemoryBox.Text, out var mem) ? mem : 4,
         Processors = int.TryParse(CPUBox.Text, out var cpu) ? cpu : 2,
         DiskSizeGB = long.TryParse(DiskBox.Text, out var disk) ? disk : 80

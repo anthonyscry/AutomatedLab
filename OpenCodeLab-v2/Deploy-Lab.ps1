@@ -30,6 +30,73 @@ function Report-DeployProgress {
     Write-Host "[$Percent%] $Status" -ForegroundColor Cyan
 }
 
+function Set-VMInternetPolicy {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VmName,
+        [Parameter(Mandatory = $true)]
+        [bool]$EnableHostInternet,
+        [Parameter(Mandatory = $false)]
+        [string]$Gateway = '192.168.10.1'
+    )
+
+    $modeLabel = if ($EnableHostInternet) { 'enabled' } else { 'disabled' }
+    Write-Host "  [NET] Applying host internet policy to ${VmName}: $modeLabel" -ForegroundColor Cyan
+
+    try {
+        $hvVm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
+        if (-not $hvVm) {
+            Write-Warning "Could not apply internet policy for $VmName: VM not found"
+            return
+        }
+
+        if ($hvVm.State -ne 'Running') {
+            Start-VM -Name $VmName -ErrorAction SilentlyContinue | Out-Null
+            Start-Sleep -Seconds 20
+        }
+
+        Invoke-LabCommand -ComputerName $VmName -ActivityName 'Apply host internet policy' -ScriptBlock {
+            param($AllowInternet, $NatGateway)
+
+            $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' })
+
+            foreach ($route in $defaultRoutes) {
+                Remove-NetRoute -AddressFamily IPv4 -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $route.InterfaceIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
+            }
+
+            if ($AllowInternet) {
+                $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+                    Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
+                    Select-Object -First 1
+
+                if (-not $nic) {
+                    throw 'No adapter found in 192.168.10.0/24 for NAT default route enforcement.'
+                }
+
+                New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $NatGateway -RouteMetric 25 -PolicyStore PersistentStore -ErrorAction SilentlyContinue | Out-Null
+
+                $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $NatGateway }
+
+                if (-not $hasExpectedRoute) {
+                    throw "Failed to set default route via $NatGateway"
+                }
+
+                "Host internet enabled via $NatGateway"
+            }
+            else {
+                'Host internet disabled (default routes removed)'
+            }
+        } -ArgumentList $EnableHostInternet, $Gateway -ErrorAction Stop | ForEach-Object {
+            Write-Host "    $_" -ForegroundColor Gray
+        }
+    }
+    catch {
+        Write-Warning "Could not apply internet policy for ${VmName}: $($_.Exception.Message)"
+    }
+}
+
 Report-DeployProgress -Percent 0 -Status "Starting deployment: $LabName"
 
 Write-Host "=== OpenCodeLab Deployment (AutomatedLab) ===" -ForegroundColor Cyan
@@ -633,7 +700,16 @@ if ($dcVM -and -not $installError) {
             param($pw)
             Import-Module ActiveDirectory -ErrorAction Stop
             if (-not (Get-ADUser -Filter "SamAccountName -eq 'dod_admin'" -ErrorAction SilentlyContinue)) {
-                $secPw = ConvertTo-SecureString $pw -AsPlainText -Force
+                if ([string]::IsNullOrWhiteSpace($pw)) {
+                    throw 'Admin password cannot be empty when creating dod_admin.'
+                }
+
+                $secPw = New-Object System.Security.SecureString
+                foreach ($ch in $pw.ToCharArray()) {
+                    $secPw.AppendChar($ch)
+                }
+                $secPw.MakeReadOnly()
+
                 New-ADUser -Name 'dod_admin' -SamAccountName 'dod_admin' -UserPrincipalName "dod_admin@$((Get-ADDomain).DNSRoot)" `
                     -AccountPassword $secPw -Enabled $true -PasswordNeverExpires $true -CannotChangePassword $false `
                     -Description 'Lab Domain Administrator'
@@ -838,6 +914,22 @@ if ($vhdxWarnings.Count -gt 0) {
 }
 
 Report-DeployProgress -Percent 85 -Status "VHDX validation complete"
+
+# ============================================================
+# POST-INSTALL: Per-VM internet policy enforcement (85-88%)
+# ============================================================
+Report-DeployProgress -Percent 86 -Status "Applying per-VM internet policy..."
+
+foreach ($vm in $vms) {
+    if ([string]::IsNullOrWhiteSpace($vm.Name)) { continue }
+
+    $internetEnabled = $false
+    if ($vm.PSObject.Properties.Name -contains 'EnableHostInternet') {
+        $internetEnabled = [bool]$vm.EnableHostInternet
+    }
+
+    Set-VMInternetPolicy -VmName $vm.Name -EnableHostInternet:$internetEnabled
+}
 
 # ============================================================
 # POST-INSTALL: Verify boot and show summary (85-95%)

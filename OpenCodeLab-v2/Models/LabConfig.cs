@@ -25,6 +25,7 @@ public class VMDefinition
 {
     public string Name { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public bool EnableHostInternet { get; set; } = false;
     public long MemoryGB { get; set; } = 4;
     public int Processors { get; set; } = 2;
     public string? SwitchName { get; set; }

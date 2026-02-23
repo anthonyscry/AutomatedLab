@@ -2,6 +2,11 @@
 
 OpenCodeLab v2 provides a modular PowerShell baseline for local lab lifecycle operations.
 
+## Network policy behavior
+
+- VM definitions now support per-VM host internet policy via an `Allow host internet (NAT)` checkbox in the VM editor.
+- The policy is enforced on both full deploy and incremental redeploy, including already-existing VMs.
+
 ## Test and quality gates
 
 Run quality gates from the repository root:

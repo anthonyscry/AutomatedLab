@@ -10,6 +10,7 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 - **Incremental labs** - Add VMs to existing labs without starting over
 - **EFI boot repair** - Automatic 3-method repair for Gen2 VM boot failures
 - **NAT networking** - Internal switch with NAT for VM internet access (no Wi-Fi bridge conflicts)
+- **Per-VM host internet policy** - New VM checkbox to allow/block outbound host internet access per machine
 - **Dashboard** - Live VM status, RAM, CPU, IP, and role information from Hyper-V
 - **Lab management** - Create, edit, deploy, and remove labs through the GUI
 - **Help & About** - Built-in quick reference guide and app information
@@ -30,6 +31,8 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 5. Click **Initialize Env** to install prerequisites (AutomatedLab, LabSources, network)
 6. Place ISOs in `C:\LabSources\ISOs\` (see `LabSources/ISOs/README.md`)
 7. Click **New Lab**, configure VMs, click **Deploy**
+
+Incremental redeploy applies updated per-VM host internet policy to existing VMs without recreating them.
 
 ## Default Configuration
 
