@@ -20,7 +20,7 @@ public class LabDeploymentService
     private const string DeployScriptName = "Deploy-Lab.ps1";
 
     public async Task<bool> DeployLabAsync(LabConfig config, Action<string>? log = null,
-        string? adminPassword = null, bool incremental = false, CancellationToken ct = default)
+        string? adminPassword = null, string deploymentMode = "full", CancellationToken ct = default)
     {
         try
         {
@@ -35,8 +35,24 @@ public class LabDeploymentService
             string workingDir = GetWorkingDirectory(config);
             Directory.CreateDirectory(workingDir);
 
-            // Clean up orphaned disks (skip in incremental mode - existing VMs need their disks)
-            if (!incremental)
+            var normalizedDeploymentMode = (deploymentMode ?? string.Empty).Trim().ToLowerInvariant();
+            var allowedModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "full",
+                "incremental",
+                "update-existing"
+            };
+            if (!allowedModes.Contains(normalizedDeploymentMode))
+            {
+                log?.Invoke($"WARNING: Unknown deployment mode '{deploymentMode}'. Falling back to non-destructive incremental mode.");
+                normalizedDeploymentMode = "incremental";
+            }
+
+            var useIncremental = string.Equals(normalizedDeploymentMode, "incremental", StringComparison.OrdinalIgnoreCase);
+            var useUpdateExisting = string.Equals(normalizedDeploymentMode, "update-existing", StringComparison.OrdinalIgnoreCase);
+
+            // Clean up orphaned disks only for full redeploy mode.
+            if (!useIncremental && !useUpdateExisting)
             {
                 Report(2, "Checking for orphaned VM disks...", log);
                 foreach (var vm in config.VMs)
@@ -95,7 +111,8 @@ public class LabDeploymentService
                 };
 
                 var switches = new List<string>();
-                if (incremental) switches.Add("Incremental");
+                if (useIncremental) switches.Add("Incremental");
+                if (useUpdateExisting) switches.Add("UpdateExisting");
 
                 result = await RunPowerShellScriptAsync(scriptPath, args, log, ct, switches);
             }

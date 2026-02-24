@@ -18,6 +18,8 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$Incremental,
     [Parameter(Mandatory=$false)]
+    [switch]$UpdateExisting,
+    [Parameter(Mandatory=$false)]
     [ValidateRange(1, [int]::MaxValue)]
     [int]$ParallelJobTimeoutSeconds = 180
 )
@@ -104,6 +106,64 @@ function Set-VMInternetPolicy {
     catch {
         Write-Warning "Could not apply internet policy for ${VmName}: $($_.Exception.Message)"
     }
+}
+
+function Update-ExistingVMSettings {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VmName,
+        [Parameter(Mandatory = $true)]
+        [int]$Processors,
+        [Parameter(Mandatory = $true)]
+        [int64]$StartupMemoryBytes,
+        [Parameter(Mandatory = $true)]
+        [string]$SwitchName
+    )
+
+    $result = [pscustomobject]@{
+        VMName = $VmName
+        UpdatedFields = @()
+        RequiresRecreate = $false
+        Reason = ''
+    }
+
+    $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
+    if (-not $vm) {
+        $result.Reason = 'VM not found'
+        return $result
+    }
+
+    if ($vm.Generation -ne 2) {
+        $result.RequiresRecreate = $true
+        $result.Reason = 'Generation mismatch requires recreate for safe reconciliation'
+        return $result
+    }
+
+    try {
+        if ($vm.ProcessorCount -ne $Processors) {
+            Set-VMProcessor -VMName $VmName -Count $Processors -ErrorAction Stop
+            $result.UpdatedFields += 'Processors'
+        }
+
+        if ($vm.MemoryStartup -ne $StartupMemoryBytes) {
+            $minBytes = [int64][Math]::Max(536870912, [int64]($StartupMemoryBytes / 2))
+            $maxBytes = [int64]($StartupMemoryBytes * 2)
+            Set-VMMemory -VMName $VmName -StartupBytes $StartupMemoryBytes -DynamicMemoryEnabled $true -MinimumBytes $minBytes -MaximumBytes $maxBytes -ErrorAction Stop
+            $result.UpdatedFields += 'Memory'
+        }
+
+        $adapter = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($adapter -and $adapter.SwitchName -ne $SwitchName) {
+            Connect-VMNetworkAdapter -VMName $VmName -SwitchName $SwitchName -ErrorAction Stop
+            $result.UpdatedFields += 'NetworkSwitch'
+        }
+    }
+    catch {
+        $result.RequiresRecreate = $true
+        $result.Reason = "In-place update failed: $($_.Exception.Message)"
+    }
+
+    return $result
 }
 
 Report-DeployProgress -Percent 0 -Status "Starting deployment: $LabName"
@@ -214,7 +274,33 @@ foreach ($vm in $vms) {
 $newVMs = @($vms | Where-Object { $_.Name -notin $existingVMNames })
 $keepVMs = @($vms | Where-Object { $_.Name -in $existingVMNames })
 
-if ($Incremental -and $existingVMNames.Count -gt 0) {
+$WillUpdateInPlace = @()
+$WillCreate = @()
+$RequiresRecreate = @()
+$Skipped = @()
+
+if ($UpdateExisting) {
+    Report-DeployProgress -Percent 6 -Status "Update-existing mode: reconciling existing VM(s)..."
+    Write-Host ""
+    Write-Host "=== UPDATE EXISTING DEPLOYMENT ===" -ForegroundColor Green
+    foreach ($name in $existingVMNames) {
+        $hvVM = Get-VM -Name $name -ErrorAction SilentlyContinue
+        Write-Host "  [KEEP] $name (State: $($hvVM.State))" -ForegroundColor Green
+    }
+    if ($newVMs.Count -gt 0) {
+        foreach ($vm in $newVMs) {
+            Write-Host "  [NEW]  $($vm.Name) ($($vm.Role))" -ForegroundColor Yellow
+        }
+    }
+
+    foreach ($vm in $newVMs) {
+        $vhdDir = "$VMPath\$($vm.Name)"
+        if (Test-Path $vhdDir) {
+            Write-Host "  Removing stale disk for new VM: $($vm.Name)" -ForegroundColor Yellow
+            Remove-Item $vhdDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+} elseif ($Incremental -and $existingVMNames.Count -gt 0) {
     Report-DeployProgress -Percent 6 -Status "Incremental mode: keeping $($existingVMNames.Count) existing VM(s)..."
     Write-Host ""
     Write-Host "=== INCREMENTAL DEPLOYMENT ===" -ForegroundColor Green
@@ -344,7 +430,7 @@ Report-DeployProgress -Percent 15 -Status "Cleanup complete"
 # ============================================================
 Report-DeployProgress -Percent 16 -Status "Creating lab definition..."
 
-if ($Incremental -and $existingVMNames.Count -gt 0) {
+if (($Incremental -or $UpdateExisting) -and $existingVMNames.Count -gt 0) {
     # Import existing lab so AutomatedLab knows about current VMs
     Import-Lab -Name $LabName -NoValidation -ErrorAction SilentlyContinue
 }
@@ -386,8 +472,8 @@ foreach ($vm in $vms) {
         continue
     }
 
-    # Track whether this VM already exists (incremental mode)
-    $vmAlreadyExists = $Incremental -and $vmName -in $existingVMNames
+    # Track whether this VM already exists (incremental/update mode)
+    $vmAlreadyExists = ($Incremental -or $UpdateExisting) -and $vmName -in $existingVMNames
 
     $memoryBytes = [int64]$vm.MemoryGB * 1GB
     $procCount = 2
@@ -446,8 +532,23 @@ foreach ($vm in $vms) {
 
     if ($vmAlreadyExists) {
         Write-Host "  [EXISTING] $vmName ($vmRole) - $os, IP: $ip (will be kept)" -ForegroundColor DarkGray
+        if ($UpdateExisting) {
+            $reconcile = Update-ExistingVMSettings -VmName $vmName -Processors $procCount -StartupMemoryBytes $memoryBytes -SwitchName $LabName
+            if ($reconcile.RequiresRecreate) {
+                $RequiresRecreate += "$vmName: $($reconcile.Reason)"
+                Write-Warning "Skipping destructive recreate in update-existing mode for $vmName: $($reconcile.Reason)"
+            }
+            elseif ($reconcile.UpdatedFields.Count -gt 0) {
+                $WillUpdateInPlace += "$vmName => $($reconcile.UpdatedFields -join ', ')"
+                Write-Host "    [UPDATE] $vmName: $($reconcile.UpdatedFields -join ', ')" -ForegroundColor Cyan
+            }
+            else {
+                $Skipped += "$vmName: already compliant"
+            }
+        }
     } else {
         Write-Host "  $vmName ($vmRole) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
+        $WillCreate += $vmName
     }
 
     # Always add to lab definition so AutomatedLab validates domain topology correctly
@@ -456,6 +557,15 @@ foreach ($vm in $vms) {
 }
 
 Report-DeployProgress -Percent 20 -Status "Machine definitions complete"
+
+if ($UpdateExisting) {
+    Write-Host "" 
+    Write-Host "Update-existing summary:" -ForegroundColor Cyan
+    Write-Host "  WillUpdateInPlace: $($WillUpdateInPlace.Count)" -ForegroundColor Cyan
+    Write-Host "  WillCreate: $($WillCreate.Count)" -ForegroundColor Cyan
+    Write-Host "  RequiresRecreate: $($RequiresRecreate.Count)" -ForegroundColor Cyan
+    Write-Host "  Skipped: $($Skipped.Count)" -ForegroundColor Cyan
+}
 
 # ============================================================
 # PRE-INSTALL: Create base images and validate EFI boot (20-30%)
@@ -955,6 +1065,7 @@ foreach ($vm in $vms) {
 
     $internetPolicyTargets += [pscustomobject]@{
         VMName             = [string]$vm.Name
+        LabName            = [string]$LabName
         EnableHostInternet = $internetEnabled
         Gateway            = '192.168.10.1'
     }
@@ -967,12 +1078,14 @@ $internetPolicyResults = Invoke-ParallelLabJobs -Items $internetPolicyTargets -T
     param($item)
 
     $vmName = [string]$item.VMName
+    $labName = [string]$item.LabName
     $enableHostInternet = [bool]$item.EnableHostInternet
     $gateway = [string]$item.Gateway
 
     try {
         Import-Module Hyper-V -ErrorAction Stop
         Import-Module AutomatedLab -ErrorAction Stop
+        Import-Lab -Name $labName -NoValidation -ErrorAction Stop | Out-Null
 
         $hvVm = Get-VM -Name $vmName -ErrorAction Stop
 
