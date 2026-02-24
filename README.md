@@ -101,6 +101,16 @@ dotnet build -c Release -r win-x64
 dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish
 ```
 
+## Launcher
+
+Run the repository launcher from root:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File "./Scripts/Run-OpenCodeLab.ps1"
+```
+
+If no arguments are passed, the launcher opens interactive menu mode.
+
 ## Release Packaging
 
 For release maintainers, use the split-artifact packaging script:

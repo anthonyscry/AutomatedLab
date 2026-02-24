@@ -55,6 +55,9 @@ LabBuilder/
 Private/
 Public/
 Scripts/
+!Scripts/
+Scripts/*
+!Scripts/Run-OpenCodeLab.ps1
 Templates/
 Ansible/
 Tests/
