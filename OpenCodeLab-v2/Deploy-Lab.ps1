@@ -16,10 +16,19 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$VMPath = "C:\LabSources\VMs",
     [Parameter(Mandatory=$false)]
-    [switch]$Incremental
+    [switch]$Incremental,
+    [Parameter(Mandatory=$false)]
+    [ValidateRange(1, [int]::MaxValue)]
+    [int]$ParallelJobTimeoutSeconds = 180
 )
 
 $ErrorActionPreference = 'Continue'
+
+$parallelJobHelperPath = Join-Path $PSScriptRoot 'Services\ParallelJobOrchestration.ps1'
+if (-not (Test-Path $parallelJobHelperPath)) {
+    throw "Missing required helper script: $parallelJobHelperPath"
+}
+. $parallelJobHelperPath
 
 # ============================================================
 # PROGRESS HELPER
@@ -46,7 +55,7 @@ function Set-VMInternetPolicy {
     try {
         $hvVm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
         if (-not $hvVm) {
-            Write-Warning "Could not apply internet policy for $VmName: VM not found"
+            Write-Warning "Could not apply internet policy for ${VmName}: VM not found"
             return
         }
 
@@ -933,15 +942,112 @@ Report-DeployProgress -Percent 85 -Status "VHDX validation complete"
 # ============================================================
 Report-DeployProgress -Percent 86 -Status "Applying per-VM internet policy..."
 
+$internetPolicyTargets = @()
 foreach ($vm in $vms) {
-    if ([string]::IsNullOrWhiteSpace($vm.Name)) { continue }
+    if ([string]::IsNullOrWhiteSpace($vm.Name)) {
+        continue
+    }
 
     $internetEnabled = $false
     if ($vm.PSObject.Properties.Name -contains 'EnableHostInternet') {
         $internetEnabled = [bool]$vm.EnableHostInternet
     }
 
-    Set-VMInternetPolicy -VmName $vm.Name -EnableHostInternet:$internetEnabled
+    $internetPolicyTargets += [pscustomobject]@{
+        VMName             = [string]$vm.Name
+        EnableHostInternet = $internetEnabled
+        Gateway            = '192.168.10.1'
+    }
+}
+
+$internetPolicyResults = Invoke-ParallelLabJobs -Items $internetPolicyTargets -TimeoutSeconds $ParallelJobTimeoutSeconds -NameScript {
+    param($item)
+    "internet-policy-$($item.VMName)"
+} -WorkerScript {
+    param($item)
+
+    $vmName = [string]$item.VMName
+    $enableHostInternet = [bool]$item.EnableHostInternet
+    $gateway = [string]$item.Gateway
+
+    try {
+        Import-Module Hyper-V -ErrorAction Stop
+        Import-Module AutomatedLab -ErrorAction Stop
+
+        $hvVm = Get-VM -Name $vmName -ErrorAction Stop
+
+        if ($hvVm.State -ne 'Running') {
+            Start-VM -Name $vmName -ErrorAction Stop | Out-Null
+            Start-Sleep -Seconds 20
+        }
+
+        $commandOutput = @(Invoke-LabCommand -ComputerName $vmName -ActivityName 'Apply host internet policy' -ScriptBlock {
+                param($allowInternet, $natGateway)
+
+                $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' })
+
+                foreach ($route in $defaultRoutes) {
+                    Remove-NetRoute -AddressFamily IPv4 -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $route.InterfaceIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
+                }
+
+                if ($allowInternet) {
+                    $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+                        Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
+                        Select-Object -First 1
+
+                    if (-not $nic) {
+                        throw 'No adapter found in 192.168.10.0/24 for NAT default route enforcement.'
+                    }
+
+                    New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $natGateway -RouteMetric 25 -PolicyStore PersistentStore -ErrorAction SilentlyContinue | Out-Null
+
+                    $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                        Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $natGateway }
+
+                    if (-not $hasExpectedRoute) {
+                        throw "Failed to set default route via $natGateway"
+                    }
+
+                    "Host internet enabled via $natGateway"
+                }
+                else {
+                    'Host internet disabled (default routes removed)'
+                }
+            } -ArgumentList $enableHostInternet, $gateway -ErrorAction Stop)
+
+        [pscustomobject]@{
+            VMName       = $vmName
+            Succeeded    = $true
+            ErrorMessage = ''
+            Details      = @($commandOutput)
+        }
+    }
+    catch {
+        [pscustomobject]@{
+            VMName       = $vmName
+            Succeeded    = $false
+            ErrorMessage = $_.Exception.Message
+            Details      = @()
+        }
+    }
+}
+
+$internetPolicyFailures = @()
+foreach ($jobResult in $internetPolicyResults) {
+    if ($jobResult.Succeeded) {
+        $workerResult = if ($jobResult.Output.Count -gt 0) { $jobResult.Output[-1] } else { $null }
+        $workerVmName = if ($workerResult -and ($workerResult.PSObject.Properties.Name -contains 'VMName')) { [string]$workerResult.VMName } else { $jobResult.Name }
+        Write-Host "  [NET][OK] $workerVmName" -ForegroundColor Green
+        continue
+    }
+
+    $internetPolicyFailures += $jobResult
+    Write-Warning "Internet policy failed for $($jobResult.Name) [$($jobResult.FailureCategory)]: $($jobResult.ErrorMessage)"
+}
+
+if ($internetPolicyFailures.Count -gt 0) {
+    Write-Host "  [NET] Failed internet policy jobs: $($internetPolicyFailures.Count)" -ForegroundColor Yellow
 }
 
 # ============================================================
@@ -967,6 +1073,14 @@ if ($installError -and $vhdxWarnings.Count -gt 0) {
     Write-Host "=== Deployment Finished With Errors ===" -ForegroundColor Red
     Write-Host "Install-Lab error: $($installError.Exception.Message)" -ForegroundColor Red
     Write-Host "VHDX warnings: $($vhdxWarnings.Count)" -ForegroundColor Red
+    exit 1
+} elseif ($internetPolicyFailures.Count -gt 0) {
+    Report-DeployProgress -Percent 100 -Status "Deployment finished with internet policy failures"
+    Write-Host "" 
+    Write-Host "=== Deployment Finished With Internet Policy Failures ===" -ForegroundColor Red
+    foreach ($policyFailure in $internetPolicyFailures) {
+        Write-Host "  - $($policyFailure.Name): [$($policyFailure.FailureCategory)] $($policyFailure.ErrorMessage)" -ForegroundColor Red
+    }
     exit 1
 } elseif ($vhdxWarnings.Count -gt 0) {
     Report-DeployProgress -Percent 100 -Status "Deployment finished with VHDX warnings"
