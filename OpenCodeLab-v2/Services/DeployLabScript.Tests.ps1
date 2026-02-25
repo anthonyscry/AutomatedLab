@@ -4,7 +4,12 @@ BeforeAll {
 }
 
 Describe 'Deploy-Lab internet policy orchestration' {
-    It 'passes lab name into internet policy worker item context' {
-        $script:deployScript | Should -Match '\$labName\s*=\s*\[string\]\$item\.LabName'
+    It 'does not orchestrate internet policy via parallel jobs' {
+        $script:deployScript | Should -Not -Match 'Invoke-ParallelLabJobs\s+-Items\s+\$internetPolicyTargets'
+    }
+
+    It 'applies internet policy sequentially for each VM target' {
+        $script:deployScript | Should -Match 'foreach\s*\(\$item\s+in\s+\$internetPolicyTargets\)\s*\{'
+        $script:deployScript | Should -Match 'Set-VMInternetPolicy\s+-VmName\s+\$item\.VMName\s+-EnableHostInternet\s+\$item\.EnableHostInternet\s+-Gateway\s+\$item\.Gateway'
     }
 }

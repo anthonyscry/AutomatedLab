@@ -62,7 +62,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Switch Type:" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="1" SelectedItem="{Binding DefaultSwitchType}" Margin="5">
+                            <ComboBox Grid.Column="1" SelectedValuePath="Content" SelectedValue="{Binding DefaultSwitchType}" Margin="5">
                                 <ComboBoxItem Content="Internal"/>
                                 <ComboBoxItem Content="External"/>
                                 <ComboBoxItem Content="Private"/>

@@ -33,6 +33,17 @@ public partial class NewLabDialog : Window
             EditVMButton.IsEnabled = VMListBox.SelectedItem != null;
             DeleteVMButton.IsEnabled = VMListBox.SelectedItem != null;
         };
+
+        LabNameBox.TextChanged += (s, e) =>
+        {
+            if (CreateButton != null)
+                CreateButton.IsEnabled = !string.IsNullOrWhiteSpace(LabNameBox.Text);
+        };
+    }
+
+    public NewLabDialog(AppSettings defaults) : this()
+    {
+        ApplyDefaults(defaults);
     }
 
     /// <summary>
@@ -65,6 +76,24 @@ public partial class NewLabDialog : Window
         RefreshVMList();
     }
 
+    private void ApplyDefaults(AppSettings defaults)
+    {
+        if (!string.IsNullOrWhiteSpace(defaults.DefaultSwitchName))
+            SwitchNameBox.Text = defaults.DefaultSwitchName;
+
+        if (!string.IsNullOrWhiteSpace(defaults.DefaultSwitchType))
+        {
+            for (int i = 0; i < SwitchTypeBox.Items.Count; i++)
+            {
+                if (((ComboBoxItem)SwitchTypeBox.Items[i]).Content.ToString() == defaults.DefaultSwitchType)
+                {
+                    SwitchTypeBox.SelectedIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
     private void AddVMButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new NewVMDialog(_vms);
@@ -73,6 +102,7 @@ public partial class NewLabDialog : Window
             _vms.Add(dialog.GetVMDefinition());
             RefreshVMList();
         }
+        AddVMButton.Focus();
     }
 
     private void EditVMButton_Click(object sender, RoutedEventArgs e)
@@ -89,6 +119,7 @@ public partial class NewLabDialog : Window
                 RefreshVMList();
             }
         }
+        EditVMButton.Focus();
     }
 
     private void DeleteVMButton_Click(object sender, RoutedEventArgs e)
@@ -106,6 +137,7 @@ public partial class NewLabDialog : Window
             _vms.Remove(selectedVM);
             RefreshVMList();
         }
+        DeleteVMButton.Focus();
     }
 
     private void RefreshVMList()
@@ -190,7 +222,7 @@ public class PasswordDialog : Window
         {
             Text = "Set OPENCODELAB_ADMIN_PASSWORD before launch to skip this prompt in non-interactive deployments.",
             FontSize = 10,
-            Foreground = System.Windows.Media.Brushes.Gray
+            Foreground = SystemColors.GrayTextBrush
         };
         hintPanel.Children.Add(message);
         hintPanel.Children.Add(policyHint);
@@ -225,7 +257,7 @@ public class PasswordDialog : Window
         {
             Text = "Tip: Use OPENCODELAB_ADMIN_PASSWORD from automation only when deployment is launched non-interactively.",
             FontSize = 10,
-            Foreground = System.Windows.Media.Brushes.Gray,
+            Foreground = SystemColors.GrayTextBrush,
             Margin = new Thickness(0, 10, 0, 0)
         };
 
@@ -254,8 +286,8 @@ public class PasswordDialog : Window
             Width = 80,
             Height = 32,
             Margin = new Thickness(5),
-            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 120, 212)),
-            Foreground = System.Windows.Media.Brushes.White
+            Background = SystemColors.HighlightBrush,
+            Foreground = SystemColors.HighlightTextBrush
         };
         okBtn.Click += (s, e) =>
         {
@@ -321,7 +353,7 @@ public class NewVMDialog : Window
     private TextBox MemoryBox = new() { Text = "4" };
     private TextBox CPUBox = new() { Text = "2" };
     private TextBox DiskBox = new() { Text = "80" };
-    private TextBlock OSDisplay = new() { FontStyle = FontStyles.Italic, Foreground = System.Windows.Media.Brushes.Gray };
+    private TextBlock OSDisplay = new() { FontStyle = FontStyles.Italic, Foreground = SystemColors.GrayTextBrush };
     private List<VMDefinition> _existingVMs = new();
     private readonly bool _isEditMode;
     private bool _suspendAutoName;
@@ -479,8 +511,8 @@ public class NewVMDialog : Window
             Width = 90,
             Height = 32,
             Margin = new Thickness(5),
-            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 120, 212)),
-            Foreground = System.Windows.Media.Brushes.White
+            Background = SystemColors.HighlightBrush,
+            Foreground = SystemColors.HighlightTextBrush
         };
         saveBtn.Click += (s, e) =>
         {

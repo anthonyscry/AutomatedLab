@@ -38,7 +38,7 @@
                             </Style.Triggers>
                         </Style>
                     </Grid.Style>
-                    <TextBlock Text="Logs saved to: C:\LabSources\Logs\deployment-YYYYMMDD-HHMMSS.log" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="Logs saved to: &lt;Configured LabSources&gt;\Logs\deployment-YYYYMMDD-HHMMSS.log" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
                 </Grid>
                 <Grid Margin="0,5,0,0">
                     <Grid.Style>
@@ -50,7 +50,11 @@
                             </Style.Triggers>
                         </Style>
                     </Grid.Style>
-                    <Button Content="Cancel Deployment" Command="{Binding CancelDeployCommand}" Height="30" Background="#8B0000" Foreground="White" FontSize="11" Padding="15,2"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Cancel Deployment" Command="{Binding CancelDeployCommand}" Height="30" Background="#8B0000" Foreground="White" FontSize="11" Padding="15,2"/>
+                        <TextBlock Text="Cancelling..." Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"
+                                   Visibility="{Binding IsCancellationRequested, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
         </Border>

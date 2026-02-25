@@ -3,13 +3,14 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using OpenCodeLab.Models;
+using OpenCodeLab.Services;
 
 namespace OpenCodeLab.ViewModels;
 
 public class SettingsViewModel : ObservableObject
 {
     private AppSettings _settings = new();
-    private string _settingsPath;
+    private readonly string _settingsPath;
 
     public AsyncCommand SaveSettingsCommand { get; }
     public AsyncCommand LoadSettingsCommand { get; }
@@ -71,7 +72,7 @@ public class SettingsViewModel : ObservableObject
 
     public SettingsViewModel()
     {
-        _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenCodeLab", "settings.json");
+        _settingsPath = AppSettingsStore.GetSettingsPath();
         LoadSettingsFromFile();
         SaveSettingsCommand = new AsyncCommand(SaveSettingsAsync);
         LoadSettingsCommand = new AsyncCommand(LoadSettingsAsync);
@@ -80,16 +81,7 @@ public class SettingsViewModel : ObservableObject
 
     private void LoadSettingsFromFile()
     {
-        try
-        {
-            if (File.Exists(_settingsPath))
-            {
-                var json = File.ReadAllText(_settingsPath);
-                var loaded = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json);
-                if (loaded != null) _settings = loaded;
-            }
-        }
-        catch { }
+        _settings = AppSettingsStore.LoadOrDefault();
         OnPropertyChanged(nameof(DefaultLabPath));
         OnPropertyChanged(nameof(LabConfigPath));
         OnPropertyChanged(nameof(ISOPath));
@@ -113,8 +105,7 @@ public class SettingsViewModel : ObservableObject
                 Directory.CreateDirectory(_settings.ISOPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
 
-                var json = System.Text.Json.JsonSerializer.Serialize(_settings, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_settingsPath, json);
+                AppSettingsStore.Save(_settingsPath, _settings);
             }
             catch { }
         });
@@ -127,21 +118,20 @@ public class SettingsViewModel : ObservableObject
             var dialog = new OpenFileDialog { Filter = "Settings Files|*.json|All Files|*.*", Title = "Load Settings" };
             if (dialog.ShowDialog() == true)
             {
-                try
+                var loaded = AppSettingsStore.LoadFromPath(dialog.FileName);
+                if (loaded != null)
                 {
-                    var json = File.ReadAllText(dialog.FileName);
-                    var loaded = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json);
-                    if (loaded != null) _settings = loaded;
+                    _settings = loaded;
                     OnPropertyChanged(nameof(DefaultLabPath));
                     OnPropertyChanged(nameof(LabConfigPath));
                     OnPropertyChanged(nameof(ISOPath));
+                    OnPropertyChanged(nameof(VMPath));
                     OnPropertyChanged(nameof(DefaultSwitchName));
                     OnPropertyChanged(nameof(DefaultSwitchType));
                     OnPropertyChanged(nameof(EnableAutoStart));
                     OnPropertyChanged(nameof(RefreshIntervalSeconds));
                     OnPropertyChanged(nameof(MaxLogLines));
                 }
-                catch { }
             }
         });
     }
@@ -159,17 +149,4 @@ public class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(RefreshIntervalSeconds));
         OnPropertyChanged(nameof(MaxLogLines));
     }
-}
-
-public class AppSettings
-{
-    public string DefaultLabPath { get; set; } = @"C:\LabSources";
-    public string LabConfigPath { get; set; } = @"C:\LabSources\LabConfig";
-    public string ISOPath { get; set; } = @"C:\LabSources\ISOs";
-    public string VMPath { get; set; } = @"C:\LabSources\VMs";
-    public string DefaultSwitchName { get; set; } = "LabSwitch";
-    public string DefaultSwitchType { get; set; } = "Internal";
-    public bool EnableAutoStart { get; set; }
-    public int RefreshIntervalSeconds { get; set; } = 10;
-    public int MaxLogLines { get; set; } = 1000;
 }
