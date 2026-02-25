@@ -60,9 +60,14 @@ function Show-LauncherMenu {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $repoRoot = Split-Path -Parent $scriptDir
 $projectPath = Join-Path $repoRoot 'OpenCodeLab-v2/OpenCodeLab-V2.csproj'
+$hostEnvironmentPath = Join-Path $repoRoot 'OpenCodeLab-v2/Services/HostEnvironment.ps1'
 
 if (-not (Test-Path -Path $projectPath -PathType Leaf)) {
     throw "Required project file not found: $projectPath"
+}
+
+if (Test-Path -Path $hostEnvironmentPath -PathType Leaf) {
+    . $hostEnvironmentPath
 }
 
 $effectiveArguments = @($AppArguments | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -89,6 +94,17 @@ if ($menuMode) {
 
 if (-not $SkipBuild) {
     Invoke-OpenCodeLabBuild -ProjectPath $projectPath
+}
+
+$launchGuard = if (Get-Command -Name Test-OpenCodeLabLaunchPreconditions -ErrorAction SilentlyContinue) {
+    Test-OpenCodeLabLaunchPreconditions
+}
+else {
+    [pscustomobject]@{ CanLaunch = $true; Message = '' }
+}
+
+if (-not $launchGuard.CanLaunch) {
+    throw $launchGuard.Message
 }
 
 if ($GUI) {

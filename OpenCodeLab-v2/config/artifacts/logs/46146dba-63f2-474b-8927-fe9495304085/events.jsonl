@@ -1,0 +1,2 @@
+{"timestamp":"2026-02-24T22:48:37.4525606+00:00","mode":"full","type":"run-started","action":"unsupported-command"}
+{"timestamp":"2026-02-24T22:48:37.7064655+00:00","failureCategory":"ConfigError","durationMs":48,"type":"run-finished","succeeded":false}

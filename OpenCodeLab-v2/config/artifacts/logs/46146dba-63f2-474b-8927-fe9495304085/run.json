@@ -1,0 +1,13 @@
+{
+  "RunId": "46146dba-63f2-474b-8927-fe9495304085",
+  "Action": "unsupported-command",
+  "RequestedMode": "full",
+  "EffectiveMode": "full",
+  "PolicyOutcome": "Approved",
+  "Succeeded": false,
+  "FailureCategory": "ConfigError",
+  "ErrorCode": "UNSUPPORTED_COMMAND",
+  "RecoveryHint": "Unsupported command: unsupported-command",
+  "ArtifactPath": "/mnt/c/projects/OpenCodeLab/OpenCodeLab-v2/config/artifacts/logs/46146dba-63f2-474b-8927-fe9495304085",
+  "DurationMs": 48
+}

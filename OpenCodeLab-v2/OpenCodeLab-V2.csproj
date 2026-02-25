@@ -26,6 +26,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="Services\*.ps1" Exclude="Services\*.Tests.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Link>Services\%(Filename)%(Extension)</Link>
+    </Content>
     <!-- Bundled PowerShell 7 for airgapped deployment -->
     <Content Include="pwsh\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

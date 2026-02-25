@@ -1,0 +1,6 @@
+Action: dashboard
+Succeeded: True
+FailureCategory: 
+ErrorCode: 
+DurationMs: 92
+ArtifactPath: /mnt/c/projects/OpenCodeLab/OpenCodeLab-v2/config/artifacts/logs/d51b6b53-7e06-485e-943d-9da9637ba24c
