@@ -65,7 +65,7 @@ If deployment reports an OS mismatch, verify your ISO edition names against this
 |---------|---------|
 | Domain | lab.com |
 | Admin Account | dod_admin (Domain Admins + Enterprise Admins) |
-| Admin Password | Server123! |
+| Admin Password | Prompted during deployment (or OPENCODELAB_ADMIN_PASSWORD) |
 | VM RAM | 4 GB |
 | VM Disk | 80 GB |
 | VM Storage | C:\LabSources\VMs |
@@ -110,6 +110,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File "./Scripts/Run-OpenCodeLab.ps1"
 ```
 
 If no arguments are passed, the launcher opens interactive menu mode.
+GUI launch requires Windows host PowerShell with Administrator elevation; WSL can run build/menu flow but cannot start the WPF `.exe` directly.
 
 ## Release Packaging
 

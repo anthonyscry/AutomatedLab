@@ -1,60 +1,67 @@
 <Window x:Class="OpenCodeLab.Views.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:views="clr-namespace:OpenCodeLab.Views"
-        mc:Ignorable="d" Title="OpenCodeLab - Hyper-V Lab Manager" Height="650" Width="1000" WindowStartupLocation="CenterScreen">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+         xmlns:views="clr-namespace:OpenCodeLab.Views"
+         mc:Ignorable="d" Title="OpenCodeLab - Hyper-V Lab Manager" Height="650" Width="1000" WindowStartupLocation="CenterScreen"
+         KeyboardNavigation.TabNavigation="Cycle"
+         PreviewKeyDown="Window_PreviewKeyDown">
+     <Grid>
+         <Grid.ColumnDefinitions>
+             <ColumnDefinition Width="200"/>
+             <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar Navigation -->
-        <Border Grid.Column="0" Background="{StaticResource CardBrush}" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
-            <StackPanel Margin="0,20,0,0">
-                <!-- Logo/Title -->
-                <StackPanel Margin="20,0,20,30">
-                    <TextBlock Text="OpenCodeLab" FontSize="20" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
-                    <TextBlock Text="Lab Manager" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
-                </StackPanel>
+         <!-- Sidebar Navigation -->
+         <Border Grid.Column="0" Background="{StaticResource CardBrush}" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+             <StackPanel Margin="0,20,0,0" KeyboardNavigation.TabNavigation="Cycle">
+                 <!-- Logo/Title -->
+                 <StackPanel Margin="20,0,20,30">
+                     <TextBlock Text="OpenCodeLab" FontSize="20" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                     <TextBlock Text="Lab Manager" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                 </StackPanel>
 
-                <!-- Nav Items -->
-                <Button Name="DashboardButton" Click="NavButton_Click" Tag="Dashboard" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="📊" FontSize="16" Margin="0,0,10,0"/>
-                        <TextBlock Text="Dashboard" FontWeight="Medium"/>
-                    </StackPanel>
-                </Button>
-                <Button Name="ActionsButton" Click="NavButton_Click" Tag="Actions" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⚡" FontSize="16" Margin="0,0,10,0"/>
-                        <TextBlock Text="Actions" FontWeight="Medium"/>
-                    </StackPanel>
-                </Button>
-                <Button Name="SettingsButton" Click="NavButton_Click" Tag="Settings" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⚙️" FontSize="16" Margin="0,0,10,0"/>
-                        <TextBlock Text="Settings" FontWeight="Medium"/>
-                    </StackPanel>
-                </Button>
+                 <!-- Nav Items -->
+                <Button Name="DashboardButton" Click="NavButton_Click" Tag="Dashboard" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="1"
+                        ToolTip="Open Dashboard" AutomationProperties.Name="Open Dashboard">
+                     <StackPanel Orientation="Horizontal">
+                         <TextBlock Text="📊" FontSize="16" Margin="0,0,10,0"/>
+                         <AccessText Text="_Dashboard" FontWeight="Medium"/>
+                      </StackPanel>
+                  </Button>
+                <Button Name="ActionsButton" Click="NavButton_Click" Tag="Actions" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="2"
+                        ToolTip="Open Actions" AutomationProperties.Name="Open Actions">
+                     <StackPanel Orientation="Horizontal">
+                         <TextBlock Text="⚡" FontSize="16" Margin="0,0,10,0"/>
+                         <AccessText Text="_Actions" FontWeight="Medium"/>
+                      </StackPanel>
+                  </Button>
+                <Button Name="SettingsButton" Click="NavButton_Click" Tag="Settings" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="3"
+                        ToolTip="Open Settings" AutomationProperties.Name="Open Settings">
+                     <StackPanel Orientation="Horizontal">
+                         <TextBlock Text="⚙️" FontSize="16" Margin="0,0,10,0"/>
+                         <AccessText Text="_Settings" FontWeight="Medium"/>
+                      </StackPanel>
+                  </Button>
 
-                <Separator Margin="15,20"/>
+                 <Separator Margin="15,20"/>
 
-                <!-- Help & About -->
-                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="?" FontSize="16" Margin="0,0,10,0" FontWeight="Bold"/>
-                        <TextBlock Text="Help" FontWeight="Medium"/>
-                    </StackPanel>
-                </Button>
-                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="i" FontSize="16" Margin="0,0,10,0" FontWeight="Bold" FontStyle="Italic"/>
-                        <TextBlock Text="About" FontWeight="Medium"/>
-                    </StackPanel>
-                </Button>
+                 <!-- Help & About -->
+                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="4"
+                        ToolTip="Open Help" AutomationProperties.Name="Open Help">
+                     <StackPanel Orientation="Horizontal">
+                         <TextBlock Text="?" FontSize="16" Margin="0,0,10,0" FontWeight="Bold"/>
+                         <AccessText Text="_Help" FontWeight="Medium"/>
+                      </StackPanel>
+                  </Button>
+                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="5"
+                        ToolTip="Open About" AutomationProperties.Name="Open About">
+                     <StackPanel Orientation="Horizontal">
+                         <TextBlock Text="i" FontSize="16" Margin="0,0,10,0" FontWeight="Bold" FontStyle="Italic"/>
+                         <AccessText Text="_About" FontWeight="Medium"/>
+                      </StackPanel>
+                  </Button>
 
                 <Separator Margin="15,15"/>
 

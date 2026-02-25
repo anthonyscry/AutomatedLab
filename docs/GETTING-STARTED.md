@@ -90,7 +90,7 @@ Navigate to **Actions** in the sidebar and click **New Lab**:
 
 ### Step 7 - Deploy
 
-Select your lab from the list and click **Deploy**. Enter the admin password when prompted (default: `Server123!`).
+Select your lab from the list and click **Deploy**. Enter the domain admin password when prompted, or set `OPENCODELAB_ADMIN_PASSWORD` for non-interactive runs.
 
 Expected duration: 20-60 minutes depending on host speed and number of VMs.
 
@@ -106,7 +106,7 @@ Return to the **Dashboard** to see live VM status including state, RAM, CPU, IP,
 |---------|---------|
 | Domain | lab.com |
 | Admin Account | dod_admin (Domain Admins + Enterprise Admins) |
-| Admin Password | Server123! |
+| Admin Password | Prompted during deploy (or OPENCODELAB_ADMIN_PASSWORD) |
 | VM RAM | 4 GB |
 | VM Disk | 80 GB |
 | VM Storage | C:\LabSources\VMs |

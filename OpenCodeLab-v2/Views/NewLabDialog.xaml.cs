@@ -178,7 +178,7 @@ public class PasswordDialog : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        // Message panel with default password hint
+        // Message panel with policy guidance
         var hintPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 15) };
         var message = new TextBlock
         {
@@ -186,14 +186,14 @@ public class PasswordDialog : Window
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 0, 0, 5)
         };
-        var defaultHint = new TextBlock
+        var policyHint = new TextBlock
         {
-            Text = "Leave blank to use default: Server123!",
+            Text = "Set OPENCODELAB_ADMIN_PASSWORD before launch to skip this prompt in non-interactive deployments.",
             FontSize = 10,
             Foreground = System.Windows.Media.Brushes.Gray
         };
         hintPanel.Children.Add(message);
-        hintPanel.Children.Add(defaultHint);
+        hintPanel.Children.Add(policyHint);
         grid.Children.Add(hintPanel);
         Grid.SetRow(hintPanel, 0);
 
@@ -223,7 +223,7 @@ public class PasswordDialog : Window
 
         var envHint = new TextBlock
         {
-            Text = "Or set OPENCODELAB_ADMIN_PASSWORD environment variable to skip this prompt",
+            Text = "Tip: Use OPENCODELAB_ADMIN_PASSWORD from automation only when deployment is launched non-interactively.",
             FontSize = 10,
             Foreground = System.Windows.Media.Brushes.Gray,
             Margin = new Thickness(0, 10, 0, 0)
@@ -264,10 +264,9 @@ public class PasswordDialog : Window
 
             if (string.IsNullOrEmpty(pwd))
             {
-                // Use default password if both fields left blank
-                Password = "Server123!";
-                DialogResult = true;
-                Close();
+                MessageBox.Show("A deployment password is required for DC lab deployment.",
+                    "Password Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                passwordBox.Focus();
                 return;
             }
 

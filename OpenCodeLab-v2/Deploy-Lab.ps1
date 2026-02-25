@@ -11,8 +11,8 @@ param(
     [string]$DomainName = "lab.com",
     [Parameter(Mandatory=$true)]
     [string]$VMsJsonFile,
-    [Parameter(Mandatory=$false)]
-    [string]$AdminPassword = "Server123!",
+    [Parameter(Mandatory=$true)]
+    [string]$AdminPassword,
     [Parameter(Mandatory=$false)]
     [string]$VMPath = "C:\LabSources\VMs",
     [Parameter(Mandatory=$false)]
@@ -112,6 +112,10 @@ Write-Host "=== OpenCodeLab Deployment (AutomatedLab) ===" -ForegroundColor Cyan
 Write-Host "Lab: $LabName"
 Write-Host "Domain: $DomainName"
 Write-Host ""
+
+if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
+    throw 'AdminPassword is required for domain creation. Set OPENCODELAB_ADMIN_PASSWORD or pass -AdminPassword.'
+}
 
 # ============================================================
 # PRE-FLIGHT: Parse VM configuration
@@ -955,6 +959,7 @@ foreach ($vm in $vms) {
 
     $internetPolicyTargets += [pscustomobject]@{
         VMName             = [string]$vm.Name
+        LabName            = [string]$LabName
         EnableHostInternet = $internetEnabled
         Gateway            = '192.168.10.1'
     }
@@ -967,12 +972,14 @@ $internetPolicyResults = Invoke-ParallelLabJobs -Items $internetPolicyTargets -T
     param($item)
 
     $vmName = [string]$item.VMName
+    $labName = [string]$item.LabName
     $enableHostInternet = [bool]$item.EnableHostInternet
     $gateway = [string]$item.Gateway
 
     try {
         Import-Module Hyper-V -ErrorAction Stop
         Import-Module AutomatedLab -ErrorAction Stop
+        Import-Lab -Name $labName -NoValidation -ErrorAction Stop | Out-Null
 
         $hvVm = Get-VM -Name $vmName -ErrorAction Stop
 

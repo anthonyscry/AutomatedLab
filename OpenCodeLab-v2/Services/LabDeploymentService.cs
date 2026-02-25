@@ -63,7 +63,12 @@ public class LabDeploymentService
             var vmsJsonFile = Path.Combine(Path.GetTempPath(), $"lab-vms-{Guid.NewGuid():N}.json");
             File.WriteAllText(vmsJsonFile, vmsJson, Encoding.UTF8);
 
-            var pw = adminPassword ?? Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD") ?? "Server123!";
+            var pw = adminPassword ?? Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
+            if (string.IsNullOrWhiteSpace(pw))
+            {
+                log?.Invoke("Deployment requires an admin password for Active Directory deployments.");
+                return false;
+            }
 
             bool result;
             try

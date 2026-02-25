@@ -314,35 +314,30 @@ public class ActionsViewModel : ObservableObject
 
         try
         {
-            // Check if lab has a DC - requires admin password
-            var hasDC = SelectedLab.VMs.Any(v => v.Role.Contains("DC", StringComparison.OrdinalIgnoreCase));
             string? adminPassword = null;
 
-            if (hasDC)
-            {
-                // Check environment variable first
-                adminPassword = Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
+            // Deployment script requires domain admin credentials for lab domain setup.
+            // Prefer an environment-provided value for non-interactive automation.
+            adminPassword = Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
 
-                // Prompt for password if not set
+            if (string.IsNullOrEmpty(adminPassword))
+            {
+                await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    adminPassword = Views.PasswordDialog.PromptForPassword(
+                        Application.Current.MainWindow!, SelectedLab.LabName);
+                }));
+
                 if (string.IsNullOrEmpty(adminPassword))
                 {
-                    await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        adminPassword = Views.PasswordDialog.PromptForPassword(
-                            Application.Current.MainWindow!, SelectedLab.LabName);
-                    }));
-
-                    if (string.IsNullOrEmpty(adminPassword))
-                    {
-                        LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
-                        IsDeploying = false;
-                        return;
-                    }
+                    LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
+                    IsDeploying = false;
+                    return;
                 }
-
-                // Set environment variable for this process
-                Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", adminPassword);
             }
+
+            // Set environment variable for this process
+            Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", adminPassword);
 
             // Auto-save before deploying
             if (string.IsNullOrEmpty(SelectedLab.LabPath) || !SelectedLab.LabPath.EndsWith(".json"))
@@ -399,7 +394,7 @@ public class ActionsViewModel : ObservableObject
                     if (result == MessageBoxResult.Yes) useIncremental = true;
                     else if (result == MessageBoxResult.Cancel) { useIncremental = false; adminPassword = null; } // signal cancel
                 }));
-                if (adminPassword == null && hasDC) { IsDeploying = false; return; }
+                if (adminPassword == null) { IsDeploying = false; return; }
             }
             else if (existingVMs.Count > 0 && existingVMs.Count == SelectedLab.VMs.Count)
             {
@@ -415,7 +410,7 @@ public class ActionsViewModel : ObservableObject
                         MessageBoxImage.Question);
                     if (result == MessageBoxResult.No) adminPassword = null; // signal cancel
                 }));
-                if (adminPassword == null && hasDC) { IsDeploying = false; return; }
+                if (adminPassword == null) { IsDeploying = false; return; }
             }
 
             var deployStopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -440,10 +435,7 @@ public class ActionsViewModel : ObservableObject
                 : $"{(int)elapsed.TotalMinutes}m {elapsed.Seconds:D2}s";
 
             // Clear password from environment after deployment
-            if (hasDC)
-            {
-                Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", null);
-            }
+            Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", null);
 
             if (success)
             {
