@@ -1,0 +1,14 @@
+{
+  "RunId": "d51b6b53-7e06-485e-943d-9da9637ba24c",
+  "Action": "dashboard",
+  "RequestedMode": "full",
+  "EffectiveMode": "full",
+  "PolicyOutcome": "Approved",
+  "Succeeded": true,
+  "FailureCategory": null,
+  "ErrorCode": null,
+  "RecoveryHint": null,
+  "ArtifactPath": "/mnt/c/projects/OpenCodeLab/OpenCodeLab-v2/config/artifacts/logs/d51b6b53-7e06-485e-943d-9da9637ba24c",
+  "DurationMs": 92,
+  "Data": "LOCK: unknown\nPROFILE: unknown\n\nCORE STATUS\nEVENT STREAM (0)\nDIAGNOSTICS (0)"
+}

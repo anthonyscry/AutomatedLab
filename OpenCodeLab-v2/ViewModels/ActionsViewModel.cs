@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using Microsoft.Win32;
 using OpenCodeLab.Models;
 using OpenCodeLab.Services;
 using OpenCodeLab.Views;
@@ -18,13 +17,15 @@ public class ActionsViewModel : ObservableObject
     private string _logOutput = string.Empty;
     private int _deploymentProgress;
     private bool _isDeploying;
+    private bool _isCancellationRequested;
     private System.Threading.CancellationTokenSource? _deployCts;
+    private string _activeDeploymentId = string.Empty;
 
     // Default paths
     private const string DefaultLabSources = @"C:\LabSources";
     private const string DefaultLabConfigPath = @"C:\LabSources\LabConfig";
     private const string DefaultISOPath = @"C:\LabSources\ISOs";
-    private const string LogDirectory = @"C:\LabSources\Logs";
+    private const string DefaultLogDirectory = @"C:\LabSources\Logs";
 
     public ObservableCollection<LabConfig> RecentLabs { get; } = new();
     public AsyncCommand NewLabCommand { get; }
@@ -38,14 +39,15 @@ public class ActionsViewModel : ObservableObject
     public string LogOutput { get => _logOutput; set { _logOutput = value; OnPropertyChanged(); } }
     public int DeploymentProgress { get => _deploymentProgress; set { _deploymentProgress = value; OnPropertyChanged(); } }
     public bool IsDeploying { get => _isDeploying; set { _isDeploying = value; OnPropertyChanged(); UpdateCommands(); } }
+    public bool IsCancellationRequested { get => _isCancellationRequested; set { _isCancellationRequested = value; OnPropertyChanged(); UpdateCommands(); } }
 
     public ActionsViewModel()
     {
         NewLabCommand = new AsyncCommand(ShowNewLabDialogAsync);
-        EditLabCommand = new AsyncCommand(EditLabAsync, () => SelectedLab != null && !IsDeploying);
-        DeployLabCommand = new AsyncCommand(DeployLabAsync, () => SelectedLab != null && !IsDeploying);
-        CancelDeployCommand = new AsyncCommand(CancelDeploymentAsync, () => IsDeploying);
-        RemoveLabCommand = new AsyncCommand(RemoveLabAsync, () => SelectedLab != null && !IsDeploying);
+        EditLabCommand = new AsyncCommand(EditLabAsync, () => SelectedLab != null && !IsDeploying && !IsCancellationRequested);
+        DeployLabCommand = new AsyncCommand(DeployLabAsync, () => SelectedLab != null && !IsDeploying && !IsCancellationRequested);
+        CancelDeployCommand = new AsyncCommand(CancelDeploymentAsync, () => IsDeploying && !IsCancellationRequested);
+        RemoveLabCommand = new AsyncCommand(RemoveLabAsync, () => SelectedLab != null && !IsDeploying && !IsCancellationRequested);
         ClearLogsCommand = new AsyncCommand(() => Task.Run(() => LogOutput = string.Empty));
         CopyLogsCommand = new AsyncCommand(() =>
         {
@@ -96,19 +98,62 @@ public class ActionsViewModel : ObservableObject
         catch { }
     }
 
+    private static string ResolvePath(string? configuredPath, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(configuredPath) ? fallback : configuredPath;
+    }
+
+    private static string GetLabSourcesPath(AppSettings settings)
+    {
+        return ResolvePath(settings.DefaultLabPath, DefaultLabSources);
+    }
+
+    private static string GetLabConfigPath(AppSettings settings)
+    {
+        return ResolvePath(settings.LabConfigPath, DefaultLabConfigPath);
+    }
+
+    private static string GetIsoPath(AppSettings settings)
+    {
+        return ResolvePath(settings.ISOPath, DefaultISOPath);
+    }
+
+    private static string GetLogDirectoryPath(AppSettings settings)
+    {
+        var labSources = GetLabSourcesPath(settings);
+        if (string.IsNullOrWhiteSpace(labSources))
+            return DefaultLogDirectory;
+
+        return Path.Combine(labSources, "Logs");
+    }
+
+    private void TrackDeploymentEvent(string eventName, string? details = null)
+    {
+        var deployId = string.IsNullOrWhiteSpace(_activeDeploymentId) ? "none" : _activeDeploymentId;
+        var safeDetails = string.IsNullOrWhiteSpace(details)
+            ? string.Empty
+            : $" detail={details.Replace(Environment.NewLine, " ").Trim()}";
+
+        var line = $"[telemetry] deploy_id={deployId} event={eventName}{safeDetails} ts={DateTimeOffset.UtcNow:O}";
+        LogOutput += line + Environment.NewLine;
+        WriteToLog(line + Environment.NewLine);
+    }
+
     private Task CancelDeploymentAsync()
     {
         try
         {
+            if (!IsDeploying || IsCancellationRequested)
+                return Task.CompletedTask;
+
+            IsCancellationRequested = true;
+            TrackDeploymentEvent("cancel_requested", $"lab={SelectedLab?.LabName ?? "unknown"}");
             _deployCts?.Cancel();
             LogOutput += $"Deployment cancellation requested...{Environment.NewLine}";
-            LogOutput += $"Note: The deployment process will continue in the background. Close and reopen the app to deploy again.{Environment.NewLine}";
+            LogOutput += $"Waiting for current deployment process to stop...{Environment.NewLine}";
         }
-        catch { }
-        finally
-        {
-            IsDeploying = false;
-        }
+        catch (Exception ex) { LogError("Failed to request deployment cancellation", ex); }
+
         return Task.CompletedTask;
     }
 
@@ -116,10 +161,11 @@ public class ActionsViewModel : ObservableObject
     {
         try
         {
-            Directory.CreateDirectory(DefaultLabSources);
-            Directory.CreateDirectory(DefaultLabConfigPath);
-            Directory.CreateDirectory(DefaultISOPath);
-            Directory.CreateDirectory(LogDirectory);
+            var settings = AppSettingsStore.LoadOrDefault();
+            Directory.CreateDirectory(GetLabSourcesPath(settings));
+            Directory.CreateDirectory(GetLabConfigPath(settings));
+            Directory.CreateDirectory(GetIsoPath(settings));
+            Directory.CreateDirectory(GetLogDirectoryPath(settings));
         }
         catch { }
     }
@@ -131,7 +177,8 @@ public class ActionsViewModel : ObservableObject
         {
             if (string.IsNullOrEmpty(_currentLogFile))
             {
-                _currentLogFile = Path.Combine(LogDirectory, $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+                var settings = AppSettingsStore.LoadOrDefault();
+                _currentLogFile = Path.Combine(GetLogDirectoryPath(settings), $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             }
             File.AppendAllText(_currentLogFile, $"[{DateTime.Now:HH:mm:ss}] {message}");
         }
@@ -155,10 +202,13 @@ public class ActionsViewModel : ObservableObject
     {
         try
         {
+            var settings = AppSettingsStore.LoadOrDefault();
+            var labConfigPath = GetLabConfigPath(settings);
+
             RecentLabs.Clear();
-            if (Directory.Exists(DefaultLabConfigPath))
+            if (Directory.Exists(labConfigPath))
             {
-                foreach (var file in Directory.GetFiles(DefaultLabConfigPath, "*.json"))
+                foreach (var file in Directory.GetFiles(labConfigPath, "*.json"))
                 {
                     try
                     {
@@ -206,7 +256,9 @@ public class ActionsViewModel : ObservableObject
         {
             try
             {
-                var dialog = new NewLabDialog();
+                var settings = AppSettingsStore.LoadOrDefault();
+                var labConfigPath = GetLabConfigPath(settings);
+                var dialog = new NewLabDialog(AppSettingsStore.LoadOrDefault());
                 if (dialog.ShowDialog() == true)
                 {
                     var lab = dialog.GetLabConfig();
@@ -214,8 +266,8 @@ public class ActionsViewModel : ObservableObject
                     // Auto-save to default config folder
                     try
                     {
-                        Directory.CreateDirectory(DefaultLabConfigPath);
-                        lab.LabPath = Path.Combine(DefaultLabConfigPath, $"{lab.LabName}.json");
+                        Directory.CreateDirectory(labConfigPath);
+                        lab.LabPath = Path.Combine(labConfigPath, $"{lab.LabName}.json");
                         var json = System.Text.Json.JsonSerializer.Serialize(lab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                         File.WriteAllText(lab.LabPath, json);
                     }
@@ -244,6 +296,8 @@ public class ActionsViewModel : ObservableObject
         {
             try
             {
+                var settings = AppSettingsStore.LoadOrDefault();
+                var labConfigPath = GetLabConfigPath(settings);
                 var dialog = new NewLabDialog(SelectedLab);
                 if (dialog.ShowDialog() == true)
                 {
@@ -254,8 +308,8 @@ public class ActionsViewModel : ObservableObject
                     try
                     {
                         if (string.IsNullOrEmpty(lab.LabPath))
-                            lab.LabPath = Path.Combine(DefaultLabConfigPath, $"{lab.LabName}.json");
-                        Directory.CreateDirectory(DefaultLabConfigPath);
+                            lab.LabPath = Path.Combine(labConfigPath, $"{lab.LabName}.json");
+                        Directory.CreateDirectory(labConfigPath);
                         var json = System.Text.Json.JsonSerializer.Serialize(lab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                         File.WriteAllText(lab.LabPath, json);
                     }
@@ -284,12 +338,15 @@ public class ActionsViewModel : ObservableObject
         {
             try
             {
+                var settings = AppSettingsStore.LoadOrDefault();
+                var labConfigPath = GetLabConfigPath(settings);
+
                 if (string.IsNullOrEmpty(SelectedLab.LabPath) || !SelectedLab.LabPath.EndsWith(".json"))
                 {
-                    SelectedLab.LabPath = Path.Combine(DefaultLabConfigPath, $"{SelectedLab.LabName}.json");
+                    SelectedLab.LabPath = Path.Combine(labConfigPath, $"{SelectedLab.LabName}.json");
                 }
 
-                Directory.CreateDirectory(DefaultLabConfigPath);
+                Directory.CreateDirectory(labConfigPath);
                 var json = System.Text.Json.JsonSerializer.Serialize(SelectedLab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(SelectedLab.LabPath, json);
 
@@ -312,45 +369,42 @@ public class ActionsViewModel : ObservableObject
     {
         if (SelectedLab == null) return;
 
+        var settings = AppSettingsStore.LoadOrDefault();
+        var labConfigPath = GetLabConfigPath(settings);
+        var logDirectory = GetLogDirectoryPath(settings);
+        string? adminPassword = null;
+
         try
         {
-            // Check if lab has a DC - requires admin password
-            var hasDC = SelectedLab.VMs.Any(v => v.Role.Contains("DC", StringComparison.OrdinalIgnoreCase));
-            string? adminPassword = null;
+            // Deployment script requires domain admin credentials for lab domain setup.
+            // Prefer an environment-provided value for non-interactive automation.
+            adminPassword = Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
 
-            if (hasDC)
+            if (string.IsNullOrEmpty(adminPassword))
             {
-                // Check environment variable first
-                adminPassword = Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
+                await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    adminPassword = Views.PasswordDialog.PromptForPassword(
+                        Application.Current.MainWindow!, SelectedLab.LabName);
+                }));
 
-                // Prompt for password if not set
                 if (string.IsNullOrEmpty(adminPassword))
                 {
-                    await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        adminPassword = Views.PasswordDialog.PromptForPassword(
-                            Application.Current.MainWindow!, SelectedLab.LabName);
-                    }));
-
-                    if (string.IsNullOrEmpty(adminPassword))
-                    {
-                        LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
-                        IsDeploying = false;
-                        return;
-                    }
+                    LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
+                    return;
                 }
-
-                // Set environment variable for this process
-                Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", adminPassword);
             }
+
+            // Set environment variable for this process
+            Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", adminPassword);
 
             // Auto-save before deploying
             if (string.IsNullOrEmpty(SelectedLab.LabPath) || !SelectedLab.LabPath.EndsWith(".json"))
             {
-                SelectedLab.LabPath = Path.Combine(DefaultLabConfigPath, $"{SelectedLab.LabName}.json");
+                SelectedLab.LabPath = Path.Combine(labConfigPath, $"{SelectedLab.LabName}.json");
                 try
                 {
-                    Directory.CreateDirectory(DefaultLabConfigPath);
+                    Directory.CreateDirectory(labConfigPath);
                     var json = System.Text.Json.JsonSerializer.Serialize(SelectedLab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                     File.WriteAllText(SelectedLab.LabPath, json);
                     LogOutput += $"Lab saved to: {SelectedLab.LabPath}{Environment.NewLine}";
@@ -359,8 +413,13 @@ public class ActionsViewModel : ObservableObject
             }
 
             IsDeploying = true;
+            IsCancellationRequested = false;
             LogOutput = string.Empty;
-            _currentLogFile = Path.Combine(LogDirectory, $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+
+            Directory.CreateDirectory(logDirectory);
+            _activeDeploymentId = Guid.NewGuid().ToString("N")[..8];
+            _currentLogFile = Path.Combine(logDirectory, $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            TrackDeploymentEvent("deploy_start", $"lab={SelectedLab.LabName}");
             WriteToLog($"Starting deployment of lab: {SelectedLab.LabName}{Environment.NewLine}");
 
             // Check if any VMs already exist - offer deployment mode selection
@@ -402,7 +461,12 @@ public class ActionsViewModel : ObservableObject
                     else if (result == MessageBoxResult.No) deploymentMode = "incremental";
                     else userCancelledDeploymentMode = true;
                 }));
-                if (userCancelledDeploymentMode) { IsDeploying = false; return; }
+                if (userCancelledDeploymentMode)
+                {
+                    TrackDeploymentEvent("deploy_completed", "status=cancelled-before-run");
+                    IsDeploying = false;
+                    return;
+                }
             }
             else if (existingVMs.Count > 0 && existingVMs.Count == SelectedLab.VMs.Count)
             {
@@ -421,7 +485,12 @@ public class ActionsViewModel : ObservableObject
                     else if (result == MessageBoxResult.No) deploymentMode = "full";
                     else userCancelledDeploymentMode = true;
                 }));
-                if (userCancelledDeploymentMode) { IsDeploying = false; return; }
+                if (userCancelledDeploymentMode)
+                {
+                    TrackDeploymentEvent("deploy_completed", "status=cancelled-before-run");
+                    IsDeploying = false;
+                    return;
+                }
             }
 
             var deployStopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -429,6 +498,7 @@ public class ActionsViewModel : ObservableObject
             LogOutput += $"Deployment started at {deployStartTime:HH:mm:ss}{Environment.NewLine}";
             WriteToLog($"Deployment started at {deployStartTime:HH:mm:ss}{Environment.NewLine}");
 
+            _deployCts?.Dispose();
             _deployCts = new System.Threading.CancellationTokenSource();
             var success = await _deploymentService.DeployLabAsync(SelectedLab, msg =>
             {
@@ -444,32 +514,42 @@ public class ActionsViewModel : ObservableObject
             var timeStr = elapsed.TotalHours >= 1
                 ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes:D2}m {elapsed.Seconds:D2}s"
                 : $"{(int)elapsed.TotalMinutes}m {elapsed.Seconds:D2}s";
-
-            // Clear password from environment after deployment
-            if (hasDC)
-            {
-                Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", null);
-            }
+            var wasCancelled = IsCancellationRequested || (_deployCts?.IsCancellationRequested == true);
 
             if (success)
             {
                 LogOutput += $"{Environment.NewLine}*** Deployment completed successfully in {timeStr}! ***{Environment.NewLine}";
                 WriteToLog($"{Environment.NewLine}*** Deployment completed successfully in {timeStr}! ***{Environment.NewLine}");
+                TrackDeploymentEvent("deploy_completed", $"status=success duration={timeStr}");
+            }
+            else if (wasCancelled)
+            {
+                LogOutput += $"{Environment.NewLine}*** Deployment cancelled after {timeStr}. ***{Environment.NewLine}";
+                WriteToLog($"{Environment.NewLine}*** Deployment cancelled after {timeStr}. ***{Environment.NewLine}");
+                TrackDeploymentEvent("deploy_completed", $"status=cancelled duration={timeStr}");
             }
             else
             {
                 LogOutput += $"{Environment.NewLine}*** Deployment failed after {timeStr}. Check log for details. ***{Environment.NewLine}";
                 WriteToLog($"{Environment.NewLine}*** Deployment failed after {timeStr}. ***{Environment.NewLine}");
+                TrackDeploymentEvent("deploy_completed", $"status=failed duration={timeStr}");
             }
         }
         catch (Exception ex)
         {
+            var safeMessage = ex.Message.Replace(Environment.NewLine, " ").Trim();
+            TrackDeploymentEvent("deploy_completed", $"status=crashed error={safeMessage}");
             LogError("Deployment failed with exception", ex);
             LogOutput += $"{Environment.NewLine}*** Deployment crashed. See log file: {_currentLogFile} ***{Environment.NewLine}";
         }
         finally
         {
+            Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", null);
+            _deployCts?.Dispose();
+            _deployCts = null;
             IsDeploying = false;
+            IsCancellationRequested = false;
+            _activeDeploymentId = string.Empty;
         }
     }
 
@@ -479,9 +559,14 @@ public class ActionsViewModel : ObservableObject
 
         try
         {
+            var settings = AppSettingsStore.LoadOrDefault();
+            var logDirectory = GetLogDirectoryPath(settings);
+
             IsDeploying = true;
+            IsCancellationRequested = false;
             LogOutput = string.Empty;
-            _currentLogFile = Path.Combine(LogDirectory, $"removal-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            Directory.CreateDirectory(logDirectory);
+            _currentLogFile = Path.Combine(logDirectory, $"removal-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             WriteToLog($"Starting removal of lab: {SelectedLab.LabName}{Environment.NewLine}");
 
             var success = await _deploymentService.RemoveLabAsync(SelectedLab, msg =>

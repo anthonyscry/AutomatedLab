@@ -140,7 +140,7 @@
                             <TextBlock Text="Password" FontSize="11"/>
                         </Border>
                         <Border Grid.Row="3" Grid.Column="1" Padding="8,4" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
-                            <TextBlock Text="Server123!" FontSize="11"/>
+                            <TextBlock Text="Enter at deploy prompt (or OPENCODELAB_ADMIN_PASSWORD)" FontSize="11" TextWrapping="Wrap"/>
                         </Border>
 
                         <Border Grid.Row="4" Grid.Column="0" Padding="8,4" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">

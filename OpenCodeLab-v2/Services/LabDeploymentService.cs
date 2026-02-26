@@ -79,24 +79,20 @@ public class LabDeploymentService
             var vmsJsonFile = Path.Combine(Path.GetTempPath(), $"lab-vms-{Guid.NewGuid():N}.json");
             File.WriteAllText(vmsJsonFile, vmsJson, Encoding.UTF8);
 
-            var pw = adminPassword ?? Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD") ?? "Server123!";
+            var pw = adminPassword ?? Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
+            if (string.IsNullOrWhiteSpace(pw))
+            {
+                log?.Invoke("Deployment requires an admin password for Active Directory deployments.");
+                return false;
+            }
 
             bool result;
             try
             {
-                var vmPath = @"C:\LabSources\VMs"; // Default VM storage path
-                try
-                {
-                    var settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenCodeLab", "settings.json");
-                    if (File.Exists(settingsPath))
-                    {
-                        var settingsJson = File.ReadAllText(settingsPath);
-                        var doc = System.Text.Json.JsonDocument.Parse(settingsJson);
-                        if (doc.RootElement.TryGetProperty("VMPath", out var vp))
-                            vmPath = vp.GetString() ?? vmPath;
-                    }
-                }
-                catch { }
+                var settings = AppSettingsStore.LoadOrDefault();
+                var vmPath = string.IsNullOrWhiteSpace(settings.VMPath)
+                    ? @"C:\LabSources\VMs"
+                    : settings.VMPath;
 
                 var args = new Dictionary<string, string>
                 {

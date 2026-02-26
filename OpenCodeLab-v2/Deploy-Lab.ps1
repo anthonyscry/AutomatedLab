@@ -11,8 +11,8 @@ param(
     [string]$DomainName = "lab.com",
     [Parameter(Mandatory=$true)]
     [string]$VMsJsonFile,
-    [Parameter(Mandatory=$false)]
-    [string]$AdminPassword = "Server123!",
+    [Parameter(Mandatory=$true)]
+    [string]$AdminPassword,
     [Parameter(Mandatory=$false)]
     [string]$VMPath = "C:\LabSources\VMs",
     [Parameter(Mandatory=$false)]
@@ -25,12 +25,6 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-
-$parallelJobHelperPath = Join-Path $PSScriptRoot 'Services\ParallelJobOrchestration.ps1'
-if (-not (Test-Path $parallelJobHelperPath)) {
-    throw "Missing required helper script: $parallelJobHelperPath"
-}
-. $parallelJobHelperPath
 
 # ============================================================
 # PROGRESS HELPER
@@ -57,8 +51,14 @@ function Set-VMInternetPolicy {
     try {
         $hvVm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
         if (-not $hvVm) {
-            Write-Warning "Could not apply internet policy for ${VmName}: VM not found"
-            return
+            $msg = "VM not found"
+            Write-Warning "Could not apply internet policy for ${VmName}: $msg"
+            return [pscustomobject]@{
+                VMName       = $VmName
+                Succeeded    = $false
+                ErrorMessage = $msg
+                Details      = @()
+            }
         }
 
         if ($hvVm.State -ne 'Running') {
@@ -66,7 +66,7 @@ function Set-VMInternetPolicy {
             Start-Sleep -Seconds 20
         }
 
-        Invoke-LabCommand -ComputerName $VmName -ActivityName 'Apply host internet policy' -ScriptBlock {
+        $commandOutput = @(Invoke-LabCommand -ComputerName $VmName -ActivityName 'Apply host internet policy' -ScriptBlock {
             param($AllowInternet, $NatGateway)
 
             $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
@@ -99,12 +99,28 @@ function Set-VMInternetPolicy {
             else {
                 'Host internet disabled (default routes removed)'
             }
-        } -ArgumentList $EnableHostInternet, $Gateway -ErrorAction Stop | ForEach-Object {
+        } -ArgumentList $EnableHostInternet, $Gateway -ErrorAction Stop)
+
+        $commandOutput | ForEach-Object {
             Write-Host "    $_" -ForegroundColor Gray
+        }
+
+        return [pscustomobject]@{
+            VMName       = $VmName
+            Succeeded    = $true
+            ErrorMessage = ''
+            Details      = @($commandOutput)
         }
     }
     catch {
-        Write-Warning "Could not apply internet policy for ${VmName}: $($_.Exception.Message)"
+        $msg = $_.Exception.Message
+        Write-Warning "Could not apply internet policy for ${VmName}: $msg"
+        return [pscustomobject]@{
+            VMName       = $VmName
+            Succeeded    = $false
+            ErrorMessage = $msg
+            Details      = @()
+        }
     }
 }
 
@@ -172,6 +188,10 @@ Write-Host "=== OpenCodeLab Deployment (AutomatedLab) ===" -ForegroundColor Cyan
 Write-Host "Lab: $LabName"
 Write-Host "Domain: $DomainName"
 Write-Host ""
+
+if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
+    throw 'AdminPassword is required for domain creation. Set OPENCODELAB_ADMIN_PASSWORD or pass -AdminPassword.'
+}
 
 # ============================================================
 # PRE-FLIGHT: Parse VM configuration
@@ -1071,92 +1091,31 @@ foreach ($vm in $vms) {
     }
 }
 
-$internetPolicyResults = Invoke-ParallelLabJobs -Items $internetPolicyTargets -TimeoutSeconds $ParallelJobTimeoutSeconds -NameScript {
-    param($item)
-    "internet-policy-$($item.VMName)"
-} -WorkerScript {
-    param($item)
-
-    $vmName = [string]$item.VMName
-    $labName = [string]$item.LabName
-    $enableHostInternet = [bool]$item.EnableHostInternet
-    $gateway = [string]$item.Gateway
-
-    try {
-        Import-Module Hyper-V -ErrorAction Stop
-        Import-Module AutomatedLab -ErrorAction Stop
-        Import-Lab -Name $labName -NoValidation -ErrorAction Stop | Out-Null
-
-        $hvVm = Get-VM -Name $vmName -ErrorAction Stop
-
-        if ($hvVm.State -ne 'Running') {
-            Start-VM -Name $vmName -ErrorAction Stop | Out-Null
-            Start-Sleep -Seconds 20
-        }
-
-        $commandOutput = @(Invoke-LabCommand -ComputerName $vmName -ActivityName 'Apply host internet policy' -ScriptBlock {
-                param($allowInternet, $natGateway)
-
-                $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-                    Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' })
-
-                foreach ($route in $defaultRoutes) {
-                    Remove-NetRoute -AddressFamily IPv4 -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $route.InterfaceIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
-                }
-
-                if ($allowInternet) {
-                    $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-                        Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
-                        Select-Object -First 1
-
-                    if (-not $nic) {
-                        throw 'No adapter found in 192.168.10.0/24 for NAT default route enforcement.'
-                    }
-
-                    New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $natGateway -RouteMetric 25 -PolicyStore PersistentStore -ErrorAction SilentlyContinue | Out-Null
-
-                    $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-                        Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $natGateway }
-
-                    if (-not $hasExpectedRoute) {
-                        throw "Failed to set default route via $natGateway"
-                    }
-
-                    "Host internet enabled via $natGateway"
-                }
-                else {
-                    'Host internet disabled (default routes removed)'
-                }
-            } -ArgumentList $enableHostInternet, $gateway -ErrorAction Stop)
-
-        [pscustomobject]@{
-            VMName       = $vmName
-            Succeeded    = $true
-            ErrorMessage = ''
-            Details      = @($commandOutput)
-        }
-    }
-    catch {
-        [pscustomobject]@{
-            VMName       = $vmName
-            Succeeded    = $false
-            ErrorMessage = $_.Exception.Message
-            Details      = @()
-        }
-    }
-}
-
 $internetPolicyFailures = @()
-foreach ($jobResult in $internetPolicyResults) {
-    if ($jobResult.Succeeded) {
-        $workerResult = if ($jobResult.Output.Count -gt 0) { $jobResult.Output[-1] } else { $null }
-        $workerVmName = if ($workerResult -and ($workerResult.PSObject.Properties.Name -contains 'VMName')) { [string]$workerResult.VMName } else { $jobResult.Name }
-        Write-Host "  [NET][OK] $workerVmName" -ForegroundColor Green
+
+foreach ($item in $internetPolicyTargets) {
+    $policyResult = Set-VMInternetPolicy -VmName $item.VMName -EnableHostInternet $item.EnableHostInternet -Gateway $item.Gateway
+
+    if ($policyResult -and $policyResult.Succeeded) {
+        Write-Host "  [NET][OK] $($policyResult.VMName)" -ForegroundColor Green
         continue
     }
 
-    $internetPolicyFailures += $jobResult
-    Write-Warning "Internet policy failed for $($jobResult.Name) [$($jobResult.FailureCategory)]: $($jobResult.ErrorMessage)"
+    $errorMessage = if ($policyResult -and $policyResult.ErrorMessage) {
+        [string]$policyResult.ErrorMessage
+    }
+    else {
+        'Unknown error'
+    }
+
+    $failure = [pscustomobject]@{
+        Name            = "internet-policy-$($item.VMName)"
+        FailureCategory = 'ExecutionError'
+        ErrorMessage    = $errorMessage
+    }
+
+    $internetPolicyFailures += $failure
+    Write-Warning "Internet policy failed for $($failure.Name) [$($failure.FailureCategory)]: $($failure.ErrorMessage)"
 }
 
 if ($internetPolicyFailures.Count -gt 0) {

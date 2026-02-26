@@ -16,6 +16,10 @@ param(
     [switch]$SkipDotNetBundle,
 
     [Parameter(Mandatory = $false)]
+    [ValidateSet('portable', 'legacy')]
+    [string]$ArtifactMode = 'portable',
+
+    [Parameter(Mandatory = $false)]
     [string]$GitHubRepo = 'anthonyscry/OpenCodeLab'
 )
 
@@ -178,12 +182,15 @@ $releaseRoot = Join-Path $OutputRoot "v$normalizedVersion"
 
 $publishAppOnly = Join-Path $releaseRoot 'publish-app-only'
 $publishDotNetBundle = Join-Path $releaseRoot 'publish-dotnet-bundle'
+$publishPortable = Join-Path $releaseRoot 'publish-portable'
 
 $appStageDir = Join-Path $releaseRoot 'app-stage'
 $bundleStageDir = Join-Path $releaseRoot 'dotnet-bundle-stage'
+$portableStageDir = Join-Path $releaseRoot 'portable-stage'
 
 $appZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-app-only-win-x64.zip"
 $bundleZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-dotnet-bundle-win-x64.zip"
+$portableZipPath = Join-Path $OutputRoot "OpenCodeLab-v$normalizedVersion-portable-win-x64.zip"
 
 New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
 if (Test-Path $releaseRoot) {
@@ -193,6 +200,47 @@ New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 
 if (Test-Path $appZipPath) { Remove-Item $appZipPath -Force }
 if (Test-Path $bundleZipPath) { Remove-Item $bundleZipPath -Force }
+if (Test-Path $portableZipPath) { Remove-Item $portableZipPath -Force }
+
+if ($ArtifactMode -eq 'portable') {
+    if ($SkipDotNetBundle) {
+        Write-Host "-ArtifactMode is 'portable', ignoring -SkipDotNetBundle." -ForegroundColor Yellow
+    }
+
+    Write-Host 'Publishing portable artifact (self-contained bundle)...' -ForegroundColor Cyan
+    Publish-Artifact -ProjectDir $projectDir -OutputDir $publishPortable -SelfContained:$true
+
+    Write-Host 'Staging portable payload...' -ForegroundColor Cyan
+    Copy-ReleasePayload -PublishDir $publishPortable -StageDir $portableStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
+
+    Write-Host 'Creating portable archive...' -ForegroundColor Cyan
+    Compress-Archive -Path (Join-Path $portableStageDir '*') -DestinationPath $portableZipPath -Force
+
+    $portableHash = (Get-FileHash -Path $portableZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+
+    $metadata = [pscustomobject]@{
+        Version = $normalizedVersion
+        ArtifactMode = 'Portable'
+        PortableZip = $portableZipPath
+        PortableSha256 = $portableHash
+        GeneratedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+    }
+
+    $metadataPath = Join-Path $releaseRoot 'artifact-metadata.json'
+    $metadata | ConvertTo-Json -Depth 4 | Set-Content -Path $metadataPath -Encoding UTF8
+
+    Write-Host ''
+    Write-Host 'Release artifacts created:' -ForegroundColor Green
+    Write-Host "- $portableZipPath"
+    Write-Host "Portable SHA256: $portableHash" -ForegroundColor Yellow
+
+    Write-Host ''
+    Write-Host 'Release notes snippet:' -ForegroundColor Green
+    Write-Host "- Portable artifact: OpenCodeLab-v$normalizedVersion-portable-win-x64.zip"
+    Write-Host "- Portable SHA256: $portableHash"
+
+    return
+}
 
 Write-Host "Publishing app-only artifact (framework-dependent)..." -ForegroundColor Cyan
 Publish-Artifact -ProjectDir $projectDir -OutputDir $publishAppOnly -SelfContained:$false
