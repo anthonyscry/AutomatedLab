@@ -1,0 +1,44 @@
+BeforeAll {
+    $script:repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $script:servicePath = Join-Path $script:repoRoot 'OpenCodeLab-v2/Services/LabDeploymentService.cs'
+    $script:viewModelPath = Join-Path $script:repoRoot 'OpenCodeLab-v2/ViewModels/ActionsViewModel.cs'
+    $script:deployScriptPath = Join-Path $script:repoRoot 'OpenCodeLab-v2/Deploy-Lab.ps1'
+
+    $script:serviceText = Get-Content -Raw $script:servicePath
+    $script:viewModelText = Get-Content -Raw $script:viewModelPath
+    $script:deployText = Get-Content -Raw $script:deployScriptPath
+}
+
+Describe 'Deployment mode plumbing' {
+    It 'propagates update-existing mode switch from service to script' {
+        $script:serviceText | Should -Match 'deploymentMode\s*=\s*"full"'
+        $script:serviceText | Should -Match 'allowedModes'
+        $script:serviceText | Should -Match 'Falling back to non-destructive incremental mode'
+        $script:serviceText | Should -Match 'switches\.Add\("Incremental"\)'
+        $script:serviceText | Should -Match 'switches\.Add\("UpdateExisting"\)'
+    }
+
+    It 'offers update-existing mode and supports canceling deployment in viewmodel' {
+        $script:viewModelText | Should -Match 'deploymentMode\s*=\s*"update-existing"'
+        $script:viewModelText | Should -Match 'userCancelledDeploymentMode'
+        $script:viewModelText | Should -Match 'if \(userCancelledDeploymentMode\) \{ IsDeploying = false; return; \}'
+    }
+}
+
+Describe 'Update-existing script behavior' {
+    It 'implements update-existing branch and reconcile actions' {
+        $script:deployText | Should -Match 'if \(\$UpdateExisting\)'
+        $script:deployText | Should -Match 'Update-ExistingVMSettings'
+        $script:deployText | Should -Match 'Set-VMProcessor'
+        $script:deployText | Should -Match 'Set-VMMemory'
+        $script:deployText | Should -Match 'Connect-VMNetworkAdapter'
+    }
+
+    It 'tracks update summary buckets and non-destructive recreate reporting' {
+        $script:deployText | Should -Match 'WillUpdateInPlace'
+        $script:deployText | Should -Match 'WillCreate'
+        $script:deployText | Should -Match 'RequiresRecreate'
+        $script:deployText | Should -Match 'Skipped'
+        $script:deployText | Should -Match 'Skipping destructive recreate in update-existing mode'
+    }
+}

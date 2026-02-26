@@ -422,8 +422,9 @@ public class ActionsViewModel : ObservableObject
             TrackDeploymentEvent("deploy_start", $"lab={SelectedLab.LabName}");
             WriteToLog($"Starting deployment of lab: {SelectedLab.LabName}{Environment.NewLine}");
 
-            // Check if any VMs already exist - offer incremental deployment
-            bool useIncremental = false;
+            // Check if any VMs already exist - offer deployment mode selection
+            string deploymentMode = "full";
+            bool userCancelledDeploymentMode = false;
             var existingVMs = new List<string>();
             foreach (var vm in SelectedLab.VMs)
             {
@@ -443,24 +444,27 @@ public class ActionsViewModel : ObservableObject
 
             if (existingVMs.Count > 0 && existingVMs.Count < SelectedLab.VMs.Count)
             {
-                // Some VMs exist, some are new - ask user
+                // Some VMs exist, some are new - ask user how to proceed
                 var newVMs = SelectedLab.VMs.Where(v => !existingVMs.Contains(v.Name)).Select(v => v.Name);
                 await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
                 {
                     var result = MessageBox.Show(
                         $"Existing VMs found: {string.Join(", ", existingVMs)}\n" +
                         $"New VMs to create: {string.Join(", ", newVMs)}\n\n" +
-                        "Click YES to add new VMs (keep existing).\n" +
-                        "Click NO to redeploy everything from scratch.",
-                        "Incremental Deployment?",
+                        "Click YES to update existing VMs in place and add any missing VMs.\n" +
+                        "Click NO to add only missing VMs (incremental).\n" +
+                        "Click CANCEL to stop deployment.",
+                        "Choose Deployment Mode",
                         MessageBoxButton.YesNoCancel,
                         MessageBoxImage.Question);
-                    if (result == MessageBoxResult.Yes) useIncremental = true;
-                    else if (result == MessageBoxResult.Cancel) { useIncremental = false; adminPassword = null; } // signal cancel
+                    if (result == MessageBoxResult.Yes) deploymentMode = "update-existing";
+                    else if (result == MessageBoxResult.No) deploymentMode = "incremental";
+                    else userCancelledDeploymentMode = true;
                 }));
-                if (adminPassword == null)
+                if (userCancelledDeploymentMode)
                 {
                     TrackDeploymentEvent("deploy_completed", "status=cancelled-before-run");
+                    IsDeploying = false;
                     return;
                 }
             }
@@ -471,16 +475,20 @@ public class ActionsViewModel : ObservableObject
                 {
                     var result = MessageBox.Show(
                         $"All VMs already exist: {string.Join(", ", existingVMs)}\n\n" +
-                        "Click YES to redeploy everything from scratch.\n" +
-                        "Click NO to cancel.",
+                        "Click YES to update existing VMs in place.\n" +
+                        "Click NO to redeploy everything from scratch.\n" +
+                        "Click CANCEL to stop deployment.",
                         "Lab Already Deployed",
-                        MessageBoxButton.YesNo,
+                        MessageBoxButton.YesNoCancel,
                         MessageBoxImage.Question);
-                    if (result == MessageBoxResult.No) adminPassword = null; // signal cancel
+                    if (result == MessageBoxResult.Yes) deploymentMode = "update-existing";
+                    else if (result == MessageBoxResult.No) deploymentMode = "full";
+                    else userCancelledDeploymentMode = true;
                 }));
-                if (adminPassword == null)
+                if (userCancelledDeploymentMode)
                 {
                     TrackDeploymentEvent("deploy_completed", "status=cancelled-before-run");
+                    IsDeploying = false;
                     return;
                 }
             }
@@ -499,7 +507,7 @@ public class ActionsViewModel : ObservableObject
                     LogOutput += msg + Environment.NewLine;
                 });
                 WriteToLog(msg + Environment.NewLine);
-            }, adminPassword, useIncremental, _deployCts.Token);
+            }, adminPassword, deploymentMode, _deployCts.Token);
 
             deployStopwatch.Stop();
             var elapsed = deployStopwatch.Elapsed;
