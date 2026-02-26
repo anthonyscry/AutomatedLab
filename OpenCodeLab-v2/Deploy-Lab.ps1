@@ -20,6 +20,9 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$UpdateExisting,
     [Parameter(Mandatory=$false)]
+    [ValidateSet('abort','shutdown','skip')]
+    [string]$OnRunningVMs = 'abort',
+    [Parameter(Mandatory=$false)]
     [ValidateRange(1, [int]::MaxValue)]
     [int]$ParallelJobTimeoutSeconds = 180
 )
@@ -187,12 +190,6 @@ Report-DeployProgress -Percent 0 -Status "Starting deployment: $LabName"
 Write-Host "=== OpenCodeLab Deployment (AutomatedLab) ===" -ForegroundColor Cyan
 Write-Host "Lab: $LabName"
 Write-Host "Domain: $DomainName"
-Write-Host ""
-
-if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    throw 'AdminPassword is required for domain creation. Set OPENCODELAB_ADMIN_PASSWORD or pass -AdminPassword.'
-}
-
 # ============================================================
 # PRE-FLIGHT: Parse VM configuration
 # ============================================================
@@ -293,6 +290,45 @@ foreach ($vm in $vms) {
 # Determine new VMs to create
 $newVMs = @($vms | Where-Object { $_.Name -notin $existingVMNames })
 $keepVMs = @($vms | Where-Object { $_.Name -in $existingVMNames })
+
+$skipProvisioning = $UpdateExisting -and $newVMs.Count -eq 0
+$requiresAdminPassword = -not $skipProvisioning
+
+if ($requiresAdminPassword -and [string]::IsNullOrWhiteSpace($AdminPassword)) {
+    throw 'AdminPassword is required for domain creation. Set OPENCODELAB_ADMIN_PASSWORD or pass -AdminPassword.'
+}
+
+$runningExistingVMs = @()
+foreach ($name in $existingVMNames) {
+    $hvVM = Get-VM -Name $name -ErrorAction SilentlyContinue
+    if ($hvVM -and $hvVM.State -eq 'Running') {
+        $runningExistingVMs += $hvVM
+    }
+}
+
+$runningSkipNames = @()
+if ($UpdateExisting -and $runningExistingVMs.Count -gt 0) {
+    switch ($OnRunningVMs) {
+        'abort' {
+            $runningNames = $runningExistingVMs | Select-Object -ExpandProperty Name
+            throw "Running VMs detected in update-existing mode (${runningNames -join ', '}). Stop them or rerun with -OnRunningVMs skip/shutdown."
+        }
+        'shutdown' {
+            foreach ($running in $runningExistingVMs) {
+                Write-Host "  [STOP] Turning off running VM: $($running.Name)" -ForegroundColor Yellow
+                Stop-VM -Name $running.Name -TurnOff -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Seconds 5
+        }
+        'skip' {
+            if ($newVMs.Count -gt 0) {
+                throw "OnRunningVMs=skip is not allowed when new VMs must be created. Stop running VMs or use -OnRunningVMs shutdown."
+            }
+            $runningSkipNames += $runningExistingVMs | Select-Object -ExpandProperty Name
+            Write-Host "  [SKIP] Keeping running VMs as-is (OnRunningVMs=skip): $($runningSkipNames -join ', ')" -ForegroundColor Yellow
+        }
+    }
+}
 
 $WillUpdateInPlace = @()
 $WillCreate = @()
@@ -448,193 +484,272 @@ Report-DeployProgress -Percent 15 -Status "Cleanup complete"
 # ============================================================
 # LAB DEFINITION (15-20%)
 # ============================================================
-Report-DeployProgress -Percent 16 -Status "Creating lab definition..."
+if ($skipProvisioning) {
+    Report-DeployProgress -Percent 16 -Status "Update-existing fast path (no new VMs)..."
 
-if (($Incremental -or $UpdateExisting) -and $existingVMNames.Count -gt 0) {
-    # Import existing lab so AutomatedLab knows about current VMs
-    Import-Lab -Name $LabName -NoValidation -ErrorAction SilentlyContinue
-}
-# Ensure VM path exists
-if (-not (Test-Path $VMPath)) { New-Item -Path $VMPath -ItemType Directory -Force | Out-Null }
-New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $VMPath
-
-Report-DeployProgress -Percent 17 -Status "Configuring network..."
-
-# Network - Internal switch with NAT for internet access
-# NAT is more reliable than external switches (especially on Wi-Fi adapters)
-Add-LabVirtualNetworkDefinition -Name $LabName -AddressSpace 192.168.10.0/24 -HyperVProperties @{ SwitchType = 'Internal' }
-Write-Host "  Network: $LabName (Internal + NAT, 192.168.10.0/24)" -ForegroundColor Cyan
-
-# Domain
-Write-Host "Configuring domain: $DomainName" -ForegroundColor Yellow
-Add-LabDomainDefinition -Name $DomainName -AdminUser dod_admin -AdminPassword $AdminPassword
-Set-LabInstallationCredential -Username dod_admin -Password $AdminPassword
-
-# Default parameters
-$PSDefaultParameterValues = @{
-    'Add-LabMachineDefinition:Network'        = $LabName
-    'Add-LabMachineDefinition:DomainName'     = $DomainName
-    'Add-LabMachineDefinition:OperatingSystem' = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
-}
-
-# ============================================================
-# ADD MACHINES (17-20%)
-# ============================================================
-Report-DeployProgress -Percent 18 -Status "Adding virtual machine definitions..."
-
-$serverIP = 10
-$clientIP = 50
-
-foreach ($vm in $vms) {
-    $vmName = $vm.Name
-    if ([string]::IsNullOrWhiteSpace($vmName)) {
-        Write-Host "  WARNING: Skipping VM with empty name" -ForegroundColor Yellow
-        continue
+    if ($existingVMNames.Count -gt 0) {
+        Import-Lab -Name $LabName -NoValidation -ErrorAction SilentlyContinue
     }
 
-    # Track whether this VM already exists (incremental/update mode)
-    $vmAlreadyExists = ($Incremental -or $UpdateExisting) -and $vmName -in $existingVMNames
+    Report-DeployProgress -Percent 18 -Status "Reconciling existing VM settings..."
 
-    $memoryBytes = [int64]$vm.MemoryGB * 1GB
-    $procCount = 2
-    if ($vm.PSObject.Properties['Processors'] -and $vm.Processors -gt 0) {
-        $procCount = [int]$vm.Processors
-    }
+    foreach ($vm in $keepVMs) {
+        $vmName = [string]$vm.Name
+        if ([string]::IsNullOrWhiteSpace($vmName)) {
+            continue
+        }
 
-    $vmRole = [string]$vm.Role
-    if ([string]::IsNullOrWhiteSpace($vmRole)) {
-        $vmRole = 'MemberServer'
-    }
-    else {
-        switch ($vmRole.Trim()) {
-            'MS'     { $vmRole = 'MemberServer'; break }
-            'Member' { $vmRole = 'MemberServer'; break }
-            'Server' { $vmRole = 'MemberServer'; break }
-            default  { $vmRole = $vmRole.Trim() }
+        $hvVM = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        Write-Host "  [EXISTING] $vmName (State: $($hvVM.State))" -ForegroundColor DarkGray
+
+        if ($runningSkipNames -contains $vmName) {
+            $Skipped += "${vmName}: running VM kept as-is (OnRunningVMs=skip)"
+            Write-Host "    [SKIP] $vmName is running; updates skipped by OnRunningVMs=skip" -ForegroundColor Yellow
+            continue
+        }
+
+        $memoryBytes = [int64]$vm.MemoryGB * 1GB
+        $procCount = 2
+        if ($vm.PSObject.Properties['Processors'] -and $vm.Processors -gt 0) {
+            $procCount = [int]$vm.Processors
+        }
+
+        $reconcile = Update-ExistingVMSettings -VmName $vmName -Processors $procCount -StartupMemoryBytes $memoryBytes -SwitchName $LabName
+        if ($reconcile.RequiresRecreate) {
+            $RequiresRecreate += "${vmName}: $($reconcile.Reason)"
+            Write-Warning "Skipping destructive recreate in update-existing mode for ${vmName}: $($reconcile.Reason)"
+        }
+        elseif ($reconcile.UpdatedFields.Count -gt 0) {
+            $WillUpdateInPlace += "$vmName => $($reconcile.UpdatedFields -join ', ')"
+            Write-Host "    [UPDATE] ${vmName}: $($reconcile.UpdatedFields -join ', ')" -ForegroundColor Cyan
+        }
+        else {
+            $Skipped += "${vmName}: already compliant"
         }
     }
 
-    $alRole = $null
-    $isClient = $false
-    $os = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
+    Report-DeployProgress -Percent 20 -Status "Machine reconciliation complete"
 
-    switch -Regex ($vmRole) {
-        '^DC$' {
-            $firstDC = @($vms | Where-Object { $_.Role -eq 'DC' })[0]
-            if ($vm.Name -eq $firstDC.Name) {
-                $alRole = Get-LabMachineRoleDefinition -Role RootDC
-            } else {
-                $alRole = Get-LabMachineRoleDefinition -Role DC
-            }
-        }
-        'FileServer' { $alRole = Get-LabMachineRoleDefinition -Role FileServer }
-        'WebServer'  { $alRole = Get-LabMachineRoleDefinition -Role WebServer }
-        'SQL'        { $alRole = Get-LabMachineRoleDefinition -Role SQLServer2019 }
-        'DHCP'       { $alRole = Get-LabMachineRoleDefinition -Role DHCP }
-        'CA'         { $alRole = Get-LabMachineRoleDefinition -Role CaRoot }
-        'Client' {
-            $isClient = $true
-            $os = 'Windows 11 Enterprise Evaluation'
-        }
-    }
-
-    if ($isClient) { $ip = "192.168.10.$clientIP"; $clientIP++ }
-    else           { $ip = "192.168.10.$serverIP"; $serverIP++ }
-
-    $params = @{
-        Name            = $vmName
-        Memory          = $memoryBytes
-        Processors      = $procCount
-        IpAddress       = $ip
-        OperatingSystem = $os
-    }
-    if ($alRole) { $params['Roles'] = $alRole }
-
-    if ($vmAlreadyExists) {
-        Write-Host "  [EXISTING] $vmName ($vmRole) - $os, IP: $ip (will be kept)" -ForegroundColor DarkGray
-        if ($UpdateExisting) {
-            $reconcile = Update-ExistingVMSettings -VmName $vmName -Processors $procCount -StartupMemoryBytes $memoryBytes -SwitchName $LabName
-            if ($reconcile.RequiresRecreate) {
-                $RequiresRecreate += "${vmName}: $($reconcile.Reason)"
-                Write-Warning "Skipping destructive recreate in update-existing mode for ${vmName}: $($reconcile.Reason)"
-            }
-            elseif ($reconcile.UpdatedFields.Count -gt 0) {
-                $WillUpdateInPlace += "$vmName => $($reconcile.UpdatedFields -join ', ')"
-                Write-Host "    [UPDATE] ${vmName}: $($reconcile.UpdatedFields -join ', ')" -ForegroundColor Cyan
-            }
-            else {
-                $Skipped += "${vmName}: already compliant"
-            }
-        }
-    } else {
-        Write-Host "  $vmName ($vmRole) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
-        $WillCreate += $vmName
-    }
-
-    # Always add to lab definition so AutomatedLab validates domain topology correctly
-    # Install-Lab will detect existing VMs and skip re-creating them
-    Add-LabMachineDefinition @params
-}
-
-Report-DeployProgress -Percent 20 -Status "Machine definitions complete"
-
-if ($UpdateExisting) {
-    Write-Host "" 
+    Write-Host ""
     Write-Host "Update-existing summary:" -ForegroundColor Cyan
     Write-Host "  WillUpdateInPlace: $($WillUpdateInPlace.Count)" -ForegroundColor Cyan
     Write-Host "  WillCreate: $($WillCreate.Count)" -ForegroundColor Cyan
     Write-Host "  RequiresRecreate: $($RequiresRecreate.Count)" -ForegroundColor Cyan
     Write-Host "  Skipped: $($Skipped.Count)" -ForegroundColor Cyan
-}
+    if ($runningSkipNames.Count -gt 0) {
+        Write-Host "  Running VMs skipped per OnRunningVMs=skip: $($runningSkipNames -join ', ')" -ForegroundColor Yellow
+    }
 
-# ============================================================
-# PRE-INSTALL: Create base images and validate EFI boot (20-30%)
-# AutomatedLab's bcdboot call silently fails (piped to Out-Null),
-# leaving EFI partitions empty. We create base images first, then
-# verify and repair before Install-Lab creates differencing disks.
-# See: https://github.com/AutomatedLab/AutomatedLab/issues/1662
-# ============================================================
-Report-DeployProgress -Percent 21 -Status "Creating base images (if needed)..."
+    Write-Host "No new VMs detected in update-existing mode. Skipping AutomatedLab provisioning phases." -ForegroundColor Yellow
+} else {
+    Report-DeployProgress -Percent 16 -Status "Creating lab definition..."
 
-Write-Host ""
-Write-Host "Creating base disk images..." -ForegroundColor Yellow
-try {
-    # Use Install-Lab -BaseImages (not bare New-LabBaseImages) so lab context is available
-    Install-Lab -BaseImages -ErrorAction Stop
-    Write-Host "  Base images ready" -ForegroundColor Green
-} catch {
-    Write-Host "  Base image creation error: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "  Install-Lab will retry base image creation" -ForegroundColor Yellow
-}
+    if (($Incremental -or $UpdateExisting) -and $existingVMNames.Count -gt 0) {
+        # Import existing lab so AutomatedLab knows about current VMs
+        Import-Lab -Name $LabName -NoValidation -ErrorAction SilentlyContinue
+    }
+    # Ensure VM path exists
+    if (-not (Test-Path $VMPath)) { New-Item -Path $VMPath -ItemType Directory -Force | Out-Null }
+    New-LabDefinition -Name $LabName -DefaultVirtualizationEngine HyperV -VmPath $VMPath
 
-Report-DeployProgress -Percent 25 -Status "Validating EFI boot partitions on base images..."
+    Report-DeployProgress -Percent 17 -Status "Configuring network..."
 
-$baseVhdxFiles = Get-ChildItem $VMPath -Filter 'BASE_*.vhdx' -ErrorAction SilentlyContinue
-$efiRepairCount = 0
+    # Network - Internal switch with NAT for internet access
+    # NAT is more reliable than external switches (especially on Wi-Fi adapters)
+    Add-LabVirtualNetworkDefinition -Name $LabName -AddressSpace 192.168.10.0/24 -HyperVProperties @{ SwitchType = 'Internal' }
+    Write-Host "  Network: $LabName (Internal + NAT, 192.168.10.0/24)" -ForegroundColor Cyan
 
-foreach ($baseVhdx in $baseVhdxFiles) {
-    Write-Host "  Checking: $($baseVhdx.Name) ($([math]::Round($baseVhdx.Length/1GB,1))GB)" -ForegroundColor Gray
+    # Domain
+    if ($requiresAdminPassword) {
+        Write-Host "Configuring domain: $DomainName" -ForegroundColor Yellow
+        Add-LabDomainDefinition -Name $DomainName -AdminUser dod_admin -AdminPassword $AdminPassword
+        Set-LabInstallationCredential -Username dod_admin -Password $AdminPassword
+    } else {
+        Write-Host "Skipping domain configuration (no new VMs to provision)" -ForegroundColor Yellow
+    }
 
-    # Ensure clean state
-    Dismount-VHD -Path $baseVhdx.FullName -ErrorAction SilentlyContinue
-    Start-Sleep 1
+    # Default parameters
+    $PSDefaultParameterValues = @{
+        'Add-LabMachineDefinition:Network'        = $LabName
+        'Add-LabMachineDefinition:DomainName'     = $DomainName
+        'Add-LabMachineDefinition:OperatingSystem' = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
+    }
 
-    $mounted = $false
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
-        try {
-            Mount-VHD -Path $baseVhdx.FullName -ErrorAction Stop
-            $mounted = $true
-            break
-        } catch {
-            Write-Host "    Mount attempt $attempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
-            Start-Sleep -Seconds 3
+    # ============================================================
+    # ADD MACHINES (17-20%)
+    # ============================================================
+    Report-DeployProgress -Percent 18 -Status "Adding virtual machine definitions..."
+
+    $serverIP = 10
+    $clientIP = 50
+
+    foreach ($vm in $vms) {
+        $vmName = $vm.Name
+        if ([string]::IsNullOrWhiteSpace($vmName)) {
+            Write-Host "  WARNING: Skipping VM with empty name" -ForegroundColor Yellow
+            continue
         }
+
+        # Track whether this VM already exists (incremental/update mode)
+        $vmAlreadyExists = ($Incremental -or $UpdateExisting) -and $vmName -in $existingVMNames
+
+        $memoryBytes = [int64]$vm.MemoryGB * 1GB
+        $procCount = 2
+        if ($vm.PSObject.Properties['Processors'] -and $vm.Processors -gt 0) {
+            $procCount = [int]$vm.Processors
+        }
+
+        $vmRole = [string]$vm.Role
+        if ([string]::IsNullOrWhiteSpace($vmRole)) {
+            $vmRole = 'MemberServer'
+        }
+        else {
+            switch ($vmRole.Trim()) {
+                'MS'     { $vmRole = 'MemberServer'; break }
+                'Member' { $vmRole = 'MemberServer'; break }
+                'Server' { $vmRole = 'MemberServer'; break }
+                default  { $vmRole = $vmRole.Trim() }
+            }
+        }
+
+        $alRole = $null
+        $isClient = $false
+        $os = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
+
+        switch -Regex ($vmRole) {
+            '^DC$' {
+                $firstDC = @($vms | Where-Object { $_.Role -eq 'DC' })[0]
+                if ($vm.Name -eq $firstDC.Name) {
+                    $alRole = Get-LabMachineRoleDefinition -Role RootDC
+                } else {
+                    $alRole = Get-LabMachineRoleDefinition -Role DC
+                }
+            }
+            'FileServer' { $alRole = Get-LabMachineRoleDefinition -Role FileServer }
+            'WebServer'  { $alRole = Get-LabMachineRoleDefinition -Role WebServer }
+            'SQL'        { $alRole = Get-LabMachineRoleDefinition -Role SQLServer2019 }
+            'DHCP'       { $alRole = Get-LabMachineRoleDefinition -Role DHCP }
+            'CA'         { $alRole = Get-LabMachineRoleDefinition -Role CaRoot }
+            'Client' {
+                $isClient = $true
+                $os = 'Windows 11 Enterprise Evaluation'
+            }
+        }
+
+        if ($isClient) { $ip = "192.168.10.$clientIP"; $clientIP++ }
+        else           { $ip = "192.168.10.$serverIP"; $serverIP++ }
+
+        $params = @{
+            Name            = $vmName
+            Memory          = $memoryBytes
+            Processors      = $procCount
+            IpAddress       = $ip
+            OperatingSystem = $os
+        }
+        if ($alRole) { $params['Roles'] = $alRole }
+
+        if ($vmAlreadyExists) {
+            Write-Host "  [EXISTING] $vmName ($vmRole) - $os, IP: $ip (will be kept)" -ForegroundColor DarkGray
+            if ($UpdateExisting) {
+                if ($runningSkipNames -contains $vmName) {
+                    $Skipped += "${vmName}: running VM kept as-is (OnRunningVMs=skip)"
+                    Write-Host "    [SKIP] $vmName is running; updates skipped by OnRunningVMs=skip" -ForegroundColor Yellow
+                }
+                else {
+                    $reconcile = Update-ExistingVMSettings -VmName $vmName -Processors $procCount -StartupMemoryBytes $memoryBytes -SwitchName $LabName
+                    if ($reconcile.RequiresRecreate) {
+                        $RequiresRecreate += "${vmName}: $($reconcile.Reason)"
+                        Write-Warning "Skipping destructive recreate in update-existing mode for ${vmName}: $($reconcile.Reason)"
+                    }
+                    elseif ($reconcile.UpdatedFields.Count -gt 0) {
+                        $WillUpdateInPlace += "$vmName => $($reconcile.UpdatedFields -join ', ')"
+                        Write-Host "    [UPDATE] ${vmName}: $($reconcile.UpdatedFields -join ', ')" -ForegroundColor Cyan
+                    }
+                    else {
+                        $Skipped += "${vmName}: already compliant"
+                    }
+                }
+            }
+        } else {
+            Write-Host "  $vmName ($vmRole) - $os, ${procCount}CPU, $($vm.MemoryGB)GB RAM, IP: $ip" -ForegroundColor Cyan
+            $WillCreate += $vmName
+        }
+
+        # Always add to lab definition so AutomatedLab validates domain topology correctly
+        # Install-Lab will detect existing VMs and skip re-creating them
+        Add-LabMachineDefinition @params
     }
 
-    if (-not $mounted) {
-        Write-Host "    [SKIP] Could not mount - Install-Lab may still work" -ForegroundColor Yellow
-        continue
+    Report-DeployProgress -Percent 20 -Status "Machine definitions complete"
+
+    if ($UpdateExisting) {
+        Write-Host ""
+        Write-Host "Update-existing summary:" -ForegroundColor Cyan
+        Write-Host "  WillUpdateInPlace: $($WillUpdateInPlace.Count)" -ForegroundColor Cyan
+        Write-Host "  WillCreate: $($WillCreate.Count)" -ForegroundColor Cyan
+        Write-Host "  RequiresRecreate: $($RequiresRecreate.Count)" -ForegroundColor Cyan
+        Write-Host "  Skipped: $($Skipped.Count)" -ForegroundColor Cyan
     }
+    if ($UpdateExisting -and $runningSkipNames.Count -gt 0) {
+        Write-Host "  Running VMs skipped per OnRunningVMs=skip: $($runningSkipNames -join ', ')" -ForegroundColor Yellow
+    }
+}
+
+$installError = $null
+$vhdxWarnings = @()
+
+if ($skipProvisioning) {
+    Write-Host "Skipping AutomatedLab provisioning (update-existing with no new VMs)" -ForegroundColor Yellow
+    Report-DeployProgress -Percent 30 -Status "Provisioning skipped (update-existing, no new VMs)"
+} else {
+    # ============================================================
+    # PRE-INSTALL: Create base images and validate EFI boot (20-30%)
+    # AutomatedLab's bcdboot call silently fails (piped to Out-Null),
+    # leaving EFI partitions empty. We create base images first, then
+    # verify and repair before Install-Lab creates differencing disks.
+    # See: https://github.com/AutomatedLab/AutomatedLab/issues/1662
+    # ============================================================
+    Report-DeployProgress -Percent 21 -Status "Creating base images (if needed)..."
+
+    Write-Host ""
+    Write-Host "Creating base disk images..." -ForegroundColor Yellow
+    try {
+        # Use Install-Lab -BaseImages (not bare New-LabBaseImages) so lab context is available
+        Install-Lab -BaseImages -ErrorAction Stop
+        Write-Host "  Base images ready" -ForegroundColor Green
+    } catch {
+        Write-Host "  Base image creation error: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  Install-Lab will retry base image creation" -ForegroundColor Yellow
+    }
+
+    Report-DeployProgress -Percent 25 -Status "Validating EFI boot partitions on base images..."
+
+    $baseVhdxFiles = Get-ChildItem $VMPath -Filter 'BASE_*.vhdx' -ErrorAction SilentlyContinue
+    $efiRepairCount = 0
+
+    foreach ($baseVhdx in $baseVhdxFiles) {
+        Write-Host "  Checking: $($baseVhdx.Name) ($([math]::Round($baseVhdx.Length/1GB,1))GB)" -ForegroundColor Gray
+
+        # Ensure clean state
+        Dismount-VHD -Path $baseVhdx.FullName -ErrorAction SilentlyContinue
+        Start-Sleep 1
+
+        $mounted = $false
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+                Mount-VHD -Path $baseVhdx.FullName -ErrorAction Stop
+                $mounted = $true
+                break
+            } catch {
+                Write-Host "    Mount attempt $attempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                Start-Sleep -Seconds 3
+            }
+        }
+
+        if (-not $mounted) {
+            Write-Host "    [SKIP] Could not mount - Install-Lab may still work" -ForegroundColor Yellow
+            continue
+        }
 
     Start-Sleep 2
 
@@ -1066,6 +1181,7 @@ if ($vhdxWarnings.Count -gt 0) {
 }
 
 Report-DeployProgress -Percent 85 -Status "VHDX validation complete"
+}
 
 # ============================================================
 # POST-INSTALL: Per-VM internet policy enforcement (85-88%)

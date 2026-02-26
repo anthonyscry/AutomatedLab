@@ -16,12 +16,16 @@ Describe 'Deployment mode plumbing' {
         $script:serviceText | Should -Match 'Falling back to non-destructive incremental mode'
         $script:serviceText | Should -Match 'switches\.Add\("Incremental"\)'
         $script:serviceText | Should -Match 'switches\.Add\("UpdateExisting"\)'
+        $script:serviceText | Should -Match 'OnRunningVMs'
     }
 
     It 'offers update-existing mode and supports canceling deployment in viewmodel' {
         $script:viewModelText | Should -Match 'deploymentMode\s*=\s*"update-existing"'
         $script:viewModelText | Should -Match 'userCancelledDeploymentMode'
-        $script:viewModelText | Should -Match 'if \(userCancelledDeploymentMode\) \{ IsDeploying = false; return; \}'
+        $script:viewModelText | Should -Match 'if \(userCancelledDeploymentMode\)'
+        $script:viewModelText | Should -Match 'onRunningVms\s*=\s*"abort"'
+        $script:viewModelText | Should -Match 'Running VMs detected'
+        $script:viewModelText | Should -Match 'requiresPassword'
     }
 }
 

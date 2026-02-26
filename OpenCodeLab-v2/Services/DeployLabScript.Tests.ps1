@@ -19,6 +19,17 @@ Describe 'Deploy-Lab deployment modes' {
         $script:deployScript | Should -Match 'RequiresRecreate'
         $script:deployScript | Should -Match 'Skipped'
     }
+
+    It 'defines running VM handling policy for update-existing mode' {
+        $script:deployScript | Should -Match "\[ValidateSet\('abort'\s*,\s*'shutdown'\s*,\s*'skip'\)\]"
+        $script:deployScript | Should -Match '\[string\]\$OnRunningVMs = ''abort''' 
+        $script:deployScript | Should -Match 'Running VMs detected in update-existing mode'
+    }
+
+    It 'allows passwordless update-existing when no new VMs are created' {
+        $script:deployScript | Should -Match '\$requiresAdminPassword = -not \$skipProvisioning'
+        $script:deployScript | Should -Match 'No new VMs detected in update-existing mode\. Skipping AutomatedLab provisioning phases'
+    }
 }
 
 Describe 'Deploy-Lab internet policy orchestration' {

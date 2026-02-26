@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -374,78 +375,52 @@ public class ActionsViewModel : ObservableObject
         var logDirectory = GetLogDirectoryPath(settings);
         string? adminPassword = null;
 
+        var deploymentMode = "full";
+        var onRunningVms = "abort";
+        var existingVMs = new List<string>();
+        var runningVMs = new List<string>();
+        var userCancelledDeploymentMode = false;
+        var userCancelledRunningVms = false;
+
+        bool VmExists(string vmName)
+        {
+            try
+            {
+                var safeName = vmName.Replace("'", "''");
+                var psi = new ProcessStartInfo("powershell.exe",
+                    $"-NoProfile -Command \"try {{ $vm = Get-VM -Name '{safeName}' -ErrorAction SilentlyContinue; if ($vm) {{ $vm.State }} }} catch {{ }}\"")
+                { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                using var process = Process.Start(psi);
+                var output = process?.StandardOutput.ReadToEnd()?.Trim() ?? string.Empty;
+                process?.WaitForExit();
+                if (string.Equals(output, "Running", StringComparison.OrdinalIgnoreCase))
+                {
+                    runningVMs.Add(vmName);
+                    existingVMs.Add(vmName);
+                    return true;
+                }
+
+                if (!string.IsNullOrEmpty(output))
+                {
+                    existingVMs.Add(vmName);
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        foreach (var vm in SelectedLab.VMs)
+        {
+            VmExists(vm.Name);
+        }
+
+        var newVMs = SelectedLab.VMs.Where(v => !existingVMs.Contains(v.Name)).Select(v => v.Name).ToList();
+
         try
         {
-            // Deployment script requires domain admin credentials for lab domain setup.
-            // Prefer an environment-provided value for non-interactive automation.
-            adminPassword = Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
-
-            if (string.IsNullOrEmpty(adminPassword))
-            {
-                await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
-                {
-                    adminPassword = Views.PasswordDialog.PromptForPassword(
-                        Application.Current.MainWindow!, SelectedLab.LabName);
-                }));
-
-                if (string.IsNullOrEmpty(adminPassword))
-                {
-                    LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
-                    return;
-                }
-            }
-
-            // Set environment variable for this process
-            Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", adminPassword);
-
-            // Auto-save before deploying
-            if (string.IsNullOrEmpty(SelectedLab.LabPath) || !SelectedLab.LabPath.EndsWith(".json"))
-            {
-                SelectedLab.LabPath = Path.Combine(labConfigPath, $"{SelectedLab.LabName}.json");
-                try
-                {
-                    Directory.CreateDirectory(labConfigPath);
-                    var json = System.Text.Json.JsonSerializer.Serialize(SelectedLab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(SelectedLab.LabPath, json);
-                    LogOutput += $"Lab saved to: {SelectedLab.LabPath}{Environment.NewLine}";
-                }
-                catch { }
-            }
-
-            IsDeploying = true;
-            IsCancellationRequested = false;
-            LogOutput = string.Empty;
-
-            Directory.CreateDirectory(logDirectory);
-            _activeDeploymentId = Guid.NewGuid().ToString("N")[..8];
-            _currentLogFile = Path.Combine(logDirectory, $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
-            TrackDeploymentEvent("deploy_start", $"lab={SelectedLab.LabName}");
-            WriteToLog($"Starting deployment of lab: {SelectedLab.LabName}{Environment.NewLine}");
-
-            // Check if any VMs already exist - offer deployment mode selection
-            string deploymentMode = "full";
-            bool userCancelledDeploymentMode = false;
-            var existingVMs = new List<string>();
-            foreach (var vm in SelectedLab.VMs)
-            {
-                try
-                {
-                    // Use PowerShell to check Hyper-V
-                    var psi = new System.Diagnostics.ProcessStartInfo("powershell.exe",
-                        $"-NoProfile -Command \"if (Get-VM -Name '{vm.Name}' -ErrorAction SilentlyContinue) {{ 'EXISTS' }}\"")
-                    { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
-                    using var p = System.Diagnostics.Process.Start(psi);
-                    var output = p?.StandardOutput.ReadToEnd()?.Trim() ?? "";
-                    p?.WaitForExit();
-                    if (output == "EXISTS") existingVMs.Add(vm.Name);
-                }
-                catch { }
-            }
-
             if (existingVMs.Count > 0 && existingVMs.Count < SelectedLab.VMs.Count)
             {
-                // Some VMs exist, some are new - ask user how to proceed
-                var newVMs = SelectedLab.VMs.Where(v => !existingVMs.Contains(v.Name)).Select(v => v.Name);
                 await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
                 {
                     var result = MessageBox.Show(
@@ -470,7 +445,6 @@ public class ActionsViewModel : ObservableObject
             }
             else if (existingVMs.Count > 0 && existingVMs.Count == SelectedLab.VMs.Count)
             {
-                // All VMs already exist
                 await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
                 {
                     var result = MessageBox.Show(
@@ -493,7 +467,77 @@ public class ActionsViewModel : ObservableObject
                 }
             }
 
-            var deployStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            if (string.Equals(deploymentMode, "update-existing", StringComparison.OrdinalIgnoreCase) && runningVMs.Count > 0)
+            {
+                await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var result = MessageBox.Show(
+                        $"Running VMs detected: {string.Join(", ", runningVMs)}\n\n" +
+                        "Click YES to shut down running VMs before updating.\n" +
+                        "Click NO to leave running VMs untouched.\n" +
+                        "Click CANCEL to abort deployment.",
+                        "Running VMs Detected",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Warning);
+                    if (result == MessageBoxResult.Yes) onRunningVms = "shutdown";
+                    else if (result == MessageBoxResult.No) onRunningVms = "skip";
+                    else userCancelledRunningVms = true;
+                }));
+                if (userCancelledRunningVms)
+                {
+                    TrackDeploymentEvent("deploy_completed", "status=cancelled-before-run");
+                    IsDeploying = false;
+                    return;
+                }
+            }
+
+            var requiresPassword = !(string.Equals(deploymentMode, "update-existing", StringComparison.OrdinalIgnoreCase) && newVMs.Count == 0);
+
+            if (requiresPassword)
+            {
+                adminPassword = Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
+                if (string.IsNullOrEmpty(adminPassword))
+                {
+                    await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        adminPassword = Views.PasswordDialog.PromptForPassword(
+                            Application.Current.MainWindow!, SelectedLab.LabName);
+                    }));
+
+                    if (string.IsNullOrEmpty(adminPassword))
+                    {
+                        LogOutput += $"Deployment cancelled: No password provided.{Environment.NewLine}";
+                        return;
+                    }
+                }
+
+                Environment.SetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD", adminPassword);
+            }
+
+            if (string.IsNullOrEmpty(SelectedLab.LabPath) || !SelectedLab.LabPath.EndsWith(".json"))
+            {
+                SelectedLab.LabPath = Path.Combine(labConfigPath, $"{SelectedLab.LabName}.json");
+                try
+                {
+                    Directory.CreateDirectory(labConfigPath);
+                    var json = System.Text.Json.JsonSerializer.Serialize(SelectedLab, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(SelectedLab.LabPath, json);
+                    LogOutput += $"Lab saved to: {SelectedLab.LabPath}{Environment.NewLine}";
+                }
+                catch { }
+            }
+
+            IsDeploying = true;
+            IsCancellationRequested = false;
+            LogOutput = string.Empty;
+
+            Directory.CreateDirectory(logDirectory);
+            _activeDeploymentId = Guid.NewGuid().ToString("N")[..8];
+            _currentLogFile = Path.Combine(logDirectory, $"deployment-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            TrackDeploymentEvent("deploy_start", $"lab={SelectedLab.LabName}");
+            WriteToLog($"Starting deployment of lab: {SelectedLab.LabName}{Environment.NewLine}");
+
+            var deployStopwatch = Stopwatch.StartNew();
             var deployStartTime = DateTime.Now;
             LogOutput += $"Deployment started at {deployStartTime:HH:mm:ss}{Environment.NewLine}";
             WriteToLog($"Deployment started at {deployStartTime:HH:mm:ss}{Environment.NewLine}");
@@ -507,7 +551,7 @@ public class ActionsViewModel : ObservableObject
                     LogOutput += msg + Environment.NewLine;
                 });
                 WriteToLog(msg + Environment.NewLine);
-            }, adminPassword, deploymentMode, _deployCts.Token);
+            }, adminPassword, deploymentMode, onRunningVms, _deployCts.Token);
 
             deployStopwatch.Stop();
             var elapsed = deployStopwatch.Elapsed;

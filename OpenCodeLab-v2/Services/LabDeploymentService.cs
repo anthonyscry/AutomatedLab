@@ -20,7 +20,8 @@ public class LabDeploymentService
     private const string DeployScriptName = "Deploy-Lab.ps1";
 
     public async Task<bool> DeployLabAsync(LabConfig config, Action<string>? log = null,
-        string? adminPassword = null, string deploymentMode = "full", CancellationToken ct = default)
+        string? adminPassword = null, string deploymentMode = "full",
+        string onRunningVms = "abort", CancellationToken ct = default)
     {
         try
         {
@@ -48,8 +49,24 @@ public class LabDeploymentService
                 normalizedDeploymentMode = "incremental";
             }
 
+            var normalizedOnRunningVms = (onRunningVms ?? string.Empty).Trim().ToLowerInvariant();
+            var allowedOnRunningModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "abort",
+                "shutdown",
+                "skip"
+            };
+            if (!allowedOnRunningModes.Contains(normalizedOnRunningVms))
+            {
+                log?.Invoke($"WARNING: Unknown running-VM handling mode '{onRunningVms}'. Falling back to abort.");
+                normalizedOnRunningVms = "abort";
+            }
+
             var useIncremental = string.Equals(normalizedDeploymentMode, "incremental", StringComparison.OrdinalIgnoreCase);
             var useUpdateExisting = string.Equals(normalizedDeploymentMode, "update-existing", StringComparison.OrdinalIgnoreCase);
+
+            var hasNewVirtualMachines = HasNewVirtualMachines(config);
+            var requiresPassword = !(useUpdateExisting && !hasNewVirtualMachines);
 
             // Clean up orphaned disks only for full redeploy mode.
             if (!useIncremental && !useUpdateExisting)
@@ -79,11 +96,15 @@ public class LabDeploymentService
             var vmsJsonFile = Path.Combine(Path.GetTempPath(), $"lab-vms-{Guid.NewGuid():N}.json");
             File.WriteAllText(vmsJsonFile, vmsJson, Encoding.UTF8);
 
-            var pw = adminPassword ?? Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
-            if (string.IsNullOrWhiteSpace(pw))
+            var pw = string.Empty;
+            if (requiresPassword)
             {
-                log?.Invoke("Deployment requires an admin password for Active Directory deployments.");
-                return false;
+                pw = adminPassword ?? Environment.GetEnvironmentVariable("OPENCODELAB_ADMIN_PASSWORD");
+                if (string.IsNullOrWhiteSpace(pw))
+                {
+                    log?.Invoke("Deployment requires an admin password for Active Directory deployments.");
+                    return false;
+                }
             }
 
             bool result;
@@ -105,6 +126,7 @@ public class LabDeploymentService
                     ["AdminPassword"] = pw,
                     ["VMPath"] = vmPath
                 };
+                args["OnRunningVMs"] = normalizedOnRunningVms;
 
                 var switches = new List<string>();
                 if (useIncremental) switches.Add("Incremental");
@@ -482,6 +504,35 @@ public class LabDeploymentService
             return Path.GetDirectoryName(config.LabPath) ?? LabSourcesRoot;
 
         return config.LabPath;
+    }
+
+    private static bool HasNewVirtualMachines(LabConfig config)
+    {
+        foreach (var vm in config.VMs)
+        {
+            if (!VmExists(vm.Name))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool VmExists(string vmName)
+    {
+        try
+        {
+            var safeName = EscapeSingleQuote(vmName);
+            var psi = new ProcessStartInfo("powershell.exe",
+                $"-NoProfile -Command \"if (Get-VM -Name '{safeName}' -ErrorAction SilentlyContinue) {{ '1' }}\"")
+            { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+            using var process = Process.Start(psi);
+            var output = process?.StandardOutput.ReadToEnd()?.Trim();
+            process?.WaitForExit();
+            return string.Equals(output, "1", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static readonly HashSet<string> ReservedWindowsNames = new(StringComparer.OrdinalIgnoreCase)
