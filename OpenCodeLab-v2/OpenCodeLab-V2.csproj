@@ -14,6 +14,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>false</PublishSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
