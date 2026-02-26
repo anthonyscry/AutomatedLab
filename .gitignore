@@ -47,6 +47,7 @@ desktop.ini
 # Dev artifacts
 OpenCodeLab-v2/artifacts/
 OpenCodeLab-v2/_release_tmp/
+OpenCodeLab-v2/config/artifacts/logs/
 
 # Legacy / deprecated (kept on disk but not tracked)
 GUI/

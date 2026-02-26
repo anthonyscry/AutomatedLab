@@ -11,13 +11,16 @@ OpenCodeLab v2 provides a modular PowerShell baseline for local lab lifecycle op
 
 Run quality gates from the repository root:
 
+- Full ship-readiness run: `pwsh -NoProfile -File OpenCodeLab-v2/scripts/Invoke-ShipReadiness.ps1`
 - Unit tests: `pwsh -NoProfile -Command "Invoke-Pester -Path 'OpenCodeLab-v2/tests/unit'"`
 - Integration tests: `pwsh -NoProfile -Command "Invoke-Pester -Path 'OpenCodeLab-v2/tests/integration'"`
 - Smoke tests: `pwsh -NoProfile -Command "Invoke-Pester -Path 'OpenCodeLab-v2/tests/smoke'"`
 - ScriptAnalyzer: `pwsh -NoProfile -Command '$warnings = @(); $warnings += @(Invoke-ScriptAnalyzer -Path "OpenCodeLab-v2/src" -Recurse -Severity Warning); $warnings += @(Invoke-ScriptAnalyzer -Path "OpenCodeLab-v2/scripts" -Recurse -Severity Warning); if ($warnings.Count -gt 0) { $warnings | Format-Table -AutoSize }; $errors = @(); $errors += @(Invoke-ScriptAnalyzer -Path "OpenCodeLab-v2/src" -Recurse -Severity Error); $errors += @(Invoke-ScriptAnalyzer -Path "OpenCodeLab-v2/scripts" -Recurse -Severity Error); if ($errors.Count -gt 0) { $errors | Format-Table -AutoSize; exit 1 }'`
+- Build: `dotnet build OpenCodeLab-v2/OpenCodeLab-V2.csproj -c Release`
+- Vulnerability scan: `dotnet list OpenCodeLab-v2/OpenCodeLab-V2.csproj package --vulnerable --include-transitive`
 
 The smoke baseline currently validates the preflight action path. If Hyper-V prerequisites are not available on the host, the smoke test is skipped with a clear reason instead of failing the pipeline.
 
 ## CI workflow
 
-`.github/workflows/opencodelab-v2-ci.yml` runs unit, integration, smoke, and ScriptAnalyzer gates for OpenCodeLab v2 changes.
+`.github/workflows/opencodelab-v2-ci.yml` runs unit, integration, smoke, ScriptAnalyzer, build, and dependency vulnerability gates for OpenCodeLab v2 changes.

@@ -27,6 +27,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
       - name: Install test and lint modules
         run: |
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -58,4 +63,15 @@ jobs:
           if ($errors.Count -gt 0) {
             $errors | Format-Table -AutoSize
             throw "ScriptAnalyzer reported $($errors.Count) error issue(s)."
+          }
+
+      - name: Build WPF application
+        run: dotnet build OpenCodeLab-v2/OpenCodeLab-V2.csproj -c Release --nologo
+
+      - name: Check .NET dependency vulnerabilities
+        run: |
+          $vulnOutput = dotnet list OpenCodeLab-v2/OpenCodeLab-V2.csproj package --vulnerable --include-transitive
+          $vulnOutput
+          if ($vulnOutput -notmatch 'has no vulnerable packages') {
+            throw 'Potential vulnerable packages detected. Review the dependency report above.'
           }
