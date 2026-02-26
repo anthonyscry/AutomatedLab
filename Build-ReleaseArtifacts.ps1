@@ -59,6 +59,30 @@ function Publish-Artifact {
     }
 }
 
+function Assert-NoSatelliteResourceDirectories {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublishDir,
+        [Parameter(Mandatory = $true)]
+        [string]$ArtifactLabel
+    )
+
+    if (-not (Test-Path $PublishDir)) {
+        throw "Publish output not found for ${ArtifactLabel}: $PublishDir"
+    }
+
+    $satelliteDirs = Get-ChildItem -Path $PublishDir -Directory -ErrorAction SilentlyContinue |
+        Where-Object {
+            @(Get-ChildItem -Path $_.FullName -Filter '*.resources.dll' -File -Recurse -ErrorAction SilentlyContinue).Count -gt 0
+        } |
+        Select-Object -ExpandProperty Name
+
+    if (@($satelliteDirs).Count -gt 0) {
+        $dirList = (@($satelliteDirs) | Sort-Object) -join ', '
+        throw "Unexpected localized satellite resources found in $ArtifactLabel output: $dirList. Expected English-only payload; verify SatelliteResourceLanguages=en."
+    }
+}
+
 function Copy-ReleasePayload {
     param(
         [Parameter(Mandatory = $true)]
@@ -209,6 +233,7 @@ if ($ArtifactMode -eq 'portable') {
 
     Write-Host 'Publishing portable artifact (self-contained bundle)...' -ForegroundColor Cyan
     Publish-Artifact -ProjectDir $projectDir -OutputDir $publishPortable -SelfContained:$true
+    Assert-NoSatelliteResourceDirectories -PublishDir $publishPortable -ArtifactLabel 'portable'
 
     Write-Host 'Staging portable payload...' -ForegroundColor Cyan
     Copy-ReleasePayload -PublishDir $publishPortable -StageDir $portableStageDir -SetupScriptPath $setupScriptPath -RootReadmePath $rootReadmePath -LabSourcesPath $labSourcesPath
@@ -238,16 +263,19 @@ if ($ArtifactMode -eq 'portable') {
     Write-Host 'Release notes snippet:' -ForegroundColor Green
     Write-Host "- Portable artifact: OpenCodeLab-v$normalizedVersion-portable-win-x64.zip"
     Write-Host "- Portable SHA256: $portableHash"
+    Write-Host '- Locale payload: English-only resources (artifact size optimized)'
 
     return
 }
 
 Write-Host "Publishing app-only artifact (framework-dependent)..." -ForegroundColor Cyan
 Publish-Artifact -ProjectDir $projectDir -OutputDir $publishAppOnly -SelfContained:$false
+Assert-NoSatelliteResourceDirectories -PublishDir $publishAppOnly -ArtifactLabel 'app-only'
 
 if (-not $SkipDotNetBundle) {
     Write-Host "Publishing .NET bundle artifact (self-contained)..." -ForegroundColor Cyan
     Publish-Artifact -ProjectDir $projectDir -OutputDir $publishDotNetBundle -SelfContained:$true
+    Assert-NoSatelliteResourceDirectories -PublishDir $publishDotNetBundle -ArtifactLabel 'dotnet-bundle'
 }
 
 Write-Host "Staging app-only payload..." -ForegroundColor Cyan
@@ -344,3 +372,4 @@ Write-Host "- App-only SHA256: $appHash"
 if (-not $SkipDotNetBundle) {
     Write-Host "- Dotnet-bundle SHA256: $bundleHash"
 }
+Write-Host '- Locale payload: English-only resources (artifact size optimized)'

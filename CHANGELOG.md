@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `RELEASE-PACKAGING.md` with release-note template guidance for dotnet-bundle artifact change status.
 
 ### Changed
+- Release packaging now defaults to English-only satellite resources for smaller publish artifacts.
 - Updated operator docs to publish multi-host orchestration arguments (`-TargetHosts`, `-InventoryPath`, `-ConfirmationToken`) and fail-closed coordinator outcomes including `EscalationRequired`.
 - Masked admin password in `Add-LIN1.ps1` console output (shows `**********` instead of plaintext)
 - `Select-LabRoles` uses cursor repositioning instead of `Clear-Host` to eliminate screen flicker
