@@ -31,3 +31,10 @@ Describe 'Deploy-Lab internet policy orchestration' {
         $script:deployScript | Should -Match 'Set-VMInternetPolicy\s+-VmName\s+\$item\.VMName\s+-EnableHostInternet\s+\$item\.EnableHostInternet\s+-Gateway\s+\$item\.Gateway'
     }
 }
+
+Describe 'Deploy-Lab variable interpolation safety' {
+    It 'avoids vmName drive-reference interpolation errors' {
+        $script:deployScript | Should -Not -Match '\$vmName:\s'
+        $script:deployScript | Should -Match '\$\{vmName\}:'
+    }
+}

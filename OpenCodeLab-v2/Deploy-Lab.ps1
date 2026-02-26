@@ -555,15 +555,15 @@ foreach ($vm in $vms) {
         if ($UpdateExisting) {
             $reconcile = Update-ExistingVMSettings -VmName $vmName -Processors $procCount -StartupMemoryBytes $memoryBytes -SwitchName $LabName
             if ($reconcile.RequiresRecreate) {
-                $RequiresRecreate += "$vmName: $($reconcile.Reason)"
-                Write-Warning "Skipping destructive recreate in update-existing mode for $vmName: $($reconcile.Reason)"
+                $RequiresRecreate += "${vmName}: $($reconcile.Reason)"
+                Write-Warning "Skipping destructive recreate in update-existing mode for ${vmName}: $($reconcile.Reason)"
             }
             elseif ($reconcile.UpdatedFields.Count -gt 0) {
                 $WillUpdateInPlace += "$vmName => $($reconcile.UpdatedFields -join ', ')"
-                Write-Host "    [UPDATE] $vmName: $($reconcile.UpdatedFields -join ', ')" -ForegroundColor Cyan
+                Write-Host "    [UPDATE] ${vmName}: $($reconcile.UpdatedFields -join ', ')" -ForegroundColor Cyan
             }
             else {
-                $Skipped += "$vmName: already compliant"
+                $Skipped += "${vmName}: already compliant"
             }
         }
     } else {
