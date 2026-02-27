@@ -19,6 +19,8 @@ public class NetworkConfig
     public string SwitchType { get; set; } = "Internal";
     public string? IPAddressPrefix { get; set; }
     public int VLANID { get; set; }
+    public bool EnableExternalInternetSwitch { get; set; } = false;
+    public string ExternalSwitchName { get; set; } = "DefaultExternal";
 }
 
 public class VMDefinition

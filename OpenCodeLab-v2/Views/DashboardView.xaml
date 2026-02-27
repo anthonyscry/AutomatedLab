@@ -121,6 +121,7 @@
                 <Button Content="■ Stop" Command="{Binding StopCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
                 <Button Content="↻ Restart" Command="{Binding RestartCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
                 <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
+                <Button Content="🗑 Remove Selected" Command="{Binding RemoveSelectedVMCommand}" Width="140" Height="36" Margin="5" Style="{StaticResource RedButton}"/>
                 <Button Content="💥 Blow Away All" Command="{Binding BlowAwayCommand}" Width="120" Height="36" Margin="5" Style="{StaticResource RedButton}"/>
             </StackPanel>
         </Border>

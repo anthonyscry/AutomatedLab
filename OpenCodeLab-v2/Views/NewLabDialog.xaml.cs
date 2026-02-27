@@ -28,6 +28,10 @@ public partial class NewLabDialog : Window
     public NewLabDialog()
     {
         InitializeComponent();
+
+        EnableExternalInternetSwitchBox.Checked += (s, e) => UpdateExternalSwitchControls();
+        EnableExternalInternetSwitchBox.Unchecked += (s, e) => UpdateExternalSwitchControls();
+
         VMListBox.SelectionChanged += (s, e) =>
         {
             EditVMButton.IsEnabled = VMListBox.SelectedItem != null;
@@ -39,6 +43,8 @@ public partial class NewLabDialog : Window
             if (CreateButton != null)
                 CreateButton.IsEnabled = !string.IsNullOrWhiteSpace(LabNameBox.Text);
         };
+
+        UpdateExternalSwitchControls();
     }
 
     public NewLabDialog(AppSettings defaults) : this()
@@ -68,6 +74,12 @@ public partial class NewLabDialog : Window
             }
         }
 
+        EnableExternalInternetSwitchBox.IsChecked = existing.Network?.EnableExternalInternetSwitch ?? false;
+        ExternalSwitchNameBox.Text = string.IsNullOrWhiteSpace(existing.Network?.ExternalSwitchName)
+            ? "DefaultExternal"
+            : existing.Network.ExternalSwitchName;
+        UpdateExternalSwitchControls();
+
         _vms = new List<VMDefinition>(existing.VMs ?? new List<VMDefinition>());
         foreach (var vm in _vms)
         {
@@ -92,6 +104,17 @@ public partial class NewLabDialog : Window
                 }
             }
         }
+
+        UpdateExternalSwitchControls();
+    }
+
+    private void UpdateExternalSwitchControls()
+    {
+        var enabled = EnableExternalInternetSwitchBox.IsChecked == true;
+        ExternalSwitchNameBox.IsEnabled = enabled;
+
+        if (enabled && string.IsNullOrWhiteSpace(ExternalSwitchNameBox.Text))
+            ExternalSwitchNameBox.Text = "DefaultExternal";
     }
 
     private void AddVMButton_Click(object sender, RoutedEventArgs e)
@@ -179,7 +202,11 @@ public partial class NewLabDialog : Window
         Network = new NetworkConfig
         {
             SwitchName = SwitchNameBox.Text,
-            SwitchType = ((ComboBoxItem)SwitchTypeBox.SelectedItem).Content.ToString()!
+            SwitchType = ((ComboBoxItem)SwitchTypeBox.SelectedItem).Content.ToString()!,
+            EnableExternalInternetSwitch = EnableExternalInternetSwitchBox.IsChecked == true,
+            ExternalSwitchName = string.IsNullOrWhiteSpace(ExternalSwitchNameBox.Text)
+                ? "DefaultExternal"
+                : ExternalSwitchNameBox.Text.Trim()
         },
         VMs = new List<VMDefinition>(_vms.Select(vm =>
         {
@@ -353,9 +380,9 @@ public class NewVMDialog : Window
     private ComboBox RoleBox = new();
     private CheckBox HostInternetBox = new()
     {
-        Content = "Allow host internet (NAT)",
+        Content = "Allow host internet access",
         IsChecked = false,
-        ToolTip = "Controls outbound internet access via host NAT for this VM."
+        ToolTip = "Controls outbound internet access for this VM (host NAT or external adapter mode)."
     };
     private TextBox MemoryBox = new() { Text = "4" };
     private TextBox CPUBox = new() { Text = "2" };

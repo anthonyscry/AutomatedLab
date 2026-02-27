@@ -449,14 +449,18 @@ public class ActionsViewModel : ObservableObject
                 {
                     var result = MessageBox.Show(
                         $"All VMs already exist: {string.Join(", ", existingVMs)}\n\n" +
-                        "Click YES to update existing VMs in place.\n" +
-                        "Click NO to redeploy everything from scratch.\n" +
+                        "Click YES to reconcile/update existing VMs in place.\n" +
+                        "Click NO to keep existing VMs and disks unchanged.\n" +
                         "Click CANCEL to stop deployment.",
                         "Lab Already Deployed",
                         MessageBoxButton.YesNoCancel,
                         MessageBoxImage.Question);
                     if (result == MessageBoxResult.Yes) deploymentMode = "update-existing";
-                    else if (result == MessageBoxResult.No) deploymentMode = "full";
+                    else if (result == MessageBoxResult.No)
+                    {
+                        deploymentMode = "update-existing";
+                        onRunningVms = "skip";
+                    }
                     else userCancelledDeploymentMode = true;
                 }));
                 if (userCancelledDeploymentMode)
@@ -467,7 +471,9 @@ public class ActionsViewModel : ObservableObject
                 }
             }
 
-            if (string.Equals(deploymentMode, "update-existing", StringComparison.OrdinalIgnoreCase) && runningVMs.Count > 0)
+            if (string.Equals(deploymentMode, "update-existing", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(onRunningVms, "skip", StringComparison.OrdinalIgnoreCase) &&
+                runningVMs.Count > 0)
             {
                 await Task.Run(() => Application.Current.Dispatcher.Invoke(() =>
                 {

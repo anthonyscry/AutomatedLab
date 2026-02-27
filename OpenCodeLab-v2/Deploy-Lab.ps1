@@ -8,6 +8,10 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$SwitchType = "Internal",
     [Parameter(Mandatory=$false)]
+    [bool]$EnableExternalInternetSwitch = $false,
+    [Parameter(Mandatory=$false)]
+    [string]$ExternalSwitchName = 'DefaultExternal',
+    [Parameter(Mandatory=$false)]
     [string]$DomainName = "lab.com",
     [Parameter(Mandatory=$true)]
     [string]$VMsJsonFile,
@@ -156,6 +160,75 @@ function Set-VMInternetPolicy {
             Succeeded    = $false
             ErrorMessage = $msg
             Details      = @()
+        }
+    }
+}
+
+function Ensure-VMExternalInternetAdapter {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VmName,
+        [Parameter(Mandatory = $true)]
+        [string]$ExternalSwitchName
+    )
+
+    try {
+        $switch = Get-VMSwitch -Name $ExternalSwitchName -ErrorAction SilentlyContinue
+        if (-not $switch) {
+            return [pscustomobject]@{
+                Succeeded = $false
+                Message   = "External switch '$ExternalSwitchName' not found"
+            }
+        }
+
+        if ($switch.SwitchType -ne 'External') {
+            return [pscustomobject]@{
+                Succeeded = $false
+                Message   = "Switch '$ExternalSwitchName' is '$($switch.SwitchType)', expected External"
+            }
+        }
+
+        $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
+        if (-not $vm) {
+            return [pscustomobject]@{
+                Succeeded = $false
+                Message   = 'VM not found'
+            }
+        }
+
+        $existing = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue |
+            Where-Object { $_.SwitchName -eq $ExternalSwitchName } |
+            Select-Object -First 1
+
+        if ($existing) {
+            return [pscustomobject]@{
+                Succeeded = $true
+                Message   = 'External adapter already present'
+            }
+        }
+
+        Add-VMNetworkAdapter -VMName $VmName -SwitchName $ExternalSwitchName -Name 'Internet' -ErrorAction Stop | Out-Null
+
+        $attached = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue |
+            Where-Object { $_.SwitchName -eq $ExternalSwitchName } |
+            Select-Object -First 1
+
+        if (-not $attached) {
+            return [pscustomobject]@{
+                Succeeded = $false
+                Message   = 'External adapter attach verification failed'
+            }
+        }
+
+        return [pscustomobject]@{
+            Succeeded = $true
+            Message   = "Attached external adapter on '$ExternalSwitchName'"
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Succeeded = $false
+            Message   = $_.Exception.Message
         }
     }
 }
@@ -349,6 +422,19 @@ if ($availableOS) {
     Write-Host "  WARNING: Could not scan OS images. AutomatedLab may fail if ISOs don't match." -ForegroundColor Red
 }
 
+if ($EnableExternalInternetSwitch) {
+    $externalSwitch = Get-VMSwitch -Name $ExternalSwitchName -ErrorAction SilentlyContinue
+    if (-not $externalSwitch) {
+        throw "External internet switch '$ExternalSwitchName' was not found. Create it first in Hyper-V Manager."
+    }
+
+    if ($externalSwitch.SwitchType -ne 'External') {
+        throw "Switch '$ExternalSwitchName' exists but is '$($externalSwitch.SwitchType)'. External internet mode requires an External switch."
+    }
+
+    Write-Host "  External internet switch: $ExternalSwitchName (External)" -ForegroundColor Cyan
+}
+
 Report-DeployProgress -Percent 5 -Status "Pre-flight checks passed"
 
 # ============================================================
@@ -366,6 +452,14 @@ foreach ($vm in $vms) {
 # Determine new VMs to create
 $newVMs = @($vms | Where-Object { $_.Name -notin $existingVMNames })
 $keepVMs = @($vms | Where-Object { $_.Name -in $existingVMNames })
+
+if (-not $UpdateExisting -and -not $Incremental -and $newVMs.Count -eq 0 -and $existingVMNames.Count -gt 0) {
+    Write-Host "  [SAFE] All requested VMs already exist. Switching to update-existing mode to preserve existing VMs and disks." -ForegroundColor Yellow
+    $UpdateExisting = $true
+    if ($OnRunningVMs -eq 'abort') {
+        $OnRunningVMs = 'skip'
+    }
+}
 
 $skipProvisioning = $UpdateExisting -and $newVMs.Count -eq 0
 $requiresAdminPassword = -not $skipProvisioning
@@ -634,6 +728,9 @@ if ($skipProvisioning) {
     # NAT is more reliable than external switches (especially on Wi-Fi adapters)
     Add-LabVirtualNetworkDefinition -Name $LabName -AddressSpace 192.168.10.0/24 -HyperVProperties @{ SwitchType = 'Internal' }
     Write-Host "  Network: $LabName (Internal + NAT, 192.168.10.0/24)" -ForegroundColor Cyan
+    if ($EnableExternalInternetSwitch) {
+        Write-Host "  Secondary external adapter mode: enabled (switch: $ExternalSwitchName)" -ForegroundColor Cyan
+    }
 
     # Domain
     if ($requiresAdminPassword) {
@@ -1279,13 +1376,14 @@ foreach ($vm in $vms) {
         VMName             = [string]$vm.Name
         LabName            = [string]$LabName
         EnableHostInternet = $internetEnabled
+        UseExternalInternetSwitch = $EnableExternalInternetSwitch -and $internetEnabled
         Gateway            = '192.168.10.1'
     }
 }
 
 $internetPolicyFailures = @()
 
-$requiresHostInternet = $internetPolicyTargets | Where-Object { $_.EnableHostInternet }
+$requiresHostInternet = $internetPolicyTargets | Where-Object { $_.EnableHostInternet -and -not $_.UseExternalInternetSwitch }
 $hostNatReady = $true
 if (@($requiresHostInternet).Count -gt 0) {
     $natResult = Ensure-HostNatForLabNetwork -LabName $LabName -AddressPrefix '192.168.10.0/24'
@@ -1299,7 +1397,45 @@ if (@($requiresHostInternet).Count -gt 0) {
 }
 
 foreach ($item in $internetPolicyTargets) {
-    if (-not $hostNatReady -and $item.EnableHostInternet) {
+    if ($item.UseExternalInternetSwitch) {
+        Write-Host "  [NET] External internet mode for $($item.VMName): switch '$ExternalSwitchName'" -ForegroundColor Cyan
+
+        $clearPolicyResult = Set-VMInternetPolicy -VmName $item.VMName -EnableHostInternet $false -Gateway $item.Gateway
+        if (-not ($clearPolicyResult -and $clearPolicyResult.Succeeded)) {
+            $clearError = if ($clearPolicyResult -and $clearPolicyResult.ErrorMessage) {
+                [string]$clearPolicyResult.ErrorMessage
+            }
+            else {
+                'Failed to clear host NAT route before external adapter attach.'
+            }
+
+            $failure = [pscustomobject]@{
+                Name            = "internet-policy-$($item.VMName)"
+                FailureCategory = 'ExecutionError'
+                ErrorMessage    = $clearError
+            }
+            $internetPolicyFailures += $failure
+            Write-Warning "Internet policy failed for $($failure.Name) [$($failure.FailureCategory)]: $($failure.ErrorMessage)"
+            continue
+        }
+
+        $externalAdapterResult = Ensure-VMExternalInternetAdapter -VmName $item.VMName -ExternalSwitchName $ExternalSwitchName
+        if ($externalAdapterResult.Succeeded) {
+            Write-Host "  [NET][OK] $($item.VMName) external adapter ($ExternalSwitchName)" -ForegroundColor Green
+            continue
+        }
+
+        $failure = [pscustomobject]@{
+            Name            = "external-nic-$($item.VMName)"
+            FailureCategory = 'ExecutionError'
+            ErrorMessage    = [string]$externalAdapterResult.Message
+        }
+        $internetPolicyFailures += $failure
+        Write-Warning "Internet policy failed for $($failure.Name) [$($failure.FailureCategory)]: $($failure.ErrorMessage)"
+        continue
+    }
+
+    if (-not $hostNatReady -and $item.EnableHostInternet -and -not $item.UseExternalInternetSwitch) {
         $failure = [pscustomobject]@{
             Name            = "internet-policy-$($item.VMName)"
             FailureCategory = 'ExecutionError'

@@ -2,10 +2,12 @@ BeforeAll {
     $script:repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
     $script:servicePath = Join-Path $script:repoRoot 'OpenCodeLab-v2/Services/LabDeploymentService.cs'
     $script:viewModelPath = Join-Path $script:repoRoot 'OpenCodeLab-v2/ViewModels/ActionsViewModel.cs'
+    $script:modelPath = Join-Path $script:repoRoot 'OpenCodeLab-v2/Models/LabConfig.cs'
     $script:deployScriptPath = Join-Path $script:repoRoot 'OpenCodeLab-v2/Deploy-Lab.ps1'
 
     $script:serviceText = Get-Content -Raw $script:servicePath
     $script:viewModelText = Get-Content -Raw $script:viewModelPath
+    $script:modelText = Get-Content -Raw $script:modelPath
     $script:deployText = Get-Content -Raw $script:deployScriptPath
 }
 
@@ -31,6 +33,21 @@ Describe 'Deployment mode plumbing' {
     It 'does not pass empty AdminPassword to Deploy-Lab invocation' {
         $script:serviceText | Should -Match 'if \(!string\.IsNullOrWhiteSpace\(pw\)\)'
         $script:serviceText | Should -Match 'args\["AdminPassword"\] = pw;'
+    }
+
+    It 'avoids offering destructive full redeploy when all VMs already exist' {
+        $script:viewModelText | Should -Match 'keep existing VMs and disks unchanged'
+        $script:viewModelText | Should -Not -Match 'redeploy everything from scratch'
+    }
+
+    It 'passes optional external internet switch settings to deployment script' {
+        $script:serviceText | Should -Match 'EnableExternalInternetSwitch'
+        $script:serviceText | Should -Match 'ExternalSwitchName'
+    }
+
+    It 'persists external internet switch settings in lab model' {
+        $script:modelText | Should -Match 'EnableExternalInternetSwitch\s*\{\s*get;\s*set;\s*\}\s*=\s*false;'
+        $script:modelText | Should -Match 'ExternalSwitchName\s*\{\s*get;\s*set;\s*\}\s*=\s*"DefaultExternal";'
     }
 }
 

@@ -121,6 +121,10 @@ public class LabDeploymentService
                     ["LabPath"] = workingDir,
                     ["SwitchName"] = config.Network.SwitchName,
                     ["SwitchType"] = config.Network.SwitchType,
+                    ["EnableExternalInternetSwitch"] = config.Network.EnableExternalInternetSwitch ? "true" : "false",
+                    ["ExternalSwitchName"] = string.IsNullOrWhiteSpace(config.Network.ExternalSwitchName)
+                        ? "DefaultExternal"
+                        : config.Network.ExternalSwitchName,
                     ["DomainName"] = config.DomainName ?? "lab.com",
                     ["VMsJsonFile"] = vmsJsonFile,
                     ["VMPath"] = vmPath
@@ -557,6 +561,21 @@ public class LabDeploymentService
         {
             log?.Invoke($"Invalid switch name: {config.Network.SwitchName}");
             return false;
+        }
+
+        if (config.Network.EnableExternalInternetSwitch)
+        {
+            if (string.IsNullOrWhiteSpace(config.Network.ExternalSwitchName))
+            {
+                log?.Invoke("External internet switch mode is enabled, but no external switch name was provided.");
+                return false;
+            }
+
+            if (!Regex.IsMatch(config.Network.ExternalSwitchName, @"^[a-zA-Z0-9\-_\s]+$"))
+            {
+                log?.Invoke($"Invalid external switch name: {config.Network.ExternalSwitchName}");
+                return false;
+            }
         }
 
         foreach (var vm in config.VMs)

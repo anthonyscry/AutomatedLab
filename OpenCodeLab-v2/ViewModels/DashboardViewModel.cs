@@ -29,6 +29,7 @@ public class DashboardViewModel : ObservableObject
     public AsyncCommand StopCommand { get; }
     public AsyncCommand RestartCommand { get; }
     public AsyncCommand PauseCommand { get; }
+    public AsyncCommand RemoveSelectedVMCommand { get; }
     public AsyncCommand BlowAwayCommand { get; }
     public AsyncCommand RecheckCommand { get; }
     public AsyncCommand InitializeCommand { get; }
@@ -48,6 +49,7 @@ public class DashboardViewModel : ObservableObject
             StopCommand.RaiseCanExecuteChanged();
             RestartCommand.RaiseCanExecuteChanged();
             PauseCommand.RaiseCanExecuteChanged();
+            RemoveSelectedVMCommand?.RaiseCanExecuteChanged();
             BlowAwayCommand?.RaiseCanExecuteChanged();
         }
     }
@@ -88,6 +90,7 @@ public class DashboardViewModel : ObservableObject
         StopCommand = new AsyncCommand(StopSelectedAsync, () => CanStop);
         RestartCommand = new AsyncCommand(RestartSelectedAsync, () => CanRestart);
         PauseCommand = new AsyncCommand(PauseSelectedAsync, () => CanPause);
+        RemoveSelectedVMCommand = new AsyncCommand(RemoveSelectedVMAsync, () => SelectedVM != null);
         BlowAwayCommand = new AsyncCommand(BlowAwayAllAsync, () => TotalVMs > 0);
         RecheckCommand = new AsyncCommand(RunHealthChecksAsync);
         InitializeCommand = new AsyncCommand(InitializeEnvironmentAsync, () => HasFailures && !IsInitializing);
@@ -101,6 +104,7 @@ public class DashboardViewModel : ObservableObject
         OnPropertyChanged(nameof(TotalVMs)); OnPropertyChanged(nameof(RunningVMs));
         OnPropertyChanged(nameof(StoppedVMs)); OnPropertyChanged(nameof(TotalMemoryGB));
         OnPropertyChanged(nameof(TotalProcessors));
+        RemoveSelectedVMCommand.RaiseCanExecuteChanged();
         BlowAwayCommand.RaiseCanExecuteChanged();
 
         await RunHealthChecksAsync();
@@ -339,6 +343,57 @@ public class DashboardViewModel : ObservableObject
             }
             catch { }
         }
+        await RefreshAsync();
+    }
+
+    private async Task RemoveSelectedVMAsync()
+    {
+        if (SelectedVM == null) return;
+
+        var vmName = SelectedVM.Name;
+
+        MessageBoxResult result = MessageBoxResult.No;
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            result = System.Windows.MessageBox.Show(
+                $"This will permanently delete VM '{vmName}' and its disk files.\n\nThis action CANNOT be undone!\n\nContinue?",
+                "Confirm VM Removal",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+        });
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            await _hvService.StopVMAsync(vmName);
+            var removed = await _hvService.RemoveVMAsync(vmName, deleteDisk: true);
+            if (!removed)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Failed to remove VM '{vmName}'. Check Hyper-V permissions and logs.",
+                        "VM Removal Failed",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                System.Windows.MessageBox.Show(
+                    $"Error removing VM '{vmName}': {ex.Message}",
+                    "VM Removal Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            });
+        }
+
         await RefreshAsync();
     }
 }

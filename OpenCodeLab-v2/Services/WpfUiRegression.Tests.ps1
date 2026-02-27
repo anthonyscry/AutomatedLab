@@ -4,10 +4,14 @@ Describe 'WPF UI regression guardrails' {
     BeforeAll {
         $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
         $actionsViewModelPath = Join-Path $repoRoot 'ViewModels/ActionsViewModel.cs'
+        $dashboardViewModelPath = Join-Path $repoRoot 'ViewModels/DashboardViewModel.cs'
+        $dashboardViewPath = Join-Path $repoRoot 'Views/DashboardView.xaml'
         $settingsViewPath = Join-Path $repoRoot 'Views/SettingsView.xaml'
         $newLabDialogPath = Join-Path $repoRoot 'Views/NewLabDialog.xaml.cs'
 
         $actionsViewModelSource = Get-Content -Path $actionsViewModelPath -Raw
+        $dashboardViewModelSource = Get-Content -Path $dashboardViewModelPath -Raw
+        $dashboardViewSource = Get-Content -Path $dashboardViewPath -Raw
         $settingsViewSource = Get-Content -Path $settingsViewPath -Raw
         $newLabDialogSource = Get-Content -Path $newLabDialogPath -Raw
     }
@@ -45,5 +49,12 @@ Describe 'WPF UI regression guardrails' {
     It 'wraps deployment credential helper text to avoid clipping' {
         $newLabDialogSource | Should -Match 'var policyHint = new TextBlock\s*\{[\s\S]*?TextWrapping\s*=\s*TextWrapping\.Wrap'
         $newLabDialogSource | Should -Match 'var envHint = new TextBlock\s*\{[\s\S]*?TextWrapping\s*=\s*TextWrapping\.Wrap'
+    }
+
+    It 'adds dashboard action for removing selected VM only' {
+        $dashboardViewModelSource | Should -Match 'public\s+AsyncCommand\s+RemoveSelectedVMCommand\s*\{\s*get;\s*\}'
+        $dashboardViewModelSource | Should -Match 'RemoveSelectedVMCommand\s*=\s*new\s+AsyncCommand\(RemoveSelectedVMAsync,\s*\(\)\s*=>\s*SelectedVM\s*!\=\s*null\)'
+        $dashboardViewModelSource | Should -Match '_hvService\.RemoveVMAsync\(vmName,\s*deleteDisk:\s*true\)'
+        $dashboardViewSource | Should -Match 'Command="\{Binding\s+RemoveSelectedVMCommand\}"'
     }
 }

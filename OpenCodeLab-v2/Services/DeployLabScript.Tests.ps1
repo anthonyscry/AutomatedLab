@@ -35,6 +35,13 @@ Describe 'Deploy-Lab deployment modes' {
         $script:deployScript | Should -Match '\[Parameter\(Mandatory=\$false\)\]\s*\[string\]\$AdminPassword'
         $script:deployScript | Should -Match 'if \(\$requiresAdminPassword -and \[string\]::IsNullOrWhiteSpace\(\$AdminPassword\)\)'
     }
+
+    It 'auto-converts destructive full mode when all VMs already exist' {
+        $script:deployScript | Should -Match 'if \(-not \$UpdateExisting -and -not \$Incremental -and \$newVMs\.Count -eq 0 -and \$existingVMNames\.Count -gt 0\)'
+        $script:deployScript | Should -Match 'Switching to update-existing mode to preserve existing VMs and disks'
+        $script:deployScript | Should -Match 'if \(\$OnRunningVMs -eq ''abort''\)'
+        $script:deployScript | Should -Match '\$OnRunningVMs = ''skip''' 
+    }
 }
 
 Describe 'Deploy-Lab internet policy orchestration' {
@@ -57,6 +64,19 @@ Describe 'Deploy-Lab internet policy orchestration' {
     }
 }
 
+Describe 'Deploy-Lab external internet switch mode' {
+    It 'defines external internet switch parameters' {
+        $script:deployScript | Should -Match '\[bool\]\$EnableExternalInternetSwitch\s*=\s*\$false'
+        $script:deployScript | Should -Match '\[string\]\$ExternalSwitchName\s*=\s*''DefaultExternal'''
+    }
+
+    It 'tracks and applies external switch path for internet-enabled VMs' {
+        $script:deployScript | Should -Match 'UseExternalInternetSwitch\s*=\s+\$EnableExternalInternetSwitch\s+-and\s+\$internetEnabled'
+        $script:deployScript | Should -Match '\$requiresHostInternet\s*=\s+\$internetPolicyTargets\s*\|\s*Where-Object\s*\{\s*\$_.EnableHostInternet\s+-and\s+-not\s+\$_.UseExternalInternetSwitch\s*\}'
+        $script:deployScript | Should -Match 'Ensure-VMExternalInternetAdapter\s+-VmName\s+\$item\.VMName\s+-ExternalSwitchName\s+\$ExternalSwitchName'
+    }
+}
+
 Describe 'Deploy-Lab host NAT readiness' {
     It 'defines host NAT ensure helper for lab network' {
         $script:deployScript | Should -Match 'function\s+Ensure-HostNatForLabNetwork'
@@ -65,7 +85,7 @@ Describe 'Deploy-Lab host NAT readiness' {
     }
 
     It 'ensures host NAT before applying internet policy when required' {
-        $script:deployScript | Should -Match '\$requiresHostInternet\s*=\s+\$internetPolicyTargets\s*\|\s*Where-Object\s*\{\s*\$_.EnableHostInternet\s*\}'
+        $script:deployScript | Should -Match '\$requiresHostInternet\s*=\s+\$internetPolicyTargets\s*\|\s*Where-Object\s*\{\s*\$_.EnableHostInternet\s+-and\s+-not\s+\$_.UseExternalInternetSwitch\s*\}'
         $script:deployScript | Should -Match 'Ensure-HostNatForLabNetwork\s+-LabName\s+\$LabName\s+-AddressPrefix\s+''192\.168\.10\.0/24'''
     }
 }
