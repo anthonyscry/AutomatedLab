@@ -73,73 +73,106 @@ function Set-VMInternetPolicy {
             Start-Sleep -Seconds 20
         }
 
-        $commandOutput = @(Invoke-LabCommand -ComputerName $VmName -ActivityName 'Apply host internet policy' -ScriptBlock {
-            param($AllowInternet, $NatGateway)
+        $vmReadyTimeoutMinutes = 5
+        $vmReadyPostDelaySeconds = 15
+        try {
+            Wait-LabVM -ComputerName $VmName -TimeoutInMinutes $vmReadyTimeoutMinutes -PostDelaySeconds $vmReadyPostDelaySeconds -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Warning "Wait-LabVM readiness check failed for ${VmName}: $($_.Exception.Message)"
+        }
 
-            $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-                Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' })
+        $commandRetries = 4
+        $retryDelaySeconds = 10
+        $commandOutput = @()
+        for ($attempt = 1; $attempt -le $commandRetries; $attempt++) {
+            try {
+                $commandOutput = @(Invoke-LabCommand -ComputerName $VmName -ActivityName 'Apply host internet policy' -ScriptBlock {
+                    param($AllowInternet, $NatGateway)
 
-            foreach ($route in $defaultRoutes) {
-                Remove-NetRoute -AddressFamily IPv4 -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $route.InterfaceIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
-            }
+                    $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                        Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' })
 
-            if ($AllowInternet) {
-                $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-                    Where-Object {
-                        $_.IPv4Address -and
-                        $_.IPv4Address.IPAddress -like '192.168.10.*' -and
-                        $_.NetAdapter -and
-                        $_.NetAdapter.Status -eq 'Up'
-                    } |
-                    Select-Object -First 1
-
-                if (-not $nic) {
-                    $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-                        Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
-                        Select-Object -First 1
-                }
-
-                if (-not $nic) {
-                    throw 'No adapter found in 192.168.10.0/24 for NAT default route enforcement.'
-                }
-
-                $routeApplyRetries = 3
-                $routeSet = $false
-
-                for ($attempt = 1; $attempt -le $routeApplyRetries; $attempt++) {
-                    New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $NatGateway -RouteMetric 25 -ErrorAction SilentlyContinue | Out-Null
-                    Start-Sleep -Seconds 2
-
-                    $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
-                        Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $NatGateway }
-
-                    if ($hasExpectedRoute) {
-                        $routeSet = $true
-                        break
+                    foreach ($route in $defaultRoutes) {
+                        Remove-NetRoute -AddressFamily IPv4 -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $route.InterfaceIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
                     }
-                }
 
-                if (-not $routeSet) {
-                    $observedRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
-                        Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex } |
-                        Select-Object -First 5)
+                    if ($AllowInternet) {
+                        $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+                            Where-Object {
+                                $_.IPv4Address -and
+                                $_.IPv4Address.IPAddress -like '192.168.10.*' -and
+                                $_.NetAdapter -and
+                                $_.NetAdapter.Status -eq 'Up'
+                            } |
+                            Select-Object -First 1
 
-                    $routeSummary = if ($observedRoutes.Count -gt 0) {
-                        ($observedRoutes | ForEach-Object { "$($_.DestinationPrefix) via $($_.NextHop) (metric $($_.RouteMetric))" }) -join '; '
+                        if (-not $nic) {
+                            $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+                                Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
+                                Select-Object -First 1
+                        }
+
+                        if (-not $nic) {
+                            throw 'No adapter found in 192.168.10.0/24 for NAT default route enforcement.'
+                        }
+
+                        $routeApplyRetries = 3
+                        $routeSet = $false
+
+                        for ($attempt = 1; $attempt -le $routeApplyRetries; $attempt++) {
+                            New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $NatGateway -RouteMetric 25 -ErrorAction SilentlyContinue | Out-Null
+                            Start-Sleep -Seconds 2
+
+                            $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
+                                Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $NatGateway }
+
+                            if ($hasExpectedRoute) {
+                                $routeSet = $true
+                                break
+                            }
+                        }
+
+                        if (-not $routeSet) {
+                            $observedRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
+                                Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex } |
+                                Select-Object -First 5)
+
+                            $routeSummary = if ($observedRoutes.Count -gt 0) {
+                                ($observedRoutes | ForEach-Object { "$($_.DestinationPrefix) via $($_.NextHop) (metric $($_.RouteMetric))" }) -join '; '
+                            }
+                            else {
+                                'none'
+                            }
+
+                            throw "Failed to set default route via $NatGateway on interface $($nic.InterfaceAlias) index $($nic.InterfaceIndex). Active routes: $routeSummary"
+                        }
+
+                        "Host internet enabled via $NatGateway"
                     }
                     else {
-                        'none'
+                        'Host internet disabled (default routes removed)'
                     }
+                } -ArgumentList $EnableHostInternet, $Gateway -ErrorAction Stop)
+                break
+            }
+            catch {
+                $errorMessage = [string]$_.Exception.Message
+                $isTransientRemotingError =
+                    $errorMessage -match 'port is closed' -or
+                    $errorMessage -match 'Connecting to remote server' -or
+                    $errorMessage -match 'WinRM' -or
+                    $errorMessage -match 'Access is denied'
 
-                    throw "Failed to set default route via $NatGateway on interface $($nic.InterfaceAlias) index $($nic.InterfaceIndex). Active routes: $routeSummary"
+                if ($attempt -lt $commandRetries -and $isTransientRemotingError) {
+                    Write-Warning "Transient remoting error for ${VmName} (attempt $attempt/$commandRetries): $errorMessage"
+                    Start-Sleep -Seconds $retryDelaySeconds
+                    continue
                 }
 
-                "Host internet enabled via $NatGateway"
+                throw
             }
-            else {
-                'Host internet disabled (default routes removed)'
-            }
-        } -ArgumentList $EnableHostInternet, $Gateway -ErrorAction Stop)
+        }
 
         $commandOutput | ForEach-Object {
             Write-Host "    $_" -ForegroundColor Gray
@@ -1372,12 +1405,41 @@ foreach ($vm in $vms) {
         $internetEnabled = [bool]$vm.EnableHostInternet
     }
 
+    $vmRole = if ($vm.PSObject.Properties.Name -contains 'Role') {
+        [string]$vm.Role
+    }
+    else {
+        ''
+    }
+
+    $normalizedRole = if ([string]::IsNullOrWhiteSpace($vmRole)) {
+        ''
+    }
+    else {
+        $vmRole.Trim().ToUpperInvariant()
+    }
+
+    $isDomainController = $normalizedRole -eq 'DC' -or $normalizedRole -eq 'ROOTDC'
+
     $internetPolicyTargets += [pscustomobject]@{
         VMName             = [string]$vm.Name
         LabName            = [string]$LabName
+        IsDomainController = $isDomainController
         EnableHostInternet = $internetEnabled
         UseExternalInternetSwitch = $EnableExternalInternetSwitch -and $internetEnabled
         Gateway            = '192.168.10.1'
+    }
+}
+
+if (-not $EnableExternalInternetSwitch) {
+    $internetEnabledNonDcTargets = @($internetPolicyTargets | Where-Object { $_.EnableHostInternet -and -not $_.IsDomainController })
+    $dcTargetsNeedingDnsEgress = @($internetPolicyTargets | Where-Object { $_.IsDomainController -and -not $_.EnableHostInternet -and -not $_.UseExternalInternetSwitch })
+
+    if ($internetEnabledNonDcTargets.Count -gt 0 -and $dcTargetsNeedingDnsEgress.Count -gt 0) {
+        foreach ($dcTarget in $dcTargetsNeedingDnsEgress) {
+            Write-Warning "Auto-enabling host internet on domain controller '$($dcTarget.VMName)' so domain DNS can resolve external names for internet-enabled member VMs."
+            $dcTarget.EnableHostInternet = $true
+        }
     }
 }
 
@@ -1499,6 +1561,17 @@ if ($installError -and $vhdxWarnings.Count -gt 0) {
     Write-Host "VHDX warnings: $($vhdxWarnings.Count)" -ForegroundColor Red
     exit 1
 } elseif ($internetPolicyFailures.Count -gt 0) {
+    if ($skipProvisioning) {
+        Report-DeployProgress -Percent 100 -Status "Deployment completed with internet policy warnings"
+        Write-Host ""
+        Write-Host "=== Deployment Complete (with internet policy warnings) ===" -ForegroundColor Yellow
+        Write-Host "Internet policy warnings (non-fatal in update-existing fast path):" -ForegroundColor Yellow
+        foreach ($policyFailure in $internetPolicyFailures) {
+            Write-Host "  - $($policyFailure.Name): [$($policyFailure.FailureCategory)] $($policyFailure.ErrorMessage)" -ForegroundColor Yellow
+        }
+        exit 0
+    }
+
     Report-DeployProgress -Percent 100 -Status "Deployment finished with internet policy failures"
     Write-Host "" 
     Write-Host "=== Deployment Finished With Internet Policy Failures ===" -ForegroundColor Red

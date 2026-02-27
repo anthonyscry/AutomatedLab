@@ -54,6 +54,14 @@ Describe 'Deploy-Lab internet policy orchestration' {
         $script:deployScript | Should -Match 'Set-VMInternetPolicy\s+-VmName\s+\$item\.VMName\s+-EnableHostInternet\s+\$item\.EnableHostInternet\s+-Gateway\s+\$item\.Gateway'
     }
 
+    It 'auto-enables DC internet when internet-enabled domain members rely on internal NAT DNS' {
+        $script:deployScript | Should -Match 'IsDomainController\s*=\s*\$isDomainController'
+        $script:deployScript | Should -Match '\$internetEnabledNonDcTargets\s*=\s*@\(\$internetPolicyTargets\s*\|\s*Where-Object\s*\{\s*\$_.EnableHostInternet\s*-and\s*-not\s+\$_.IsDomainController\s*\}\)'
+        $script:deployScript | Should -Match '\$dcTargetsNeedingDnsEgress\s*=\s*@\(\$internetPolicyTargets\s*\|\s*Where-Object\s*\{\s*\$_.IsDomainController\s*-and\s*-not\s+\$_.EnableHostInternet\s*-and\s*-not\s+\$_.UseExternalInternetSwitch\s*\}\)'
+        $script:deployScript | Should -Match 'Auto-enabling host internet on domain controller'
+        $script:deployScript | Should -Match '\$dcTarget\.EnableHostInternet\s*=\s*\$true'
+    }
+
     It 'avoids PersistentStore-only default route writes' {
         $script:deployScript | Should -Not -Match 'New-NetRoute[^\r\n]+-PolicyStore\s+PersistentStore'
     }
@@ -61,6 +69,27 @@ Describe 'Deploy-Lab internet policy orchestration' {
     It 'verifies default route in ActiveStore with retries' {
         $script:deployScript | Should -Match '\$routeApplyRetries\s*=\s*3'
         $script:deployScript | Should -Match 'Get-NetRoute\s+-AddressFamily\s+IPv4\s+-DestinationPrefix\s+''0\.0\.0\.0/0''\s+-PolicyStore\s+ActiveStore'
+    }
+
+    It 'retries transient remoting failures before failing internet policy' {
+        $script:deployScript | Should -Match '\$commandRetries\s*=\s*4'
+        $script:deployScript | Should -Match 'for\s*\(\$attempt\s*=\s*1;\s*\$attempt\s*-le\s*\$commandRetries;\s*\$attempt\+\+\)'
+        $script:deployScript | Should -Match 'Transient remoting error for \$\{VmName\} \(attempt \$attempt/\$commandRetries\):'
+        $script:deployScript | Should -Match 'Start-Sleep\s+-Seconds\s+\$retryDelaySeconds'
+    }
+
+    It 'waits for VM remoting readiness before running internet policy commands' {
+        $script:deployScript | Should -Match '\$vmReadyTimeoutMinutes\s*=\s*5'
+        $script:deployScript | Should -Match '\$vmReadyPostDelaySeconds\s*=\s*15'
+        $script:deployScript | Should -Match 'Wait-LabVM\s+-ComputerName\s+\$VmName\s+-TimeoutInMinutes\s+\$vmReadyTimeoutMinutes\s+-PostDelaySeconds\s+\$vmReadyPostDelaySeconds'
+    }
+
+    It 'treats internet policy failures as non-fatal during update-existing fast path' {
+        $script:deployScript | Should -Match 'elseif \(\$internetPolicyFailures\.Count -gt 0\) \{'
+        $script:deployScript | Should -Match 'if \(\$skipProvisioning\) \{'
+        $script:deployScript | Should -Match 'Deployment completed with internet policy warnings'
+        $script:deployScript | Should -Match 'Internet policy warnings \(non-fatal in update-existing fast path\)'
+        $script:deployScript | Should -Match 'exit 0'
     }
 }
 
