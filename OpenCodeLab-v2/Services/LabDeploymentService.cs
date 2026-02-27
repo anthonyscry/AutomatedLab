@@ -123,9 +123,12 @@ public class LabDeploymentService
                     ["SwitchType"] = config.Network.SwitchType,
                     ["DomainName"] = config.DomainName ?? "lab.com",
                     ["VMsJsonFile"] = vmsJsonFile,
-                    ["AdminPassword"] = pw,
                     ["VMPath"] = vmPath
                 };
+                if (!string.IsNullOrWhiteSpace(pw))
+                {
+                    args["AdminPassword"] = pw;
+                }
                 args["OnRunningVMs"] = normalizedOnRunningVms;
 
                 var switches = new List<string>();

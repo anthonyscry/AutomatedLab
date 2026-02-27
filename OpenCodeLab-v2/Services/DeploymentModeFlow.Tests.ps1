@@ -27,6 +27,11 @@ Describe 'Deployment mode plumbing' {
         $script:viewModelText | Should -Match 'Running VMs detected'
         $script:viewModelText | Should -Match 'requiresPassword'
     }
+
+    It 'does not pass empty AdminPassword to Deploy-Lab invocation' {
+        $script:serviceText | Should -Match 'if \(!string\.IsNullOrWhiteSpace\(pw\)\)'
+        $script:serviceText | Should -Match 'args\["AdminPassword"\] = pw;'
+    }
 }
 
 Describe 'Update-existing script behavior' {

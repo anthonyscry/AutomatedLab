@@ -200,8 +200,9 @@ public class PasswordDialog : Window
     public PasswordDialog(string labName)
     {
         Title = "Deployment Credentials";
-        Width = 420;
-        Height = 340;
+        Width = 460;
+        MinHeight = 340;
+        SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
 
@@ -216,13 +217,17 @@ public class PasswordDialog : Window
         {
             Text = $"Enter admin password for '{labName}':",
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 5)
+            Margin = new Thickness(0, 0, 0, 5),
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 400
         };
         var policyHint = new TextBlock
         {
             Text = "Set OPENCODELAB_ADMIN_PASSWORD before launch to skip this prompt in non-interactive deployments.",
             FontSize = 10,
-            Foreground = SystemColors.GrayTextBrush
+            Foreground = SystemColors.GrayTextBrush,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 400
         };
         hintPanel.Children.Add(message);
         hintPanel.Children.Add(policyHint);
@@ -258,7 +263,9 @@ public class PasswordDialog : Window
             Text = "Tip: Use OPENCODELAB_ADMIN_PASSWORD from automation only when deployment is launched non-interactively.",
             FontSize = 10,
             Foreground = SystemColors.GrayTextBrush,
-            Margin = new Thickness(0, 10, 0, 0)
+            Margin = new Thickness(0, 10, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 400
         };
 
         panel.Children.Add(label);

@@ -5,9 +5,11 @@ Describe 'WPF UI regression guardrails' {
         $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
         $actionsViewModelPath = Join-Path $repoRoot 'ViewModels/ActionsViewModel.cs'
         $settingsViewPath = Join-Path $repoRoot 'Views/SettingsView.xaml'
+        $newLabDialogPath = Join-Path $repoRoot 'Views/NewLabDialog.xaml.cs'
 
         $actionsViewModelSource = Get-Content -Path $actionsViewModelPath -Raw
         $settingsViewSource = Get-Content -Path $settingsViewPath -Raw
+        $newLabDialogSource = Get-Content -Path $newLabDialogPath -Raw
     }
 
     It 'keeps deployment state active when cancellation is requested' {
@@ -38,5 +40,10 @@ Describe 'WPF UI regression guardrails' {
     It 'binds switch type with SelectedValue round-trip' {
         $settingsViewSource | Should -Match 'SelectedValuePath="Content"'
         $settingsViewSource | Should -Match 'SelectedValue="\{Binding\s+DefaultSwitchType\}"'
+    }
+
+    It 'wraps deployment credential helper text to avoid clipping' {
+        $newLabDialogSource | Should -Match 'var policyHint = new TextBlock\s*\{[\s\S]*?TextWrapping\s*=\s*TextWrapping\.Wrap'
+        $newLabDialogSource | Should -Match 'var envHint = new TextBlock\s*\{[\s\S]*?TextWrapping\s*=\s*TextWrapping\.Wrap'
     }
 }

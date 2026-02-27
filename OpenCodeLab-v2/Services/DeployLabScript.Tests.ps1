@@ -30,6 +30,11 @@ Describe 'Deploy-Lab deployment modes' {
         $script:deployScript | Should -Match '\$requiresAdminPassword = -not \$skipProvisioning'
         $script:deployScript | Should -Match 'No new VMs detected in update-existing mode\. Skipping AutomatedLab provisioning phases'
     }
+
+    It 'accepts omitted AdminPassword and validates requirement inside script' {
+        $script:deployScript | Should -Match '\[Parameter\(Mandatory=\$false\)\]\s*\[string\]\$AdminPassword'
+        $script:deployScript | Should -Match 'if \(\$requiresAdminPassword -and \[string\]::IsNullOrWhiteSpace\(\$AdminPassword\)\)'
+    }
 }
 
 Describe 'Deploy-Lab internet policy orchestration' {
@@ -40,6 +45,28 @@ Describe 'Deploy-Lab internet policy orchestration' {
     It 'applies internet policy sequentially for each VM target' {
         $script:deployScript | Should -Match 'foreach\s*\(\$item\s+in\s+\$internetPolicyTargets\)\s*\{'
         $script:deployScript | Should -Match 'Set-VMInternetPolicy\s+-VmName\s+\$item\.VMName\s+-EnableHostInternet\s+\$item\.EnableHostInternet\s+-Gateway\s+\$item\.Gateway'
+    }
+
+    It 'avoids PersistentStore-only default route writes' {
+        $script:deployScript | Should -Not -Match 'New-NetRoute[^\r\n]+-PolicyStore\s+PersistentStore'
+    }
+
+    It 'verifies default route in ActiveStore with retries' {
+        $script:deployScript | Should -Match '\$routeApplyRetries\s*=\s*3'
+        $script:deployScript | Should -Match 'Get-NetRoute\s+-AddressFamily\s+IPv4\s+-DestinationPrefix\s+''0\.0\.0\.0/0''\s+-PolicyStore\s+ActiveStore'
+    }
+}
+
+Describe 'Deploy-Lab host NAT readiness' {
+    It 'defines host NAT ensure helper for lab network' {
+        $script:deployScript | Should -Match 'function\s+Ensure-HostNatForLabNetwork'
+        $script:deployScript | Should -Match 'Get-NetNat'
+        $script:deployScript | Should -Match 'New-NetNat'
+    }
+
+    It 'ensures host NAT before applying internet policy when required' {
+        $script:deployScript | Should -Match '\$requiresHostInternet\s*=\s+\$internetPolicyTargets\s*\|\s*Where-Object\s*\{\s*\$_.EnableHostInternet\s*\}'
+        $script:deployScript | Should -Match 'Ensure-HostNatForLabNetwork\s+-LabName\s+\$LabName\s+-AddressPrefix\s+''192\.168\.10\.0/24'''
     }
 }
 

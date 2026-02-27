@@ -11,7 +11,7 @@ param(
     [string]$DomainName = "lab.com",
     [Parameter(Mandatory=$true)]
     [string]$VMsJsonFile,
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$AdminPassword,
     [Parameter(Mandatory=$false)]
     [string]$VMPath = "C:\LabSources\VMs",
@@ -81,20 +81,53 @@ function Set-VMInternetPolicy {
 
             if ($AllowInternet) {
                 $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-                    Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
+                    Where-Object {
+                        $_.IPv4Address -and
+                        $_.IPv4Address.IPAddress -like '192.168.10.*' -and
+                        $_.NetAdapter -and
+                        $_.NetAdapter.Status -eq 'Up'
+                    } |
                     Select-Object -First 1
+
+                if (-not $nic) {
+                    $nic = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+                        Where-Object { $_.IPv4Address -and $_.IPv4Address.IPAddress -like '192.168.10.*' } |
+                        Select-Object -First 1
+                }
 
                 if (-not $nic) {
                     throw 'No adapter found in 192.168.10.0/24 for NAT default route enforcement.'
                 }
 
-                New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $NatGateway -RouteMetric 25 -PolicyStore PersistentStore -ErrorAction SilentlyContinue | Out-Null
+                $routeApplyRetries = 3
+                $routeSet = $false
 
-                $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-                    Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $NatGateway }
+                for ($attempt = 1; $attempt -le $routeApplyRetries; $attempt++) {
+                    New-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -InterfaceIndex $nic.InterfaceIndex -NextHop $NatGateway -RouteMetric 25 -ErrorAction SilentlyContinue | Out-Null
+                    Start-Sleep -Seconds 2
 
-                if (-not $hasExpectedRoute) {
-                    throw "Failed to set default route via $NatGateway"
+                    $hasExpectedRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
+                        Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex -and $_.NextHop -eq $NatGateway }
+
+                    if ($hasExpectedRoute) {
+                        $routeSet = $true
+                        break
+                    }
+                }
+
+                if (-not $routeSet) {
+                    $observedRoutes = @(Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
+                        Where-Object { $_.InterfaceIndex -eq $nic.InterfaceIndex } |
+                        Select-Object -First 5)
+
+                    $routeSummary = if ($observedRoutes.Count -gt 0) {
+                        ($observedRoutes | ForEach-Object { "$($_.DestinationPrefix) via $($_.NextHop) (metric $($_.RouteMetric))" }) -join '; '
+                    }
+                    else {
+                        'none'
+                    }
+
+                    throw "Failed to set default route via $NatGateway on interface $($nic.InterfaceAlias) index $($nic.InterfaceIndex). Active routes: $routeSummary"
                 }
 
                 "Host internet enabled via $NatGateway"
@@ -123,6 +156,49 @@ function Set-VMInternetPolicy {
             Succeeded    = $false
             ErrorMessage = $msg
             Details      = @()
+        }
+    }
+}
+
+function Ensure-HostNatForLabNetwork {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LabName,
+        [Parameter(Mandatory = $false)]
+        [string]$AddressPrefix = '192.168.10.0/24'
+    )
+
+    try {
+        $existingByPrefix = Get-NetNat -ErrorAction SilentlyContinue |
+            Where-Object { $_.InternalIPInterfaceAddressPrefix -eq $AddressPrefix } |
+            Select-Object -First 1
+
+        if ($existingByPrefix) {
+            Write-Host "  [NET] Host NAT already available: $($existingByPrefix.Name) ($AddressPrefix)" -ForegroundColor DarkGray
+            return [pscustomobject]@{
+                Succeeded = $true
+                Message   = 'Existing NAT found'
+            }
+        }
+
+        $natName = "${LabName}NAT"
+        $existingByName = Get-NetNat -Name $natName -ErrorAction SilentlyContinue
+        if ($existingByName -and $existingByName.InternalIPInterfaceAddressPrefix -ne $AddressPrefix) {
+            $natName = "${natName}-19216810"
+        }
+
+        Write-Host "  [NET] Creating host NAT '$natName' for $AddressPrefix" -ForegroundColor Cyan
+        New-NetNat -Name $natName -InternalIPInterfaceAddressPrefix $AddressPrefix -ErrorAction Stop | Out-Null
+
+        return [pscustomobject]@{
+            Succeeded = $true
+            Message   = "Created NAT '$natName'"
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Succeeded = $false
+            Message   = $_.Exception.Message
         }
     }
 }
@@ -1209,7 +1285,31 @@ foreach ($vm in $vms) {
 
 $internetPolicyFailures = @()
 
+$requiresHostInternet = $internetPolicyTargets | Where-Object { $_.EnableHostInternet }
+$hostNatReady = $true
+if (@($requiresHostInternet).Count -gt 0) {
+    $natResult = Ensure-HostNatForLabNetwork -LabName $LabName -AddressPrefix '192.168.10.0/24'
+    if ($natResult.Succeeded) {
+        Write-Host "  [NET][OK] Host NAT ready for 192.168.10.0/24" -ForegroundColor Green
+    }
+    else {
+        $hostNatReady = $false
+        Write-Warning "Host NAT setup failed [ExecutionError]: $($natResult.Message)"
+    }
+}
+
 foreach ($item in $internetPolicyTargets) {
+    if (-not $hostNatReady -and $item.EnableHostInternet) {
+        $failure = [pscustomobject]@{
+            Name            = "internet-policy-$($item.VMName)"
+            FailureCategory = 'ExecutionError'
+            ErrorMessage    = 'Skipped because host NAT setup for 192.168.10.0/24 failed.'
+        }
+        $internetPolicyFailures += $failure
+        Write-Warning "Internet policy failed for $($failure.Name) [$($failure.FailureCategory)]: $($failure.ErrorMessage)"
+        continue
+    }
+
     $policyResult = Set-VMInternetPolicy -VmName $item.VMName -EnableHostInternet $item.EnableHostInternet -Gateway $item.Gateway
 
     if ($policyResult -and $policyResult.Succeeded) {
