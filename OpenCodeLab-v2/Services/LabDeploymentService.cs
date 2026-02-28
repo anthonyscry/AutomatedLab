@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -115,13 +116,13 @@ public class LabDeploymentService
                     ? @"C:\LabSources\VMs"
                     : settings.VMPath;
 
-                var args = new Dictionary<string, string>
+                var args = new Dictionary<string, object?>
                 {
                     ["LabName"] = config.LabName,
                     ["LabPath"] = workingDir,
                     ["SwitchName"] = config.Network.SwitchName,
                     ["SwitchType"] = config.Network.SwitchType,
-                    ["EnableExternalInternetSwitch"] = config.Network.EnableExternalInternetSwitch ? "true" : "false",
+                    ["EnableExternalInternetSwitch"] = config.Network.EnableExternalInternetSwitch,
                     ["ExternalSwitchName"] = string.IsNullOrWhiteSpace(config.Network.ExternalSwitchName)
                         ? "DefaultExternal"
                         : config.Network.ExternalSwitchName,
@@ -250,7 +251,7 @@ public class LabDeploymentService
     /// Run a .ps1 script file with named parameters via system-installed pwsh.exe.
     /// Streams stdout/stderr in real-time and parses progress markers.
     /// </summary>
-    private async Task<bool> RunPowerShellScriptAsync(string scriptPath, Dictionary<string, string> parameters,
+    private async Task<bool> RunPowerShellScriptAsync(string scriptPath, Dictionary<string, object?> parameters,
         Action<string>? log, CancellationToken ct, List<string>? switches = null)
     {
         var pwsh = FindPowerShell();
@@ -260,7 +261,7 @@ public class LabDeploymentService
         var sb = new StringBuilder();
         sb.Append($"& '{EscapeSingleQuote(scriptPath)}'");
         foreach (var kvp in parameters)
-            sb.Append($" -{kvp.Key} '{EscapeSingleQuote(kvp.Value)}'");
+            sb.Append($" -{kvp.Key} {FormatPowerShellArgumentValue(kvp.Value)}");
         if (switches != null)
             foreach (var sw in switches)
                 sb.Append($" -{sw}");
@@ -607,6 +608,18 @@ public class LabDeploymentService
         if (string.IsNullOrEmpty(input))
             return string.Empty;
         return input.Replace("'", "''");
+    }
+
+    private static string FormatPowerShellArgumentValue(object? value)
+    {
+        return value switch
+        {
+            null => "''",
+            bool b => b ? "$true" : "$false",
+            byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal
+                => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "0",
+            _ => $"'{EscapeSingleQuote(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)}'"
+        };
     }
 
     private void Report(int pct, string msg, Action<string>? log)

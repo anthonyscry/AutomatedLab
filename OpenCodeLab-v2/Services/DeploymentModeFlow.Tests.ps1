@@ -45,6 +45,12 @@ Describe 'Deployment mode plumbing' {
         $script:serviceText | Should -Match 'ExternalSwitchName'
     }
 
+    It 'serializes bool arguments as PowerShell boolean literals' {
+        $script:serviceText | Should -Match 'FormatPowerShellArgumentValue\(object\? value\)'
+        $script:serviceText | Should -Match 'bool b\s*=>\s*b\s*\?\s*"\$true"\s*:\s*"\$false"'
+        $script:serviceText | Should -Match 'sb\.Append\(\$" -\{kvp\.Key\} \{FormatPowerShellArgumentValue\(kvp\.Value\)\}"\)'
+    }
+
     It 'persists external internet switch settings in lab model' {
         $script:modelText | Should -Match 'EnableExternalInternetSwitch\s*\{\s*get;\s*set;\s*\}\s*=\s*false;'
         $script:modelText | Should -Match 'ExternalSwitchName\s*\{\s*get;\s*set;\s*\}\s*=\s*"DefaultExternal";'
