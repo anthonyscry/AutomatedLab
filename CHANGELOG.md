@@ -34,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.14] - 2026-02-28
+
+### Added
+- Enterprise compliance reporting infrastructure
+  - `Scripts/Compliance/ControlMap.psd1` - Framework control mappings (NIST 800-53)
+  - `Scripts/Compliance/README.md` - Compliance schema documentation
+  - `Scripts/New-ComplianceEvidencePack.ps1` - Tamper-evident evidence bundles with SHA256 manifests
+  - `Scripts/Helpers-ComplianceReport.ps1` - Compliance annotation helpers
+
 ### Fixed
 - Fixed `Restore-VMCheckpoint` parameter names (`-VMName`/`-Name` instead of `-Name`/`-SnapshotName`) and added `-Confirm:$false` to suppress interactive prompts during restore
 - Fixed `Remove-LabVMs` parameter name (`DeleteVHD` instead of `RemoveVHD`) and result property (`VHDDeleted` instead of `VHDRemoved`) to match `Remove-LabVM` return contract
