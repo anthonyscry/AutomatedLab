@@ -1,0 +1,14 @@
+[95m
+[95mStarting discovery in 1 files.[0m
+[95mDiscovery found 20 tests in 230ms.[0m
+[95mRunning tests.[0m
+[32m[+] /mnt/c/projects/OpenCodeLab/OpenCodeLab-v2/Services/DeployLabScript.Tests.ps1[0m[90m 772ms (221ms|342ms)[0m
+[97mTests completed in 784ms[0m
+[32mTests Passed: 20, [0m[90mFailed: 0, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[37m[0m[90mNotRun: 0[0m
+
+[32;1mPassedCount  : [0m20
+[32;1mFailedCount  : [0m0
+[32;1mSkippedCount : [0m0
+[32;1mNotRunCount  : [0m0
+[32;1mResult       : [0mPassed
+

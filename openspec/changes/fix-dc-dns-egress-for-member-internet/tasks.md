@@ -7,3 +7,9 @@
 - [x] Run `Invoke-Pester OpenCodeLab-v2/Services/DeployLabScript.Tests.ps1`.
 - [x] Validate script parsing for `OpenCodeLab-v2/Deploy-Lab.ps1`.
 - [x] Re-run deployment on host and verify internet access from MS01/WS01.
+
+## Ship Evidence
+
+- [x] Ship evidence written to `artifacts/20260228-193053/evidence/summary.md`.
+- [x] DeployLab script tests: `OpenCodeLab-v2/Services/DeployLabScript.Tests.ps1`.
+- [x] Script parser checks: `OpenCodeLab-v2/Deploy-Lab.ps1`, `Scripts/New-ComplianceEvidencePack.ps1`, `Scripts/Helpers-ComplianceReport.ps1`.
