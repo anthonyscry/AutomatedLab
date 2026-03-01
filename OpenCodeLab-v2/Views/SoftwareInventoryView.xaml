@@ -32,10 +32,10 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBox Grid.Column="0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" 
-                         Foreground="{StaticResource TextBrush}" Background="White" Padding="8" 
+                         Foreground="{StaticResource TextBrush}" Background="{StaticResource CardBrush}" Padding="8" 
                          ToolTip="Search by software name, version, or publisher" />
                 <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableVMs}" SelectedItem="{Binding SelectedVM}" 
-                          DisplayMemberPath="Name" Foreground="{StaticResource TextBrush}" Background="White" Padding="8" Margin="12,0,0,0" />
+                          DisplayMemberPath="Name" Foreground="{StaticResource TextBrush}" Background="{StaticResource CardBrush}" Padding="8" Margin="12,0,0,0" />
                 <CheckBox Grid.Column="2" Content="Grouped View" IsChecked="{Binding IsGroupedView}" 
                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
             </Grid>
@@ -71,14 +71,30 @@
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
                                     <!-- VM Header -->
+                                    <!-- VM Header -->
                                     <Grid Grid.Row="0" Margin="0,0,0,8">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding VMName}" FontWeight="Bold" 
                                                    Foreground="{StaticResource TextBrush}" FontSize="14" />
-                                        <TextBlock Grid.Column="1" Text="{Binding ScannedAt, StringFormat='Scanned: {0:g}'}" 
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="&#x2705; Scanned" />
+                                                    <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Success}" Value="False">
+                                                            <Setter Property="Text" Value="{Binding ErrorMessage, StringFormat=&#x274C; {0}}" />
+                                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="2" Text="{Binding ScannedAt, StringFormat=Scanned: {0:g}}" 
                                                    Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
                                     </Grid>
                                     <!-- Software List -->
