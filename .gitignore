@@ -59,6 +59,10 @@ Scripts/
 !Scripts/
 Scripts/*
 !Scripts/Run-OpenCodeLab.ps1
+!Scripts/Compliance/
+!Scripts/Compliance/**
+!Scripts/New-ComplianceEvidencePack.ps1
+!Scripts/Helpers-ComplianceReport.ps1
 Templates/
 Ansible/
 Tests/
