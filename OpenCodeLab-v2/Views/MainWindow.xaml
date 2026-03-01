@@ -26,36 +26,43 @@
                 <Button Name="DashboardButton" Click="NavButton_Click" Tag="Dashboard" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="1"
                         ToolTip="Open Dashboard" AutomationProperties.Name="Open Dashboard">
                      <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="📊" FontSize="16" Margin="0,0,10,0"/>
+                         <TextBlock Text="&#x1F4CA;" FontSize="16" Margin="0,0,10,0"/>
                          <AccessText Text="_Dashboard" FontWeight="Medium"/>
                       </StackPanel>
                   </Button>
                 <Button Name="ActionsButton" Click="NavButton_Click" Tag="Actions" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="2"
                         ToolTip="Open Actions" AutomationProperties.Name="Open Actions">
                      <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="⚡" FontSize="16" Margin="0,0,10,0"/>
+                         <TextBlock Text="&#x26A1;" FontSize="16" Margin="0,0,10,0"/>
                          <AccessText Text="_Actions" FontWeight="Medium"/>
                       </StackPanel>
                   </Button>
                 <Button Name="SettingsButton" Click="NavButton_Click" Tag="Settings" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="3"
                         ToolTip="Open Settings" AutomationProperties.Name="Open Settings">
                      <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="⚙️" FontSize="16" Margin="0,0,10,0"/>
+                         <TextBlock Text="&#x2699;&#xFE0F;" FontSize="16" Margin="0,0,10,0"/>
                          <AccessText Text="_Settings" FontWeight="Medium"/>
+                      </StackPanel>
+                  </Button>
+                <Button Name="SoftwareInventoryButton" Click="NavButton_Click" Tag="SoftwareInventory" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="4"
+                        ToolTip="Open Software Inventory" AutomationProperties.Name="Open Software Inventory">
+                     <StackPanel Orientation="Horizontal">
+                         <TextBlock Text="&#x1F4E6;" FontSize="16" Margin="0,0,10,0"/>
+                         <AccessText Text="S_oftware Inventory" FontWeight="Medium"/>
                       </StackPanel>
                   </Button>
 
                  <Separator Margin="15,20"/>
 
                  <!-- Help & About -->
-                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="4"
+                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="5"
                         ToolTip="Open Help" AutomationProperties.Name="Open Help">
                      <StackPanel Orientation="Horizontal">
                          <TextBlock Text="?" FontSize="16" Margin="0,0,10,0" FontWeight="Bold"/>
                          <AccessText Text="_Help" FontWeight="Medium"/>
                       </StackPanel>
                   </Button>
-                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="5"
+                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="6"
                         ToolTip="Open About" AutomationProperties.Name="Open About">
                      <StackPanel Orientation="Horizontal">
                          <TextBlock Text="i" FontSize="16" Margin="0,0,10,0" FontWeight="Bold" FontStyle="Italic"/>
@@ -89,6 +96,7 @@
                     <views:DashboardView x:Name="DashboardView" Visibility="Collapsed"/>
                     <views:ActionsView x:Name="ActionsView" Visibility="Collapsed"/>
                     <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
+                    <views:SoftwareInventoryView x:Name="SoftwareInventoryView" Visibility="Collapsed"/>
                 </Grid>
             </Grid>
         </Border>

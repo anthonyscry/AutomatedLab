@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     public DashboardViewModel DashboardVM { get; }
     public ActionsViewModel ActionsVM { get; }
     public SettingsViewModel SettingsVM { get; }
+    public SoftwareInventoryViewModel SoftwareInventoryVM { get; }
 
     public MainWindow()
     {
@@ -20,10 +21,12 @@ public partial class MainWindow : Window
         DashboardVM = new DashboardViewModel();
         ActionsVM = new ActionsViewModel();
         SettingsVM = new SettingsViewModel();
+        SoftwareInventoryVM = new SoftwareInventoryViewModel();
 
         DashboardView.DataContext = DashboardVM;
         ActionsView.DataContext = ActionsVM;
         SettingsView.DataContext = SettingsVM;
+        SoftwareInventoryView.DataContext = SoftwareInventoryVM;
 
         Loaded += MainWindow_Loaded;
         NavigateTo("Dashboard");
@@ -46,6 +49,7 @@ public partial class MainWindow : Window
         DashboardView.Visibility = Visibility.Collapsed;
         ActionsView.Visibility = Visibility.Collapsed;
         SettingsView.Visibility = Visibility.Collapsed;
+        SoftwareInventoryView.Visibility = Visibility.Collapsed;
 
         ResetButtonStyles();
 
@@ -66,6 +70,12 @@ public partial class MainWindow : Window
                 TitleText.Text = "Settings";
                 HighlightButton(SettingsButton);
                 break;
+            case "SoftwareInventory":
+                SoftwareInventoryView.Visibility = Visibility.Visible;
+                TitleText.Text = "Software Inventory";
+                HighlightButton(SoftwareInventoryButton);
+                _ = SoftwareInventoryVM.LoadAsync();
+                break;
         }
 
         StatusText.Text = $"Viewing {viewName}";
@@ -74,6 +84,7 @@ public partial class MainWindow : Window
             "Dashboard" => DashboardButton,
             "Actions" => ActionsButton,
             "Settings" => SettingsButton,
+            "SoftwareInventory" => SoftwareInventoryButton,
             _ => DashboardButton
         });
     }
@@ -88,6 +99,7 @@ public partial class MainWindow : Window
         DashboardButton.Background = Brushes.Transparent;
         ActionsButton.Background = Brushes.Transparent;
         SettingsButton.Background = Brushes.Transparent;
+        SoftwareInventoryButton.Background = Brushes.Transparent;
     }
 
     private void HelpButton_Click(object sender, RoutedEventArgs e)
@@ -120,6 +132,10 @@ public partial class MainWindow : Window
                     break;
                 case Key.D3:
                     NavigateTo("Settings");
+                    e.Handled = true;
+                    break;
+                case Key.D4:
+                    NavigateTo("SoftwareInventory");
                     e.Handled = true;
                     break;
                 case Key.R:
@@ -156,7 +172,7 @@ public partial class MainWindow : Window
         }
         else if (e.Key == Key.Escape)
         {
-            if (DashboardView.Visibility == Visibility.Visible || ActionsView.Visibility == Visibility.Visible || SettingsView.Visibility == Visibility.Visible)
+            if (DashboardView.Visibility == Visibility.Visible || ActionsView.Visibility == Visibility.Visible || SettingsView.Visibility == Visibility.Visible || SoftwareInventoryView.Visibility == Visibility.Visible)
             {
                 StatusText.Text = "Ready";
                 e.Handled = true;
