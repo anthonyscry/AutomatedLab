@@ -201,7 +201,7 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $repoRoot '_release'
 }
 
-$OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot, $repoRoot)
+if (-not [System.IO.Path]::IsPathRooted($OutputRoot)) { $OutputRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $OutputRoot)) } else { $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot) }
 
 $normalizedVersion = $Version.TrimStart('v')
 $releaseRoot = Join-Path $OutputRoot "v$normalizedVersion"
