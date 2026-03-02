@@ -3,8 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="Views/MainWindow.xaml">
  <Application.Resources>
-     <ResourceDictionary>
+    <ResourceDictionary>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <!-- Custom converters -->
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" xmlns:converters="clr-namespace:OpenCodeLab.Converters"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" xmlns:converters="clr-namespace:OpenCodeLab.Converters"/>
+        <converters:HealthStatusToBrushConverter x:Key="HealthStatusToBrushConverter" xmlns:converters="clr-namespace:OpenCodeLab.Converters"/>
          <SolidColorBrush x:Key="PrimaryBrush" Color="#0078D4" />
          <SolidColorBrush x:Key="FocusBrush" Color="#005A9E" />
          <SolidColorBrush x:Key="DangerBrush" Color="#D13438" />

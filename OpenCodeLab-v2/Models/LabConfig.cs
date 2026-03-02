@@ -10,6 +10,7 @@ public class LabConfig
     public NetworkConfig Network { get; set; } = new();
     public List<VMDefinition> VMs { get; set; } = new();
     public List<string> CustomRoles { get; set; } = new();
+    public List<SubnetDefinition> Subnets { get; set; } = new();
     public string? DomainName { get; set; } = "lab.com";
 }
 
@@ -38,6 +39,8 @@ public class VMDefinition
     public string? TimeZone { get; set; } = "Pacific Standard Time";
     public string? ISOPath { get; set; }
     public long DiskSizeGB { get; set; } = 80;
+    public string? SubnetName { get; set; }
+    public List<string> AdditionalSubnets { get; set; } = new();
 
     /// <summary>
     /// OS image resolved from the VM role. Used for display and by Deploy-Lab.ps1.
@@ -47,6 +50,7 @@ public class VMDefinition
     public string OperatingSystem => Role switch
     {
         "Client" => "Windows 11 Enterprise Evaluation",
+        "Linux" => "Ubuntu 24.04 LTS",
         _ => "Windows Server 2019 Datacenter (Desktop Experience)"
     };
 }

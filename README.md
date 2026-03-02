@@ -4,6 +4,7 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 
 ## Features
 
+### Core Lab Management
 - **Preflight checks** - Dashboard panel validates Hyper-V, AutomatedLab, LabSources, and network before deployment
 - **Initialize Environment** - One-click button to install prerequisites and configure the host
 - **One-click deployment** - Create Active Directory domains with DCs, member servers, and workstations
@@ -14,6 +15,25 @@ WPF desktop app for building and managing Hyper-V lab environments using Automat
 - **Dashboard** - Live VM status, RAM, CPU, IP, and role information from Hyper-V
 - **Lab management** - Create, edit, deploy, and remove labs through the GUI
 - **Help & About** - Built-in quick reference guide and app information
+
+### System Maintenance & Monitoring (v2.2+)
+- **Health Dashboard** - Real-time health monitoring with CPU, memory, and disk utilization tracking
+- **Baseline Manager** - Capture and compare system baselines for drift detection
+- **Resource Charts** - Interactive ScottPlot-based visualization of resource utilization trends
+- **Drift Detection** - Automatic detection of VM configuration changes from established baselines
+- **Health Alerts** - Configurable alerts for critical system issues with severity levels
+- **Scheduled Tasks** - Automate health checks and baseline captures on schedules
+
+### Documentation & Knowledge Transfer
+- **Documentation Hub** - Centralized Markdown documentation with search and categories
+- **Runbook Templates** - Pre-built templates for VM startup, shutdown, troubleshooting, and disaster recovery
+- **Knowledge Handover** - Structured handover documents for team transitions
+- **IaC Export** - Export lab configurations to Infrastructure as Code formats (ARM, Terraform, PowerShell DSC)
+
+### Notifications & Reporting
+- **Email Notifications** - SMTP-based alerts for health issues and daily reports
+- **Drift Reports** - Export drift detection reports in Markdown or JSON format
+- **Health Reports** - Exportable health check reports with VM status summaries
 
 ## Requirements
 

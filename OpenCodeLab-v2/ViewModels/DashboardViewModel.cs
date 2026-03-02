@@ -16,6 +16,9 @@ public class DashboardViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
     private readonly LabDeploymentService _deploymentService = new();
+    private readonly DriftDetectionService _driftService = new();
+    private string _driftStatusText = "No baseline";
+    private System.Windows.Media.Brush _driftStatusColor = System.Windows.Media.Brushes.Gray;
     private VirtualMachine? _selectedVM;
     private bool _hasFailures;
     private bool _isInitializing;
@@ -83,6 +86,22 @@ public class DashboardViewModel : ObservableObject
         set { _preflightExpanded = value; OnPropertyChanged(); }
     }
 
+    public string DriftStatusText
+    {
+        get => _driftStatusText;
+        set { _driftStatusText = value; OnPropertyChanged(); }
+    }
+
+    public System.Windows.Media.Brush DriftStatusColor
+    {
+        get => _driftStatusColor;
+        set { _driftStatusColor = value; OnPropertyChanged(); }
+    }
+
+    public AsyncCommand CaptureBaselineCommand { get; }
+    public AsyncCommand CheckDriftCommand { get; }
+
+
     public DashboardViewModel()
     {
         RefreshCommand = new AsyncCommand(RefreshAsync);
@@ -94,6 +113,8 @@ public class DashboardViewModel : ObservableObject
         BlowAwayCommand = new AsyncCommand(BlowAwayAllAsync, () => TotalVMs > 0);
         RecheckCommand = new AsyncCommand(RunHealthChecksAsync);
         InitializeCommand = new AsyncCommand(InitializeEnvironmentAsync, () => HasFailures && !IsInitializing);
+        CaptureBaselineCommand = new AsyncCommand(CaptureBaselineAsync);
+        CheckDriftCommand = new AsyncCommand(CheckDriftAsync);
     }
 
     public async Task LoadAsync()
@@ -395,5 +416,61 @@ public class DashboardViewModel : ObservableObject
         }
 
         await RefreshAsync();
+    }
+    private async Task CaptureBaselineAsync()
+    {
+        // Determine lab name from first VM or prompt
+        var labName = VirtualMachines.FirstOrDefault()?.Name?.Split('-').FirstOrDefault() ?? "MyLab";
+        try
+        {
+            var baseline = await _driftService.CaptureBaselineAsync(labName);
+            DriftStatusText = $"✅ Baseline captured ({baseline.VMStates.Count} VMs)";
+            DriftStatusColor = System.Windows.Media.Brushes.Green;
+            MessageBox.Show($"Baseline captured for {baseline.VMStates.Count} VMs.", "Baseline Captured", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to capture baseline: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+    private async Task CheckDriftAsync()
+    {
+        var labName = VirtualMachines.FirstOrDefault()?.Name?.Split('-').FirstOrDefault() ?? "MyLab";
+        try
+        {
+            var report = await _driftService.DetectDriftAsync(labName);
+            switch (report.OverallStatus)
+            {
+                case Models.DriftStatus.Clean:
+                    DriftStatusText = "✅ Clean";
+                    DriftStatusColor = System.Windows.Media.Brushes.Green;
+                    break;
+                case Models.DriftStatus.Warning:
+                    DriftStatusText = $"⚠️ {report.DriftCount} drifted";
+                    DriftStatusColor = System.Windows.Media.Brushes.Orange;
+                    break;
+                case Models.DriftStatus.Critical:
+                    DriftStatusText = $"🔴 {report.DriftCount} critical";
+                    DriftStatusColor = System.Windows.Media.Brushes.Red;
+                    break;
+            }
+
+            if (report.DriftCount > 0)
+            {
+                var dialog = new Views.DriftDetailsDialog(report);
+                dialog.Owner = Application.Current.MainWindow;
+                dialog.ShowDialog();
+            }
+            else
+            {
+                MessageBox.Show("No drift detected. All VMs match the baseline.", "Drift Check", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            DriftStatusText = "❌ Error";
+            DriftStatusColor = System.Windows.Media.Brushes.Red;
+            MessageBox.Show($"Drift check failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }

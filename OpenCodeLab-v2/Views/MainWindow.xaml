@@ -7,68 +7,117 @@
          mc:Ignorable="d" Title="OpenCodeLab - Hyper-V Lab Manager" Height="650" Width="1000" WindowStartupLocation="CenterScreen"
          KeyboardNavigation.TabNavigation="Cycle"
          PreviewKeyDown="Window_PreviewKeyDown">
-     <Grid>
-         <Grid.ColumnDefinitions>
-             <ColumnDefinition Width="200"/>
-             <ColumnDefinition Width="*"/>
-         </Grid.ColumnDefinitions>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-         <!-- Sidebar Navigation -->
-         <Border Grid.Column="0" Background="{StaticResource CardBrush}" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
-             <StackPanel Margin="0,20,0,0" KeyboardNavigation.TabNavigation="Cycle">
-                 <!-- Logo/Title -->
-                 <StackPanel Margin="20,0,20,30">
-                     <TextBlock Text="OpenCodeLab" FontSize="20" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
-                     <TextBlock Text="Lab Manager" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
-                 </StackPanel>
+        <!-- Sidebar Navigation -->
+        <Border Grid.Column="0" Background="{StaticResource CardBrush}" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+            <StackPanel Margin="0,20,0,0" KeyboardNavigation.TabNavigation="Cycle">
+                <!-- Logo/Title -->
+                <StackPanel Margin="20,0,20,30">
+                    <TextBlock Text="OpenCodeLab" FontSize="20" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                    <TextBlock Text="Lab Manager" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
 
-                 <!-- Nav Items -->
+                <!-- Nav Items -->
                 <Button Name="DashboardButton" Click="NavButton_Click" Tag="Dashboard" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="1"
                         ToolTip="Open Dashboard" AutomationProperties.Name="Open Dashboard">
-                     <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="&#x1F4CA;" FontSize="16" Margin="0,0,10,0"/>
-                         <AccessText Text="_Dashboard" FontWeight="Medium"/>
-                      </StackPanel>
-                  </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4CA;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="_Dashboard" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
                 <Button Name="ActionsButton" Click="NavButton_Click" Tag="Actions" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="2"
                         ToolTip="Open Actions" AutomationProperties.Name="Open Actions">
-                     <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="&#x26A1;" FontSize="16" Margin="0,0,10,0"/>
-                         <AccessText Text="_Actions" FontWeight="Medium"/>
-                      </StackPanel>
-                  </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x26A1;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="_Actions" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
                 <Button Name="SettingsButton" Click="NavButton_Click" Tag="Settings" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="3"
                         ToolTip="Open Settings" AutomationProperties.Name="Open Settings">
-                     <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="&#x2699;&#xFE0F;" FontSize="16" Margin="0,0,10,0"/>
-                         <AccessText Text="_Settings" FontWeight="Medium"/>
-                      </StackPanel>
-                  </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2699;&#xFE0F;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="_Settings" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
                 <Button Name="SoftwareInventoryButton" Click="NavButton_Click" Tag="SoftwareInventory" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="4"
                         ToolTip="Open Software Inventory" AutomationProperties.Name="Open Software Inventory">
-                     <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="&#x1F4E6;" FontSize="16" Margin="0,0,10,0"/>
-                         <AccessText Text="S_oftware Inventory" FontWeight="Medium"/>
-                      </StackPanel>
-                  </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4E6;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="S_oftware Inventory" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="CheckpointsButton" Click="NavButton_Click" Tag="Checkpoints" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="5"
+                        ToolTip="Open Checkpoints" AutomationProperties.Name="Open Checkpoints">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4F8;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="Chec_kpoints" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="HealthButton" Click="NavButton_Click" Tag="Health" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="6"
+                        ToolTip="Open Health Dashboard" AutomationProperties.Name="Open Health Dashboard">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2764;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="_Health" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="BaselinesButton" Click="NavButton_Click" Tag="Baselines" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="7"
+                        ToolTip="Open Baseline Manager" AutomationProperties.Name="Open Baseline Manager">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4B6;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="_Baselines" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="ChartsButton" Click="NavButton_Click" Tag="Charts" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="8"
+                        ToolTip="Open Resource Charts" AutomationProperties.Name="Open Resource Charts">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4C8;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="C_harts" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="SchedulerButton" Click="NavButton_Click" Tag="Scheduler" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="9"
+                        ToolTip="Open Scheduled Tasks" AutomationProperties.Name="Open Scheduled Tasks">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x23F0;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="S_cheduler" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="IaCButton" Click="NavButton_Click" Tag="IaC" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="10"
+                        ToolTip="Open IaC Export" AutomationProperties.Name="Open IaC Export">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2699;&#xFE0F;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="Ia_C Export" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="DocumentationButton" Click="NavButton_Click" Tag="Documentation" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="11"
+                        ToolTip="Open Documentation Hub" AutomationProperties.Name="Open Documentation Hub">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4D6;" FontSize="16" Margin="0,0,10,0"/>
+                        <AccessText Text="Do_cumentation" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
 
-                 <Separator Margin="15,20"/>
+                <Separator Margin="15,20"/>
 
-                 <!-- Help & About -->
-                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="5"
+                <!-- Help & About -->
+                <Button Name="HelpButton" Click="HelpButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="9"
                         ToolTip="Open Help" AutomationProperties.Name="Open Help">
-                     <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="?" FontSize="16" Margin="0,0,10,0" FontWeight="Bold"/>
-                         <AccessText Text="_Help" FontWeight="Medium"/>
-                      </StackPanel>
-                  </Button>
-                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="6"
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="?" FontSize="16" Margin="0,0,10,0" FontWeight="Bold"/>
+                        <AccessText Text="_Help" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="AboutButton" Click="AboutButton_Click" Height="45" HorizontalContentAlignment="Left" Padding="15,0" BorderThickness="0" Background="Transparent" TabIndex="9"
                         ToolTip="Open About" AutomationProperties.Name="Open About">
-                     <StackPanel Orientation="Horizontal">
-                         <TextBlock Text="i" FontSize="16" Margin="0,0,10,0" FontWeight="Bold" FontStyle="Italic"/>
-                         <AccessText Text="_About" FontWeight="Medium"/>
-                      </StackPanel>
-                  </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="i" FontSize="16" Margin="0,0,10,0" FontWeight="Bold" FontStyle="Italic"/>
+                        <AccessText Text="_About" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
 
                 <Separator Margin="15,15"/>
 
@@ -97,6 +146,13 @@
                     <views:ActionsView x:Name="ActionsView" Visibility="Collapsed"/>
                     <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
                     <views:SoftwareInventoryView x:Name="SoftwareInventoryView" Visibility="Collapsed"/>
+                    <views:CheckpointsView x:Name="CheckpointsView" Visibility="Collapsed"/>
+                    <views:HealthDashboardView x:Name="HealthView" Visibility="Collapsed"/>
+                    <views:DocumentationHubView x:Name="DocumentationView" Visibility="Collapsed"/>
+                    <views:SchedulerView x:Name="SchedulerView" Visibility="Collapsed"/>
+                    <views:IaCExportView x:Name="IaCView" Visibility="Collapsed"/>
+                    <views:BaselineManagerView x:Name="BaselinesView" Visibility="Collapsed"/>
+                    <views:ResourceChartView x:Name="ChartsView" Visibility="Collapsed"/>
                 </Grid>
             </Grid>
         </Border>

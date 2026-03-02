@@ -10,6 +10,10 @@ namespace OpenCodeLab.Views;
 public partial class NewLabDialog : Window
 {
     private List<VMDefinition> _vms = new();
+    private List<SubnetDefinition> _subnets = new()
+    {
+        new SubnetDefinition()  // Default subnet
+    };
 
     internal static string NormalizeVmRole(string? role)
     {
@@ -37,6 +41,12 @@ public partial class NewLabDialog : Window
             EditVMButton.IsEnabled = VMListBox.SelectedItem != null;
             DeleteVMButton.IsEnabled = VMListBox.SelectedItem != null;
         };
+
+        SubnetListBox.SelectionChanged += (s, e) =>
+        {
+            DeleteSubnetButton.IsEnabled = SubnetListBox.SelectedItem != null;
+        };
+        RefreshSubnetList();
 
         LabNameBox.TextChanged += (s, e) =>
         {

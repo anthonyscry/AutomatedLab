@@ -72,6 +72,34 @@
                     </Grid>
                 </GroupBox>
 
+                <!-- Subnet Definitions -->
+                <GroupBox Header="Subnets" Margin="0,0,0,15">
+                    <StackPanel Margin="10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Defined Subnets:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Name="AddSubnetButton" Content="Add Subnet" Click="AddSubnetButton_Click" Width="100" Height="28" Margin="5,0"/>
+                            <Button Grid.Column="2" Name="DeleteSubnetButton" Content="Delete" Click="DeleteSubnetButton_Click" Width="80" Height="28" Margin="5,0" IsEnabled="False"/>
+                        </Grid>
+                        <Border BorderBrush="Gray" BorderThickness="1" Margin="0,10,0,0" MinHeight="80" MaxHeight="150">
+                            <ListView Name="SubnetListBox" SelectionMode="Single">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" Width="100" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="Address" Width="140" DisplayMemberBinding="{Binding AddressPrefix}"/>
+                                        <GridViewColumn Header="Gateway" Width="120" DisplayMemberBinding="{Binding Gateway}"/>
+                                        <GridViewColumn Header="NAT" Width="50" DisplayMemberBinding="{Binding EnableNAT}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+
                 <!-- Virtual Machines -->
                 <GroupBox Header="Virtual Machines" Margin="0,0,0,10">
                     <StackPanel Margin="10">
@@ -95,6 +123,7 @@
                                         <GridViewColumn Header="CPU" Width="50" DisplayMemberBinding="{Binding Processors}"/>
                                         <GridViewColumn Header="Disk" Width="60" DisplayMemberBinding="{Binding DiskSizeGB}"/>
                                         <GridViewColumn Header="OS" Width="200" DisplayMemberBinding="{Binding OperatingSystem}"/>
+                                        <GridViewColumn Header="Subnet" Width="80" DisplayMemberBinding="{Binding SubnetName}"/>
                                     </GridView>
                                 </ListView.View>
                             </ListView>

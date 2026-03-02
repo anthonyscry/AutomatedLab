@@ -21,6 +21,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
@@ -43,7 +44,11 @@
                     <TextBlock Text="Total CPUs" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
                     <TextBlock Text="{Binding TotalProcessors}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
                 </StackPanel>
-                <Button Grid.Column="5" Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" Margin="10,0,0,0"/>
+                <StackPanel Grid.Column="5">
+                    <TextBlock Text="Drift Status" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"/>
+                    <TextBlock Text="{Binding DriftStatusText}" FontSize="14" FontWeight="Bold" Foreground="{Binding DriftStatusColor}"/>
+                </StackPanel>
+                <Button Grid.Column="6" Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" Margin="10,0,0,0"/>
             </Grid>
         </Border>
 
@@ -123,6 +128,8 @@
                 <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
                 <Button Content="🗑 Remove Selected" Command="{Binding RemoveSelectedVMCommand}" Width="140" Height="36" Margin="5" Style="{StaticResource RedButton}"/>
                 <Button Content="💥 Blow Away All" Command="{Binding BlowAwayCommand}" Width="120" Height="36" Margin="5" Style="{StaticResource RedButton}"/>
+                <Button Content="📋 Baseline" Command="{Binding CaptureBaselineCommand}" Width="100" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
+                <Button Content="🔍 Check Drift" Command="{Binding CheckDriftCommand}" Width="110" Height="36" Margin="5" Style="{StaticResource UniformButton}"/>
             </StackPanel>
         </Border>
     </Grid>

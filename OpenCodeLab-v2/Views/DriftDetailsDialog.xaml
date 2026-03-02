@@ -1,0 +1,41 @@
+<Window x:Class="OpenCodeLab.Views.DriftDetailsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Drift Detection Report" Height="500" Width="700" WindowStartupLocation="CenterOwner" ResizeMode="CanResize">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Summary -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Name="SummaryText" FontSize="16" FontWeight="Bold"/>
+            <TextBlock Name="DetailText" FontSize="12" Foreground="Gray"/>
+        </StackPanel>
+
+        <!-- VM Filter -->
+        <ComboBox Grid.Row="1" Name="VMFilter" Margin="0,0,0,10" SelectionChanged="VMFilter_SelectionChanged">
+            <ComboBoxItem Content="All VMs" IsSelected="True"/>
+        </ComboBox>
+
+        <!-- Drift Items -->
+        <ListView Grid.Row="2" Name="DriftItemsList" BorderThickness="0">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="VM" Width="100" DisplayMemberBinding="{Binding VMName}"/>
+                    <GridViewColumn Header="Severity" Width="70" DisplayMemberBinding="{Binding SeverityEmoji}"/>
+                    <GridViewColumn Header="Category" Width="100" DisplayMemberBinding="{Binding Category}"/>
+                    <GridViewColumn Header="Property" Width="150" DisplayMemberBinding="{Binding Property}"/>
+                    <GridViewColumn Header="Expected" Width="120" DisplayMemberBinding="{Binding Expected}"/>
+                    <GridViewColumn Header="Actual" Width="120" DisplayMemberBinding="{Binding Actual}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <!-- Close -->
+        <Button Grid.Row="3" Content="Close" Click="CloseButton_Click" Width="80" Height="32" HorizontalAlignment="Right" Margin="0,10,0,0"/>
+    </Grid>
+</Window>

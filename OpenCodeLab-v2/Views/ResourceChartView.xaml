@@ -1,0 +1,146 @@
+<UserControl x:Class="OpenCodeLab.Views.ResourceChartView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:scottplot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+             mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="900">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header / Controls -->
+        <Grid Grid.Row="0" Margin="0,0,0,15">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Lab Selector -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
+                <TextBlock Text="Lab:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding AvailableLabs}" 
+                          SelectedItem="{Binding SelectedLabName}"
+                          Width="200" Height="30"/>
+            </StackPanel>
+
+            <!-- Time Range -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,0">
+                <TextBlock Text="Time Range:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding TimeRangeOptions}" 
+                          SelectedItem="{Binding SelectedTimeRange}"
+                          Width="80" Height="30">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <Run Text="{Binding Mode=OneWay}"/>
+                                <Run Text="hrs"/>
+                            </TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Series Toggles -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <CheckBox Content="CPU" IsChecked="{Binding ShowCpu}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <CheckBox Content="Memory" IsChecked="{Binding ShowMemory}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <CheckBox Content="Disk" IsChecked="{Binding ShowDisk}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Actions -->
+            <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <CheckBox Content="Auto Refresh" IsChecked="{Binding AutoRefresh}" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                <Button Content="&#x21BB; Refresh" Command="{Binding RefreshChartsCommand}" 
+                        Width="100" Height="30" Margin="0,0,8,0"/>
+                <Button Content="Export" Command="{Binding ExportDataCommand}" 
+                        Width="80" Height="30"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Trend Summary Cards -->
+        <Border Grid.Row="1" Background="{StaticResource CardBrush}" 
+                CornerRadius="4" Padding="15" Margin="0,0,0,15"
+                Visibility="{Binding HasTrendData, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Sample Count -->
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                    <TextBlock Text="Samples" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding TrendSummary.SampleCount}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- CPU Stats -->
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    <TextBlock Text="CPU (Avg / Max)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding TrendSummary.AvgCpu, StringFormat={}{0:F1}%}" FontSize="20" FontWeight="Bold" Foreground="#2196F3"/>
+                        <TextBlock Text=" / " FontSize="20" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding TrendSummary.MaxCpu, StringFormat={}{0:F1}%}" FontSize="20" FontWeight="Bold" Foreground="#2196F3"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding TrendSummary.CpuTrend}" FontSize="11" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+
+                <!-- Memory Stats -->
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                    <TextBlock Text="Memory (Avg / Max)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding TrendSummary.AvgMemory, StringFormat={}{0:F1}%}" FontSize="20" FontWeight="Bold" Foreground="#4CAF50"/>
+                        <TextBlock Text=" / " FontSize="20" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding TrendSummary.MaxMemory, StringFormat={}{0:F1}%}" FontSize="20" FontWeight="Bold" Foreground="#4CAF50"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding TrendSummary.MemoryTrend}" FontSize="11" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+
+                <!-- Period -->
+                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                    <TextBlock Text="Period" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock FontSize="20" FontWeight="Bold" HorizontalAlignment="Center">
+                        <Run Text="{Binding TrendSummary.PeriodHours, Mode=OneWay}"/>
+                        <Run Text="hours"/>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Chart Area -->
+        <Border Grid.Row="2" Background="{StaticResource CardBrush}" CornerRadius="4">
+            <Grid>
+                <!-- ScottPlot Chart -->
+                <scottplot:WpfPlot x:Name="ResourcePlot" Margin="10"/>
+
+                <!-- Loading Overlay -->
+                <Border Background="#80FFFFFF" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <ProgressBar IsIndeterminate="True" Width="200" Height="4"/>
+                        <TextBlock Text="Loading chart data..." Margin="0,10,0,0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- No Data Message -->
+                <TextBlock Text="Select a lab to view resource utilization charts" 
+                           Visibility="{Binding HasTrendData, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
+            </Grid>
+        </Border>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="3" Margin="0,10,0,0">
+            <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+        </Border>
+    </Grid>
+</UserControl>

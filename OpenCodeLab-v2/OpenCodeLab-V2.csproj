@@ -18,6 +18,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.40.0" />
+    <PackageReference Include="ScottPlot.WPF" Version="5.0.39" />
     <PackageReference Include="System.Management" Version="9.0.0" />
   </ItemGroup>
 
@@ -41,6 +43,20 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>pwsh\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- VM state capture script for checkpoint and drift features -->
+    <Content Include="Scripts\Invoke-VMStateCapture.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <!-- Built-in lab templates -->
+    <Content Include="config\templates\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Link>config\templates\%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>
 </Project>

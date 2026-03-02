@@ -28,10 +28,34 @@ param(
     [string]$OnRunningVMs = 'abort',
     [Parameter(Mandatory=$false)]
     [ValidateRange(1, [int]::MaxValue)]
-    [int]$ParallelJobTimeoutSeconds = 180
+    [int]$ParallelJobTimeoutSeconds = 180,
+    [Parameter(Mandatory=$false)]
+    [string]$SubnetsJsonFile
 )
 
 $ErrorActionPreference = 'Continue'
+
+# Load subnet definitions (multi-subnet support)
+$subnets = @()
+if ($SubnetsJsonFile -and (Test-Path $SubnetsJsonFile)) {
+    $subnets = @(Get-Content -Raw $SubnetsJsonFile | ConvertFrom-Json)
+    Write-Host "Loaded $($subnets.Count) subnet definition(s) from $SubnetsJsonFile" -ForegroundColor Cyan
+}
+# Backward compat: if no subnets provided, synthesize one from legacy single-network params
+if ($subnets.Count -eq 0) {
+    $subnets = @([pscustomobject]@{
+        Name          = 'Default'
+        SwitchName    = $LabName
+        SwitchType    = 'Internal'
+        AddressPrefix = '192.168.10.0/24'
+        Gateway       = '192.168.10.1'
+        SubnetMask    = '255.255.255.0'
+        VLANID        = 0
+        EnableNAT     = $true
+        NATName       = $null
+        DnsServer     = $null
+    })
+}
 
 # ============================================================
 # PROGRESS HELPER
@@ -759,8 +783,11 @@ if ($skipProvisioning) {
 
     # Network - Internal switch with NAT for internet access
     # NAT is more reliable than external switches (especially on Wi-Fi adapters)
-    Add-LabVirtualNetworkDefinition -Name $LabName -AddressSpace 192.168.10.0/24 -HyperVProperties @{ SwitchType = 'Internal' }
-    Write-Host "  Network: $LabName (Internal + NAT, 192.168.10.0/24)" -ForegroundColor Cyan
+    foreach ($subnet in $subnets) {
+        $switchProps = @{ SwitchType = $subnet.SwitchType }
+        Add-LabVirtualNetworkDefinition -Name $subnet.SwitchName -AddressSpace $subnet.AddressPrefix -HyperVProperties $switchProps
+        Write-Host "  Network: $($subnet.SwitchName) ($($subnet.SwitchType), $($subnet.AddressPrefix))" -ForegroundColor Cyan
+    }
     if ($EnableExternalInternetSwitch) {
         Write-Host "  Secondary external adapter mode: enabled (switch: $ExternalSwitchName)" -ForegroundColor Cyan
     }
@@ -776,7 +803,7 @@ if ($skipProvisioning) {
 
     # Default parameters
     $PSDefaultParameterValues = @{
-        'Add-LabMachineDefinition:Network'        = $LabName
+        'Add-LabMachineDefinition:Network'        = $subnets[0].SwitchName
         'Add-LabMachineDefinition:DomainName'     = $DomainName
         'Add-LabMachineDefinition:OperatingSystem' = 'Windows Server 2019 Datacenter Evaluation (Desktop Experience)'
     }
@@ -840,10 +867,60 @@ if ($skipProvisioning) {
                 $isClient = $true
                 $os = 'Windows 11 Enterprise Evaluation'
             }
+            'Router' {
+                $alRole = Get-LabMachineRoleDefinition -Role Routing
+            }
+            'Firewall' {
+                $alRole = Get-LabMachineRoleDefinition -Role Routing
+            }
+            'Linux' {
+                $isClient = $false
+                $os = 'Ubuntu 24.04 LTS'
+            }
         }
 
-        if ($isClient) { $ip = "192.168.10.$clientIP"; $clientIP++ }
-        else           { $ip = "192.168.10.$serverIP"; $serverIP++ }
+        # Determine subnet for this VM
+        $vmSubnetName = $null
+        if ($vm.PSObject.Properties.Name -contains 'SubnetName' -and $vm.SubnetName) {
+            $vmSubnetName = $vm.SubnetName
+        }
+        $vmSubnet = if ($vmSubnetName) {
+            $subnets | Where-Object { $_.Name -eq $vmSubnetName } | Select-Object -First 1
+        } else {
+            $subnets | Select-Object -First 1
+        }
+        if (-not $vmSubnet) { $vmSubnet = $subnets[0] }
+
+        # Extract base IP from subnet AddressPrefix (e.g., "192.168.10.0/24" -> "192.168.10")
+        $subnetBase = ($vmSubnet.AddressPrefix -split '/')[0]
+        $subnetBase = $subnetBase -replace '\.\d+$', ''
+
+        if ($isClient) { $ip = "$subnetBase.$clientIP"; $clientIP++ }
+        else           { $ip = "$subnetBase.$serverIP"; $serverIP++ }
+
+        # Multi-homed VM support (Router/Firewall connecting multiple subnets)
+        $additionalSubnets = @()
+        if ($vm.PSObject.Properties.Name -contains 'AdditionalSubnets') {
+            $additionalSubnets = @($vm.AdditionalSubnets)
+        }
+
+        $networkAdapters = $null
+        if ($additionalSubnets.Count -gt 0) {
+            $adapters = @()
+            # Primary adapter on the VM's main subnet
+            $adapters += New-LabNetworkAdapterDefinition -VirtualSwitch $vmSubnet.SwitchName -Ipv4Address $ip
+            # Additional adapters for each connected subnet
+            foreach ($addSubnetName in $additionalSubnets) {
+                $addSubnet = $subnets | Where-Object { $_.Name -eq $addSubnetName } | Select-Object -First 1
+                if ($addSubnet) {
+                    $addBase = ($addSubnet.AddressPrefix -split '/')[0] -replace '\.\d+$', ''
+                    $addIp = "$addBase.1"  # Router/firewall gets .1 on additional subnets
+                    $adapters += New-LabNetworkAdapterDefinition -VirtualSwitch $addSubnet.SwitchName -Ipv4Address $addIp
+                    Write-Host "    + Additional NIC: $($addSubnet.SwitchName) ($addIp)" -ForegroundColor DarkCyan
+                }
+            }
+            $networkAdapters = $adapters
+        }
 
         $params = @{
             Name            = $vmName
@@ -851,6 +928,10 @@ if ($skipProvisioning) {
             Processors      = $procCount
             IpAddress       = $ip
             OperatingSystem = $os
+        }
+        if ($networkAdapters) {
+            $params['NetworkAdapter'] = $networkAdapters
+            $params.Remove('IpAddress')  # IP is set via adapter definitions
         }
         if ($alRole) { $params['Roles'] = $alRole }
 
@@ -1155,6 +1236,20 @@ try {
     Write-Host "  Will verify VM creation and attempt recovery..." -ForegroundColor Yellow
 }
 
+    # Enable routing on Router/Firewall VMs
+    $routerVMs = @($vms | Where-Object { $_.Role -in @('Router', 'Firewall') })
+    if ($routerVMs.Count -gt 0) {
+        Write-Host "Enabling routing on $($routerVMs.Count) router/firewall VM(s)..." -ForegroundColor Yellow
+        foreach ($rvm in $routerVMs) {
+            try {
+                Enable-LabInternalRouting -RoutingNetworkName $LabName
+                Write-Host "  [ROUTING][OK] $($rvm.Name)" -ForegroundColor Green
+            } catch {
+                Write-Warning "  [ROUTING][FAIL] $($rvm.Name): $($_.Exception.Message)"
+            }
+        }
+    }
+
 $installElapsed = (Get-Date) - $installStart
 Write-Host ("  Install-Lab completed in {0:D2}m {1:D2}s" -f [int]$installElapsed.TotalMinutes, $installElapsed.Seconds) -ForegroundColor Green
 
@@ -1427,7 +1522,10 @@ foreach ($vm in $vms) {
         IsDomainController = $isDomainController
         EnableHostInternet = $internetEnabled
         UseExternalInternetSwitch = $EnableExternalInternetSwitch -and $internetEnabled
-        Gateway            = '192.168.10.1'
+        Gateway            = if ($vm.PSObject.Properties.Name -contains 'SubnetName' -and $vm.SubnetName) {
+            $matchSub = $subnets | Where-Object { $_.Name -eq $vm.SubnetName } | Select-Object -First 1
+            if ($matchSub) { $matchSub.Gateway } else { '192.168.10.1' }
+        } else { '192.168.10.1' }
     }
 }
 
@@ -1448,13 +1546,21 @@ $internetPolicyFailures = @()
 $requiresHostInternet = $internetPolicyTargets | Where-Object { $_.EnableHostInternet -and -not $_.UseExternalInternetSwitch }
 $hostNatReady = $true
 if (@($requiresHostInternet).Count -gt 0) {
-    $natResult = Ensure-HostNatForLabNetwork -LabName $LabName -AddressPrefix '192.168.10.0/24'
-    if ($natResult.Succeeded) {
-        Write-Host "  [NET][OK] Host NAT ready for 192.168.10.0/24" -ForegroundColor Green
+    $natResult = @{ Succeeded = $true }
+    foreach ($subnet in ($subnets | Where-Object { $_.EnableNAT -eq $true })) {
+        $subNatResult = Ensure-HostNatForLabNetwork -LabName $subnet.SwitchName -AddressPrefix $subnet.AddressPrefix
+        if (-not $subNatResult.Succeeded) {
+            $natResult = $subNatResult
+            break
+        }
+        Write-Host "  [NET][OK] Host NAT ready for $($subnet.AddressPrefix)" -ForegroundColor Green
     }
-    else {
+    if (-not $natResult.Succeeded) {
         $hostNatReady = $false
         Write-Warning "Host NAT setup failed [ExecutionError]: $($natResult.Message)"
+    }
+    else {
+        $hostNatReady = $true
     }
 }
 

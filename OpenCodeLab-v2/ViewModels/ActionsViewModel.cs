@@ -259,7 +259,18 @@ public class ActionsViewModel : ObservableObject
             {
                 var settings = AppSettingsStore.LoadOrDefault();
                 var labConfigPath = GetLabConfigPath(settings);
-                var dialog = new NewLabDialog(AppSettingsStore.LoadOrDefault());
+                // Optionally start from a template
+                NewLabDialog dialog;
+                var gallery = new TemplateGalleryDialog();
+                gallery.Owner = Application.Current.MainWindow;
+                if (gallery.ShowDialog() == true && gallery.SelectedTemplate?.Config != null)
+                {
+                    dialog = new NewLabDialog(gallery.SelectedTemplate.Config);
+                }
+                else
+                {
+                    dialog = new NewLabDialog(AppSettingsStore.LoadOrDefault());
+                }
                 if (dialog.ShowDialog() == true)
                 {
                     var lab = dialog.GetLabConfig();

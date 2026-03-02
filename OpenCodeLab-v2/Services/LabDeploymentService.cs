@@ -97,6 +97,15 @@ public class LabDeploymentService
             var vmsJsonFile = Path.Combine(Path.GetTempPath(), $"lab-vms-{Guid.NewGuid():N}.json");
             File.WriteAllText(vmsJsonFile, vmsJson, Encoding.UTF8);
 
+            // Build Subnets JSON and write to temp file if subnets are defined
+            string? subnetsJsonFile = null;
+            if (config.Subnets?.Count > 0)
+            {
+                var subnetsJson = JsonSerializer.Serialize(config.Subnets, new JsonSerializerOptions { WriteIndented = true });
+                subnetsJsonFile = Path.Combine(Path.GetTempPath(), $"lab-subnets-{Guid.NewGuid():N}.json");
+                File.WriteAllText(subnetsJsonFile, subnetsJson, Encoding.UTF8);
+            }
+
             var pw = string.Empty;
             if (requiresPassword)
             {
@@ -135,6 +144,8 @@ public class LabDeploymentService
                     args["AdminPassword"] = pw;
                 }
                 args["OnRunningVMs"] = normalizedOnRunningVms;
+                if (subnetsJsonFile != null)
+                    args["SubnetsJsonFile"] = subnetsJsonFile;
 
                 var switches = new List<string>();
                 if (useIncremental) switches.Add("Incremental");
@@ -145,6 +156,8 @@ public class LabDeploymentService
             finally
             {
                 try { File.Delete(vmsJsonFile); } catch { }
+                if (subnetsJsonFile != null)
+                    try { File.Delete(subnetsJsonFile); } catch { }
             }
 
             // Post-deployment VHDX validation
