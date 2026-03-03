@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.40.0" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.6" />
     <PackageReference Include="ScottPlot.WPF" Version="5.0.39" />
     <PackageReference Include="System.Management" Version="9.0.0" />
   </ItemGroup>

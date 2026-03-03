@@ -23,10 +23,10 @@ public class ActionsViewModel : ObservableObject
     private string _activeDeploymentId = string.Empty;
 
     // Default paths
-    private const string DefaultLabSources = @"C:\LabSources";
-    private const string DefaultLabConfigPath = @"C:\LabSources\LabConfig";
-    private const string DefaultISOPath = @"C:\LabSources\ISOs";
-    private const string DefaultLogDirectory = @"C:\LabSources\Logs";
+    private static string DefaultLabSources => LabPaths.Root;
+    private static string DefaultLabConfigPath => LabPaths.LabConfig;
+    private static string DefaultISOPath => LabPaths.ISOs;
+    private static string DefaultLogDirectory => LabPaths.Logs;
 
     public ObservableCollection<LabConfig> RecentLabs { get; } = new();
     public AsyncCommand NewLabCommand { get; }
@@ -121,6 +121,9 @@ public class ActionsViewModel : ObservableObject
 
     private static string GetLogDirectoryPath(AppSettings settings)
     {
+        if (!string.IsNullOrWhiteSpace(settings.LogPath))
+            return settings.LogPath;
+
         var labSources = GetLabSourcesPath(settings);
         if (string.IsNullOrWhiteSpace(labSources))
             return DefaultLogDirectory;
@@ -398,12 +401,9 @@ public class ActionsViewModel : ObservableObject
             try
             {
                 var safeName = vmName.Replace("'", "''");
-                var psi = new ProcessStartInfo("powershell.exe",
-                    $"-NoProfile -Command \"try {{ $vm = Get-VM -Name '{safeName}' -ErrorAction SilentlyContinue; if ($vm) {{ $vm.State }} }} catch {{ }}\"")
-                { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
-                using var process = Process.Start(psi);
-                var output = process?.StandardOutput.ReadToEnd()?.Trim() ?? string.Empty;
-                process?.WaitForExit();
+                var script = $"try {{ $vm = Get-VM -Name '{safeName}' -ErrorAction SilentlyContinue; if ($vm) {{ $vm.State }} }} catch {{ }}";
+                var (output, _, _) = PowerShellRunner.RunScriptAsync(script).GetAwaiter().GetResult();
+                output = output.Trim();
                 if (string.Equals(output, "Running", StringComparison.OrdinalIgnoreCase))
                 {
                     runningVMs.Add(vmName);

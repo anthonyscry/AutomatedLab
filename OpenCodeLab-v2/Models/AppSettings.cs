@@ -1,11 +1,18 @@
 namespace OpenCodeLab.Models;
 
+using OpenCodeLab.Services;
+
 public class AppSettings
 {
-    public string DefaultLabPath { get; set; } = @"C:\LabSources";
-    public string LabConfigPath { get; set; } = @"C:\LabSources\LabConfig";
-    public string ISOPath { get; set; } = @"C:\LabSources\ISOs";
-    public string VMPath { get; set; } = @"C:\LabSources\VMs";
+    public string DefaultLabPath { get; set; } = LabPaths.Root;
+    public string LabConfigPath { get; set; } = LabPaths.LabConfig;
+    public string ISOPath { get; set; } = LabPaths.ISOs;
+    public string VMPath { get; set; } = LabPaths.VMs;
+    public string LogPath { get; set; } = LabPaths.Logs;
+    public string DocsPath { get; set; } = LabPaths.Docs;
+    public string BackupsPath { get; set; } = LabPaths.Backups;
+    public string IaCPath { get; set; } = LabPaths.IaC;
+    public string TemplatePath { get; set; } = LabPaths.Templates;
     public string DefaultSwitchName { get; set; } = "LabSwitch";
     public string DefaultSwitchType { get; set; } = "Internal";
     public bool EnableAutoStart { get; set; }

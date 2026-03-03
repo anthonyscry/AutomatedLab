@@ -1,19 +1,18 @@
 using System;
 using System.IO;
 using System.Windows;
+using OpenCodeLab.Services;
 
 namespace OpenCodeLab;
 
 public partial class App : Application
 {
-    private const string LogDirectory = @"C:\LabSources\Logs";
-
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
         // Ensure log directory exists
-        try { Directory.CreateDirectory(LogDirectory); }
+        try { Directory.CreateDirectory(LabPaths.Logs); }
         catch { }
 
         // Handle unhandled exceptions on UI thread
@@ -40,8 +39,8 @@ public partial class App : Application
     {
         try
         {
-            Directory.CreateDirectory(LogDirectory);
-            var logPath = Path.Combine(LogDirectory, $"crash-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            Directory.CreateDirectory(LabPaths.Logs);
+            var logPath = Path.Combine(LabPaths.Logs, $"crash-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             var content = $"CRASH LOG - {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n\n" +
                          $"Message: {ex.Message}\n\n" +
                          $"Stack Trace:\n{ex.StackTrace}\n\n";
@@ -57,6 +56,6 @@ public partial class App : Application
 
     private string GetLogPath()
     {
-        return Path.Combine(LogDirectory, $"crash-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+        return Path.Combine(LabPaths.Logs, $"crash-{DateTime.Now:yyyyMMdd-HHmmss}.log");
     }
 }

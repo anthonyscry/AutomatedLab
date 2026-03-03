@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -29,9 +28,8 @@ public class HostBaselineCaptureService
 
         log?.Invoke($"Capturing VM configurations for lab '{labName}'...");
 
-        var pwsh = FindPowerShell();
         var script = BuildCaptureScript(labName);
-        var json = await RunPowerShellAndGetJsonAsync(pwsh, script, ct);
+        var json = await RunPowerShellAndGetJsonAsync(script, ct);
 
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -51,9 +49,8 @@ public class HostBaselineCaptureService
     {
         log?.Invoke($"Capturing network configuration for lab '{labName}'...");
 
-        var pwsh = FindPowerShell();
         var script = BuildNetworkCaptureScript(labName);
-        var json = await RunPowerShellAndGetJsonAsync(pwsh, script, ct);
+        var json = await RunPowerShellAndGetJsonAsync(script, ct);
 
         var config = new HostNetworkConfiguration { CapturedAt = DateTime.UtcNow };
 
@@ -284,7 +281,7 @@ public class HostBaselineCaptureService
 
     private string GetBaselineDir(string labName)
     {
-        var dir = Path.Combine(@"C:\LabSources\LabConfig", labName, BaselinesDir);
+        var dir = Path.Combine(LabPaths.LabConfig, labName, BaselinesDir);
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -392,48 +389,9 @@ $adapters = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status
 ";
     }
 
-    private async Task<string?> RunPowerShellAndGetJsonAsync(string pwsh, string script, CancellationToken ct)
+    private static async Task<string?> RunPowerShellAndGetJsonAsync(string script, CancellationToken ct)
     {
-        var outputPath = Path.Combine(Path.GetTempPath(), $"host-cfg-{Guid.NewGuid():N}.json");
-        var escapedScript = script.Replace("\"", "\"\"");
-        
-        var psi = new ProcessStartInfo
-        {
-            FileName = pwsh,
-            Arguments = $"-NoProfile -NonInteractive -Command \"{escapedScript} | Out-File -FilePath '{outputPath}' -Encoding utf8\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-        await process.WaitForExitAsync(ct);
-
-        if (!File.Exists(outputPath))
-            return null;
-
-        var json = await File.ReadAllTextAsync(outputPath, ct);
-        try { File.Delete(outputPath); } catch { }
-        return json;
-    }
-
-    private static string FindPowerShell()
-    {
-        var candidates = new[]
-        {
-            @"C:\Program Files\PowerShell\7\pwsh.exe",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe")
-        };
-
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        return "powershell.exe";
+        return await PowerShellRunner.RunScriptGetJsonAsync(script, ct);
     }
 
     private static string? ReadString(JsonElement parent, string propertyName)

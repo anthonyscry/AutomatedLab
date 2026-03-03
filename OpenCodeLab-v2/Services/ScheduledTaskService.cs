@@ -124,8 +124,8 @@ public class SimpleCron
 public class ScheduledTaskService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    private const string TasksFilePath = @"C:\LabSources\LabConfig\_system\scheduled-tasks.json";
-    private const string ResultsFilePath = @"C:\LabSources\LabConfig\_system\task-results.json";
+    private static readonly string TasksFilePath = Path.Combine(LabPaths.SystemConfig, "scheduled-tasks.json");
+    private static readonly string ResultsFilePath = Path.Combine(LabPaths.SystemConfig, "task-results.json");
     
     private List<ScheduledTask> _tasks = new();
     private List<ScheduledTaskResult> _results = new();
@@ -424,14 +424,14 @@ public class ScheduledTaskService
     private async Task<ScheduledTaskResult> ExecuteBackupAsync(ScheduledTask task)
     {
         var labName = task.Parameters.GetValueOrDefault("LabName", task.LabName);
-        var backupPath = task.Parameters.GetValueOrDefault("BackupPath", @"C:\LabSources\Backups");
+        var backupPath = task.Parameters.GetValueOrDefault("BackupPath", LabPaths.Backups);
 
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
         var destPath = Path.Combine(backupPath, labName, timestamp);
 
         Directory.CreateDirectory(destPath);
 
-        var sourcePath = Path.Combine(@"C:\LabSources\LabConfig", labName);
+        var sourcePath = Path.Combine(LabPaths.LabConfig, labName);
         if (Directory.Exists(sourcePath))
         {
             foreach (var file in Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories))

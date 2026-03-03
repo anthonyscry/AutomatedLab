@@ -192,7 +192,7 @@ public class DriftReportExportService
             _ => "md"
         };
 
-        return Path.Combine(@"C:\LabSources\LabConfig", labName, "drift-reports", $"{reportId}.{ext}");
+        return Path.Combine(LabPaths.LabConfig, labName, "drift-reports", $"{reportId}.{ext}");
     }
 
     private static string MarkdownToHtml(string markdown)

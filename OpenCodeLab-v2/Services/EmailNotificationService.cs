@@ -210,13 +210,13 @@ public class EmailNotificationService
         return client;
     }
 
-    private static string GetSeverityPrefix(AlertSeverity severity)
+    private static string GetSeverityPrefix(HealthStatus severity)
     {
         return severity switch
         {
-            AlertSeverity.Critical => "🔴 CRITICAL:",
-            AlertSeverity.Warning => "⚠️ WARNING:",
-            AlertSeverity.Info => "ℹ️ INFO:",
+            HealthStatus.Critical => "🔴 CRITICAL:",
+            HealthStatus.Warning => "⚠️ WARNING:",
+            HealthStatus.Healthy => "ℹ️ INFO:",
             _ => ""
         };
     }
@@ -228,8 +228,8 @@ public class EmailNotificationService
         
         var severityColor = alert.Severity switch
         {
-            AlertSeverity.Critical => "#D32F2F",
-            AlertSeverity.Warning => "#F57C00",
+            HealthStatus.Critical => "#D32F2F",
+            HealthStatus.Warning => "#F57C00",
             _ => "#1976D2"
         };
 
@@ -323,7 +323,7 @@ public class EmailNotificationService
 
     private static string GetConfigPath()
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", "_system", ConfigFile);
+        return Path.Combine(LabPaths.SystemConfig, ConfigFile);
     }
 }
 

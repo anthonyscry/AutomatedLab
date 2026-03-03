@@ -1,6 +1,16 @@
 name: OpenCodeLab v2 CI
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'OpenCodeLab-v2/**'
+      - '.github/workflows/opencodelab-v2-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'OpenCodeLab-v2/**'
+      - '.github/workflows/opencodelab-v2-ci.yml'
   workflow_dispatch:
 
 permissions:
@@ -29,13 +39,30 @@ jobs:
           Install-Module -Name PSScriptAnalyzer -MinimumVersion 1.22.0 -Scope CurrentUser -Force
 
       - name: Run unit tests
-        run: Invoke-Pester -Path 'OpenCodeLab-v2/tests/unit' -CI
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'OpenCodeLab-v2/tests/unit'
+          $config.Run.Exit = $true
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.Path = @('OpenCodeLab-v2/src/**/*.ps1', 'OpenCodeLab-v2/src/**/*.psm1')
+          $config.CodeCoverage.OutputFormat = 'JaCoCo'
+          $config.CodeCoverage.OutputPath = 'coverage-unit.xml'
+          Invoke-Pester -Configuration $config
 
       - name: Run integration tests
-        run: Invoke-Pester -Path 'OpenCodeLab-v2/tests/integration' -CI
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'OpenCodeLab-v2/tests/integration'
+          $config.Run.Exit = $true
+          Invoke-Pester -Configuration $config
 
       - name: Run smoke tests
-        run: Invoke-Pester -Path 'OpenCodeLab-v2/tests/smoke' -CI -Output Detailed
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'OpenCodeLab-v2/tests/smoke'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
 
       - name: Run ScriptAnalyzer quality gate
         run: |

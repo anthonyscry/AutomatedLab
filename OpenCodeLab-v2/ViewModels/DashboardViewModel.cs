@@ -164,13 +164,13 @@ public class DashboardViewModel : ObservableObject
             }
 
             // 2. LabSources Directory
-            if (Directory.Exists(@"C:\LabSources"))
-                SetCheck(labSources, true, @"C:\LabSources exists", Brushes.Green);
+            if (Directory.Exists(LabPaths.Root))
+                SetCheck(labSources, true, $"{LabPaths.Root} exists", Brushes.Green);
             else
                 SetCheck(labSources, false, "Not found", Brushes.Red);
 
             // 3. ISO Images
-            var isosDir = @"C:\LabSources\ISOs";
+            var isosDir = LabPaths.ISOs;
             if (Directory.Exists(isosDir) && Directory.GetFiles(isosDir, "*.iso").Length > 0)
             {
                 var count = Directory.GetFiles(isosDir, "*.iso").Length;
@@ -225,12 +225,11 @@ public class DashboardViewModel : ObservableObject
         try
         {
             var bundledLabSources = Path.Combine(AppContext.BaseDirectory, "LabSources");
-            var targetLabSources = @"C:\LabSources";
+            var targetLabSources = LabPaths.Root;
 
             var script = new StringBuilder();
             script.AppendLine("$ErrorActionPreference = 'Stop'");
 
-            // Step 1: Copy LabSources to C:\LabSources
             if (Directory.Exists(bundledLabSources))
             {
                 var safeSrc = bundledLabSources.Replace("'", "''");
