@@ -11,7 +11,7 @@ namespace OpenCodeLab.Services;
 public class TemplateService
 {
     private const string BuiltInDir = "config/templates";
-    private const string UserDir = @"C:\LabSources\LabConfig\templates";
+    private static string UserDir => LabPaths.Templates;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public async Task<List<LabTemplate>> GetTemplatesAsync()

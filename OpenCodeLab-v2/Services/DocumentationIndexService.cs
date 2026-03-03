@@ -35,14 +35,14 @@ public class DocumentationIndexService
         }
 
         // Index docs from LabSources
-        var labSourcesDocs = @"C:\LabSources\Docs";
+        var labSourcesDocs = LabPaths.Docs;
         if (Directory.Exists(labSourcesDocs))
         {
             await IndexDirectoryAsync(labSourcesDocs, DocumentationSourceType.UserCreated, ct);
         }
 
         // Index lab-specific docs
-        var labConfigDir = @"C:\LabSources\LabConfig";
+        var labConfigDir = LabPaths.LabConfig;
         if (Directory.Exists(labConfigDir))
         {
             foreach (var labDir in Directory.GetDirectories(labConfigDir))
@@ -267,7 +267,7 @@ public class DocumentationIndexService
         // This would need to be stored in the entry
         return entry.SourceType == DocumentationSourceType.BuiltIn.ToString()
             ? Path.Combine(AppContext.BaseDirectory, "docs", $"{entry.Title}.md")
-            : Path.Combine(@"C:\LabSources\Docs", $"{entry.Title}.md");
+            : Path.Combine(LabPaths.Docs, $"{entry.Title}.md");
     }
 
     private async Task SaveIndexAsync(CancellationToken ct)
@@ -296,6 +296,6 @@ public class DocumentationIndexService
 
     private static string GetIndexPath()
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", "_system", IndexFile);
+        return Path.Combine(LabPaths.SystemConfig, IndexFile);
     }
 }

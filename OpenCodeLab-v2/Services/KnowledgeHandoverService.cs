@@ -16,7 +16,7 @@ namespace OpenCodeLab.Services;
 public class KnowledgeHandoverService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    private const string DecisionLogPath = @"C:\LabSources\LabConfig\_system\decisions.json";
+    private static readonly string DecisionLogPath = Path.Combine(LabPaths.SystemConfig, "decisions.json");
 
     #region Decision Records
 
@@ -241,7 +241,7 @@ public class KnowledgeHandoverService
 
         sb.AppendLine("### Directory Structure");
         sb.AppendLine("```");
-        sb.AppendLine("C:\\LabSources\\");
+        sb.AppendLine($"{LabPaths.Root}\\");
         sb.AppendLine("├── ISOs/              # Windows/Linux ISO files");
         sb.AppendLine("├── VMs/               # VM disk storage");
         sb.AppendLine("├── LabConfig/         # Saved lab configurations");
@@ -369,7 +369,7 @@ public class KnowledgeHandoverService
         return new List<OnboardingStep>
         {
             new() { Order = 1, Title = "Environment Setup", Description = "Install .NET 8 Desktop Runtime and verify Hyper-V is enabled.", EstimatedMinutes = 15, VerificationCriteria = "OpenCodeLab starts without errors" },
-            new() { Order = 2, Title = "Access Configuration", Description = "Obtain access to LabSources directory and ISO files.", EstimatedMinutes = 10, VerificationCriteria = "C:\\LabSources\\ISOs contains required ISOs" },
+            new() { Order = 2, Title = "Access Configuration", Description = "Obtain access to LabSources directory and ISO files.", EstimatedMinutes = 10, VerificationCriteria = $"{LabPaths.ISOs} contains required ISOs" },
             new() { Order = 3, Title = "Application Launch", Description = "Launch OpenCodeLab as Administrator and review Dashboard.", EstimatedMinutes = 5, VerificationCriteria = "Dashboard shows preflight checks passing" },
             new() { Order = 4, Title = "Review Documentation", Description = "Read README.md and ARCHITECTURE.md for system overview.", EstimatedMinutes = 20, VerificationCriteria = "Understand basic system architecture" },
             new() { Order = 5, Title = "First Lab Deployment", Description = "Create and deploy a test lab with guidance.", EstimatedMinutes = 30, VerificationCriteria = "Test lab VMs are running" }
@@ -380,16 +380,16 @@ public class KnowledgeHandoverService
 
     private static string GetRunbookPath(string labName, string runbookId)
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", labName, "runbooks", $"{runbookId}.md");
+        return Path.Combine(LabPaths.LabConfig, labName, "runbooks", $"{runbookId}.md");
     }
 
     private static string GetRunbookDirectory(string labName)
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", labName, "runbooks");
+        return Path.Combine(LabPaths.LabConfig, labName, "runbooks");
     }
 
     private static string GetOnboardingPath(string labName)
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", labName, "docs", "onboarding.md");
+        return Path.Combine(LabPaths.LabConfig, labName, "docs", "onboarding.md");
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -17,6 +18,7 @@ public class ResourceHistoryService
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const string HistoryFile = "resource-history.jsonl";
     private const int MaxHistoryDays = 30;
+    private const long RotationThresholdBytes = 512 * 1024; // 500KB
 
     /// <summary>
     /// Record a resource utilization snapshot
@@ -28,6 +30,12 @@ public class ResourceHistoryService
 
         var line = JsonSerializer.Serialize(entry);
         await File.AppendAllTextAsync(path, line + "\n", ct);
+
+        // Auto-rotate if file exceeds size threshold
+        if (new FileInfo(path).Length > RotationThresholdBytes)
+        {
+            await CleanupLabHistoryAsync(entry.LabName, ct);
+        }
     }
 
     /// <summary>
@@ -35,11 +43,17 @@ public class ResourceHistoryService
     /// </summary>
     public async Task RecordHostSnapshotAsync(ResourceHistoryEntry entry, CancellationToken ct = default)
     {
-        var path = GetHostHistoryPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var hostPath = GetHostHistoryPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(hostPath)!);
 
         var line = JsonSerializer.Serialize(entry);
-        await File.AppendAllTextAsync(path, line + "\n", ct);
+        await File.AppendAllTextAsync(hostPath, line + "\n", ct);
+
+        // Auto-rotate if file exceeds size threshold
+        if (new FileInfo(hostPath).Length > RotationThresholdBytes)
+        {
+            await CleanupHostHistoryAsync(ct);
+        }
     }
 
     /// <summary>
@@ -63,7 +77,7 @@ public class ResourceHistoryService
                 if (entry != null && entry.Timestamp >= cutoff)
                     entries.Add(entry);
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"Failed to parse resource history entry: {ex.Message}"); }
         }
 
         return entries.OrderBy(e => e.Timestamp).ToList();
@@ -99,7 +113,7 @@ public class ResourceHistoryService
                 if (entry != null && entry.Timestamp >= cutoff)
                     entries.Add(entry);
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"Failed to parse resource history entry: {ex.Message}"); }
         }
 
         return entries.OrderBy(e => e.Timestamp).ToList();
@@ -172,12 +186,66 @@ public class ResourceHistoryService
         return analysis;
     }
 
+    private async Task CleanupHostHistoryAsync(CancellationToken ct)
+    {
+        var path = GetHostHistoryPath();
+        if (!File.Exists(path)) return;
+
+        var cutoff = DateTime.UtcNow.AddDays(-MaxHistoryDays);
+        var lines = await File.ReadAllLinesAsync(path, ct);
+        var validLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                var entry = JsonSerializer.Deserialize<ResourceHistoryEntry>(line);
+                if (entry != null && entry.Timestamp >= cutoff)
+                    validLines.Add(line);
+            }
+            catch (Exception ex) { Debug.WriteLine($"Skipping malformed resource history entry: {ex.Message}"); }
+        }
+
+        if (validLines.Count < lines.Length)
+        {
+            await File.WriteAllLinesAsync(path, validLines, ct);
+        }
+    }
+
+    private async Task CleanupLabHistoryAsync(string labName, CancellationToken ct)
+    {
+        var path = GetHistoryPath(labName);
+        if (!File.Exists(path)) return;
+
+        var cutoff = DateTime.UtcNow.AddDays(-MaxHistoryDays);
+        var lines = await File.ReadAllLinesAsync(path, ct);
+        var validLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                var entry = JsonSerializer.Deserialize<ResourceHistoryEntry>(line);
+                if (entry != null && entry.Timestamp >= cutoff)
+                    validLines.Add(line);
+            }
+            catch (Exception ex) { Debug.WriteLine($"Skipping malformed resource history entry: {ex.Message}"); }
+        }
+
+        if (validLines.Count < lines.Length)
+        {
+            await File.WriteAllLinesAsync(path, validLines, ct);
+        }
+    }
+
     /// <summary>
     /// Clean up old history entries
     /// </summary>
     public async Task CleanupOldHistoryAsync(CancellationToken ct = default)
     {
-        var rootDir = @"C:\LabSources\LabConfig";
+        var rootDir = LabPaths.LabConfig;
         var cutoff = DateTime.UtcNow.AddDays(-MaxHistoryDays);
 
         foreach (var labDir in Directory.GetDirectories(rootDir))
@@ -198,7 +266,7 @@ public class ResourceHistoryService
                     if (entry != null && entry.Timestamp >= cutoff)
                         validLines.Add(line);
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine($"Skipping malformed entry during cleanup: {ex.Message}"); }
             }
 
             if (validLines.Count < lines.Length)
@@ -223,7 +291,7 @@ public class ResourceHistoryService
                     if (entry != null && entry.Timestamp >= cutoff)
                         validLines.Add(line);
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine($"Skipping malformed entry during cleanup: {ex.Message}"); }
             }
 
             if (validLines.Count < lines.Length)
@@ -235,12 +303,12 @@ public class ResourceHistoryService
 
     private static string GetHistoryPath(string labName)
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", labName, HistoryFile);
+        return Path.Combine(LabPaths.LabConfig, labName, HistoryFile);
     }
 
     private static string GetHostHistoryPath()
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", "_system", HistoryFile);
+        return Path.Combine(LabPaths.SystemConfig, HistoryFile);
     }
 }
 

@@ -272,6 +272,6 @@ public class HealthAlertService
 
     private static string GetAlertsPath()
     {
-        return Path.Combine(@"C:\LabSources\LabConfig", "_system", AlertsFile);
+        return Path.Combine(LabPaths.SystemConfig, AlertsFile);
     }
 }
