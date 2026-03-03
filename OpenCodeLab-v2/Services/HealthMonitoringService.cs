@@ -18,6 +18,8 @@ public class HealthMonitoringService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const string HealthDir = "Health";
+    private const int MaxHealthHistoryDays = 30;
+    private const long RotationThresholdBytes = 512 * 1024; // 500KB
 
     /// <summary>
     /// Run comprehensive health check for a lab
@@ -118,7 +120,7 @@ public class HealthMonitoringService
                 if (report != null && report.GeneratedAt >= cutoff)
                     reports.Add(report);
             }
-            catch { }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to parse health history entry: {ex.Message}"); }
         }
 
         return reports.OrderByDescending(r => r.GeneratedAt).ToList();
@@ -224,9 +226,8 @@ public class HealthMonitoringService
     {
         var results = new List<VmHealthStatus>();
 
-        var pwsh = FindPowerShell();
         var script = BuildVmHealthScript(labName);
-        var json = await RunPowerShellAndGetJsonAsync(pwsh, script, ct);
+        var json = await RunPowerShellAndGetJsonAsync(script, ct);
 
         if (string.IsNullOrWhiteSpace(json))
             return results;
@@ -296,7 +297,6 @@ public class HealthMonitoringService
     {
         var status = new HostHealthStatus();
 
-        var pwsh = FindPowerShell();
         var script = @"
 $os = Get-CimInstance Win32_OperatingSystem
 $cpu = Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average
@@ -318,7 +318,7 @@ $disks = Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
     })
 } | ConvertTo-Json -Depth 3
 ";
-        var json = await RunPowerShellAndGetJsonAsync(pwsh, script, ct);
+        var json = await RunPowerShellAndGetJsonAsync(script, ct);
 
         if (!string.IsNullOrWhiteSpace(json))
         {
@@ -357,7 +357,7 @@ $disks = Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to parse host health data: {ex.Message}"); }
         }
 
         // Determine overall host status
@@ -392,25 +392,51 @@ $disks = Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
 
     private async Task<int> CountLabVmsAsync(string labName, CancellationToken ct)
     {
-        var pwsh = FindPowerShell();
         var safeLabName = labName.Replace("'", "''");
         var script = $@"(Get-VM | Where-Object {{ $_.Name -like '{safeLabName}*' }}).Count";
         
-        var output = await RunPowerShellAndGetOutputAsync(pwsh, script, ct);
+        var output = await RunPowerShellAndGetOutputAsync(script, ct);
         return int.TryParse(output?.Trim(), out var count) ? count : 0;
     }
 
     private async Task<bool> CheckSwitchExistsAsync(string labName, CancellationToken ct)
     {
-        var pwsh = FindPowerShell();
         var safeLabName = labName.Replace("'", "''");
         var script = $@"
 $switchName = '{safeLabName}'
 $switch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
 if ($switch) {{ 'true' }} else {{ 'false' }}
 ";
-        var output = await RunPowerShellAndGetOutputAsync(pwsh, script, ct);
+        var output = await RunPowerShellAndGetOutputAsync(script, ct);
         return output?.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private async Task CleanupOldHealthHistoryAsync(string labName, CancellationToken ct = default)
+    {
+        var dir = GetHealthDir(labName);
+        var historyPath = Path.Combine(dir, "history.jsonl");
+        if (!File.Exists(historyPath)) return;
+
+        var cutoff = DateTime.UtcNow.AddDays(-MaxHealthHistoryDays);
+        var lines = await File.ReadAllLinesAsync(historyPath, ct);
+        var validLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                var report = JsonSerializer.Deserialize<LabHealthReport>(line);
+                if (report != null && report.GeneratedAt >= cutoff)
+                    validLines.Add(line);
+            }
+            catch (Exception ex) { Debug.WriteLine($"Skipping malformed health history entry: {ex.Message}"); }
+        }
+
+        if (validLines.Count < lines.Length)
+        {
+            await File.WriteAllLinesAsync(historyPath, validLines, ct);
+        }
     }
 
     private async Task SaveReportAsync(LabHealthReport report, CancellationToken ct)
@@ -426,11 +452,17 @@ if ($switch) {{ 'true' }} else {{ 'false' }}
         var historyPath = Path.Combine(dir, "history.jsonl");
         var line = JsonSerializer.Serialize(report);
         await File.AppendAllTextAsync(historyPath, line + "\n", ct);
+
+        // Auto-rotate if history file is large (>500KB suggests >1000 entries)
+        if (File.Exists(historyPath) && new FileInfo(historyPath).Length > RotationThresholdBytes)
+        {
+            await CleanupOldHealthHistoryAsync(report.LabName, ct);
+        }
     }
 
     private string GetHealthDir(string labName)
     {
-        var dir = Path.Combine(@"C:\LabSources\LabConfig", labName, HealthDir);
+        var dir = Path.Combine(LabPaths.LabConfig, labName, HealthDir);
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -449,7 +481,7 @@ foreach ($vm in $vms) {{
     $memAssigned = try {{ $vm.MemoryAssigned }} catch {{ 0 }}
     $memDemand = try {{ $vm.MemoryDemand }} catch {{ 0 }}
     $cpuUsage = try {{ 
-        $proc = Get-WmiObject -Query \"ASSOCIATORS OF {{`$vm.Path}} WHERE ResultClass=Msvm_Processor\" -Namespace root\virtualization\v2 -ErrorAction SilentlyContinue
+        $proc = Get-WmiObject -Query ""ASSOCIATORS OF {{`$vm.Path}} WHERE ResultClass=Msvm_Processor"" -Namespace root\virtualization\v2 -ErrorAction SilentlyContinue
         if ($proc) {{ [math]::Round(($proc | Measure-Object -Property LoadPercentage -Average).Average, 1) }} else {{ 0 }}
     }} catch {{ 0 }}
     
@@ -471,69 +503,15 @@ foreach ($vm in $vms) {{
 ";
     }
 
-    private async Task<string?> RunPowerShellAndGetJsonAsync(string pwsh, string script, CancellationToken ct)
+    private static async Task<string?> RunPowerShellAndGetJsonAsync(string script, CancellationToken ct)
     {
-        var outputPath = Path.Combine(Path.GetTempPath(), $"health-{Guid.NewGuid():N}.json");
-        var escapedScript = script.Replace("\"", "\"\"");
-        
-        var psi = new ProcessStartInfo
-        {
-            FileName = pwsh,
-            Arguments = $"-NoProfile -NonInteractive -Command \"{escapedScript} | Out-File -FilePath '{outputPath}' -Encoding utf8\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-        await process.WaitForExitAsync(ct);
-
-        if (!File.Exists(outputPath))
-            return null;
-
-        var json = await File.ReadAllTextAsync(outputPath, ct);
-        try { File.Delete(outputPath); } catch { }
-        return json;
+        return await PowerShellRunner.RunScriptGetJsonAsync(script, ct);
     }
 
-    private async Task<string?> RunPowerShellAndGetOutputAsync(string pwsh, string script, CancellationToken ct)
+    private static async Task<string?> RunPowerShellAndGetOutputAsync(string script, CancellationToken ct)
     {
-        var escapedScript = script.Replace("\"", "\"\"");
-        
-        var psi = new ProcessStartInfo
-        {
-            FileName = pwsh,
-            Arguments = $"-NoProfile -NonInteractive -Command \"{escapedScript}\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-        var output = await process.StandardOutput.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
+        var (output, _, _) = await PowerShellRunner.RunScriptAsync(script, ct);
         return output;
-    }
-
-    private static string FindPowerShell()
-    {
-        var candidates = new[]
-        {
-            @"C:\Program Files\PowerShell\7\pwsh.exe",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe")
-        };
-
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        return "powershell.exe";
     }
 
     private static string? ReadString(JsonElement parent, string propertyName)

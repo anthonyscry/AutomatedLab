@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -287,46 +286,21 @@ public class DriftDetectionService
 
     private async Task<string?> CaptureVMStateJsonAsync(string labName, Action<string>? log = null, CancellationToken ct = default)
     {
-        var outputPath = Path.Combine(Path.GetTempPath(), $"vm-state-{Guid.NewGuid():N}.json");
-        var pwsh = FindPowerShell();
-        var script = BuildStateCaptureScript(labName, outputPath);
-        var escapedScript = script.Replace("\"", "\"\"");
-
-        var psi = new ProcessStartInfo
+        var script = BuildStateCaptureScript(labName);
+        var (json, errors, success) = await PowerShellRunner.RunScriptAsync(script, ct);
+        if (!success || string.IsNullOrWhiteSpace(json))
         {
-            FileName = pwsh,
-            Arguments = $"-NoProfile -NonInteractive -Command \"{escapedScript}\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-
-        var stderrTask = process.StandardError.ReadToEndAsync(ct);
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-
-        var stderr = await stderrTask;
-        _ = await stdoutTask;
-
-        if (!File.Exists(outputPath))
-        {
-            log?.Invoke($"State capture failed: {stderr}");
+            if (!string.IsNullOrWhiteSpace(errors))
+                log?.Invoke($"State capture failed: {errors}");
             return null;
         }
 
-        var json = await File.ReadAllTextAsync(outputPath, ct);
-        try { File.Delete(outputPath); } catch { }
-        return json;
+        return json.Trim();
     }
 
-    private static string BuildStateCaptureScript(string labName, string outputPath)
+    private static string BuildStateCaptureScript(string labName)
     {
         var safeLabName = labName.Replace("'", "''");
-        var escapedOutput = outputPath.Replace("'", "''");
         return $@"
 Import-Lab -Name '{safeLabName}' -NoValidation -ErrorAction SilentlyContinue
 $vms = @(Get-LabVM -ErrorAction SilentlyContinue)
@@ -335,7 +309,7 @@ $states = [System.Collections.Generic.List[object]]::new()
 foreach ($vm in $vms) {{
     $vmName = if ($vm.PSObject.Properties['Name']) {{ $vm.Name }} else {{ $vm.ComputerName }}
     try {{
-        $state = Invoke-LabCommand -ComputerName $vmName -ActivityName 'CaptureState' -PassThru -ScriptBlock {{
+         $state = Invoke-LabCommand -ComputerName $vmName -ActivityName 'CaptureState' -PassThru -ScriptBlock {{
             $s = @{{
                 VMName = $env:COMPUTERNAME
                 CapturedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -365,32 +339,13 @@ foreach ($vm in $vms) {{
         $states.Add(@{{ VMName=$vmName; Reachable=$false; CapturedAt=(Get-Date).ToUniversalTime().ToString('o'); ErrorMessage=$_.Exception.Message }})
     }}
 }}
-@{{ LabName='{safeLabName}'; CapturedAt=(Get-Date).ToUniversalTime().ToString('o'); VMStates=@($states) }} | ConvertTo-Json -Depth 10 | Set-Content -Path '{escapedOutput}' -Encoding utf8
+@{{ LabName='{safeLabName}'; CapturedAt=(Get-Date).ToUniversalTime().ToString('o'); VMStates=@($states) }} | ConvertTo-Json -Depth 10
 ";
-    }
-
-    private static string FindPowerShell()
-    {
-        try
-        {
-            using var p = Process.Start(new ProcessStartInfo
-            {
-                FileName = "pwsh",
-                Arguments = "-Version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            });
-            p?.WaitForExit(3000);
-            if (p?.ExitCode == 0) return "pwsh";
-        }
-        catch { }
-        return "powershell.exe";
     }
 
     private string GetDir(string labName, string subDir)
     {
-        var dir = Path.Combine(@"C:\LabSources\LabConfig", labName, subDir);
+        var dir = Path.Combine(LabPaths.LabConfig, labName, subDir);
         Directory.CreateDirectory(dir);
         return dir;
     }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -330,7 +329,7 @@ public class CheckpointService
 
     private string GetCheckpointDir(string labName)
     {
-        var dir = Path.Combine(@"C:\LabSources\LabConfig", labName, CheckpointsDir);
+        var dir = Path.Combine(LabPaths.LabConfig, labName, CheckpointsDir);
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -385,47 +384,9 @@ public class CheckpointService
         return input.Replace("'", "''");
     }
 
-    private async Task<string> RunPowerShellAsync(string script, CancellationToken ct = default)
+    private static async Task<string> RunPowerShellAsync(string script, CancellationToken ct = default)
     {
-        var pwsh = FindPowerShell();
-        var psi = new ProcessStartInfo
-        {
-            FileName = pwsh,
-            Arguments = $"-NoProfile -NonInteractive -Command \"{script}\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-        var output = await process.StandardOutput.ReadToEndAsync();
-        await process.WaitForExitAsync(ct);
+        var (output, _, _) = await PowerShellRunner.RunScriptAsync(script, ct);
         return output;
-    }
-
-    private static string FindPowerShell()
-    {
-        var pwsh = "pwsh";
-        try
-        {
-            var p = Process.Start(new ProcessStartInfo
-            {
-                FileName = pwsh,
-                Arguments = "-Version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            });
-            p?.WaitForExit(3000);
-            if (p?.ExitCode == 0)
-                return pwsh;
-        }
-        catch
-        {
-        }
-
-        return "powershell.exe";
     }
 }

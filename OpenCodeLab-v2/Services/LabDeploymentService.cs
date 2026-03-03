@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,7 +15,7 @@ public class LabDeploymentService
 {
     public event EventHandler<DeploymentProgressArgs>? Progress;
 
-    private const string LabSourcesRoot = @"C:\LabSources";
+    private static string LabSourcesRoot => LabPaths.Root;
     private const string DeployScriptName = "Deploy-Lab.ps1";
 
     public async Task<bool> DeployLabAsync(LabConfig config, Action<string>? log = null,
@@ -122,7 +120,7 @@ public class LabDeploymentService
             {
                 var settings = AppSettingsStore.LoadOrDefault();
                 var vmPath = string.IsNullOrWhiteSpace(settings.VMPath)
-                    ? @"C:\LabSources\VMs"
+                    ? LabPaths.VMs
                     : settings.VMPath;
 
                 var args = new Dictionary<string, object?>
@@ -224,7 +222,8 @@ public class LabDeploymentService
                 script.AppendLine($"  Stop-VM -Name '{safeVmName}' -TurnOff -Force -ErrorAction SilentlyContinue");
                 script.AppendLine($"  Remove-VM -Name '{safeVmName}' -Force -ErrorAction SilentlyContinue");
                 script.AppendLine("}");
-                script.AppendLine($"$vhdDir = 'C:\\LabSources\\VMs\\{safeVmName}'");
+                var vmRootPath = EscapeSingleQuote(LabPaths.VMs);
+                script.AppendLine($"$vhdDir = '{vmRootPath}\\{safeVmName}'");
                 script.AppendLine("if (Test-Path $vhdDir) {");
                 script.AppendLine($"  Write-Host 'Removing disks: {vm.Name}'");
                 script.AppendLine("  Remove-Item $vhdDir -Recurse -Force -ErrorAction SilentlyContinue");
@@ -267,21 +266,22 @@ public class LabDeploymentService
     private async Task<bool> RunPowerShellScriptAsync(string scriptPath, Dictionary<string, object?> parameters,
         Action<string>? log, CancellationToken ct, List<string>? switches = null)
     {
-        var pwsh = FindPowerShell();
-        log?.Invoke($"Using PowerShell: {pwsh}");
-
-        // Build the argument string: & 'script.ps1' -Param1 'val1' -Param2 'val2' -Switch
-        var sb = new StringBuilder();
-        sb.Append($"& '{EscapeSingleQuote(scriptPath)}'");
-        foreach (var kvp in parameters)
-            sb.Append($" -{kvp.Key} {FormatPowerShellArgumentValue(kvp.Value)}");
+        var allParameters = new Dictionary<string, object?>(parameters, StringComparer.OrdinalIgnoreCase);
         if (switches != null)
+        {
             foreach (var sw in switches)
-                sb.Append($" -{sw}");
+                allParameters[sw] = true;
+        }
 
-        return await RunProcessAsync(pwsh,
-            $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{sb}\"",
-            log, ct);
+        var (output, errors, success) = await PowerShellRunner.RunFileAsync(scriptPath, allParameters, ct);
+
+        foreach (var line in SplitOutputLines(output))
+            ProcessPowerShellOutputLine(line, log);
+
+        foreach (var errorLine in SplitOutputLines(errors))
+            log?.Invoke($"ERROR: {errorLine}");
+
+        return success;
     }
 
     /// <summary>
@@ -290,150 +290,45 @@ public class LabDeploymentService
     public async Task RunPowerShellInlineAsync(string script, Action<string>? log,
         CancellationToken ct)
     {
-        var pwsh = FindPowerShell();
-        log?.Invoke($"Using PowerShell: {pwsh}");
-
-        // Write script to temp file to avoid command-line escaping issues
-        var tempScript = Path.Combine(Path.GetTempPath(), $"ocl-{Guid.NewGuid():N}.ps1");
-        File.WriteAllText(tempScript, script, Encoding.UTF8);
-
-        try
-        {
-            await RunProcessAsync(pwsh,
-                $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{tempScript}\"",
-                log, ct);
-        }
-        finally
-        {
-            try { File.Delete(tempScript); } catch { }
-        }
+        await PowerShellRunner.RunScriptStreamingAsync(
+            script,
+            line => ProcessPowerShellOutputLine(line, log),
+            err => log?.Invoke($"ERROR: {err}"),
+            ct);
     }
 
     /// <summary>
     /// Launch a process, stream stdout/stderr to log in real-time,
     /// parse [PROGRESS:nn] markers for progress bar updates.
     /// </summary>
-    private async Task<bool> RunProcessAsync(string exe, string arguments,
-        Action<string>? log, CancellationToken ct)
+    private void ProcessPowerShellOutputLine(string line, Action<string>? log)
     {
-        var psi = new ProcessStartInfo
-        {
-            FileName = exe,
-            Arguments = arguments,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
-        };
-
-        using var process = new Process { StartInfo = psi };
-        var hasErrors = false;
-
-        // Progress marker regex: [PROGRESS:42] or Write-Progress parsing
         var progressRegex = new Regex(@"\[PROGRESS:(\d{1,3})\]", RegexOptions.Compiled);
-        // Also parse structured output like [nn%] message
         var percentRegex = new Regex(@"^\[(\d{1,3})%\]\s*(.*)", RegexOptions.Compiled);
 
-        process.OutputDataReceived += (s, e) =>
+        var progressMatch = progressRegex.Match(line);
+        if (progressMatch.Success && int.TryParse(progressMatch.Groups[1].Value, out var pct))
         {
-            if (e.Data == null) return;
-
-            // Check for progress markers
-            var progressMatch = progressRegex.Match(e.Data);
-            if (progressMatch.Success && int.TryParse(progressMatch.Groups[1].Value, out var pct))
-            {
-                if (pct >= 0 && pct <= 100)
-                    Progress?.Invoke(this, new DeploymentProgressArgs(pct, e.Data));
-            }
-
-            var percentMatch = percentRegex.Match(e.Data);
-            if (percentMatch.Success && int.TryParse(percentMatch.Groups[1].Value, out var pct2))
-            {
-                if (pct2 >= 0 && pct2 <= 100)
-                    Progress?.Invoke(this, new DeploymentProgressArgs(pct2, percentMatch.Groups[2].Value));
-            }
-
-            log?.Invoke(e.Data);
-        };
-
-        process.ErrorDataReceived += (s, e) =>
-        {
-            if (e.Data == null) return;
-            hasErrors = true;
-            log?.Invoke($"ERROR: {e.Data}");
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        // Wait with cancellation support
-        try
-        {
-            while (!process.HasExited)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    try { process.Kill(entireProcessTree: true); } catch { }
-                    ct.ThrowIfCancellationRequested();
-                }
-                await Task.Delay(250, ct);
-            }
-
-            await process.WaitForExitAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            try { process.Kill(entireProcessTree: true); } catch { }
-            throw;
+            if (pct >= 0 && pct <= 100)
+                Progress?.Invoke(this, new DeploymentProgressArgs(pct, line));
         }
 
-        return process.ExitCode == 0 && !hasErrors;
+        var percentMatch = percentRegex.Match(line);
+        if (percentMatch.Success && int.TryParse(percentMatch.Groups[1].Value, out var pct2))
+        {
+            if (pct2 >= 0 && pct2 <= 100)
+                Progress?.Invoke(this, new DeploymentProgressArgs(pct2, percentMatch.Groups[2].Value));
+        }
+
+        log?.Invoke(line);
     }
 
-    /// <summary>
-    /// Find PowerShell 7: bundled copy first, then system-installed, then Windows PowerShell fallback.
-    /// </summary>
-    private static string FindPowerShell()
+    private static IEnumerable<string> SplitOutputLines(string? text)
     {
-        // 1. Check for bundled pwsh.exe alongside the app (for airgapped deployment)
-        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var bundledPwsh = Path.Combine(appDir, "pwsh", "pwsh.exe");
-        if (File.Exists(bundledPwsh))
-            return bundledPwsh;
-
-        // 2. Check common system install locations
-        var candidates = new[]
-        {
-            @"C:\Program Files\PowerShell\7\pwsh.exe",
-            @"C:\Program Files\PowerShell\7-preview\pwsh.exe",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PowerShell", "7", "pwsh.exe")
-        };
-
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        // 3. Try PATH
-        var pathDirs = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? Array.Empty<string>();
-        foreach (var dir in pathDirs)
-        {
-            var pwshPath = Path.Combine(dir, "pwsh.exe");
-            if (File.Exists(pwshPath))
-                return pwshPath;
-        }
-
-        // 4. Fall back to Windows PowerShell
-        var winPs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
-            "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (File.Exists(winPs))
-            return winPs;
-
-        return "pwsh.exe";
+        return (text ?? string.Empty)
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0);
     }
 
     /// <summary>
@@ -446,7 +341,7 @@ public class LabDeploymentService
             try
             {
                 var allGood = true;
-                var vhdxRoot = @"C:\LabSources\VMs";
+                var vhdxRoot = LabPaths.VMs;
 
                 foreach (var vm in config.VMs)
                 {
@@ -542,12 +437,9 @@ public class LabDeploymentService
         try
         {
             var safeName = EscapeSingleQuote(vmName);
-            var psi = new ProcessStartInfo("powershell.exe",
-                $"-NoProfile -Command \"if (Get-VM -Name '{safeName}' -ErrorAction SilentlyContinue) {{ '1' }}\"")
-            { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
-            using var process = Process.Start(psi);
-            var output = process?.StandardOutput.ReadToEnd()?.Trim();
-            process?.WaitForExit();
+            var script = $"if (Get-VM -Name '{safeName}' -ErrorAction SilentlyContinue) {{ '1' }}";
+            var (output, _, _) = PowerShellRunner.RunScriptAsync(script).GetAwaiter().GetResult();
+            output = output.Trim();
             return string.Equals(output, "1", StringComparison.OrdinalIgnoreCase);
         }
         catch
@@ -621,18 +513,6 @@ public class LabDeploymentService
         if (string.IsNullOrEmpty(input))
             return string.Empty;
         return input.Replace("'", "''");
-    }
-
-    private static string FormatPowerShellArgumentValue(object? value)
-    {
-        return value switch
-        {
-            null => "''",
-            bool b => b ? "$true" : "$false",
-            byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal
-                => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "0",
-            _ => $"'{EscapeSingleQuote(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)}'"
-        };
     }
 
     private void Report(int pct, string msg, Action<string>? log)

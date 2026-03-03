@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -27,47 +26,26 @@ public class SoftwareInventoryService
                     "Get-VMSoftwareInventory.ps1");
             }
 
-            var arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -VMName \"{vmName}\"";
-            if (!string.IsNullOrWhiteSpace(labName))
+            var parameters = new Dictionary<string, object?>
             {
-                arguments += $" -LabName \"{labName}\"";
-            }
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = arguments,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                ["VMName"] = vmName
             };
+            if (!string.IsNullOrWhiteSpace(labName))
+                parameters["LabName"] = labName;
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            using var process = Process.Start(startInfo);
-            if (process == null)
-            {
-                return new ScanResult
-                {
-                    VMName = vmName,
-                    ScannedAt = DateTime.UtcNow,
-                    Success = false,
-                    ErrorMessage = "Failed to start PowerShell process"
-                };
-            }
-
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
+            string output;
+            string errorOutput;
+            bool success;
 
             try
             {
-                await process.WaitForExitAsync(timeoutCts.Token);
+                (output, errorOutput, success) = await PowerShellRunner.RunFileAsync(scriptPath, parameters, timeoutCts.Token);
             }
             catch (OperationCanceledException)
             {
-                try { process.Kill(true); } catch { }
                 return new ScanResult
                 {
                     VMName = vmName,
@@ -79,10 +57,7 @@ public class SoftwareInventoryService
                 };
             }
 
-            var output = await outputTask;
-            var errorOutput = await errorTask;
-
-            if (process.ExitCode != 0 && string.IsNullOrWhiteSpace(output))
+            if (!success && string.IsNullOrWhiteSpace(output))
             {
                 return new ScanResult
                 {
@@ -90,7 +65,7 @@ public class SoftwareInventoryService
                     ScannedAt = DateTime.UtcNow,
                     Success = false,
                     ErrorMessage = string.IsNullOrWhiteSpace(errorOutput)
-                        ? $"PowerShell exited with code {process.ExitCode}"
+                        ? "PowerShell execution failed"
                         : errorOutput.Trim()
                 };
             }
