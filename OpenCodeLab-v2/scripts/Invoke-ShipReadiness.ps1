@@ -32,14 +32,49 @@ $scriptsPath = Join-Path -Path $projectRoot -ChildPath 'scripts'
 $projectFile = Join-Path -Path $projectRoot -ChildPath 'OpenCodeLab-V2.csproj'
 
 Invoke-QualityGate -Name 'Unit tests' -Action {
-    $result = Invoke-Pester -Path $unitPath -CI -PassThru
+    $config = New-PesterConfiguration
+    $config.Run.Path = $unitPath
+    $config.Run.Exit = $false
+    $config.Run.PassThru = $true
+    $config.CodeCoverage.Enabled = $true
+    $config.CodeCoverage.Path = @("$srcPath/**/*.ps1", "$srcPath/**/*.psm1")
+    $config.CodeCoverage.OutputFormat = 'JaCoCo'
+    $config.CodeCoverage.OutputPath = 'coverage-unit.xml'
+    $result = Invoke-Pester -Configuration $config
     if ($result.FailedCount -gt 0) {
         throw "Unit tests failed ($($result.FailedCount))."
     }
 }
 
+Invoke-QualityGate -Name 'Code coverage threshold' -Action {
+    if (Test-Path 'coverage-unit.xml') {
+        [xml]$coverageXml = Get-Content 'coverage-unit.xml'
+        $lineCounter = $coverageXml.report.counter | Where-Object { $_.type -eq 'LINE' }
+        if ($lineCounter) {
+            $linesCovered = [double]$lineCounter.covered
+            $linesMissed = [double]$lineCounter.missed
+            $linesTotal = $linesCovered + $linesMissed
+            if ($linesTotal -gt 0) {
+                $coveragePercent = ($linesCovered / $linesTotal) * 100
+                Write-Output "Code coverage: $([Math]::Round($coveragePercent, 2))% ($([int]$linesCovered)/$([int]$linesTotal) lines)"
+                if ($coveragePercent -lt 50) {
+                    Write-Warning "Code coverage is below 50% threshold ($([Math]::Round($coveragePercent, 2))%)."
+                }
+            }
+        } else {
+            Write-Warning "No LINE counter found in coverage report."
+        }
+    } else {
+        Write-Warning "Coverage report not found at coverage-unit.xml"
+    }
+}
+
 Invoke-QualityGate -Name 'Integration tests' -Action {
-    $result = Invoke-Pester -Path $integrationPath -CI -PassThru
+    $config = New-PesterConfiguration
+    $config.Run.Path = $integrationPath
+    $config.Run.Exit = $false
+    $config.Run.PassThru = $true
+    $result = Invoke-Pester -Configuration $config
     if ($result.FailedCount -gt 0) {
         throw "Integration tests failed ($($result.FailedCount))."
     }
@@ -47,7 +82,12 @@ Invoke-QualityGate -Name 'Integration tests' -Action {
 
 if (-not $SkipSmoke) {
     Invoke-QualityGate -Name 'Smoke tests' -Action {
-        $result = Invoke-Pester -Path $smokePath -CI -Output Detailed -PassThru
+        $config = New-PesterConfiguration
+        $config.Run.Path = $smokePath
+        $config.Run.Exit = $false
+        $config.Run.PassThru = $true
+        $config.Output.Verbosity = 'Detailed'
+        $result = Invoke-Pester -Configuration $config
         if ($result.FailedCount -gt 0) {
             throw "Smoke tests failed ($($result.FailedCount))."
         }
