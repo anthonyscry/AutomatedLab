@@ -21,7 +21,7 @@ namespace OpenCodeLab.ViewModels
         private bool _isLoading;
         private string _statusMessage = "Ready";
         private string _selectedFormat = "Terraform";
-        private string _outputPath = @"C:\LabSources\IaC";
+        private string _outputPath = LabPaths.IaC;
         private string _previewContent = string.Empty;
         private ExtendedDriftBaseline? _baseline;
 

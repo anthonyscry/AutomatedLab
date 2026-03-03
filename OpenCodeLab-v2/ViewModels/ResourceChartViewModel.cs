@@ -184,7 +184,7 @@ public class ResourceChartViewModel : ObservableObject
             AvailableLabs.Clear();
 
             // Scan for labs with resource history
-            var labConfigRoot = @"C:\LabSources\LabConfig";
+            var labConfigRoot = LabPaths.LabConfig;
             if (Directory.Exists(labConfigRoot))
             {
                 foreach (var dir in Directory.GetDirectories(labConfigRoot))
